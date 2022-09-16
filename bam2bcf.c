@@ -209,7 +209,9 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
     memset(bca->alt_scl,  0, 100*sizeof(int));
     memset(bca->iref_scl, 0, 100*sizeof(int));
     memset(bca->ialt_scl, 0, 100*sizeof(int));
-    bca->nnm = bca->nm = 0;
+    int i;
+    for (i=0; i<2; i++) bca->nnm[i] = 0;
+    for (i=0; i<2; i++) bca->nm[i] = 0;
 }
 
 /*
@@ -265,30 +267,28 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         int min_dist;   // distance from the end, used for tail distance bias
         if ( bca->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) && PLP_HAS_SOFT_CLIP(&p->cd) ) r->SCR++;
         if (p->is_refskip || (p->b->core.flag&BAM_FUNMAP)) continue;
-        if (p->is_del && !is_indel) continue;
+
+        // The meaning of the indel related variables:
+        //  is_indel  .. is this position currently tested for an indel
+        //  p->is_del .. is the current base a deletion in this read (unrelated to the tested indel)
+        //  p->indel  .. is there an indel starting after this position (i.e. does this read have the tested indel)
+        if (p->is_del && !is_indel) continue;   // not testing an indel and the read has a spanning deletion
+
+        int inm;
+
         ++ori_depth;
-        if (is_indel)
+        if (is_indel)   // testing an indel position
         {
-            b = p->aux>>16&0x3f;
+            b = p->aux>>16&0x3f;        // indel type
             seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
-            if (q < bca->min_baseQ)
-            {
-                if (!p->indel && b < 4)
-                {
-                    if (bam_is_rev(p->b))
-                        ADR_ref_missed[b]++;
-                    else
-                        ADF_ref_missed[b]++;
-                }
-                continue;
-            }
+
             if ( !bca->indels_v20 )
             {
                 /*
                     This heuristics was introduced by e4e161068 and claims to fix #1446. However, we obtain
                     correct result on the provided test case even when this code is commented out, so this
                     may not be needed anymore. Leaving it in only for backward compatibility for now.
-                    See mpileup-tests homdel-issue-1446 and CHM1_CHM13_2.45x-1-1701408 that work only when
+                    See mpileup-tests homdel-issue-1446 and CHM1_CHM13_2.45x-1-1701408 which work only when
                     this code is disabled.
                 */
                 if (p->indel == 0 && (q < _n/2 || _n > 20)) {
@@ -302,8 +302,27 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 }
                 if (_n > 20 && seqQ > 40) seqQ = 40;
             }
+
+            is_diff = b ? 1 : 0;
+            inm = get_aux_nm(p->b,p->qpos,is_diff?0:1);
+            if ( inm>=0 )
+            {
+                bca->nnm[is_diff]++;
+                bca->nm[is_diff] += inm;
+            }
+
+            if (q < bca->min_baseQ)
+            {
+                if (!p->indel && b < 4) // not an indel read
+                {
+                    if (bam_is_rev(p->b))
+                        ADR_ref_missed[b]++;
+                    else
+                        ADF_ref_missed[b]++;
+                }
+                continue;
+            }
             baseQ  = p->aux>>8&0xff;
-            is_diff = (b != 0);
         }
         else
         {
@@ -325,6 +344,12 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             baseQ = q;
             seqQ  = 99;
             is_diff = (ref4 < 4 && b == ref4)? 0 : 1;
+            inm = get_aux_nm(p->b,p->qpos,is_diff?0:1);
+            if ( inm>=0 )
+            {
+                bca->nnm[is_diff]++;
+                bca->nm[is_diff] += inm;
+            }
         }
         mapQ  = p->b->core.qual < 255? p->b->core.qual : DEF_MAPQ; // special case for mapQ==255
         if ( !mapQ ) r->mq0++;
@@ -373,8 +398,6 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         }
         int imq  = mapQ * nqual_over_60;
         int ibq  = baseQ * nqual_over_60;
-        int inm  = get_aux_nm(p->b,p->qpos,is_diff?0:1);
-        if ( is_diff ) { bca->nnm++; bca->nm += inm; }
 
         if ( bam_is_rev(p->b) )
             bca->rev_mqs[imq]++;
@@ -997,31 +1020,22 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // calc_chisq_bias("XMQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_mq, bca->alt_mq, bca->nqual);
     // calc_chisq_bias("XBQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_bq, bca->alt_bq, bca->nqual);
 
-    call->nm = bca->nnm ? (float)bca->nm/bca->nnm : 0;
     if (bca->fmt_flag & B2B_INFO_ZSCORE) {
         // U z-normalised as +/- number of standard deviations from mean.
         if (call->ori_ref < 0) {    // indel
             if (bca->fmt_flag & B2B_INFO_RPB)
-                call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos,
-                                               bca->npos, 0, 1);
-            call->mwu_mq  = calc_mwu_biasZ(bca->iref_mq,  bca->ialt_mq,
-                                           bca->nqual,1,1);
+                call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos, bca->npos, 0, 1);
+            call->mwu_mq  = calc_mwu_biasZ(bca->iref_mq,  bca->ialt_mq, bca->nqual,1,1);
             if ( bca->fmt_flag & B2B_INFO_SCB )
-                call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl,
-                                               100, 0,1);
+                call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl, 100, 0,1);
         } else {
             if (bca->fmt_flag & B2B_INFO_RPB)
-                call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos,
-                                               bca->npos, 0, 1);
-            call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,
-                                           bca->nqual,1,1);
-            call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,
-                                           bca->nqual,0,1);
-            call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs,
-                                           bca->nqual,0,1);
+                call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos, 0, 1);
+            call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq, bca->nqual,1,1);
+            call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq, bca->nqual,0,1);
+            call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,1);
             if ( bca->fmt_flag & B2B_INFO_SCB )
-                call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl,
-                                               100, 0,1);
+                call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl, 100, 0,1);
         }
         call->mwu_nm[0] = calc_mwu_biasZ(bca->ref_nm, bca->alt_nm, B2B_N_NM,0,1);
         if ( bca->fmt_flag & B2B_FMT_NMBZ )
@@ -1035,14 +1049,10 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     } else {
         // Old method; U as probability between 0 and 1
         if ( bca->fmt_flag & B2B_INFO_RPB )
-            call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos,
-                                           bca->npos, 0, 0);
-        call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,
-                                       bca->nqual, 1, 0);
-        call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,
-                                       bca->nqual, 0, 0);
-        call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs,
-                                       bca->nqual, 0, 0);
+            call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos, 0, 0);
+        call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq, bca->nqual, 1, 0);
+        call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq, bca->nqual, 0, 0);
+        call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual, 0, 0);
     }
 
 #if CDF_MWU_TESTS
@@ -1148,7 +1158,11 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     {
         if ( bc->vdb != HUGE_VAL )      bcf_update_info_float(hdr, rec, "VDB", &bc->vdb, 1);
         if ( bc->seg_bias != HUGE_VAL ) bcf_update_info_float(hdr, rec, "SGB", &bc->seg_bias, 1);
-        if ( bc->nm!=0 ) bcf_update_info_float(hdr, rec, "NM", &bc->nm, 1);
+        if ( bca->nnm[0] || bca->nnm[1] )
+        {
+            for (i=0; i<2; i++) bc->nm[i] = bca->nnm[i] ? bca->nm[i]/bca->nnm[i] : 0;
+            bcf_update_info_float(hdr, rec, "NM", bc->nm, 2);
+        }
 
         if (bca->fmt_flag & B2B_INFO_ZSCORE) {
             if ( bc->mwu_pos != HUGE_VAL )

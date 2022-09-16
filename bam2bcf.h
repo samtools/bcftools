@@ -116,8 +116,8 @@ typedef struct __bcf_callaux_t {
     void *rghash;
     float indel_bias;  // adjusts indel score threshold; lower => call more.
     int32_t *ref_nm, *alt_nm;   // pointers to bcf_call_t.{ref_nm,alt_nm}
-    unsigned int nnm;
-    float nm;
+    unsigned int nnm[2];        // number of nm observations
+    float nm[2];                // cumulative count of mismatches in ref and alt reads
     void *iaux;                 // auxiliary structure for --indels-2.0 calling
     char *chr;                  // current chromosome
 } bcf_callaux_t;
@@ -157,7 +157,7 @@ typedef struct {
     int32_t *PL, *DP4, *ADR, *ADF, *SCR, *QS, *ref_nm, *alt_nm;
     uint8_t *fmt_arr;
     float vdb; // variant distance bias
-    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc, *mwu_nm, nm;
+    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc, *mwu_nm, nm[2];
 #if CDF_MWU_TESTS
     float mwu_pos_cdf, mwu_mq_cdf, mwu_bq_cdf, mwu_mqs_cdf;
 #endif
