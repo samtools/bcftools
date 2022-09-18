@@ -9,12 +9,13 @@
 ##contig=<ID=6>
 ##contig=<ID=7>
 ##contig=<ID=8>
+##INFO=<ID=FIXREF,Number=.,Type=String,Description="The change made by bcftools/fixref">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
-1	11	rs1535632	A	T	.	.	.	GT	1/1
-2	11	rs363334	C	G	.	.	.	GT	0/0
-3	11	rs7101540	A	T	.	.	.	GT	0/0
-4	11	rs7113791	A	T	.	.	.	GT	1/1
-5	11	rs778833	C	G	.	.	.	GT	1/1
-6	11	rs4933195	A	T	.	.	.	GT	0/0
-7	11	rs903997	C	G	.	.	.	GT	0/0
-8	11	rs1942968	C	G	.	.	.	GT	1/1
+1	11	rs1535632	A	T	.	.	FIXREF=flip,swap,GT	GT	1/1
+2	11	rs363334	C	G	.	.	FIXREF=none	GT	0/0
+3	11	rs7101540	A	T	.	.	FIXREF=none	GT	0/0
+4	11	rs7113791	A	T	.	.	FIXREF=flip,swap,GT	GT	1/1
+5	11	rs778833	C	G	.	.	FIXREF=flip,swap,GT	GT	1/1
+6	11	rs4933195	A	T	.	.	FIXREF=none	GT	0/0
+7	11	rs903997	C	G	.	.	FIXREF=none	GT	0/0
+8	11	rs1942968	C	G	.	.	FIXREF=flip,swap,GT	GT	1/1

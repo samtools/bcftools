@@ -88,12 +88,21 @@
 #include <htslib/synced_bcf_reader.h>
 #include "bcftools.h"
 
-#define MODE_STATS    1
-#define MODE_TOP2FWD  2
-#define MODE_FLIP2FWD 3
-#define MODE_USE_ID   4
-#define MODE_REF_ALT  5
-#define MODE_FLIP_ALL 6
+#define MODE_STATS          1
+#define MODE_TOP2FWD        2
+#define MODE_FLIP2FWD       3
+#define MODE_USE_ID         4
+#define MODE_REF_ALT        5
+#define MODE_FLIP_ALL       6
+#define MODE_SWAP_REF_ALT   7
+
+#define FIX_ERR  (1<<0)
+#define FIX_SKIP (1<<1)
+#define FIX_NONE (1<<2)
+#define FIX_FLIP (1<<3)
+#define FIX_SWAP (1<<4)
+#define FIX_GT   (1<<5)
+const char *info_annots[] = {"err","skip","none","flip","swap","GT"};
 
 typedef struct
 {
@@ -109,13 +118,16 @@ typedef struct
 {
     char *dbsnp_fname;
     int mode, discard;
-    bcf_hdr_t *hdr;
+    bcf_hdr_t *hdr_in, *hdr_out;
     faidx_t *fai;
     int rid, skip_rid;
     i2m_t *i2m;
     int32_t *gts, ngts, pos;
-    uint32_t nsite,nok,nflip,nunresolved,nswap,nflip_swap,nonSNP,nonACGT,nonbiallelic;
+    uint32_t nsite,nok,nflip,nunresolved,nswap,nflip_swap,nonSNP,nonACGT,nonbiallelic,nerr;
     uint32_t count[4][4], npos_err, unsorted;
+    uint32_t dirty;
+    kstring_t str;
+    char *info_tag;
 }
 args_t;
 
@@ -132,12 +144,20 @@ const char *usage(void)
         "\n"
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
-        "           flip     .. flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
-        "           flip-all .. flip REF/ALT columns and GTs for all SNPs, including ambiguous (A/T, C/G) sites\n"
-        "           id       .. swap REF/ALT columns and GTs using the ID column to determine the REF allele\n"
-        "           ref-alt  .. swap REF/ALT columns to match the reference but not modify the genotypes\n"
+        "           flip     .. swap or flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
+        "           flip-all .. swap or flip REF/ALT columns and GTs for all SNPs, including ambiguous (A/T, C/G) sites\n"
+        "           id       .. swap or flip REF/ALT columns and GTs using the ID column to determine the REF allele\n"
+        "           ref-alt  .. swap or flip REF/ALT columns to match the reference, do not modify the genotypes\n"
         "           stats    .. collect and print stats\n"
+        "           swap     .. swap REF/ALT columns to match the reference, do not modify the genotypes\n"
         "           top      .. convert from Illumina TOP strand to fwd\n"
+        "       Each record is annotated with the INFO/FIXREF tag which records what change was made:\n"
+        "           err      .. the alleles are invalid and could not be repaired\n"
+        "           skip     .. the record was not considered at all (e.g. multiallelic or indel)\n"
+        "           none     .. the alleles were valid and no change was required\n"
+        "           flip     .. the REF and ALT alleles were flipped (e.g. A,C -> T,G)\n"
+        "           swap     .. the REF and ALT columns were swapped (e.g. A,C -> C,A)\n"
+        "           GT       .. FORMAT/GT was modified to reflect REF,ALT swap (e.g. 1/1 -> 0/0)\n"
         "\n"
         "       WARNING: Do not use the program blindly, make an effort to\n"
         "       understand what strand convention your data uses! Make sure\n"
@@ -152,12 +172,13 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -d, --discard               Discard sites which could not be resolved\n"
-        "   -f, --fasta-ref <file.fa>   Reference sequence\n"
-        "   -i, --use-id <file.vcf>     Swap REF/ALT using the ID column to determine the REF allele, implies -m id.\n"
-        "                               Download the dbSNP file from\n"
-        "                                   https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf\n"
-        "   -m, --mode <string>         Collect stats (\"stats\") or convert (\"flip\", \"id\", \"ref-alt\", \"top\") [stats]\n"
+        "   -d, --discard             Discard sites which could not be resolved\n"
+        "   -f, --fasta-ref FILE.fa   Reference sequence\n"
+        "   -i, --use-id FILE.vcf     Swap REF/ALT using the ID column to determine the REF allele, implies -m id.\n"
+        "                             Download the dbSNP file from\n"
+        "                               https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf\n"
+        "   -m, --mode STRING         Collect statistics (\"stats\") or convert (see the list of modes above) [stats]\n"
+        "   -t, --tag-name STRING     The name of the INFO annotation to record what change was made [FIXREF]\n"
         "\n"
         "Examples:\n"
         "   # run stats\n"
@@ -178,19 +199,22 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     memset(&args,0,sizeof(args_t));
     args.skip_rid = -1;
-    args.hdr = in;
+    args.hdr_in  = in;
+    args.hdr_out = out;
     args.mode = MODE_STATS;
+    args.info_tag = "FIXREF";
     char *ref_fname = NULL;
     static struct option loptions[] =
     {
         {"mode",required_argument,NULL,'m'},
+        {"tag-name",required_argument,NULL,'t'},
         {"discard",no_argument,NULL,'d'},
         {"fasta-ref",required_argument,NULL,'f'},
         {"use-id",required_argument,NULL,'i'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?hf:m:di:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hf:m:di:t:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -200,12 +224,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 else if ( !strcasecmp(optarg,"flip-all") ) args.mode = MODE_FLIP_ALL;
                 else if ( !strcasecmp(optarg,"id") ) args.mode = MODE_USE_ID;
                 else if ( !strcasecmp(optarg,"ref-alt") ) args.mode = MODE_REF_ALT;
+                else if ( !strcasecmp(optarg,"swap") ) args.mode = MODE_SWAP_REF_ALT;
                 else if ( !strcasecmp(optarg,"stats") ) args.mode = MODE_STATS;
                 else error("The source strand convention not recognised: %s\n", optarg);
                 break;
             case 'i': args.dbsnp_fname = optarg; args.mode = MODE_USE_ID; break;
             case 'd': args.discard = 1; break;
             case 'f': ref_fname = optarg; break;
+            case 't': args.info_tag = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage()); break;
@@ -215,22 +241,24 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args.fai = fai_load(ref_fname);
     if ( !args.fai ) error("Failed to load the fai index: %s\n", ref_fname);
 
+    if ( bcf_hdr_printf(args.hdr_out,"##INFO=<ID=%s,Number=.,Type=String,Description=\"The change made by bcftools/fixref\">",args.info_tag) ) return -1;
+
     if ( args.mode==MODE_STATS ) return 1;
     return 0;
 }
 
-static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char alt, int swap)
+static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char alt, int swap_gt)
 {
     rec->d.allele[0][0] = ref;
     rec->d.allele[1][0] = alt;
     rec->d.shared_dirty |= BCF1_DIRTY_ALS;
 
-    if ( !swap ) return rec;    // only fix the alleles, leaving GTs unchanged
+    if ( !swap_gt ) return rec;    // only fix the alleles, leaving GTs unchanged
 
-    int ngts = bcf_get_genotypes(args->hdr, rec, &args->gts, &args->ngts);
+    int ngts = bcf_get_genotypes(args->hdr_in, rec, &args->gts, &args->ngts);
     if ( ngts<=0 ) return rec;  // no samples, no genotypes
 
-    int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
+    int i, j, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     ngts /= nsmpl;
     for (i=0; i<nsmpl; i++)
     {
@@ -243,7 +271,7 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
             else if ( ptr[j]==bcf_gt_phased(1) ) ptr[j] = bcf_gt_phased(0);
         }
     }
-    bcf_update_genotypes(args->hdr,rec,args->gts,args->ngts);
+    bcf_update_genotypes(args->hdr_out,rec,args->gts,args->ngts);
 
     return rec;
 }
@@ -264,16 +292,16 @@ static int fetch_ref(args_t *args, bcf1_t *rec)
 {
     // Get the reference allele
     int len;
-    char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr,rec), rec->pos, rec->pos, &len);
+    char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr_in,rec), rec->pos, rec->pos, &len);
     if ( !ref )
     {
-        if ( faidx_has_seq(args->fai, bcf_seqname(args->hdr,rec))==0 )
+        if ( faidx_has_seq(args->fai, bcf_seqname(args->hdr_in,rec))==0 )
         {
-            fprintf(stderr,"Ignoring sequence \"%s\"\n", bcf_seqname(args->hdr,rec));
+            fprintf(stderr,"Ignoring sequence \"%s\"\n", bcf_seqname(args->hdr_in,rec));
             args->skip_rid = rec->rid;
             return -2;
         }
-        error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr_in,rec),(int64_t) rec->pos+1);
     }
     int ir = nt2int(*ref);
     free(ref);
@@ -337,22 +365,24 @@ static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 
     ref = kh_val(args->i2m, k).ref;
 	if ( ref!=ir )
-        error("Reference base mismatch at %s:%"PRId64" .. %c vs %c\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,int2nt(ref),int2nt(ir));
+        error("Reference base mismatch at %s:%"PRId64" .. %c vs %c\n",bcf_seqname(args->hdr_in,rec),(int64_t) rec->pos+1,int2nt(ref),int2nt(ir));
 
-    if ( ia==ref ) return rec;
-    if ( ib==ref ) { args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),1); }
+    if ( ia==ref ) { args->dirty = FIX_NONE; return rec; }
+    if ( ib==ref ) { args->dirty = FIX_SWAP; args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),1); }
 
 no_info:
     args->nunresolved++;
     return args->discard ? NULL : rec;
 }
 
-bcf1_t *process(bcf1_t *rec)
+static bcf1_t *process_record(bcf1_t *rec)
 {
     if ( rec->rid == args.skip_rid ) return NULL;
 
     bcf1_t *ret = args.mode==MODE_STATS ? NULL : rec;
     args.nsite++;
+
+    args.dirty = FIX_SKIP;
 
     // Skip non-SNPs
     if ( bcf_get_variant_types(rec)!=VCF_SNP )
@@ -409,7 +439,7 @@ bcf1_t *process(bcf1_t *rec)
         {
             args.pos = 0;
             args.rid = rec->rid;
-            dbsnp_init(&args,bcf_seqname(args.hdr,rec));
+            dbsnp_init(&args,bcf_seqname(args.hdr_in,rec));
         }
         ret = dbsnp_check(&args, rec, ir,ia,ib);
         if ( !args.unsorted && args.pos > rec->pos )
@@ -417,21 +447,31 @@ bcf1_t *process(bcf1_t *rec)
             fprintf(stderr,
                 "Warning: corrected position(s) results in unsorted VCF, for example %s:%"PRId64" comes after %s:%d\n"
                 "         The command `bcftools sort` can be used to fix the order.\n",
-                bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
+                bcf_seqname(args.hdr_in,rec),(int64_t) rec->pos+1,bcf_seqname(args.hdr_in,rec),args.pos);
             args.unsorted = 1;
         }
         args.pos = rec->pos;
         return ret;
     }
-    else if ( args.mode==MODE_REF_ALT ) // only change the REF/ALT column, leave the genotypes as is
+    if ( args.mode==MODE_REF_ALT ) // only change the REF/ALT column, leave the genotypes as is
     {
-        if ( ir==ia ) return ret;
-        if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
-        if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
-        if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
-        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
+        if ( ir==ia ) { args.dirty = FIX_NONE; return ret; }
+        if ( ir==ib ) { args.dirty = FIX_SWAP; args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
+        if ( ir==revint(ia) ) { args.dirty = FIX_FLIP; args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
+        if ( ir==revint(ib) ) { args.dirty = FIX_FLIP|FIX_SWAP; args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
+        args.dirty = FIX_ERR;
+        args.nerr++;
+        return ret;
     }
-    else if ( args.mode==MODE_FLIP2FWD || args.mode==MODE_FLIP_ALL )
+    if ( args.mode==MODE_SWAP_REF_ALT ) // only swap the REF/ALT column but never flip, leave the genotypes as is
+    {
+        if ( ir==ia ) { args.dirty = FIX_NONE; return ret; }
+        if ( ir==ib ) { args.dirty = FIX_SWAP; args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
+        args.dirty = FIX_ERR;
+        args.nerr++;
+        return ret;
+    }
+    if ( args.mode==MODE_FLIP2FWD || args.mode==MODE_FLIP_ALL )
     {
         int pair = 1 << ia | 1 << ib;
         if ( args.mode==MODE_FLIP2FWD && (pair==0x9 || pair==0x6) )   // skip ambiguous pairs: A/T or C/G
@@ -439,13 +479,15 @@ bcf1_t *process(bcf1_t *rec)
             args.nunresolved++;
             return args.discard ? NULL : ret;
         }
-        if ( ir==ia ) return ret;
-        if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1); }
-        if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
-        if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),1); }
-        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
+        if ( ir==ia ) { args.dirty = FIX_NONE; return ret; }
+        if ( ir==ib ) { args.dirty = FIX_SWAP|FIX_GT; args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1); }
+        if ( ir==revint(ia) ) { args.dirty = FIX_FLIP; args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
+        if ( ir==revint(ib) ) { args.dirty = FIX_FLIP|FIX_SWAP|FIX_GT; args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),1); }
+        args.dirty = FIX_ERR;
+        args.nerr++;
+        return ret;
     }
-    else if ( args.mode==MODE_TOP2FWD )
+    if ( args.mode==MODE_TOP2FWD )
     {
         int pair = 1 << ia | 1 << ib;
         if ( pair != 0x9 && pair != 0x6 )    // unambiguous pair: A/C or A/G
@@ -455,25 +497,28 @@ bcf1_t *process(bcf1_t *rec)
             int ia_rev = revint(ia);
             if ( ir==ia_rev )               // vcfref is A, faref is T, flip
             {
+                args.dirty = FIX_FLIP;
                 args.nflip++;
                 return set_ref_alt(&args,rec,int2nt(ia_rev),int2nt(revint(ib)),0);
             }
             if ( ir==ib )                   // vcfalt is faref, swap
             {
+                args.dirty = FIX_SWAP|FIX_GT;
                 args.nswap++;
                 return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1);
             }
-            assert( ib==revint(ir) );
+            if ( ib!=revint(ir) ) { args.dirty = FIX_ERR; args.nerr++; return ret; }
 
+            args.dirty = FIX_FLIP|FIX_SWAP|FIX_GT;
             args.nflip_swap++;
             return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),1);
         }
         else    // ambiguous pair, sequence walking must be performed
         {
             int len, win = rec->pos > 100 ? 100 : rec->pos, beg = rec->pos - win, end = rec->pos + win;
-            char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr,rec), beg,end, &len);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
-            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%"PRId64"  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1, end,beg);
+            char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr_in,rec), beg,end, &len);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args.hdr_in,rec),(int64_t) rec->pos+1);
+            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%"PRId64"  (%d %d)\n", win,len, bcf_seqname(args.hdr_in,rec),(int64_t) rec->pos+1, end,beg);
 
             int i, mid = rec->pos - beg, strand = 0;
             for (i=1; i<=win; i++)
@@ -490,9 +535,10 @@ bcf1_t *process(bcf1_t *rec)
 
             if ( strand==1 )
             {
-                if ( ir==ia ) return ret;
+                if ( ir==ia ) { args.dirty = FIX_NONE; return ret; }
                 if ( ir==ib )
                 {
+                    args.dirty = FIX_SWAP|FIX_GT;
                     args.nswap++;
                     return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1);
                 }
@@ -503,11 +549,13 @@ bcf1_t *process(bcf1_t *rec)
                 int ib_rev = revint(ib);
                 if ( ir==ia_rev )
                 {
+                    args.dirty = FIX_FLIP;
                     args.nflip++;
                     return set_ref_alt(&args,rec,int2nt(ia_rev),int2nt(ib_rev),0);
                 }
                 if ( ir==ib_rev )
                 {
+                    args.dirty = FIX_FLIP|FIX_SWAP|FIX_GT;
                     args.nflip_swap++;
                     return set_ref_alt(&args,rec,int2nt(ib_rev),int2nt(ia_rev),1);
                 }
@@ -519,6 +567,26 @@ bcf1_t *process(bcf1_t *rec)
     }
     return ret;
 }
+
+bcf1_t *process(bcf1_t *rec)
+{
+    args.dirty = 0;
+    bcf1_t *ret = process_record(rec);
+    if ( ret && args.dirty )
+    {
+        args.str.l = 0;
+        int i;
+        for (i=0; i<6; i++)
+        {
+            if ( !(args.dirty & (1<<i)) ) continue;
+            if ( args.str.l ) kputc(',', &args.str);
+            kputs(info_annots[i], &args.str);
+        }
+        bcf_update_info_string(args.hdr_out,rec,args.info_tag,args.str.s);
+    }
+    return ret;
+}
+
 
 int top_mask[4][4] =
 {
@@ -576,11 +644,13 @@ void destroy(void)
         fprintf(stderr,"NS\tunresolved   \t%u\t%.1f%%\n", args.nunresolved,100.*args.nunresolved/(args.nsite-nskip));
         fprintf(stderr,"NS\tfixed pos    \t%u\t%.1f%%\n", args.npos_err,100.*args.npos_err/(args.nsite-nskip));
     }
+    fprintf(stderr,"NS\terrors       \t%u\n", args.nerr);
     fprintf(stderr,"NS\tskipped      \t%u\n", nskip);
     fprintf(stderr,"NS\tnon-ACGT     \t%u\n", args.nonACGT);
     fprintf(stderr,"NS\tnon-SNP      \t%u\n", args.nonSNP);
     fprintf(stderr,"NS\tnon-biallelic\t%u\n", args.nonbiallelic);
 
+    free(args.str.s);
     free(args.gts);
     if ( args.fai ) fai_destroy(args.fai);
     dbsnp_destroy(&args);
