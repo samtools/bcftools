@@ -6,6 +6,11 @@ Changes affecting specific commands:
 
     - Support sample reordering of annotation file ( #1785)
 
+* bcftools call
+
+    - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
+      corruption (#1790)
+
 * bcftools query
 
     - Fix a rare bug where the printing of SAMPLE field with `query` was incorrectly
