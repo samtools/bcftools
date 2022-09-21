@@ -407,29 +407,42 @@ static const uint8_t valid_tag[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-static void sanitize_field_name(char *fmt)
+static char *sanitize_field_name(const char *str)
 {
-    while ( *fmt )
+    if ( !strcmp(str,"1000G") ) return strdup(str);
+    char *tmp;
+    if ( str[0]=='.' || (str[0]>='0' && str[0]<='9') )
     {
-        if ( !valid_tag[(uint8_t)*fmt] ) *fmt = '_';
-        fmt++;
+        // the field starts with an invalid character, prefix with underscore
+        int len = 1 + strlen(str);
+        tmp = (char*)malloc(len+1);
+        tmp[0] = '_';
+        memcpy(tmp+1,str,len);
     }
+    else tmp = strdup(str);
+    char *out = tmp;
+    while ( *tmp )
+    {
+        if ( !valid_tag[(uint8_t)*tmp] ) *tmp = '_';
+        tmp++;
+    }
+    return out;
 }
 char *strdup_annot_prefix(args_t *args, const char *str)
 {
     char *out;
     if ( !args->annot_prefix )
     {
-        out = strdup(str);
-        sanitize_field_name(out);
+        out = sanitize_field_name(str);
         return out;
     }
     int str_len = strlen(str);
     int prefix_len = strlen(args->annot_prefix);
-    out = calloc(str_len+prefix_len+1,1);
-    memcpy(out,args->annot_prefix,prefix_len);
-    memcpy(out+prefix_len,str,str_len);
-    sanitize_field_name(out);
+    char *tmp = calloc(str_len+prefix_len+1,1);
+    memcpy(tmp,args->annot_prefix,prefix_len);
+    memcpy(tmp+prefix_len,str,str_len);
+    out = sanitize_field_name(tmp);
+    free(tmp);
     return out;
 }
 static void init_data(args_t *args)
