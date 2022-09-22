@@ -359,6 +359,8 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         if (q > 63) q = 63;
         if (q < 4) q = 4;       // MQ=0 reads count as BQ=4
         bca->bases[n++] = q<<5 | (int)bam_is_rev(p->b)<<4 | b;
+        //if (is_indel) fprintf(stderr,"xx:base,q,strand\t%d\t%d\t%d\n",b,q,bam_is_rev(p->b)?0:1);
+
         // collect annotations
         if (b < 4)
         {
@@ -997,6 +999,7 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
         }
 
 //      if (ref_base < 0) fprintf(stderr, "%d,%d,%f,%d\n", call->n_alleles, x, sum_min, call->unseen);
+        // fprintf(stderr,"sum_min=%f\n",sum_min);
         call->shift = (int)(sum_min + .499);
     }
     // combine annotations
@@ -1153,6 +1156,7 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     for (i=0; i<16; i++) tmpf[i] = bc->anno[i];
     bcf_update_info_float(hdr, rec, "I16", tmpf, 16);
     bcf_update_info_float(hdr, rec, "QS", bc->qsum, nals);
+    bcf_update_info_int32(hdr, rec, "MIN_PL_SUM", &bc->shift, 1);
 
     if ( has_alt )
     {

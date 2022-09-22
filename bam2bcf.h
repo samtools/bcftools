@@ -150,7 +150,8 @@ typedef struct {
     bcf_hdr_t *bcf_hdr;
     int a[5]; // alleles: ref, alt, alt2, alt3
     float qsum[B2B_MAX_ALLELES];  // INFO/QS tag
-    int n, n_alleles, shift, ori_ref, unseen;
+    int n, n_alleles, ori_ref, unseen;
+    int32_t shift;  // shift is the sum of min_PL before normalization to 0 across all samples
     int n_supp; // number of supporting non-reference reads
     double anno[16];
     unsigned int depth, ori_depth, mq0;
