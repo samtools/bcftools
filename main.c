@@ -61,6 +61,7 @@ int count_plugins(void);
 int main_consensus(int argc, char *argv[]);
 int main_csq(int argc, char *argv[]);
 int main_mpileup(int argc, char *argv[]);
+int main_mpileup2(int argc, char *argv[]);
 int main_sort(int argc, char *argv[]);
 
 typedef struct
@@ -173,6 +174,10 @@ static cmd_t cmds[] =
     { .func  = main_mpileup,
         .alias = "mpileup",
         .help  = "multi-way pileup producing genotype likelihoods"
+    },
+    { .func  = main_mpileup2,
+        .alias = "mpileup2",
+        .help  = "-new version of mpileup (experimental)"   // do not advertise yet
     },
 #if USE_GPL
     { .func  = main_polysomy,

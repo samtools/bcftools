@@ -40,9 +40,10 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o vcfhead.o HMM.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
-           mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
+           mpileup.o mpileup2.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
            vcfsort.o cols.o extsort.o dist.o abuf.o \
-           ccall.o em.o prob1.o kmin.o str_finder.o
+           ccall.o em.o prob1.o kmin.o str_finder.o \
+           mpileup2/mpileup.o
 PLUGIN_OBJS = vcfplugin.o
 
 prefix      = /usr/local
@@ -277,6 +278,8 @@ cols.o: cols.c cols.h
 regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) regidx.h
 consensus.o: consensus.c $(htslib_vcf_h) $(htslib_kstring_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) regidx.h $(bcftools_h) rbuf.h $(filter_h)
 mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_hts_os_h) regidx.h $(bcftools_h) $(bam2bcf_h) $(bam_sample_h) $(gvcf_h)
+mpileup2.o: mpileup2.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_hts_os_h) $(bcftools_h) mpileup2/mpileup.h
+mpileup2/mpileup.o: mpileup2/mpileup.h mpileup2/mpileup.c
 bam2bcf.o: bam2bcf.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(bam2bcf_h) mw.h
 bam2bcf_indel.o: bam2bcf_indel.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(htslib_ksort_h) str_finder.h
 bam_sample.o: bam_sample.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(khash_str2str_h) $(bam_sample_h) $(bcftools_h)
