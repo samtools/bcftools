@@ -117,6 +117,7 @@ typedef struct
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
     int allow_undef_tags;
+    int print_header;
 }
 args_t;
 
@@ -197,6 +198,7 @@ static const char *usage_text(void)
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
+        "   -H, --print-header              Print header\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -1120,7 +1122,7 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xuH",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1131,6 +1133,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
+            case 'H': args->print_header = 1; break;
             case 'x': args->drop_sites = 1; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
@@ -1184,6 +1187,7 @@ int run(int argc, char **argv)
         }
     }
     if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
+    if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
     if ( args->column_types && !strcmp("-",args->column_types) ) error("%s", default_column_types());
@@ -1210,7 +1214,16 @@ int run(int argc, char **argv)
         }
 
         if ( args->format_str )
+        {
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+            if ( args->print_header )
+            {
+                args->kstr.l = 0;
+                convert_header(args->convert,&args->kstr);
+                if ( args->kstr.l && bgzf_write(args->fh_bgzf, args->kstr.s, args->kstr.l)!=args->kstr.l )
+                    error("Failed to write to %s\n", args->output_fname);
+            }
+        }
         else
         {
             char wmode[8];
