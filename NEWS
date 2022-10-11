@@ -17,6 +17,10 @@ Changes affecting specific commands:
       suppressed when the `-e` option contained a sample expression while the formatting
       query did not. See #1783 for details.
 
+* bcftools +setGT
+
+    - Add new `--new-gt X` option (#1800)
+
 * bcftools +trio-dnm2
 
     - New -n, --strictly-novel option to downplay alleles which violate Mendelian

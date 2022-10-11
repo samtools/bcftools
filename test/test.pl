@@ -514,6 +514,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.5.out',cmd=>'+setGT
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.6.out',cmd=>'+setGT --no-version',args=>'-- -t a -n c:0/1/1');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.4',out=>'setGT.4.1.out',cmd=>'+setGT --no-version',args=>q[-- -t q -n . -e 'FMT/DP>90']);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.4',out=>'setGT.4.2.out',cmd=>'+setGT --no-version',args=>q[-- -t q -n . -e 'FMT/DP>100']);
+run_test(\&test_vcf_plugin,$opts,in=>'setGT.5',out=>'setGT.5.1.out',cmd=>'+setGT --no-version',args=>q[-- -t a -n X]);
 run_test(\&test_vcf_plugin,$opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'dosage',out=>'dosage.1.out',cmd=>'+dosage',args=>'-- -t PL');
 run_test(\&test_vcf_plugin,$opts,in=>'dosage',out=>'dosage.2.out',cmd=>'+dosage',args=>'-- -t GL');
