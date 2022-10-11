@@ -117,6 +117,7 @@ typedef struct
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
     int allow_undef_tags;
+    int print_header;
 }
 args_t;
 
@@ -197,6 +198,7 @@ static const char *usage_text(void)
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
+        "   -H, --print-header              Print header\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -407,29 +409,42 @@ static const uint8_t valid_tag[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-static void sanitize_field_name(char *fmt)
+static char *sanitize_field_name(const char *str)
 {
-    while ( *fmt )
+    if ( !strcmp(str,"1000G") ) return strdup(str);
+    char *tmp;
+    if ( str[0]=='.' || (str[0]>='0' && str[0]<='9') )
     {
-        if ( !valid_tag[(uint8_t)*fmt] ) *fmt = '_';
-        fmt++;
+        // the field starts with an invalid character, prefix with underscore
+        int len = 1 + strlen(str);
+        tmp = (char*)malloc(len+1);
+        tmp[0] = '_';
+        memcpy(tmp+1,str,len);
     }
+    else tmp = strdup(str);
+    char *out = tmp;
+    while ( *tmp )
+    {
+        if ( !valid_tag[(uint8_t)*tmp] ) *tmp = '_';
+        tmp++;
+    }
+    return out;
 }
 char *strdup_annot_prefix(args_t *args, const char *str)
 {
     char *out;
     if ( !args->annot_prefix )
     {
-        out = strdup(str);
-        sanitize_field_name(out);
+        out = sanitize_field_name(str);
         return out;
     }
     int str_len = strlen(str);
     int prefix_len = strlen(args->annot_prefix);
-    out = calloc(str_len+prefix_len+1,1);
-    memcpy(out,args->annot_prefix,prefix_len);
-    memcpy(out+prefix_len,str,str_len);
-    sanitize_field_name(out);
+    char *tmp = calloc(str_len+prefix_len+1,1);
+    memcpy(tmp,args->annot_prefix,prefix_len);
+    memcpy(tmp+prefix_len,str,str_len);
+    out = sanitize_field_name(tmp);
+    free(tmp);
     return out;
 }
 static void init_data(args_t *args)
@@ -1107,7 +1122,7 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xuH",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1118,6 +1133,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
+            case 'H': args->print_header = 1; break;
             case 'x': args->drop_sites = 1; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
@@ -1171,6 +1187,7 @@ int run(int argc, char **argv)
         }
     }
     if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
+    if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
     if ( args->column_types && !strcmp("-",args->column_types) ) error("%s", default_column_types());
@@ -1197,7 +1214,16 @@ int run(int argc, char **argv)
         }
 
         if ( args->format_str )
+        {
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+            if ( args->print_header )
+            {
+                args->kstr.l = 0;
+                convert_header(args->convert,&args->kstr);
+                if ( args->kstr.l && bgzf_write(args->fh_bgzf, args->kstr.s, args->kstr.l)!=args->kstr.l )
+                    error("Failed to write to %s\n", args->output_fname);
+            }
+        }
         else
         {
             char wmode[8];
