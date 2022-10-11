@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2022 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -102,7 +102,7 @@ typedef struct
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
-    int use_star_allele;
+    int use_star_allele, ma_use_ref_allele;
     char *old_rec_tag;
     htsFile *out;
 }
@@ -711,11 +711,14 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
         for (j=0; j<ngts; j++)
         {
             if ( gt[j]==bcf_int32_vector_end ) break;
-            if ( bcf_gt_is_missing(gt[j]) || bcf_gt_allele(gt[j])==0 ) continue; // missing allele or ref: leave as is
+            if ( bcf_gt_is_missing(gt[j]) ) continue; // missing allele: leave as is
+            if ( (ialt==0 || args->ma_use_ref_allele) && bcf_gt_allele(gt[j])==0 ) continue; // ref && `--multi-overlaps 0`: leave as is
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
-            else
+            else if ( args->ma_use_ref_allele )
                 gt[j] = bcf_gt_unphased(0) | bcf_gt_is_phased(gt[j]); // set to REF
+            else
+                gt[j] = bcf_gt_missing | bcf_gt_is_phased(gt[j]);     // set to missing
         }
         gt += ngts;
     }
@@ -2087,6 +2090,7 @@ static void usage(void)
     fprintf(stderr, "        --force                     Try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
     fprintf(stderr, "        --keep-sum TAG,..           Keep vector sum constant when splitting multiallelics (see github issue #360)\n");
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
+    fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
     fprintf(stderr, "        --no-version                Do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --do-not-normalize          Do not normalize indels (with -m or -c s)\n");
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
@@ -2126,6 +2130,7 @@ int main_vcfnorm(int argc, char *argv[])
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
     args->do_indels = 1;
+    args->ma_use_ref_allele = 1;
     args->clevel = -1;
     int region_is_file  = 0;
     int targets_is_file = 0;
@@ -2144,6 +2149,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"fasta-ref",required_argument,NULL,'f'},
         {"do-not-normalize",no_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
+        {"multi-overlaps",required_argument,NULL,13},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"regions-overlap",required_argument,NULL,1},
@@ -2177,6 +2183,11 @@ int main_vcfnorm(int argc, char *argv[])
                 else error("Invalid argument to --atom-overlaps. Perhaps you wanted: \"--atom-overlaps '*'\"?\n");
                 break;
             case 12 : args->old_rec_tag = optarg; break;
+            case 13 :
+                if ( optarg[0]=='0' ) args->ma_use_ref_allele = 1;
+                else if ( optarg[0]=='.' ) args->ma_use_ref_allele = 0;
+                else error("Invalid argument to --multi-overlaps\n");
+                break;
             case 'N': args->do_indels = 0; break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;

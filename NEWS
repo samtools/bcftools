@@ -11,6 +11,11 @@ Changes affecting specific commands:
     - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
       corruption (#1790)
 
+* bcftools norm
+
+    - New --multi-overlaps option allows to set overlapping alleles either to the
+      ref allele (the current default) or to a missing allele (#1764 and #1802)
+
 * bcftools query
 
     - Fix a rare bug where the printing of SAMPLE field with `query` was incorrectly
