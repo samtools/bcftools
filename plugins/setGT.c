@@ -462,9 +462,8 @@ bcf1_t *process(bcf1_t *rec)
     {
         if ( bcf_get_format_int32(args->in_hdr,rec,"AD",&args->xarr,&args->mxarr)==rec->n_allele*rec->n_sample )
         {
-            int n = rec->n_allele*rec->n_sample;
             int32_t *src = args->xarr, *dst = args->xarr;
-            for (i=0; i<n; i++)
+            for (i=0; i<rec->n_sample; i++)
             {
                 int jmax = -1;
                 for (j=0; j<rec->n_allele; j++)
