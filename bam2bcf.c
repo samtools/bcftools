@@ -346,12 +346,13 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         if ( bca->fmt_flag & (B2B_INFO_RPB|B2B_INFO_VDB|B2B_INFO_SCB) )
         {
             int pos = get_position(p, &len, &sc_len, &sc_dist);
-            epos = (double)pos/(len+1) * bca->npos;
-
+            epos = (double)pos/(len+1) * (bca->npos - 1);
             if (sc_len) {
-                sc_len = 15.0*sc_len / sc_dist;
+                sc_len = 15.0*sc_len / (sc_dist+1);
                 if (sc_len > 99) sc_len = 99;
             }
+            assert( epos>=0 && epos<bca->npos );
+            assert( sc_len>=0 && sc_len<bca->npos );
         }
         int imq  = mapQ * nqual_over_60;
         int ibq  = baseQ * nqual_over_60;
