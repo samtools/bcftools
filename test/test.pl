@@ -639,6 +639,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep.9',out=>'split-vep.23.out',cmd=>
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.9',out=>'split-vep.24.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%xPOS %xConsequence\\n' -p x | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%M_CAP_pred %M_CAP_score\\n' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%xM_CAP_pred %xM_CAP_score\\n' -p x | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.1.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.2.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g {PATH}/split-vep.gene-list.txt]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.3.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g +{PATH}/split-vep.gene-list.txt]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
@@ -852,7 +855,7 @@ sub error
         "About: htslib consistency test script\n",
         "Usage: test.pl [OPTIONS]\n",
         "Options:\n",
-        "   -f, --function LIST             Run only the listed test functions (e.g. 'test_mpileup,test_vcf_call')\n",
+        "   -f, --function LIST             Run only the listed tests (e.g. 'test_mpileup,split-vep')\n",
         "   -p, --plugins                   Test also plugins, requires libhts.so.\n",
         "   -r, --redo-outputs              Recreate expected output files.\n",
         "   -t, --temp-dir <path>           When given, temporary files will not be removed.\n",
@@ -922,7 +925,17 @@ sub run_test
             use B qw(svref_2object);
         }
         my $name = svref_2object($func)->GV->NAME;
-        if ( !exists($$opts{run_function}{$name}) ) { return; }
+        my %args = @args;
+        my $run  = 0;
+        if ( exists($$opts{run_function}{$name}) ) { $run = 1; }
+        if ( !$run && exists($args{cmd}) )
+        {
+            for my $func (keys %{$$opts{run_function}})
+            {
+                if ( $args{cmd}=~/$func/ ) { $run = 1; last; }
+            }
+        }
+        if ( !$run ) { return; }
     }
     &$func($opts,@args);
 }

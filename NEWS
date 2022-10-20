@@ -26,6 +26,11 @@ Changes affecting specific commands:
 
     - Add new `--new-gt X` option (#1800)
 
+* bcftools +split-vep
+
+    - New options `-g, --gene-list` and `--gene-list-fields` which allow to prioritize
+      consequences from a list of genes, or restrict output to the listed genes
+
 * bcftools +trio-dnm2
 
     - New -n, --strictly-novel option to downplay alleles which violate Mendelian
