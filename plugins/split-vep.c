@@ -207,7 +207,7 @@ static const char *usage_text(void)
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
-        "   -g, --gene-list [+]FILE         Consider only genes listed in FILE, or prioritize them if prefixed with \"+\"\n"
+        "   -g, --gene-list [+]FILE         Consider only genes listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
         "       --gene-list-fields LIST     Use these fields when matching genes from the -g list [SYMBOL,Gene,gene]\n"
         "   -H, --print-header              Print header\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
@@ -1086,6 +1086,9 @@ static void restrict_csqs_to_genes(args_t *args)
         cols_t *tmp = args->cols_csq[i];
         args->cols_csq[i] = args->cols_csq[j];
         args->cols_csq[j] = tmp;
+        char *tmp2 = args->cols_tr->off[i];
+        args->cols_tr->off[i] = args->cols_tr->off[j];
+        args->cols_tr->off[j] = tmp2;
         i++;
         j--;
     }
@@ -1093,7 +1096,7 @@ static void restrict_csqs_to_genes(args_t *args)
 }
 static void process_record(args_t *args, bcf1_t *rec)
 {
-    int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
+    int i,len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
     if ( len<=0 )
     {
         if ( !args->drop_sites )
@@ -1104,7 +1107,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         return;
     }
 
-    int i;
+    // split by transcript and by field
     args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
     if ( args->cols_tr->n > args->mcols_csq )
     {
@@ -1115,10 +1118,15 @@ static void process_record(args_t *args, bcf1_t *rec)
     args->ncols_csq = args->cols_tr->n;
     for (i=0; i<args->cols_tr->n; i++)
         args->cols_csq[i] = cols_split(args->cols_tr->off[i], args->cols_csq[i], '|');
+
+    // restrict to -g genes
     if ( args->genes ) restrict_csqs_to_genes(args);
 
+    // select transcripts of interest
     int j, itr_min = 0, itr_max = args->ncols_csq - 1;
-    if ( args->select_tr==SELECT_TR_PRIMARY )
+    if ( !args->ncols_csq )
+        itr_min = itr_max + 1;  // no transcripts left after -g applied
+    else if ( args->select_tr==SELECT_TR_PRIMARY )
     {
         itr_min = itr_max = get_primary_transcript(args, rec);
         if ( itr_min<0 ) itr_max = itr_min - 1;
