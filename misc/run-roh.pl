@@ -1,21 +1,21 @@
 #!/usr/bin/env perl
 #
 #  The MIT License
-#  
-#  Copyright (c) 2017-2018, 2020 Genome Research Ltd.
-#  
+#
+#  Copyright (c) 2017-2022 Genome Research Ltd.
+#
 #  Author: Petr Danecek <pd3@sanger.ac.uk>
-#  
+#
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
 #  in the Software without restriction, including without limitation the rights
 #  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 #  copies of the Software, and to permit persons to whom the Software is
 #  furnished to do so, subject to the following conditions:
-#  
+#
 #  The above copyright notice and this permission notice shall be included in
 #  all copies or substantial portions of the Software.
-#  
+#
 #  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 #  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 #  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -41,7 +41,7 @@ sub error
 {
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg,"\n"; }
-    print 
+    print
         "About: This is a convenience wrapper for \"bcftools roh\" which takes multiple VCF/BCF files\n",
         "       and locates regions private to a sample or shared across multiple samples. On input it\n",
         "       expects a directory with .vcf, .vcf.gz or .bcf files, a file with allele frequencies\n",
@@ -49,7 +49,7 @@ sub error
         "       for details\n",
         "Usage: run-roh.pl [OPTIONS]\n",
         "Options:\n",
-        "   -a, --af-annots <file>      Allele frequency annotations [1000GP-AFs/AFs.tab.gz]\n",
+        "   -a, --af-annots <file>      Allele frequency annotations (optional)\n",
         "   -i, --indir <dir>           Input directory with VCF files\n",
         "       --include <expr>        Select sites for which the expression is true\n",
         "       --exclude <expr>        Exclude sites for which the epxression is true\n",
@@ -69,7 +69,6 @@ sub parse_params
 {
     my $opts =
     {
-        af_annots   => '1000GP-AFs/AFs.tab.gz', 
         verbose     => 1,
         min_length  => 1e6,
         min_markers => 100,
@@ -95,9 +94,12 @@ sub parse_params
     }
     if ( !exists($$opts{outdir}) ) { error("Missing the -o, --outdir option.\n") }
     if ( !exists($$opts{indir}) ) { error("Missing the -i, --indir option.\n") }
-    if ( ! -e $$opts{af_annots} ) { error("The annotation file does not exist: $$opts{af_annots}\n"); }
-    if ( ! -e "$$opts{af_annots}.tbi" ) { error("The annotation file is not indexed: $$opts{af_annots}.tbi\n"); }
-    if ( ! -e "$$opts{af_annots}.hdr" ) { error("The annotation file has no header: $$opts{af_annots}.hdr\n"); }
+    if ( exists($$opts{af_annots}) )
+    {
+        if ( ! -e $$opts{af_annots} ) { error("The annotation file does not exist: $$opts{af_annots}\n"); }
+        if ( ! -e "$$opts{af_annots}.tbi" ) { error("The annotation file is not indexed: $$opts{af_annots}.tbi\n"); }
+        if ( ! -e "$$opts{af_annots}.hdr" ) { error("The annotation file has no header: $$opts{af_annots}.hdr\n"); }
+    }
     if ( exists($$opts{genmap}) && ! -d "$$opts{genmap}" ) { error("The directory with genetic maps does not exist: $$opts{genmap}\n"); }
     if ( exists($$opts{include_expr}) ) { $$opts{include_expr} =~ s/\'/\'\\\'\'/g; $$opts{inc_exc} .= qq[ -i '$$opts{include_expr}']; }
     if ( exists($$opts{exclude_expr}) ) { $$opts{exclude_expr} =~ s/\'/\'\\\'\'/g; $$opts{inc_exc} .= qq[ -e '$$opts{exclude_expr}']; }
@@ -118,14 +120,14 @@ sub cmd
     if ( !defined $pid ) { error("Cannot fork: $!"); }
 
     my @out;
-    if ($pid) 
+    if ($pid)
     {
         # parent
         @out = <$kid_io>;
         close($kid_io);
-    } 
-    else 
-    {      
+    }
+    else
+    {
         # child
         exec('bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [bash -o pipefail -c $cmd]: $!");
     }
@@ -134,7 +136,7 @@ sub cmd
 
     my $exit_status = $?;
     my $status = exists($args{require_status}) ? $args{require_status} : 0;
-    if ( $status ne $exit_status ) 
+    if ( $status ne $exit_status )
     {
         my $msg;
         if ( $? & 0xff )
@@ -147,7 +149,7 @@ sub cmd
         }
         $msg .= ":\n\t$cmd\n\n";
         if ( @out ) {  $msg .= join('',@out,"\n\n"); }
-        error($msg); 
+        error($msg);
     }
     return @out;
 }
@@ -179,7 +181,7 @@ sub parse_genmap_path
         if ( !length($suffix) ) { last; }
     }
     my @test = glob("$prefix*$suffix");
-    if ( @test != @files ) 
+    if ( @test != @files )
     {
         error(
             "Error: Could not determine the genetic map files in \"$$opts{genmap}\". The directory must contain only\n" .
@@ -213,16 +215,17 @@ sub run_roh
         push @files,$outfile;
         if ( -e $outfile ) { next; }
 
-        my $cmd = 
-            "bcftools annotate --rename-chrs $chr_fname '$$opts{indir}/$file' -Ou | " .
-            "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} ";
-
+        my $cmd = "bcftools annotate --rename-chrs $chr_fname '$$opts{indir}/$file'";
+        if ( exists($$opts{af_annots}) )
+        {
+            $cmd .= " -Ou | bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} ";
+        }
         if ( exists($$opts{inc_exc}) )
         {
             $cmd .= " -Ou | bcftools view $$opts{inc_exc} ";
         }
-        $cmd .= "-Ob -o $outfile.part && ";
-        $cmd .= "mv $outfile.part $outfile";
+        $cmd .= " -Ob -o $outfile.part && ";
+        $cmd .= " mv $outfile.part $outfile";
 
         cmd($cmd, %$opts);
     }
@@ -243,7 +246,7 @@ sub run_roh
             if ( !$total or $used/$total < 0.3 )
             {
                 print STDERR @out;
-                print STDERR "WARNING: Less than 30% of sites was used!\n\n"; 
+                print STDERR "WARNING: Less than 30% of sites was used!\n\n";
             }
         }
         cmd(qq[bcftools query -f'GT\\t%CHROM\\t%POS[\\t%SAMPLE\\t%GT]\\n' $file | gzip -c >> $file.txt.gz.part && mv $file.txt.gz.part $file.txt.gz],%$opts);
@@ -267,7 +270,7 @@ sub next_region
     {
         if ( !exists($$regions{$chr}{$smpl}) ) { next; }
         my $reg = $$regions{$chr}{$smpl}[0];
-        if ( !%min ) 
+        if ( !%min )
         {
             $min{chr} = $chr;
             $min{beg} = $$reg{beg};
@@ -316,7 +319,7 @@ sub eval_roh
     my @samples = sort keys %samples;
     print $fh "# [1]chrom\t[2]beg\t[3]end\t[4]length (Mb)";
     my $i = 5;
-    for my $smpl (@samples) { print $fh "\t[$i]$smpl"; $i++; } 
+    for my $smpl (@samples) { print $fh "\t[$i]$smpl"; $i++; }
     print $fh "\n";
     while (my $min = next_region(\%regions))
     {
@@ -345,7 +348,7 @@ not_present:
     {
         if ( $lengths{$smpl}!=0 )
         {
-            print STDERR "ERROR: a bug detected, sanity check failed, expected zero length : $smpl .. $lengths{$smpl}\n"; 
+            print STDERR "ERROR: a bug detected, sanity check failed, expected zero length : $smpl .. $lengths{$smpl}\n";
         }
     }
     print STDERR "The merged regions are in $$opts{outdir}/merged.txt\n";
