@@ -11,6 +11,10 @@ Changes affecting specific commands:
     - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
       corruption (#1790)
 
+* bcftools convert
+
+    - Make variantkey conversion work for sites without an ALT allele (#1806)
+
 * bcftools norm
 
     - New --multi-overlaps option allows to set overlapping alleles either to the
