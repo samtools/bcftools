@@ -133,14 +133,21 @@ if interactive==False:
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
 else:
+    gui_set = False;
+
     for gui in ['TKAgg','GTKAgg','Qt4Agg','WXAgg','MacOSX']:
         try:
             mpl.use(gui,warn=False, force=True)
             import matplotlib.pyplot as plt
             import matplotlib.patches as patches
+            gui_set = True;
             break
         except:
             continue
+
+    if gui_set==False:
+        usage("Unable to set GUI for interactive plot")
+
 
 cols = [ '#337ab7', '#5cb85c', '#5bc0de', '#f0ad4e', '#d9534f', 'grey', 'black' ]
 
@@ -352,6 +359,16 @@ off_hash = {}
 off = 0
 off_sep = 0
 dat_rg1 = {}
+
+if not chrs:
+    print("No GT tags found in input file.\n\nPlease try rerunning using run-roh.pl with --roh-args \"-G 30\"")
+    print("\nAlternatively run these commands manually:")
+    print("bcftools annotate --rename-chrs chr-names.txt in.bcf -Ob -o annotated.bcf")
+    print("bcftools roh -G 30 --AF-tag AF1KG annotated.bcf -Orz -o out.file.txt.gz")
+    print("bcftools query -f'GT\\t%CHROM\\t%POS[\\t%SAMPLE\\t%GT]\\n' annotated.bcf | gzip -c >> out.file.txt.gz")
+    print("\nWhere chr-names.txt can be created by:")
+    usage("for i in `seq 1 22`; do printf \"chr$i\\t$i\\n\" >> test_char.txt; done; printf \"chrX\\tX\\n\" >> test_char.txt")
+
 for chr in chrs:
     if chr in dat_rg:
         rg1 = merge_regions(dat_rg[chr])
