@@ -2588,6 +2588,9 @@ By default, appropriate system directories are searched for installed plugins.
     compare two files and set non-identical genotypes to missing
 
 *mendelian*::
+    count Mendelian consistent / inconsistent genotypes (deprecated, use +mendelian2 instead)
+
+*mendelian2*::
     count Mendelian consistent / inconsistent genotypes.
 
 *missing2ref*::

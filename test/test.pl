@@ -581,6 +581,12 @@ run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.2.out',cmd=>'+m
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -mx');
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.4.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -ma');
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.5.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -mu');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 -md');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.6.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 -mg');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 -me');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.4.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 -ma');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.7.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 -mm');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.8.out',cmd=>'+mendelian2',args=>'-p child1,dad1,mom1 | grep -v ^#');
 run_test(\&test_vcf_plugin,$opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 a,b -1 c');
 run_test(\&test_vcf_plugin,$opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
 run_test(\&test_vcf_plugin,$opts,in=>'contrast',out=>'contrast.1.out',cmd=>'+contrast',args=>'-a NASSOC -0 a,b,c -1 d --force-samples');
