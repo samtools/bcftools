@@ -361,13 +361,7 @@ off_sep = 0
 dat_rg1 = {}
 
 if not chrs:
-    print("No GT tags found in input file.\n\nPlease try rerunning using run-roh.pl with --roh-args \"-G 30\"")
-    print("\nAlternatively run these commands manually:")
-    print("bcftools annotate --rename-chrs chr-names.txt in.bcf -Ob -o annotated.bcf")
-    print("bcftools roh -G 30 --AF-tag AF1KG annotated.bcf -Orz -o out.file.txt.gz")
-    print("bcftools query -f'GT\\t%CHROM\\t%POS[\\t%SAMPLE\\t%GT]\\n' annotated.bcf | gzip -c >> out.file.txt.gz")
-    print("\nWhere chr-names.txt can be created by:")
-    usage("for i in `seq 1 22`; do printf \"chr$i\\t$i\\n\" >> test_char.txt; done; printf \"chrX\\tX\\n\" >> test_char.txt")
+    usage("No GT lines found in input file. Was it generated using the run-roh.pl script?")
 
 for chr in chrs:
     if chr in dat_rg:
