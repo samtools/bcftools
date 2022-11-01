@@ -1,0 +1,3 @@
+4391	CC	AA	stop_gained|TNNT2|ENST00000360372|protein_coding|-|132EE>132D*|4391CC>AA
+4391	CC	AA	stop_gained|TNNT2|ENST00000360372|protein_coding|-|132EE>132D*|4391CC>AA
+

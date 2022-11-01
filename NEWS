@@ -15,6 +15,11 @@ Changes affecting specific commands:
 
     - Make variantkey conversion work for sites without an ALT allele (#1806)
 
+* bcftool csq
+
+    - Fix a bug where a MNV with multiple consequences (e.g. missense + stop_gained)
+      would report only the less severe one (#1810)
+
 * bcftools +mendelian
 
     - The +mendelian plugin has been deprecated and replaced with +mendelian2. The
