@@ -495,6 +495,8 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.2.out',args=>'-c CHROM,BEG,END,DB -l DB:unique --min-overlap 0.4:0.5');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.1.out',args=>'-c ALT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.2.out',args=>'-c +ALT');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.id.2',vcf=>'annots.id.2',out=>'annotate.id.2.1.out',args=>'--pair-logic some -c +ID');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.id.2',vcf=>'annots.id.2',out=>'annotate.id.2.2.out',args=>'--pair-logic any -c +ID');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate27',tab=>'annotate27',out=>'annotate.32.out',args=>'-c CHROM,POS,REF,ALT,EVIDENCE');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.1.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl1,smpl2');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.2.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl2,smpl1');

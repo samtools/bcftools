@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chrM,length=16569>
+##reference=hg38.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chrM	10	rs879233578	T	.	.	.	.
+chrM	73	existingID	A	T	.	.	.
+chrM	146	rs370482130	T	C	.	.	.

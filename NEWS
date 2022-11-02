@@ -4,7 +4,9 @@ Changes affecting specific commands:
 
 * bcftools annotate
 
-    - Support sample reordering of annotation file ( #1785)
+    - Support sample reordering of annotation file (#1785)
+
+    - Restore lost functionality of the --pair-logic option (#1808)
 
 * bcftools call
 

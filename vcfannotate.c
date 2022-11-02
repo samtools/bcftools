@@ -3427,6 +3427,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'H': args->header_lines = dbuf_push(args->header_lines,strdup(optarg)); break;
             case  1 : args->rename_chrs = optarg; break;
             case  2 :
+                if ( args->pair_logic==-1 ) args->pair_logic = 0;
                 if ( !strcmp(optarg,"snps") ) args->pair_logic |= BCF_SR_PAIR_SNP_REF;
                 else if ( !strcmp(optarg,"indels") ) args->pair_logic |= BCF_SR_PAIR_INDEL_REF;
                 else if ( !strcmp(optarg,"both") ) args->pair_logic |= BCF_SR_PAIR_BOTH_REF;
