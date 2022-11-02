@@ -90,7 +90,8 @@ struct _pop_t
 struct _args_t
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int npop, tags, drop_missing, gt_id;
+    uint32_t tags, warned;
+    int npop, drop_missing, gt_id;
     pop_t *pop, **smpl2pop;
     float *farr;
     int32_t *iarr, niarr, miarr, nfarr, mfarr, unpack;
@@ -459,17 +460,20 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
         ret |= parse_func_pop(args,&args->pop[i],tag_expr,expr);
     return ret;
 }
-int parse_tags(args_t *args, const char *str)
+uint32_t parse_tags(args_t *args, const char *str)
 {
     if ( !args->in_hdr ) error("%s", usage());
 
-    int i,j, flag = 0, n_tags;
+    args->warned = 0;
+    uint32_t flag = 0;
+    int i, n_tags;
     char **tags = hts_readlist(str, 0, &n_tags), *ptr;
     for(i=0; i<n_tags; i++)
     {
         if ( !strcasecmp(tags[i],"all") )
         {
-            for (j=0; j<=10; j++) flag |= 1<<j;
+            flag |= ~(SET_END|SET_TYPE);
+            args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
         else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
@@ -977,11 +981,10 @@ static void process_vaf_vaf1(bcf1_t *rec)
     args->niarr = bcf_get_format_int32(args->in_hdr, rec, "AD", &args->iarr, &args->miarr);
     if ( args->niarr <= 0 )
     {
-        static int missing_ad_warned = 0;
-        if ( !missing_ad_warned )
+        if ( !(args->warned&(SET_VAF|SET_VAF1)) )
             fprintf(stderr,"Warning: cannot add the VAF/VAF1 annotations, the required FORMAT/AD tag is missing at %s:%"PRIhts_pos".\n"
                            "         (This warning is printed only once.)\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
-        missing_ad_warned = 1;
+        args->warned |= SET_VAF|SET_VAF1;
         return;
     }
 
