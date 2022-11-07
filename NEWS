@@ -13,6 +13,8 @@ Changes affecting specific commands:
     - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
       corruption (#1790)
 
+    - Fix a bug where indels constrained with `-C alleles -T` would sometimes be missed (#1706)
+
 * bcftools convert
 
     - Make variantkey conversion work for sites without an ALT allele (#1806)
