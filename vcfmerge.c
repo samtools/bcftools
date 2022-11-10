@@ -3176,7 +3176,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
-        {"non_normalize_alleles",required_argument,NULL,'N'},
+        {"non_normalize_alleles",no_argument,NULL,'N'},
         {NULL,0,NULL,0}
     };
     char *tmp;
