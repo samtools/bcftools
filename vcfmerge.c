@@ -3151,6 +3151,7 @@ int main_vcfmerge(int argc, char *argv[])
     args->record_cmd_line = 1;
     args->collapse = COLLAPSE_BOTH;
     args->clevel = -1;
+    args->non_normalize_alleles = 0;
     int regions_is_file = 0;
     int regions_overlap = 1;
 
@@ -3176,14 +3177,13 @@ int main_vcfmerge(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
-        {"non_normalize_alleles",required_argument,NULL,'N'},
+        {"non_normalize_alleles",no_argument,NULL,'N'},
         {NULL,0,NULL,0}
     };
     char *tmp;
     while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0L:N",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'N':
-                args->non_normalize_alleles = 1;
+            case 'N': args->non_normalize_alleles = 1; break;
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --local-alleles %s\n", optarg);
