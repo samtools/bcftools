@@ -149,7 +149,7 @@ typedef struct
     maux_t *maux;
     regidx_t *regs;    // apply regions only after the blocks are expanded
     regitr_t *regs_itr;
-    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref, no_index;
+    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref, no_index, non_normalize_alleles;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     faidx_t *gvcf_fai;
     info_rule_t *rules;
