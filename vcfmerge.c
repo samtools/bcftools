@@ -3183,7 +3183,7 @@ int main_vcfmerge(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0L:N",loptions,NULL)) >= 0) {
         switch (c) {
             case 'N':
-                args->non_normalize_alleles = 1;
+                args->non_normalize_alleles = 1; break;
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --local-alleles %s\n", optarg);
