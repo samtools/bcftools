@@ -973,7 +973,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
     for (i=0; i<ma->nals; i++)
         if ( i==0 || al_idxs[i] ) ma->out_als[k++] = strdup(ma->als[i]);
     assert( k==ma->nout_als );
-    normalize_alleles(ma->out_als, ma->nout_als);
+    if (args->non_normalize_alleles != 1) normalize_alleles(ma->out_als, ma->nout_als);
     bcf_update_alleles(out_hdr, out, (const char**) ma->out_als, ma->nout_als);
     free(al_idxs);
     for (i=0; i<ma->nout_als; i++) free(ma->out_als[i]);
@@ -3134,6 +3134,7 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "        --threads INT                 Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "    -N, --non_normalize_alleles       Do not normalize_alleles\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -3175,11 +3176,14 @@ int main_vcfmerge(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
+        {"non_normalize_alleles",required_argument,NULL,'N'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0L:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0L:N",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'N':
+                args->non_normalize_alleles = 1;
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --local-alleles %s\n", optarg);
