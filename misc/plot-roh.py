@@ -361,7 +361,10 @@ off_sep = 0
 dat_rg1 = {}
 
 if not chrs:
-    usage("No GT lines found in input file. Was it generated using the run-roh.pl script?")
+    usage("\nNo GT lines found in input file. Was it generated using the run-roh.pl script?\n"
+          "This script is unable to process the raw output of \"bcftools roh\",\n"
+          "the output of the following query may need to be added to the roh result.\n\n"
+          "bcftools query -f'GT\\t%CHROM\\t%POS[\\t%SAMPLE\\t%GT]\\n' in.bcf\n")
 
 for chr in chrs:
     if chr in dat_rg:
