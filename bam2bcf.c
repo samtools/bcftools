@@ -388,7 +388,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         if ( baseQ > 59 ) baseQ = 59;
         if ( mapQ > 59 ) mapQ = 59;
         int len, epos = 0, sc_len = 0, sc_dist = 0;
-        if ( bca->fmt_flag & (B2B_INFO_RPB|B2B_INFO_VDB|B2B_INFO_SCB) )
+        if ( bca->fmt_flag & (B2B_INFO_RPBZ|B2B_INFO_VDB|B2B_INFO_SCBZ) )
         {
             int pos = get_position(p, &len, &sc_len, &sc_dist);
             epos = (double)pos/(len+1) * bca->npos;
@@ -1017,56 +1017,42 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // No need to calculate MWU tests when there is no ALT allele, this should speed up things slightly
     if ( !has_alt ) return 0;
 
-    calc_SegBias(calls, call);
+    if ( bca->fmt_flag & B2B_INFO_SGB ) calc_SegBias(calls, call);
 
     // calc_chisq_bias("XPOS", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_pos, bca->alt_pos, bca->npos);
     // calc_chisq_bias("XMQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_mq, bca->alt_mq, bca->nqual);
     // calc_chisq_bias("XBQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_bq, bca->alt_bq, bca->nqual);
 
-    if (bca->fmt_flag & B2B_INFO_ZSCORE) {
-        // U z-normalised as +/- number of standard deviations from mean.
-        if (call->ori_ref < 0) {    // indel
-            if (bca->fmt_flag & B2B_INFO_RPB)
-                call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos, bca->npos, 0, 1);
+    // U z-normalised as +/- number of standard deviations from mean.
+    if (call->ori_ref < 0) {    // indel
+        if ( bca->fmt_flag & B2B_INFO_RPBZ )
+            call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos, bca->npos, 0, 1);
+        if ( bca->fmt_flag & B2B_INFO_MQBZ )
             call->mwu_mq  = calc_mwu_biasZ(bca->iref_mq,  bca->ialt_mq, bca->nqual,1,1);
-            if ( bca->fmt_flag & B2B_INFO_SCB )
-                call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl, 100, 0,1);
-        } else {
-            if (bca->fmt_flag & B2B_INFO_RPB)
-                call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos, 0, 1);
-            call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq, bca->nqual,1,1);
-            call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq, bca->nqual,0,1);
-            call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,1);
-            if ( bca->fmt_flag & B2B_INFO_SCB )
-                call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl, 100, 0,1);
-        }
-        call->mwu_nm[0] = calc_mwu_biasZ(bca->ref_nm, bca->alt_nm, B2B_N_NM,0,1);
-        if ( bca->fmt_flag & B2B_FMT_NMBZ )
-        {
-            for (i=0; i<n; i++)
-            {
-                float val = calc_mwu_biasZ(calls[i].ref_nm, calls[i].alt_nm, B2B_N_NM,0,1);
-                call->mwu_nm[i+1] = val!=HUGE_VAL ? val : 0;
-            }
-        }
+        if ( bca->fmt_flag & B2B_INFO_SCBZ )
+            call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl, 100, 0,1);
     } else {
-        // Old method; U as probability between 0 and 1
-        if ( bca->fmt_flag & B2B_INFO_RPB )
-            call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos, 0, 0);
-        call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq, bca->nqual, 1, 0);
-        call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq, bca->nqual, 0, 0);
-        call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual, 0, 0);
+        if ( bca->fmt_flag & B2B_INFO_RPBZ )
+            call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos, 0, 1);
+        if ( bca->fmt_flag & B2B_INFO_MQBZ )
+            call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq, bca->nqual,1,1);
+        if ( bca->fmt_flag & B2B_INFO_BQBZ )
+            call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq, bca->nqual,0,1);
+        if ( bca->fmt_flag & B2B_INFO_MQSBZ )
+            call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,1);
+        if ( bca->fmt_flag & B2B_INFO_SCBZ )
+            call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl, 100, 0,1);
     }
-
-#if CDF_MWU_TESTS
-    // CDF version of MWU tests is not calculated by default
-    if ( bca->fmt_flag & B2B_INFO_RPB )
-        call->mwu_pos_cdf = calc_mwu_bias_cdf(bca->ref_pos, bca->alt_pos, bca->npos);
-    call->mwu_mq_cdf  = calc_mwu_bias_cdf(bca->ref_mq,  bca->alt_mq,  bca->nqual);
-    call->mwu_bq_cdf  = calc_mwu_bias_cdf(bca->ref_bq,  bca->alt_bq,  bca->nqual);
-    call->mwu_mqs_cdf = calc_mwu_bias_cdf(bca->fwd_mqs, bca->rev_mqs, bca->nqual);
-#endif
-
+    if ( bca->fmt_flag & B2B_INFO_NMBZ )
+        call->mwu_nm[0] = calc_mwu_biasZ(bca->ref_nm, bca->alt_nm, B2B_N_NM,0,1);
+    if ( bca->fmt_flag & B2B_FMT_NMBZ )
+    {
+        for (i=0; i<n; i++)
+        {
+            float val = calc_mwu_biasZ(calls[i].ref_nm, calls[i].alt_nm, B2B_N_NM,0,1);
+            call->mwu_nm[i+1] = val!=HUGE_VAL ? val : 0;
+        }
+    }
     if ( bca->fmt_flag & B2B_INFO_VDB )
         call->vdb = calc_vdb(bca->alt_pos, bca->npos);
 
@@ -1130,11 +1116,13 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     bc->tmp.l = 0;
 
     // INFO
-    if (bc->ori_ref < 0)
+    if ( bc->ori_ref < 0 )
     {
         bcf_update_info_flag(hdr, rec, "INDEL", NULL, 1);
-        bcf_update_info_int32(hdr, rec, "IDV", &bca->max_support, 1);
-        bcf_update_info_float(hdr, rec, "IMF", &bca->max_frac, 1);
+        if ( fmt_flag&B2B_INFO_IDV )
+            bcf_update_info_int32(hdr, rec, "IDV", &bca->max_support, 1);
+        if ( fmt_flag&B2B_INFO_IMF )
+            bcf_update_info_float(hdr, rec, "IMF", &bca->max_frac, 1);
     }
     bcf_update_info_int32(hdr, rec, "DP", &bc->ori_depth, 1);
     if ( fmt_flag&B2B_INFO_ADF )
@@ -1156,55 +1144,40 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     for (i=0; i<16; i++) tmpf[i] = bc->anno[i];
     bcf_update_info_float(hdr, rec, "I16", tmpf, 16);
     bcf_update_info_float(hdr, rec, "QS", bc->qsum, nals);
-    bcf_update_info_int32(hdr, rec, "MIN_PL_SUM", &bc->shift, 1);
 
     if ( has_alt )
     {
-        if ( bc->vdb != HUGE_VAL )      bcf_update_info_float(hdr, rec, "VDB", &bc->vdb, 1);
-        if ( bc->seg_bias != HUGE_VAL ) bcf_update_info_float(hdr, rec, "SGB", &bc->seg_bias, 1);
-        if ( bca->nnm[0] || bca->nnm[1] )
+        if ( fmt_flag&B2B_INFO_MIN_PL_SUM )
+            bcf_update_info_int32(hdr, rec, "MIN_PL_SUM", &bc->shift, 1);
+        if ( fmt_flag&B2B_INFO_VDB && bc->vdb != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "VDB", &bc->vdb, 1);
+        if ( fmt_flag&B2B_INFO_SGB && bc->seg_bias != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "SGB", &bc->seg_bias, 1);
+        if ( fmt_flag&B2B_INFO_NM && (bca->nnm[0] || bca->nnm[1]) )
         {
             for (i=0; i<2; i++) bc->nm[i] = bca->nnm[i] ? bca->nm[i]/bca->nnm[i] : 0;
             bcf_update_info_float(hdr, rec, "NM", bc->nm, 2);
         }
 
-        if (bca->fmt_flag & B2B_INFO_ZSCORE) {
-            if ( bc->mwu_pos != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "RPBZ", &bc->mwu_pos, 1);
-            if ( bc->mwu_mq != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "MQBZ", &bc->mwu_mq, 1);
-            if ( bc->mwu_mqs != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "MQSBZ", &bc->mwu_mqs, 1);
-            if ( bc->mwu_bq != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "BQBZ", &bc->mwu_bq, 1);
-            if ( bc->mwu_nm[0] != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "NMBZ", bc->mwu_nm, 1);
-            if ( bc->mwu_sc != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "SCBZ", &bc->mwu_sc, 1);
-        } else {
-            if ( bc->mwu_pos != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "RPB", &bc->mwu_pos, 1);
-            if ( bc->mwu_mq != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "MQB", &bc->mwu_mq, 1);
-            if ( bc->mwu_mqs != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "MQSB", &bc->mwu_mqs, 1);
-            if ( bc->mwu_bq != HUGE_VAL )
-                bcf_update_info_float(hdr, rec, "BQB", &bc->mwu_bq, 1);
-        }
-
-        if ( bc->strand_bias != HUGE_VAL )
+        if ( fmt_flag&B2B_INFO_RPBZ && bc->mwu_pos != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "RPBZ", &bc->mwu_pos, 1);
+        if ( fmt_flag&B2B_INFO_MQBZ && bc->mwu_mq != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "MQBZ", &bc->mwu_mq, 1);
+        if ( fmt_flag&B2B_INFO_MQSBZ && bc->mwu_mqs != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "MQSBZ", &bc->mwu_mqs, 1);
+        if ( fmt_flag&B2B_INFO_BQBZ && bc->mwu_bq != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "BQBZ", &bc->mwu_bq, 1);
+        if ( fmt_flag&B2B_INFO_NMBZ && bc->mwu_nm[0] != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "NMBZ", bc->mwu_nm, 1);
+        if ( fmt_flag&B2B_INFO_SCBZ && bc->mwu_sc != HUGE_VAL )
+            bcf_update_info_float(hdr, rec, "SCBZ", &bc->mwu_sc, 1);
+        if ( fmt_flag&B2B_INFO_FS && bc->strand_bias != HUGE_VAL )
             bcf_update_info_float(hdr, rec, "FS", &bc->strand_bias, 1);
-
-#if CDF_MWU_TESTS
-        if ( bc->mwu_pos_cdf != HUGE_VAL )  bcf_update_info_float(hdr, rec, "RPB2", &bc->mwu_pos_cdf, 1);
-        if ( bc->mwu_mq_cdf != HUGE_VAL )   bcf_update_info_float(hdr, rec, "MQB2", &bc->mwu_mq_cdf, 1);
-        if ( bc->mwu_mqs_cdf != HUGE_VAL )  bcf_update_info_float(hdr, rec, "MQSB2", &bc->mwu_mqs_cdf, 1);
-        if ( bc->mwu_bq_cdf != HUGE_VAL )   bcf_update_info_float(hdr, rec, "BQB2", &bc->mwu_bq_cdf, 1);
-#endif
     }
 
     tmpf[0] = bc->ori_depth ? (float)bc->mq0/bc->ori_depth : 0;
-    bcf_update_info_float(hdr, rec, "MQ0F", tmpf, 1);
+    if ( fmt_flag&B2B_INFO_MQ0F )
+        bcf_update_info_float(hdr, rec, "MQ0F", tmpf, 1);
 
     // FORMAT
     rec->n_sample = bc->n;

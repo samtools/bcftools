@@ -58,11 +58,21 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_INFO_SCR    (1<<12)
 #define B2B_FMT_SCR     (1<<13)
 #define B2B_INFO_VDB    (1<<14)
-#define B2B_INFO_RPB    (1<<15)
-#define B2B_FMT_QS      (1<<16)
-#define B2B_INFO_SCB    (1<<17)
-#define B2B_FMT_NMBZ    (1<<18) // per-sample NMBZ
-#define B2B_INFO_ZSCORE (1<<30) // MWU as-is or Z-normalised
+#define B2B_FMT_QS      (1<<15)
+#define B2B_FMT_NMBZ    (1<<16) // per-sample NMBZ
+#define B2B_INFO_NMBZ   (1<<17)
+#define B2B_INFO_BQBZ   (1<<18)
+#define B2B_INFO_MQBZ   (1<<19)
+#define B2B_INFO_MQSBZ  (1<<20)
+#define B2B_INFO_RPBZ   (1<<21)
+#define B2B_INFO_SCBZ   (1<<22)
+#define B2B_INFO_SGB    (1<<23)
+#define B2B_INFO_MIN_PL_SUM (1<<24)
+#define B2B_INFO_NM     (1<<25)
+#define B2B_INFO_MQ0F   (1<<26)
+#define B2B_INFO_IDV    (1<<27)
+#define B2B_INFO_IMF    (1<<28)
+#define B2B_INFO_FS     (1<<29)
 
 #define B2B_MAX_ALLELES 5
 #define B2B_N_NM 32             // number of NMBZ bins, i.e. max number of mismatches
@@ -159,9 +169,6 @@ typedef struct {
     uint8_t *fmt_arr;
     float vdb; // variant distance bias
     float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc, *mwu_nm, nm[2];
-#if CDF_MWU_TESTS
-    float mwu_pos_cdf, mwu_mq_cdf, mwu_bq_cdf, mwu_mqs_cdf;
-#endif
     float seg_bias;
     float strand_bias; // phred-scaled fisher-exact test
     kstring_t tmp;
