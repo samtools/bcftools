@@ -91,8 +91,8 @@ must correspond to the number of alleles as explained in the section 1.4.2 of th
 </div>
 <div class="paragraph">
 <p><em>How to verify and fix:</em><br>
-Look up the tag definition in the header (<code>bcftools view -H file.vcf.gz | grep TAG</code>) to check the expected number
-of values and then check the number of alleles and values in the data line (<code>bcftools view -h file.vcf.gz -r chr1:1234567</code>).
+Look up the tag definition in the header (<code>bcftools view -h file.vcf.gz | grep TAG</code>) to check the expected number
+of values and then check the number of alleles and values in the data line (<code>bcftools view -H file.vcf.gz -r chr1:1234567</code>).
 Note that the program only works with ploidy 1 or 2, so if defined as <code>Number=G</code> and the ploidy is bigger,
 the program will fail.
 If the tag is not important for your analysis, a quick and dirty workaround is to remove the
