@@ -15,8 +15,8 @@ number of values at multiallelic the data lines.  The number of values
 must correspond to the number of alleles as explained in the section 1.4.2 of the link:http://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification].
 
 _How to verify and fix:_ +
-Look up the tag definition in the header (`bcftools view -H file.vcf.gz | grep TAG`) to check the expected number
-of values and then check the number of alleles and values in the data line (`bcftools view -h file.vcf.gz -r chr1:1234567`).
+Look up the tag definition in the header (`bcftools view -h file.vcf.gz | grep TAG`) to check the expected number
+of values and then check the number of alleles and values in the data line (`bcftools view -H file.vcf.gz -r chr1:1234567`).
 Note that the program only works with ploidy 1 or 2, so if defined as `Number=G` and the ploidy is bigger,
 the program will fail.
 If the tag is not important for your analysis, a quick and dirty workaround is to remove the
@@ -40,7 +40,7 @@ $ bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i 'GT="alt"' file.vcf
 1:67893 sample3 0/1
 ----
 However, you may also want to print genotypes of ALL samples at variant sites with at least one
-non-reference genotype. In order for this to work, first select the desired rows 
+non-reference genotype. In order for this to work, first select the desired rows
 with the `view` command, then let `query` format the output
 ----
 $ bcftools view -i 'GT="alt"' file.vcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
