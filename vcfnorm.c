@@ -726,7 +726,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
 }
 static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing,set_vector_end) \
+    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing,set_vector_end,set_missing) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id); \
         int ntmp = args->ntmp_arr1 / sizeof(type_t); \
@@ -765,7 +765,10 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
             { \
-                dst_vals[0] = src_vals[ialt]; \
+                int idst = 0; \
+                int isrc = ialt; \
+                if ( is_missing || is_vector_end ) set_missing; \
+                else dst_vals[idst] = src_vals[isrc]; \
                 dst_vals += 1; \
                 src_vals += nvals; \
             } \
@@ -799,8 +802,14 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
                 { \
                     dst_vals[0] = src_vals[0]; \
                     for (j=1; j<nvals; j++) \
+                    { \
+                        int isrc = j; \
                         if ( j!=ialt+1 && !(is_missing) && !(is_vector_end) ) dst_vals[0] += src_vals[j]; \
-                    dst_vals[1] = src_vals[ialt+1]; \
+                    } \
+                    int isrc = ialt + 1; \
+                    int idst = 1; \
+                    if ( is_vector_end ) set_missing; \
+                    else dst_vals[idst] = src_vals[isrc]; \
                     dst_vals += 2; \
                     src_vals += nvals; \
                 } \
@@ -810,7 +819,10 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
                 for (i=0; i<nsmpl; i++) \
                 { \
                     dst_vals[0] = src_vals[0]; \
-                    dst_vals[1] = src_vals[ialt+1]; \
+                    int isrc = ialt + 1; \
+                    int idst = 1; \
+                    if ( is_vector_end ) set_missing; \
+                    else dst_vals[idst] = src_vals[isrc]; \
                     dst_vals += 2; \
                     src_vals += nvals; \
                 } \
@@ -845,14 +857,18 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
                 if ( !haploid ) \
                 { \
                     int j; \
-                    for (j=0; j<nvals; j++) if ( is_vector_end ) break; \
+                    for (j=0; j<nvals; j++) \
+                    { \
+                        int isrc = j; \
+                        if ( is_vector_end ) break; \
+                    } \
                     if ( j!=nvals ) haploid = 1; \
                 } \
                 dst_vals[0] = src_vals[0]; \
                 if ( haploid ) \
                 { \
                     dst_vals[1] = src_vals[ialt+1]; \
-                    if ( !all_haploid ) set_vector_end; \
+                    if ( !all_haploid ) { int idst = 2; set_vector_end; } \
                 } \
                 else \
                 { \
@@ -869,8 +885,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[j]==bcf_int32_vector_end, src_vals[j]==bcf_int32_missing, dst_vals[2]=bcf_int32_vector_end); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[j]), bcf_float_is_missing(src_vals[j]), bcf_float_set_vector_end(dst_vals[2])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[isrc]==bcf_int32_vector_end, src_vals[isrc]==bcf_int32_missing, dst_vals[idst]=bcf_int32_vector_end, dst_vals[idst]=bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(src_vals[idst])); break;
     }
     #undef BRANCH_NUMERIC
 }
