@@ -441,8 +441,6 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             return;
     }
 
-static int reminded = 0;
-if ( !reminded ) { fprintf(stderr,"todo: use plp_cd_t to avoid the read-only limitation of p->cd.i\n"); reminded = 1; }
     // Realign
     for (i = 0; i < n; i++) { // iterate over bams
         for (j = 0; j < n_plp[i]; j++) { // iterate over reads
@@ -459,9 +457,8 @@ if ( !reminded ) { fprintf(stderr,"todo: use plp_cd_t to avoid the read-only lim
             // We could use our own structure (p->cd.p), allocated during
             // the constructor, but for simplicity we play dirty and
             // abuse an unused flag bit instead.
-            if (b->core.flag & 32768)
-                continue;
-            b->core.flag |= 32768;
+            if ( PLP_IS_REALN(&(p->cd)) ) continue;
+            PLP_SET_REALN(&(p->cd));
 
             if (b->core.l_qseq > max_read_len)
                 continue;

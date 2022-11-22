@@ -87,12 +87,14 @@ DEALINGS IN THE SOFTWARE.  */
 #define PLP_CD(x) ((plp_cd_t*)((x)->p))
 #define PLP_HAS_SOFT_CLIP(cd) (PLP_CD(cd)->i & 1)
 #define PLP_HAS_INDEL(cd)     (PLP_CD(cd)->i & 2)
-#define PLP_SAMPLE_ID(cd)     (PLP_CD(cd)->i >> 2)
+#define PLP_IS_REALN(cd)      (PLP_CD(cd)->i & 4)
+#define PLP_SAMPLE_ID(cd)     (PLP_CD(cd)->i >> 3)
 #define PLP_QLEN(cd)          (PLP_CD(cd)->qlen)
 
 #define PLP_SET_SOFT_CLIP(cd)     (PLP_CD(cd)->i |= 1)
 #define PLP_SET_INDEL(cd)         (PLP_CD(cd)->i |= 2)
-#define PLP_SET_SAMPLE_ID(cd,n)   (PLP_CD(cd)->i |= (n)<<2)
+#define PLP_SET_REALN(cd)         (PLP_CD(cd)->i |= 4)
+#define PLP_SET_SAMPLE_ID(cd,n)   (PLP_CD(cd)->i |= (n)<<3)
 
 typedef struct
 {
