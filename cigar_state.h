@@ -42,7 +42,7 @@ typedef struct
 }
 cigar_state_t;
 
-inline void cstate_init(cigar_state_t *cs, bam1_t *bam)
+static inline void cstate_init(cigar_state_t *cs, bam1_t *bam)
 {
     cs->bam   = bam;
     cs->cigar = bam_get_cigar(bam);
@@ -67,7 +67,7 @@ inline void cstate_init(cigar_state_t *cs, bam1_t *bam)
  *      - pos inside a deletion && trim_left=1 .. returns position after the deletion
  *      - pos inside a deletion && trim_left=0 .. returns position before the deletion
  */
-inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t *pos_ptr, int trim_left)
+static inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t *pos_ptr, int trim_left)
 {
     hts_pos_t pos = *pos_ptr;
     while ( cs->ref_pos <= pos )
@@ -131,7 +131,7 @@ inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t *pos_ptr, int trim_left)
  *  is still not entirely consumed (e.g. a deletion or a soft-clip); -2
  *  when there is no overlap (i.e. the read ends before the position).
  */
-inline int cstate_seek_op_fwd(cigar_state_t *cs, hts_pos_t pos, int seek_op, int *oplen)
+static inline int cstate_seek_op_fwd(cigar_state_t *cs, hts_pos_t pos, int seek_op, int *oplen)
 {
     while ( cs->ref_pos <= pos )
     {
