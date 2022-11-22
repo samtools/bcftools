@@ -1,0 +1,13 @@
+sites_ref_only	0	# sites skipped because there was no ALT allele
+sites_many_als	0	# skipped because of too many ALT alleles
+sites_fail	0	# skipped because of failed -i/-e filter
+sites_no_GT	0	# skipped because of absent FORMAT/GT field
+sites_not_diploid	0	# skipped because FORMAT/GT not formatted diploid
+sites_missing	6	# number of sites with at least one trio GT missing
+sites_merr	12	# number of sites with at least one Mendelian error
+sites_good	14	# number of sites with at least one good trio
+ngood	14
+nmerr	12
+nmissing	6
+nfail	0
+TRIO	1	child1	dad1	mom1

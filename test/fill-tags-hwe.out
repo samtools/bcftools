@@ -13,6 +13,8 @@
 ##INFO=<ID=MAF,Number=1,Type=Float,Description="Frequency of the second most common allele">
 ##INFO=<ID=HWE,Number=A,Type=Float,Description="HWE test (PMID:15789306); 1=good, 0=bad">
 ##INFO=<ID=ExcHet,Number=A,Type=Float,Description="Test excess heterozygosity; 1=good, 0=bad">
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description="The fraction of reads with alternate allele (nALT/nSumAll)">
+##FORMAT=<ID=VAF1,Number=1,Type=Float,Description="The fraction of reads with alternate alleles (nSumALT/nSumAll)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4	S5	S6	S7	S8	S9	S10
 1	3177144	.	G	T	45	PASS	NS=10;AN=20;AF=0;MAF=0;AC=0;AC_Het=0;AC_Hom=0;AC_Hemi=0;HWE=1;ExcHet=1	GT	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
 1	3177144	.	G	T	45	PASS	NS=10;AN=20;AF=0.1;MAF=0.1;AC=2;AC_Het=2;AC_Hom=0;AC_Hemi=0;HWE=1;ExcHet=0.947368	GT	1/0	1/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0

@@ -146,10 +146,11 @@ struct _filter_t
 #define TOK_sSUM    37
 #define TOK_IN      38      // contains, e.g. FILTER~"A"
 #define TOK_NOT_IN  39      // does not contain, e.g. FILTER!~"A"
+#define TOK_MODULO  40      // %
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s                          %
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7 };
 #define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"       // this is only for debugging, not maintained diligently
 
 static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok);
@@ -240,6 +241,7 @@ static int filters_next_token(char **str, int *len)
             if ( tmp[0]=='-' ) break;
             if ( tmp[0]=='/' ) break;
             if ( tmp[0]=='~' ) break;
+            if ( tmp[0]=='%' ) break;
         }
         if ( tmp[0]==']' ) { if (square_brackets) tmp++; break; }
         if ( tmp[0]=='[' ) square_brackets++;
@@ -290,6 +292,7 @@ static int filters_next_token(char **str, int *len)
     if ( tmp[0]=='*' ) { (*str) += 1; return TOK_MULT; }
     if ( tmp[0]=='/' ) { (*str) += 1; return TOK_DIV; }
     if ( tmp[0]=='~' ) { (*str) += 1; return TOK_LIKE; }
+    if ( tmp[0]=='%' ) { (*str) += 1; return TOK_MODULO; }
 
     *len = tmp - (*str);
     return TOK_VAL;
@@ -1963,7 +1966,7 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
         memset(rtok->pass_samples, 0, rtok->nsamples);
 }
 
-#define VECTOR_ARITHMETICS(atok,btok,_rtok,AOP) \
+#define VECTOR_ARITHMETICS(atok,btok,_rtok,AOP,TYPE) \
 { \
     token_t *rtok = _rtok; \
     int i, has_values = 0; \
@@ -1982,7 +1985,7 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
                     continue; \
                 } \
                 has_values = 1; \
-                rtok->values[i] = atok->values[i] AOP btok->values[i]; \
+                rtok->values[i] = TYPE atok->values[i] AOP TYPE btok->values[i]; \
             } \
         } \
         else if ( atok->nsamples ) \
@@ -1998,7 +2001,7 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
                         continue; \
                     } \
                     has_values = 1; \
-                    rtok->values[i] = atok->values[i] AOP btok->values[0]; \
+                    rtok->values[i] = TYPE atok->values[i] AOP TYPE btok->values[0]; \
                 } \
             } \
         } \
@@ -2015,7 +2018,7 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
                         continue; \
                     } \
                     has_values = 1; \
-                    rtok->values[i] = atok->values[0] AOP btok->values[i]; \
+                    rtok->values[i] = TYPE atok->values[0] AOP TYPE btok->values[i]; \
                 } \
             } \
         } \
@@ -3542,28 +3545,35 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
 
         if ( filter->filters[i].tok_type == TOK_ADD )
         {
-            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],+);
+            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],+,(double));
             filter->flt_stack[nstack-2] = &filter->filters[i];
             nstack--;
             continue;
         }
         else if ( filter->filters[i].tok_type == TOK_SUB )
         {
-            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],-);
+            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],-,(double));
             filter->flt_stack[nstack-2] = &filter->filters[i];
             nstack--;
             continue;
         }
         else if ( filter->filters[i].tok_type == TOK_MULT )
         {
-            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],*);
+            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],*,(double));
             filter->flt_stack[nstack-2] = &filter->filters[i];
             nstack--;
             continue;
         }
         else if ( filter->filters[i].tok_type == TOK_DIV )
         {
-            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],/);
+            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],/,(double));
+            filter->flt_stack[nstack-2] = &filter->filters[i];
+            nstack--;
+            continue;
+        }
+        else if ( filter->filters[i].tok_type == TOK_MODULO )
+        {
+            VECTOR_ARITHMETICS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],%,(int));
             filter->flt_stack[nstack-2] = &filter->filters[i];
             nstack--;
             continue;

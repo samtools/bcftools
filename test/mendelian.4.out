@@ -9,7 +9,7 @@
 ##contig=<ID=6>
 ##contig=<ID=X>
 ##contig=<ID=Y>
-##INFO=<ID=MERR,Number=1,Type=Integer,Description="Mendelian genotype errors">
+##INFO=<ID=MERR,Number=1,Type=Integer,Description="Number of trios with Mendelian errors">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	mom1	dad1	child1
 1	100	.	A	G	100	PASS	MERR=0	GT	0/0	0/0	0/0
 1	101	.	A	G	100	PASS	MERR=1	GT	0/0	0/0	0/1

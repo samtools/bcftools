@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	4391	.	CC	AA	.	.	type=ENST00000360372:201363379-CC-AA;EXP=stop_gained|TNNT2|ENST00000360372|protein_coding|-|132EE>132D*|4391CC>AA

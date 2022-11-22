@@ -1117,14 +1117,21 @@ static void process_rsid_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int i
 
 static void process_variantkey_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
+    const char *alt = NULL;
+    size_t sizealt = 0;
+    if ( line->n_allele>1 )
+    {
+        alt = line->d.allele[1];
+        sizealt = strlen(line->d.allele[1]);
+    }
     uint64_t vk = variantkey(
         convert->header->id[BCF_DT_CTG][line->rid].key,
         strlen(convert->header->id[BCF_DT_CTG][line->rid].key),
         line->pos,
         line->d.allele[0],
         strlen(line->d.allele[0]),
-        line->d.allele[1],
-        strlen(line->d.allele[1]));
+        alt,
+        sizealt);
     ksprintf(str, "%016" PRIx64 "", vk);
 }
 

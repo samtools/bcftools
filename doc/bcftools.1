@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2022-04-07
+.\"      Date: 2022-08-18
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2022-04-07" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2022-08-18" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2022\-04\-07\fP and refers to bcftools git version \fB1.15.1\fP.
+This manual page was last updated \fB2022\-08\-18\fP and refers to bcftools git version \fB1.16\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -1550,6 +1550,8 @@ apply variants of the given sample
     # Create consensus for one region. The fasta header lines are then expected
     # in the form ">chr:from\-to".
     samtools faidx ref.fa 8:11870\-11890 | bcftools consensus in.vcf.gz \-o out.fa
+
+    # For more examples see http://samtools.github.io/bcftools/howtos/consensus\-sequence.html
 .fam
 .fi
 .if n .RE
@@ -2552,6 +2554,13 @@ see \fBCommon Options\fP
 .RE
 .SS "Stats options:"
 .sp
+\fB\-a, \-\-all\fP
+.RS 4
+Used in conjunction with \fB\-s, \-\-stats\fP, print per contig stats
+for all contigs, even those with zero records and those for which
+no stats are recorded in the index file (shown as \fI.\fP).
+.RE
+.sp
 \fB\-n, \-\-nrecords\fP
 .RS 4
 print the number of records based on the CSI or TBI index files
@@ -2562,7 +2571,7 @@ print the number of records based on the CSI or TBI index files
 Print per contig stats based on the CSI or TBI index files.
 Output format is three tab\-delimited columns listing the contig
 name, contig length (\fI.\fP if unknown) and number of records for
-the contig. Contigs with zero records are not printed.
+the contig. Contigs with zero records are not printed by default.
 .RE
 .SS "bcftools isec [\fIOPTIONS\fP] \fIA.vcf.gz\fP \fIB.vcf.gz\fP [...]"
 .sp
@@ -2799,7 +2808,7 @@ maximum number of alternate alleles that can be included in the PL tag. The defa
 is 0 which disables the feature and outputs values for all alternate alleles.
 .RE
 .sp
-\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fInone\fP|\fIid\fP
+\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP
 .RS 4
 The option controls what types of multiallelic records can be created:
 .RE
@@ -2807,12 +2816,13 @@ The option controls what types of multiallelic records can be created:
 .if n .RS 4
 .nf
 .fam C
-\-m none   ..  no new multiallelics, output multiple records instead
-\-m snps   ..  allow multiallelic SNP records
-\-m indels ..  allow multiallelic indel records
-\-m both   ..  both SNP and indel records can be multiallelic
-\-m all    ..  SNP records can be merged with indel records
-\-m id     ..  merge by ID
+\-m none        ..  no new multiallelics, output multiple records instead
+\-m snps        ..  allow multiallelic SNP records
+\-m indels      ..  allow multiallelic indel records
+\-m both        ..  both SNP and indel records can be multiallelic
+\-m all         ..  SNP records can be merged with indel records
+\-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
+\-m id          ..  merge by ID
 .fam
 .fi
 .if n .RE
@@ -3892,7 +3902,7 @@ TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user\-defin
 .RE
 .RE
 .sp
-\fBfix\-ploidy\fP
+\fBfixploidy\fP
 .RS 4
 sets correct ploidy
 .RE
@@ -4018,6 +4028,11 @@ calculate transmission rate in trio children. The usage and format is similar to
 \fBtrio\-switch\-rate\fP
 .RS 4
 calculate phase switch rate in trio samples, children samples must have phased GTs
+.RE
+.sp
+\fBvariant\-distance\fP
+.RS 4
+annotate sites with the distance to the nearest variant
 .RE
 .sp
 \fBvariantkey\-hex\fP
@@ -5105,12 +5120,12 @@ supported only to filter by the ID column)
 .  sp -1
 .  IP \(bu 2.3
 .\}
-arithmetic operators
+arithmetic operators (addition, multiplication, subtraction, division, modulo)
 .sp
 .if n .RS 4
 .nf
 .fam C
-+,*,\-,/
++, *, \-, /, %
 .fam
 .fi
 .if n .RE
@@ -5224,16 +5239,20 @@ FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 .  sp -1
 .  IP \(bu 2.3
 .\}
-starting with 1.11, the FILTER column can be queried as follows:
+the FILTER column can be queried as follows:
 .sp
 .if n .RS 4
 .nf
 .fam C
 FILTER="PASS"
+FILTER="."
 FILTER="A"          .. exact match, for example "A;B" does not pass
+FILTER="A;B"        .. exact match, "A;B" and "B;A" pass, everything else fails
 FILTER!="A"         .. exact match, for example "A;B" does pass
-FILTER~"A"          .. both "A" and "A;B" pass
-FILTER!~"A"         .. neither "A" nor "A;B" pass
+FILTER~"A"          .. subset match, for example both "A" and "A;B" pass
+FILTER~"A;B"        .. subset match, pass only if both "A" and "B" are present
+FILTER!~"A"         .. complement match, for example both "A" and "A;B" fail
+FILTER!~"A;B"       .. complement match, fail if both "A" and "B" are present
 .fam
 .fi
 .if n .RE

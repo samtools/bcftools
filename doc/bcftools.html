@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2022-04-07</strong> and refers to bcftools git version <strong>1.15.1</strong>.</p>
+<p>This manual page was last updated <strong>2022-08-18</strong> and refers to bcftools git version <strong>1.16</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1295,7 +1295,9 @@ format details.</p>
 
     # Create consensus for one region. The fasta header lines are then expected
     # in the form "&gt;chr:from-to".
-    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa</pre>
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+
+    # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html</pre>
 </div>
 </div>
 </div>
@@ -2281,6 +2283,12 @@ using the input file name plus a <em>.csi</em> or <em>.tbi</em> extension</p>
 <h4 id="_stats_options">Stats options:</h4>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>-a, --all</strong></dt>
+<dd>
+<p>Used in conjunction with <strong>-s, --stats</strong>, print per contig stats
+for all contigs, even those with zero records and those for which
+no stats are recorded in the index file (shown as <em>.</em>).</p>
+</dd>
 <dt class="hdlist1"><strong>-n, --nrecords</strong></dt>
 <dd>
 <p>print the number of records based on the CSI or TBI index files</p>
@@ -2290,7 +2298,7 @@ using the input file name plus a <em>.csi</em> or <em>.tbi</em> extension</p>
 <p>Print per contig stats based on the CSI or TBI index files.
 Output format is three tab-delimited columns listing the contig
 name, contig length (<em>.</em> if unknown) and number of records for
-the contig. Contigs with zero records are not printed.</p>
+the contig. Contigs with zero records are not printed by default.</p>
 </dd>
 </dl>
 </div>
@@ -2509,7 +2517,7 @@ alternate alleles relevant (local) for the current sample. The number <em>INT</e
 maximum number of alternate alleles that can be included in the PL tag. The default value
 is 0 which disables the feature and outputs values for all alternate alleles.</p>
 </dd>
-<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>none</em>|<em>id</em></dt>
+<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>snp-ins-del</em>|<em>all</em>|<em>none</em>|<em>id</em></dt>
 <dd>
 <p>The option controls what types of multiallelic records can be created:</p>
 </dd>
@@ -2517,12 +2525,13 @@ is 0 which disables the feature and outputs values for all alternate alleles.</p
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>-m none   ..  no new multiallelics, output multiple records instead
--m snps   ..  allow multiallelic SNP records
--m indels ..  allow multiallelic indel records
--m both   ..  both SNP and indel records can be multiallelic
--m all    ..  SNP records can be merged with indel records
--m id     ..  merge by ID</pre>
+<pre>-m none        ..  no new multiallelics, output multiple records instead
+-m snps        ..  allow multiallelic SNP records
+-m indels      ..  allow multiallelic indel records
+-m both        ..  both SNP and indel records can be multiallelic
+-m all         ..  SNP records can be merged with indel records
+-m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
+-m id          ..  merge by ID</pre>
 </div>
 </div>
 <div class="dlist">
@@ -3385,7 +3394,7 @@ that order.</p>
 </ul>
 </div>
 </dd>
-<dt class="hdlist1"><strong>fix-ploidy</strong></dt>
+<dt class="hdlist1"><strong>fixploidy</strong></dt>
 <dd>
 <p>sets correct ploidy</p>
 </dd>
@@ -3487,6 +3496,10 @@ can be added as a new INFO field to the VCF or in a custom text format. See
 <dt class="hdlist1"><strong>trio-switch-rate</strong></dt>
 <dd>
 <p>calculate phase switch rate in trio samples, children samples must have phased GTs</p>
+</dd>
+<dt class="hdlist1"><strong>variant-distance</strong></dt>
+<dd>
+<p>annotate sites with the distance to the nearest variant</p>
 </dd>
 <dt class="hdlist1"><strong>variantkey-hex</strong></dt>
 <dd>
@@ -4494,10 +4507,10 @@ supported only to filter by the ID column)</p>
 </div>
 </li>
 <li>
-<p>arithmetic operators</p>
+<p>arithmetic operators (addition, multiplication, subtraction, division, modulo)</p>
 <div class="literalblock">
 <div class="content">
-<pre>+,*,-,/</pre>
+<pre>+, *, -, /, %</pre>
 </div>
 </div>
 </li>
@@ -4546,14 +4559,18 @@ FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]</pre>
 </div>
 </li>
 <li>
-<p>starting with 1.11, the FILTER column can be queried as follows:</p>
+<p>the FILTER column can be queried as follows:</p>
 <div class="literalblock">
 <div class="content">
 <pre>FILTER="PASS"
+FILTER="."
 FILTER="A"          .. exact match, for example "A;B" does not pass
+FILTER="A;B"        .. exact match, "A;B" and "B;A" pass, everything else fails
 FILTER!="A"         .. exact match, for example "A;B" does pass
-FILTER~"A"          .. both "A" and "A;B" pass
-FILTER!~"A"         .. neither "A" nor "A;B" pass</pre>
+FILTER~"A"          .. subset match, for example both "A" and "A;B" pass
+FILTER~"A;B"        .. subset match, pass only if both "A" and "B" are present
+FILTER!~"A"         .. complement match, for example both "A" and "A;B" fail
+FILTER!~"A;B"       .. complement match, fail if both "A" and "B" are present</pre>
 </div>
 </div>
 </li>
@@ -5019,7 +5036,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-04-07 16:32:56 +0100
+Last updated 2022-08-18 11:55:56 +0100
 </div>
 </div>
 </body>

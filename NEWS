@@ -1,5 +1,62 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - Support sample reordering of annotation file (#1785)
+
+    - Restore lost functionality of the --pair-logic option (#1808)
+
+* bcftools call
+
+    - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
+      corruption (#1790)
+
+    - Fix a bug where indels constrained with `-C alleles -T` would sometimes be missed (#1706)
+
+* bcftools convert
+
+    - Make variantkey conversion work for sites without an ALT allele (#1806)
+
+* bcftool csq
+
+    - Fix a bug where a MNV with multiple consequences (e.g. missense + stop_gained)
+      would report only the less severe one (#1810)
+
+* bcftools +mendelian
+
+    - The +mendelian plugin has been deprecated and replaced with +mendelian2. The
+      function of the plugin is the same but the command line options and the output
+      format has changed, and for this was introduced as a new plugin.
+
+* bcftools norm
+
+    - New --multi-overlaps option allows to set overlapping alleles either to the
+      ref allele (the current default) or to a missing allele (#1764 and #1802)
+
+* bcftools query
+
+    - Fix a rare bug where the printing of SAMPLE field with `query` was incorrectly
+      suppressed when the `-e` option contained a sample expression while the formatting
+      query did not. See #1783 for details.
+
+* bcftools +setGT
+
+    - Add new `--new-gt X` option (#1800)
+
+* bcftools +split-vep
+
+    - New options `-g, --gene-list` and `--gene-list-fields` which allow to prioritize
+      consequences from a list of genes, or restrict output to the listed genes
+
+* bcftools +trio-dnm2
+
+    - New -n, --strictly-novel option to downplay alleles which violate Mendelian
+      inheritance but are not novel
+
+
+## Release 1.16 (18th August 2022)
 
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
@@ -7,10 +64,13 @@
 
 Changes affecting the whole of bcftools, or multiple commands:
 
-* The -i/-e filtering expressions now support querying of multiple filters,
-  for example `-i 'FILTER="A;B"'` can be used to select sites with two filters
-  "A" and "B" set. See the documentation for more examples.
+* The -i/-e filtering expressions
 
+    - Added support for querying of multiple filters, for example `-i 'FILTER="A;B"'`
+      can be used to select sites with two filters "A" and "B" set. See the documentation
+      for more examples.
+
+    - Added modulo arithmetic operator
 
 Changes affecting specific commands:
 
@@ -20,6 +80,10 @@ Changes affecting specific commands:
       incorrectly trigger `-c ~INFO/END` mode of comparison even when not explicitly
       requested, which would result in not transferring the annotation from a tab-delimited
       file (#1733)
+
+* bcftools merge
+
+    - New `-m snp-ins-del` switch to merge SNVs, insertions and deletions separately (#1704)
 
 * bcftools mpileup
 
@@ -35,7 +99,6 @@ Changes affecting specific commands:
 * bcftools +setGT
 
     - Custom genotypes (e.g. `-n c:1/1`) now correctly override ploidy
-
 
 ## Release 1.15.1 (7th April 2022)
 

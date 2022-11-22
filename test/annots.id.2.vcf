@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##reference=GRCh38.p13
+##contig=<ID=chrM>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chrM	10	rs879233578	T	C	.	.	.
+chrM	73	rs869183622	A	C	.	.	.
+chrM	73	rs869183622	A	G	.	.	.
+chrM	146	rs370482130	T	A	.	.	.
+chrM	146	rs370482130	T	C	.	.	.

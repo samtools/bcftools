@@ -15,6 +15,8 @@
 ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant">
 ##INFO=<ID=TYPE,Number=.,Type=String,Description="Variant type">
 ##INFO=<ID=ExcHet,Number=A,Type=Float,Description="Test excess heterozygosity; 1=good, 0=bad">
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description="The fraction of reads with alternate allele (nALT/nSumAll)">
+##FORMAT=<ID=VAF1,Number=1,Type=Float,Description="The fraction of reads with alternate alleles (nSumALT/nSumAll)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMP_A	SAMP_B	SAMP_C	SAMP_E
 chr1	10146	.	AC	A	.	PASS	NS=2;AN=4;AF=0.5;AC=2;F_MISSING=0.5;MAF=0.5;AC_Het=2;AC_Hom=0;AC_Hemi=0;HWE=1;ExcHet=0.666667;END=10147;TYPE=INDEL	GT	./.	0/1	./.	0/1
 chr1	10153	.	A	C	.	PASS	NS=0;AN=0;AF=.;AC=0;F_MISSING=1;MAF=.;AC_Het=0;AC_Hom=0;AC_Hemi=0;HWE=1;ExcHet=1;END=10153;TYPE=SNP	GT	./.	./.	./.	./.

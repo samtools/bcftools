@@ -128,8 +128,6 @@ typedef struct
 }
 args_t;
 
-args_t args;
-
 const char *about(void)
 {
     return "Screen variants for possible de-novo mutations in trios.\n";

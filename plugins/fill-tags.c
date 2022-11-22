@@ -90,7 +90,8 @@ struct _pop_t
 struct _args_t
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int npop, tags, drop_missing, gt_id;
+    uint32_t tags, warned;
+    int npop, drop_missing, gt_id;
     pop_t *pop, **smpl2pop;
     float *farr;
     int32_t *iarr, niarr, miarr, nfarr, mfarr, unpack;
@@ -268,6 +269,16 @@ void ftf_destroy(pop_t *pop)
     }
     free(pop->ftf);
 }
+
+#define float_set_from_double(dst, src) \
+    if (bcf_double_is_missing_or_vector_end(src)) bcf_float_set_missing(dst); else (dst) = (src)
+
+static inline int32_t int32_from_double(double src)
+{
+    if (bcf_double_is_missing_or_vector_end(src)) return bcf_int32_missing;
+    else return (int)src;
+}
+
 int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
 {
     int j,k, nval, nval1;
@@ -286,14 +297,14 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
         if ( ftf->type==BCF_HT_REAL )
         {
             hts_expand(float,nfill,ftf->nfval,ftf->fval);
-            for (j=0; j<ncopy; j++) ftf->fval[j] = val[j];
+            for (j=0; j<ncopy; j++) float_set_from_double(ftf->fval[j], val[j]);
             for (; j<nfill; j++) bcf_float_set_missing(ftf->fval[j]);
             ret = bcf_update_info_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill);
         }
         else
         {
             hts_expand(int32_t,nfill,ftf->nival,ftf->ival);
-            for (j=0; j<ncopy; j++) ftf->ival[j] = (int)val[j];
+            for (j=0; j<ncopy; j++) ftf->ival[j] = int32_from_double(val[j]);
             for (; j<nfill; j++) ftf->ival[j] = bcf_int32_missing;
             ret = bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill);
         }
@@ -309,7 +320,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             {
                 float *dst  = ftf->fval + k*nval1;
                 const double *src = val + k*nval1;
-                for (j=0; j<ncopy; j++) dst[j] = src[j];
+                for (j=0; j<ncopy; j++) float_set_from_double(dst[j], src[j]);
                 for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
             }
             ret = bcf_update_format_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill*rec->n_sample);
@@ -321,7 +332,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             {
                 int32_t *dst = ftf->ival + k*nval1;
                 const double *src  = val + k*nval1;
-                for (j=0; j<ncopy; j++) dst[j] = (int)src[j];
+                for (j=0; j<ncopy; j++) dst[j] = int32_from_double(src[j]);
                 for (; j<nfill; j++) dst[j] = bcf_int32_missing;
             }
             ret = bcf_update_format_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill*rec->n_sample);
@@ -449,17 +460,20 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
         ret |= parse_func_pop(args,&args->pop[i],tag_expr,expr);
     return ret;
 }
-int parse_tags(args_t *args, const char *str)
+uint32_t parse_tags(args_t *args, const char *str)
 {
     if ( !args->in_hdr ) error("%s", usage());
 
-    int i,j, flag = 0, n_tags;
+    args->warned = 0;
+    uint32_t flag = 0;
+    int i, n_tags;
     char **tags = hts_readlist(str, 0, &n_tags), *ptr;
     for(i=0; i<n_tags; i++)
     {
         if ( !strcasecmp(tags[i],"all") )
         {
-            for (j=0; j<=10; j++) flag |= 1<<j;
+            flag |= ~(SET_END|SET_TYPE);
+            args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
         else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
@@ -966,7 +980,13 @@ static void process_vaf_vaf1(bcf1_t *rec)
 
     args->niarr = bcf_get_format_int32(args->in_hdr, rec, "AD", &args->iarr, &args->miarr);
     if ( args->niarr <= 0 )
-        error("Could not read FORMAT/AD annotation at %s:%"PRIhts_pos"\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+    {
+        if ( !(args->warned&(SET_VAF|SET_VAF1)) )
+            fprintf(stderr,"Warning: cannot add the VAF/VAF1 annotations, the required FORMAT/AD tag is missing at %s:%"PRIhts_pos".\n"
+                           "         (This warning is printed only once.)\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        args->warned |= SET_VAF|SET_VAF1;
+        return;
+    }
 
     int nsmpl = bcf_hdr_nsamples(args->in_hdr);
     if ( args->niarr != nsmpl*rec->n_allele ) return;   // incorrect number of values (possibly all missing)

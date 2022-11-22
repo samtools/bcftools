@@ -2022,7 +2022,7 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
     args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
     for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
 
-    int flags = !src ? SMPL_STRICT|SMPL_SINGLE : SMPL_STRICT|SMPL_SINGLE|SMPL_PAIR2; // is vcf vs tab annotation file
+    int flags = !src ? SMPL_STRICT|SMPL_SINGLE|SMPL_REORDER : SMPL_STRICT|SMPL_SINGLE|SMPL_PAIR2;   // is tab vs vcf annotation file
     smpl_ilist_t *ilist = smpl_ilist_init(dst, args->sample_names, args->sample_is_file, flags);    // gives mapping dst->src
     if ( !ilist || !ilist->n ) error("Could not parse the samples: %s\n", args->sample_names);
     args->nsmpl_annot = ilist->n;
@@ -2441,7 +2441,7 @@ static void init_columns(args_t *args)
             }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_FMT,hdr_id) )
-                error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", str.s, args->targets_fname);
+                error("The FORMAT tag \"%s\" is not defined in %s, was the -h option provided?\n", str.s, args->targets_fname);
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2555,9 +2555,9 @@ static void init_columns(args_t *args)
                             if ( ptr )
                             {
                                 *ptr = 0; tmp.l = 0; ksprintf(&tmp,"%s:=%s",key_src,ptr+1); *ptr = '=';
-                                error("The tag \"%s\" is not defined, is this what you want \"%s\" ?\n",key_src,tmp.s);
+                                error("The INFO tag \"%s\" is not defined, is this what you want \"%s\" ?\n",key_src,tmp.s);
                             }
-                            error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", key_src,args->files->readers[1].fname);
+                            error("The INFO tag \"%s\" is not defined in %s, was the -h option provided?\n", key_src,args->files->readers[1].fname);
                         }
                         tmp.l = 0;
                         bcf_hrec_format_rename(hrec, key_dst, &tmp);
@@ -2568,7 +2568,7 @@ static void init_columns(args_t *args)
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
                 }
                 else
-                    error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", key_dst, args->targets_fname);
+                    error("The INFO tag \"%s\" is not defined in %s, was the -h option provided?\n", key_dst, args->targets_fname);
                 assert( bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) );
             }
             if  ( args->tgts_is_vcf )
@@ -3427,6 +3427,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'H': args->header_lines = dbuf_push(args->header_lines,strdup(optarg)); break;
             case  1 : args->rename_chrs = optarg; break;
             case  2 :
+                if ( args->pair_logic==-1 ) args->pair_logic = 0;
                 if ( !strcmp(optarg,"snps") ) args->pair_logic |= BCF_SR_PAIR_SNP_REF;
                 else if ( !strcmp(optarg,"indels") ) args->pair_logic |= BCF_SR_PAIR_INDEL_REF;
                 else if ( !strcmp(optarg,"both") ) args->pair_logic |= BCF_SR_PAIR_BOTH_REF;
