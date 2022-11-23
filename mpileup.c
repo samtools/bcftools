@@ -1251,7 +1251,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
     fprintf(fp,
-        "      --indels-2.0        New indel calling model (diploid reference consensus)\n");
+        "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n");
     fprintf(fp,"\n");
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
