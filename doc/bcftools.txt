@@ -2054,6 +2054,12 @@ those scenarios.
     ?        FILE_3.bam  SAMPLE_D
 ----
 
+*--indels-2.0*::
+    A new EXPERIMENTAL indel calling model which aims to address some known deficiencies of
+    the current indel calling algorithm. Specifically, it uses diploid reference consensus
+    sequence. Note that in the current version it has the potential to increase sensitivity
+    but at the cost of decreased specificity
+
 *-q, -min-MQ* 'INT'::
     Minimum mapping quality for an alignment to be used [0]
 
