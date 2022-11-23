@@ -2366,6 +2366,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
 
+*--multi-overlaps* '0'|'.'::
+    use the reference ('0') or missing ('.') allele for overlapping alleles after
+    splitting multiallelic sites
+
 *--no-version*::
     see *<<common_options,Common Options>>*
 
@@ -2584,6 +2588,9 @@ By default, appropriate system directories are searched for installed plugins.
     compare two files and set non-identical genotypes to missing
 
 *mendelian*::
+    count Mendelian consistent / inconsistent genotypes (deprecated, use +mendelian2 instead)
+
+*mendelian2*::
     count Mendelian consistent / inconsistent genotypes.
 
 *missing2ref*::

@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##reference=ref.fasta
+##contig=<ID=1,length=51304566>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	511	.	CAGCA	CAG,CAA,CCA	.	.	.	GT	1|0	2|1

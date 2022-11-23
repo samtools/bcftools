@@ -11,10 +11,10 @@
 ##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
 ##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
 ##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
-##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)">
+##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better; approximate, experimental, make me localized?)">
 ##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
 ##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
-##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric, http://samtools.github.io/bcftools/rd-SegBias.pdf">
 ##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
 ##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
 ##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
@@ -24,7 +24,7 @@
 17	101	.	C	<*>	0	.	DP=18;I16=16,1,0,0,630,24730,0,0,958,55682,0,0,331,7303,0,0;QS=3,0;MQ0F=0	PL	0,27,182	0,9,108	0,15,132
 17	102	.	C	<*>	0	.	DP=18;I16=16,1,0,0,676,27812,0,0,958,55682,0,0,330,7178,0,0;QS=3,0;MQ0F=0	PL	0,27,188	0,9,121	0,15,139
 17	103	.	T	C,<*>	0	.	DP=18;I16=15,1,1,0,668,28542,6,36,929,54841,29,841,323,7035,6,36;QS=2.98256,0.0174419,0;SGB=-0.556633;RPBZ=-1.02125;MQBZ=-2.73861;MQSBZ=0.365148;BQBZ=-1.64924;NMBZ=2.45514;SCBZ=4;FS=0;MQ0F=0	PL	0,17,184,24,187,185	0,9,118,9,118,118	0,15,147,15,147,147
-17	104	.	G	C,<*>	0	.	DP=18;I16=15,1,1,0,601,24163,3,9,929,54841,29,841,320,6884,7,49;QS=2.98726,0.0127389,0;SGB=-0.556633;RPBZ=-1.02125;MQBZ=-2.73861;MQSBZ=0.365148;BQBZ=-1.64309;NMBZ=2.45514;SCBZ=2.91548;FS=0;MQ0F=0	PL	0,18,173,24,176,173	0,9,101,9,101,101	0,15,133,15,133,133
+17	104	.	G	C,<*>	0	.	DP=18;I16=15,1,1,0,601,24163,3,9,929,54841,29,841,320,6884,7,49;QS=2.98726,0.0127389,0;SGB=-0.556633;RPBZ=-1.02125;MQBZ=-2.73861;MQSBZ=0.365148;BQBZ=-1.64309;NMBZ=2.45514;SCBZ=4;FS=0;MQ0F=0	PL	0,18,173,24,176,173	0,9,101,9,101,101	0,15,133,15,133,133
 17	105	.	G	<*>	0	.	DP=19;I16=17,1,0,0,603,22351,0,0,1018,59282,0,0,325,6815,0,0;QS=3,0;MQ0F=0	PL	0,30,171	0,9,106	0,15,125
 17	106	.	G	<*>	0	.	DP=19;I16=17,1,0,0,636,25058,0,0,1018,59282,0,0,324,6718,0,0;QS=3,0;MQ0F=0	PL	0,30,190	0,9,92	0,15,124
 17	107	.	C	<*>	0	.	DP=19;I16=17,1,0,0,686,27952,0,0,1018,59282,0,0,323,6643,0,0;QS=3,0;MQ0F=0	PL	0,30,192	0,9,119	0,15,136

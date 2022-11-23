@@ -85,7 +85,7 @@ static bcf1_t *process(bcf1_t *rec);
 
 const char *about(void)
 {
-    return "Count Mendelian consistent / inconsistent genotypes.\n";
+    return "Count Mendelian consistent / inconsistent genotypes [DEPRECATED, use mendelian2 instead]\n";
 }
 
 typedef struct
@@ -142,7 +142,8 @@ const char *usage(void)
 {
     return
         "\n"
-        "About: Count Mendelian consistent / inconsistent genotypes.\n"
+        "About: Count Mendelian consistent / inconsistent genotypes. Note that this plugin is DEPRECATED and\n"
+        "       will not be supported in the future. Please use the newer plugin +mendelian2 instead.\n"
         "Usage: bcftools +mendelian [Options]\n"
         "Options:\n"
         "   -c, --count                     Count the number of consistent sites [DEPRECATED, use `-m c` instead]\n"
@@ -463,7 +464,7 @@ int run(int argc, char **argv)
         args.out_fh = hts_open(args.output_fname ? args.output_fname : "-", wmode);
         if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
         if ( args.mode&MODE_ANNOTATE )
-            bcf_hdr_append(args.hdr, "##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Mendelian genotype errors\">");
+            bcf_hdr_append(args.hdr, "##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Number of trios with Mendelian errors\">");
         if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
     }
 

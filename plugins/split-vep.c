@@ -53,6 +53,9 @@
 #define SELECT_TR_PRIMARY   2
 #define SELECT_CSQ_ANY      -1
 
+#define GENES_RESTRICT   0
+#define GENES_PRIORITIZE 1
+
 typedef struct
 {
     regex_t *regex;
@@ -99,11 +102,16 @@ typedef struct
         *select,        // the --select option
         *column_str,    // the --columns option
         *column_types,  // the --columns-types option
-        *annot_prefix;  // the --annot-prefix option
+        *annot_prefix,  // the --annot-prefix option
+        *genes_fname,   // the --gene-list option
+        *gene_fields_str;   // the --gene-list-fields option
+    int *gene_fields, ngene_fields; // the indices of --gene-list-fields names
     void *field2idx,    // VEP field name to index, used in initialization
-        *csq2severity;  // consequence type to severity score
+        *csq2severity,  // consequence type to severity score
+        *genes;         // hashed --gene-list genes
     cols_t *cols_tr,    // the current CSQ tag split into transcripts
-        *cols_csq;      // the current CSQ transcript split into fields
+        **cols_csq;     // the current CSQ transcripts split into fields
+    int ncols_csq,mcols_csq;    // the number of cols_csq transcripts and the high-water mark
     int min_severity, max_severity;     // ignore consequences outside this severity range
     int drop_sites;                     // the -x, --drop-sites option
     int select_tr;                      // one of SELECT_TR_*
@@ -117,6 +125,8 @@ typedef struct
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
     int allow_undef_tags;
+    int genes_mode;             // --gene-list +FILE, one of GENES_* mode, prioritize or restrict
+    int print_header;
 }
 args_t;
 
@@ -197,6 +207,9 @@ static const char *usage_text(void)
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
+        "   -g, --gene-list [+]FILE         Consider only genes listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
+        "       --gene-list-fields LIST     Use these fields when matching genes from the -g list [SYMBOL,Gene,gene]\n"
+        "   -H, --print-header              Print header\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -444,6 +457,36 @@ char *strdup_annot_prefix(args_t *args, const char *str)
     out = sanitize_field_name(tmp);
     free(tmp);
     return out;
+}
+static void init_gene_list(args_t *args)
+{
+    int i,j,ngene = 0;
+    args->genes_mode = args->genes_fname[0]=='+' ? GENES_PRIORITIZE : GENES_RESTRICT;
+    char *fname = args->genes_fname[0]=='+' ? args->genes_fname+1 : args->genes_fname;
+    char **gene = hts_readlines(fname, &ngene);
+    if ( !ngene || !gene ) error("Could not read the file provided with --gene-list %s\n",fname);
+    args->genes = khash_str2int_init();
+    for (i=0; i<ngene; i++)
+    {
+        char *tmp = strdup(gene[i]);
+        if ( khash_str2int_set(args->genes,tmp,1) < 0 ) free(tmp);  // duplicate gene name
+        free(gene[i]);
+    }
+    free(gene);
+
+    if ( !args->gene_fields_str ) args->gene_fields_str = "SYMBOL,Gene,gene";
+    gene = hts_readlist(args->gene_fields_str,0,&ngene);
+    args->gene_fields = (int*)malloc(ngene*sizeof(*args->gene_fields));
+    for (i=0,j=0; i<ngene; i++)
+    {
+        char *tmp = strdup_annot_prefix(args, gene[i]);
+        if ( khash_str2int_get(args->field2idx,tmp,&args->gene_fields[j])==0 ) j++;
+        free(tmp);
+        free(gene[i]);
+    }
+    free(gene);
+    args->ngene_fields = j;
+    if ( !args->ngene_fields ) error("None of the \"%s\" fields is present in INFO/%s\n",args->gene_fields_str,args->vep_tag);
 }
 static void init_data(args_t *args)
 {
@@ -762,6 +805,7 @@ static void init_data(args_t *args)
         if ( args->convert && (max_unpack & BCF_UN_FMT) )
             convert_set_option(args->convert, subset_samples, &args->smpl_pass);
     }
+    if ( args->genes_fname ) init_gene_list(args);
 
     free(str.s);
 }
@@ -772,9 +816,11 @@ static void destroy_data(args_t *args)
     free(args->kstr.s);
     free(args->column_str);
     free(args->format_str);
-    cols_destroy(args->cols_csq);
     cols_destroy(args->cols_tr);
     int i;
+    for (i=0; i<args->mcols_csq; i++)
+        cols_destroy(args->cols_csq[i]);
+    free(args->cols_csq);
     for (i=0; i<args->nscale; i++) free(args->scale[i]);
     free(args->scale);
     for (i=0; i<args->nfield; i++) free(args->field[i]);
@@ -787,6 +833,8 @@ static void destroy_data(args_t *args)
         free(ann->str.s);
     }
     free(args->annot);
+    free(args->gene_fields);
+    if ( args->genes ) khash_str2int_destroy_free(args->genes);
     if ( args->field2idx ) khash_str2int_destroy(args->field2idx);
     if ( args->csq2severity ) khash_str2int_destroy(args->csq2severity);
     bcf_sr_destroy(args->sr);
@@ -868,27 +916,27 @@ static int csq_severity_pass(args_t *args, char *csq)
     return 1;
 }
 
-static int get_primary_transcript(args_t *args, bcf1_t *rec, cols_t *cols_tr)    // modifies args->cols_csq!
+static int get_primary_transcript(args_t *args, bcf1_t *rec)
 {
     int i;
-    for (i=0; i<cols_tr->n; i++)
+    for (i=0; i<args->ncols_csq; i++)
     {
-        args->cols_csq = cols_split(cols_tr->off[i], args->cols_csq, '|');
-        if ( args->primary_id >= args->cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->primary_id,args->cols_csq->n);
-        if ( !strcmp("YES",args->cols_csq->off[args->primary_id]) ) return i;
+        cols_t *cols_csq = args->cols_csq[i];
+        if ( args->primary_id >= cols_csq->n )
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->primary_id,cols_csq->n);
+        if ( !strcmp("YES",cols_csq->off[args->primary_id]) ) return i;
     }
     return -1;
 }
-static int get_worst_transcript(args_t *args, bcf1_t *rec, cols_t *cols_tr)     // modifies args->cols_csq!
+static int get_worst_transcript(args_t *args, bcf1_t *rec)
 {
     int i, max_severity = -1, imax_severity = 0;
-    for (i=0; i<cols_tr->n; i++)
+    for (i=0; i<args->ncols_csq; i++)
     {
-        args->cols_csq = cols_split(cols_tr->off[i], args->cols_csq, '|');
-        if ( args->csq_idx >= args->cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->cols_csq->n);
-        char *csq = args->cols_csq->off[args->csq_idx];
+        cols_t *cols_csq = args->cols_csq[i];
+        if ( args->csq_idx >= cols_csq->n )
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,cols_csq->n);
+        char *csq = cols_csq->off[args->csq_idx];
 
         int min, max;
         csq_to_severity(args, csq, &min, &max, -1);
@@ -1003,9 +1051,52 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
     if ( bcf_write(args->fh_vcf, args->hdr_out,rec)!=0 )
         error("Failed to write to %s\n", args->output_fname);
 }
+static void restrict_csqs_to_genes(args_t *args)
+{
+    int i,j, nhit = 0;
+
+    // use iarr to mark transcripts from interesting genes
+    hts_expand(int32_t,args->cols_tr->n,args->miarr,args->iarr);
+    for (i=0; i<args->cols_tr->n; i++)
+    {
+        cols_t *cols_csq = args->cols_csq[i];
+        for (j=0; j<args->ngene_fields; j++)
+        {
+            int idx = args->gene_fields[j];
+            if ( idx >= cols_csq->n ) continue;
+            if ( khash_str2int_has_key(args->genes,cols_csq->off[idx]) ) break;
+        }
+        if ( j < args->ngene_fields )
+            args->iarr[i] = 1, nhit++;
+        else
+            args->iarr[i] = 0;
+    }
+    if ( !nhit )
+    {
+        if ( args->genes_mode==GENES_RESTRICT ) args->ncols_csq = 0;    // no gene of interest
+        return;
+    }
+
+    // remove all uninteresting genes by putting all cols_csq hits first
+    i = 0, j = args->cols_tr->n - 1;
+    while ( i < j )
+    {
+        if ( args->iarr[i]==1 ) { i++; continue; }
+        if ( args->iarr[j]==0 ) { j--; continue; }
+        cols_t *tmp = args->cols_csq[i];
+        args->cols_csq[i] = args->cols_csq[j];
+        args->cols_csq[j] = tmp;
+        char *tmp2 = args->cols_tr->off[i];
+        args->cols_tr->off[i] = args->cols_tr->off[j];
+        args->cols_tr->off[j] = tmp2;
+        i++;
+        j--;
+    }
+    args->ncols_csq = nhit;
+}
 static void process_record(args_t *args, bcf1_t *rec)
 {
-    int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
+    int i,len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
     if ( len<=0 )
     {
         if ( !args->drop_sites )
@@ -1016,16 +1107,32 @@ static void process_record(args_t *args, bcf1_t *rec)
         return;
     }
 
+    // split by transcript and by field
     args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
-
-    int i,j, itr_min = 0, itr_max = args->cols_tr->n - 1;
-    if ( args->select_tr==SELECT_TR_PRIMARY )
+    if ( args->cols_tr->n > args->mcols_csq )
     {
-        itr_min = itr_max = get_primary_transcript(args, rec, args->cols_tr);
+        args->cols_csq = (cols_t**)realloc(args->cols_csq,args->cols_tr->n*sizeof(*args->cols_csq));
+        for (i=args->mcols_csq; i<args->cols_tr->n; i++) args->cols_csq[i] = NULL;
+        args->mcols_csq = args->cols_tr->n;
+    }
+    args->ncols_csq = args->cols_tr->n;
+    for (i=0; i<args->cols_tr->n; i++)
+        args->cols_csq[i] = cols_split(args->cols_tr->off[i], args->cols_csq[i], '|');
+
+    // restrict to -g genes
+    if ( args->genes ) restrict_csqs_to_genes(args);
+
+    // select transcripts of interest
+    int j, itr_min = 0, itr_max = args->ncols_csq - 1;
+    if ( !args->ncols_csq )
+        itr_min = itr_max + 1;  // no transcripts left after -g applied
+    else if ( args->select_tr==SELECT_TR_PRIMARY )
+    {
+        itr_min = itr_max = get_primary_transcript(args, rec);
         if ( itr_min<0 ) itr_max = itr_min - 1;
     }
     else if ( args->select_tr==SELECT_TR_WORST )
-        itr_min = itr_max = get_worst_transcript(args, rec, args->cols_tr);
+        itr_min = itr_max = get_worst_transcript(args, rec);
 
     annot_reset(args->annot, args->nannot);
     int severity_pass = 0;  // consequence severity requested via the -s option (BCF record may be output but not annotated)
@@ -1033,18 +1140,18 @@ static void process_record(args_t *args, bcf1_t *rec)
     static int too_few_fields_warned = 0;
     for (i=itr_min; i<=itr_max; i++)
     {
-        args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
-        if ( args->csq_idx >= args->cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->cols_csq->n);
+        cols_t *cols_csq = args->cols_csq[i];
+        if ( args->csq_idx >= cols_csq->n )
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,cols_csq->n);
 
-        char *csq = args->cols_csq->off[args->csq_idx];
+        char *csq = cols_csq->off[args->csq_idx];
         if ( !csq_severity_pass(args, csq) ) continue;
         severity_pass = 1;
 
         for (j=0; j<args->nannot; j++)
         {
             annot_t *ann = &args->annot[j];
-            if ( ann->idx >= args->cols_csq->n )
+            if ( ann->idx >= cols_csq->n )
             {
                 if ( !too_few_fields_warned )
                 {
@@ -1057,7 +1164,7 @@ static void process_record(args_t *args, bcf1_t *rec)
 
             char *ann_str = NULL;
             if ( ann->idx==-1 ) ann_str = args->cols_tr->off[i];
-            else if ( *args->cols_csq->off[ann->idx] ) ann_str = args->cols_csq->off[ann->idx];
+            else if ( *cols_csq->off[ann->idx] ) ann_str = cols_csq->off[ann->idx];
             if ( ann_str )
             {
                 annot_append(ann, ann_str);
@@ -1097,6 +1204,8 @@ int run(int argc, char **argv)
         {"all-fields",no_argument,0,'A'},
         {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
+        {"gene-list",required_argument,0,'g'},
+        {"gene-list-fields",required_argument,0,5},
         {"annotation",required_argument,0,'a'},
         {"annot-prefix",required_argument,0,'p'},
         {"columns",required_argument,0,'c'},
@@ -1120,7 +1229,7 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xuHg:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1131,9 +1240,11 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
+            case 'H': args->print_header = 1; break;
             case 'x': args->drop_sites = 1; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
+            case 'g': args->genes_fname = optarg; break;
             case 'a': args->vep_tag = optarg; break;
             case 'p': args->annot_prefix = optarg; break;
             case 'c': args->column_str = strdup(optarg); break;
@@ -1178,12 +1289,14 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
+            case  5 : args->gene_fields_str = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
         }
     }
     if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
+    if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
     if ( args->column_types && !strcmp("-",args->column_types) ) error("%s", default_column_types());
@@ -1210,7 +1323,16 @@ int run(int argc, char **argv)
         }
 
         if ( args->format_str )
+        {
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+            if ( args->print_header )
+            {
+                args->kstr.l = 0;
+                convert_header(args->convert,&args->kstr);
+                if ( args->kstr.l && bgzf_write(args->fh_bgzf, args->kstr.s, args->kstr.l)!=args->kstr.l )
+                    error("Failed to write to %s\n", args->output_fname);
+            }
+        }
         else
         {
             char wmode[8];

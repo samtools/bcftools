@@ -4,18 +4,51 @@ Changes affecting specific commands:
 
 * bcftools annotate
 
-    - Support sample reordering of annotation file ( #1785)
+    - Support sample reordering of annotation file (#1785)
+
+    - Restore lost functionality of the --pair-logic option (#1808)
 
 * bcftools call
 
     - Fix a bug where too many alleles passed to `-C alleles` via `-T` caused memory
       corruption (#1790)
 
+    - Fix a bug where indels constrained with `-C alleles -T` would sometimes be missed (#1706)
+
+* bcftools convert
+
+    - Make variantkey conversion work for sites without an ALT allele (#1806)
+
+* bcftool csq
+
+    - Fix a bug where a MNV with multiple consequences (e.g. missense + stop_gained)
+      would report only the less severe one (#1810)
+
+* bcftools +mendelian
+
+    - The +mendelian plugin has been deprecated and replaced with +mendelian2. The
+      function of the plugin is the same but the command line options and the output
+      format has changed, and for this was introduced as a new plugin.
+
+* bcftools norm
+
+    - New --multi-overlaps option allows to set overlapping alleles either to the
+      ref allele (the current default) or to a missing allele (#1764 and #1802)
+
 * bcftools query
 
     - Fix a rare bug where the printing of SAMPLE field with `query` was incorrectly
       suppressed when the `-e` option contained a sample expression while the formatting
       query did not. See #1783 for details.
+
+* bcftools +setGT
+
+    - Add new `--new-gt X` option (#1800)
+
+* bcftools +split-vep
+
+    - New options `-g, --gene-list` and `--gene-list-fields` which allow to prioritize
+      consequences from a list of genes, or restrict output to the listed genes
 
 * bcftools +trio-dnm2
 
