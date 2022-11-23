@@ -47,9 +47,6 @@ DEALINGS IN THE SOFTWARE.  */
 #include "bam_sample.h"
 #include "gvcf.h"
 
-#define MPLP_BCF        1
-#define MPLP_VCF        (1<<1)
-#define MPLP_NO_COMP    (1<<2)
 #define MPLP_NO_ORPHAN  (1<<3)
 #define MPLP_REALN      (1<<4)
 #define MPLP_NO_INDEL   (1<<5)
@@ -1559,19 +1556,6 @@ int main_mpileup(int argc, char *argv[])
     {
         fprintf(stderr,"[warning] The -a DP option is required with --gvcf, switching on.\n");
         mplp.fmt_flag |= B2B_FMT_DP;
-    }
-    if ( mplp.flag&(MPLP_BCF|MPLP_VCF|MPLP_NO_COMP) )
-    {
-        if ( mplp.flag&MPLP_VCF )
-        {
-            if ( mplp.flag&MPLP_NO_COMP ) mplp.output_type = FT_VCF;
-            else mplp.output_type = FT_VCF_GZ;
-        }
-        else if ( mplp.flag&MPLP_BCF )
-        {
-            if ( mplp.flag&MPLP_NO_COMP ) mplp.output_type = FT_BCF;
-            else mplp.output_type = FT_BCF_GZ;
-        }
     }
     if ( !(mplp.flag&MPLP_REALN) && mplp.flag&MPLP_REDO_BAQ )
     {

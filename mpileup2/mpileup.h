@@ -57,13 +57,19 @@ typedef enum
     MIN_BQ,             // int, skip bases with baseQ smaller than MIN_BQ [1]
     MAX_BQ,             // int, cap BQ for overly optimistics platforms [60]
     DELTA_BQ,           // int, --delta-BQ value for downgrading high BQ if neighbor_BQ is < BQ - 30  [30]
+    MIN_REALN_FRAC,     // float, minimum fraction of reads with evidence for an indel to consider the site needing realignment [0.05]
+    MIN_REALN_DP,       // int, minimum number of reads with evidence for an indel to consider the site needing realignment [2]
+    MAX_REALN_DP,       // int, subsample to this many reads for realignment [250]
+    MAX_REALN_LEN,      // int, realign reads this long max [500]
 }
 mpileup_opt_t;
 
-#define mpileup_set_opt(es,type,key,value) { type tmp = value; mpileup_set(es, key, (void*)&tmp); }
+#define mpileup_set_opt(mplp,type,key,value) { type tmp = value; mpileup_set(mplp, key, (void*)&tmp); }
+#define mpileup_get_opt(mplp,type,key) (*(type*)mpileup_get(mplp, key))
 
 mpileup_t *mpileup_init(void);
-void mpileup_set(mpileup_t *mplp, mpileup_opt_t key, void *value);
+int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, void *value);
+void *mpileup_get(mpileup_t *mplp, mpileup_opt_t key);
 void mpileup_destroy(mpileup_t *mplp);
 
 #endif
