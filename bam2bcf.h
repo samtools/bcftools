@@ -90,6 +90,8 @@ DEALINGS IN THE SOFTWARE.  */
 #define PLP_IS_REALN(cd)      (PLP_CD(cd)->i & 4)
 #define PLP_SAMPLE_ID(cd)     (PLP_CD(cd)->i >> 3)
 #define PLP_QLEN(cd)          (PLP_CD(cd)->qlen)
+#define PLP_NM(cd)            (PLP_CD(cd)->nm)
+#define PLP_NM_UNSET          -2
 
 #define PLP_SET_SOFT_CLIP(cd)     (PLP_CD(cd)->i |= 1)
 #define PLP_SET_INDEL(cd)         (PLP_CD(cd)->i |= 2)
@@ -100,6 +102,7 @@ typedef struct
 {
     int64_t i;      // used to store sample id and flags for presence of soft-clip and indel
     uint32_t qlen;  // cached output of bam_cigar2qlen(), 0 if unset
+    int nm;         // -2 PLP_NM_UNSET; -1 not available; >=0 NM value computed by get_aux_nm()
 }
 plp_cd_t;
 

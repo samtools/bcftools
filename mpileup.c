@@ -297,6 +297,8 @@ static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
 {
     cd->p = calloc(1,sizeof(plp_cd_t));
 
+    PLP_NM(cd) = PLP_NM_UNSET;
+
     mplp_aux_t *ma = (mplp_aux_t *)data;
     int n = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
     PLP_SET_SAMPLE_ID(cd, n);
@@ -1151,7 +1153,7 @@ static void list_annotations(FILE *fp)
         "* INFO/MQBZ  .. Mann-Whitney U test of Mapping Quality Bias (Number=1,Type=Float)\n"
         "* INFO/MQSBZ .. Mann-Whitney U-z test of Mapping Quality vs Strand Bias (Number=1,Type=Float)\n"
         "  INFO/NM    .. Approximate average number of mismatches in ref and alt reads, experimental (Number=2,Type=Float)\n"
-        "* INFO/NMBZ  .. Mann-Whitney U-z test of Number of Mismatches within supporting reads (Number=1,Type=Float)\n"
+        "  INFO/NMBZ  .. Mann-Whitney U-z test of Number of Mismatches within supporting reads (Number=1,Type=Float)\n"
         "* INFO/RPBZ  .. Mann-Whitney U test of Read Position Bias (Number=1,Type=Float)\n"
         "* INFO/SCBZ  .. Mann-Whitney U-z test of Soft-Clip Length Bias (Number=1,Type=Float)\n"
         "  INFO/SCR   .. Number of soft-clipped reads (Number=1,Type=Integer)\n"
@@ -1295,7 +1297,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
-    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_FS|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_NMBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
+    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_FS|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;

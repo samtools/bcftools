@@ -91,28 +91,44 @@ void bcf_call_destroy(bcf_callaux_t *bca)
     free(bca->bases); free(bca->inscns); free(bca);
 }
 
-static int get_aux_nm(bam1_t *rec, int32_t qpos, int is_ref)
+static int get_aux_nm(const bam_pileup1_t *p, int32_t qpos, int is_ref)
 {
-    uint8_t *nm_tag = bam_aux_get(rec, "NM");
-    if ( !nm_tag ) return -1;
-    int64_t nm = bam_aux2i(nm_tag);
+    int64_t nm;
+    const bam_pileup_cd *cd = &p->cd;
 
-    // Count indels as single events, not as the number of inserted/deleted
-    // bases (which is what NM does). Add soft clips as mismatches.
-    int i;
-    for (i=0; i < rec->core.n_cigar; i++)
+    if ( PLP_NM(cd) == -1 ) return -1;
+    if ( PLP_NM(cd) == PLP_NM_UNSET )
     {
-        int val = bam_get_cigar(rec)[i] & BAM_CIGAR_MASK;
-        if ( val==BAM_CSOFT_CLIP )
+        // todo: make this localized to be useful for long reads as well
+        bam1_t *rec = p->b;
+        uint8_t *nm_tag = bam_aux_get(rec, "NM");
+        if ( !nm_tag )
         {
-            nm += bam_get_cigar(rec)[i] >> BAM_CIGAR_SHIFT;
+            PLP_NM(cd) = -1;
+            return -1;
         }
-        else if ( val==BAM_CINS || val==BAM_CDEL )
+        nm = bam_aux2i(nm_tag);
+
+        // Count indels as single events, not as the number of inserted/deleted
+        // bases (which is what NM does). Add soft clips as mismatches.
+        int i;
+        for (i=0; i < rec->core.n_cigar; i++)
         {
-            val = bam_get_cigar(rec)[i] >> BAM_CIGAR_SHIFT;
-            if ( val > 1 ) nm -= val - 1;
+            int val = bam_get_cigar(rec)[i] & BAM_CIGAR_MASK;
+            if ( val==BAM_CSOFT_CLIP )
+            {
+                nm += bam_get_cigar(rec)[i] >> BAM_CIGAR_SHIFT;
+            }
+            else if ( val==BAM_CINS || val==BAM_CDEL )
+            {
+                val = bam_get_cigar(rec)[i] >> BAM_CIGAR_SHIFT;
+                if ( val > 1 ) nm -= val - 1;
+            }
         }
+        PLP_NM(cd) = nm;
     }
+    else
+        nm = PLP_NM(cd);
 
     // Take into account MNPs, 2% of de novo SNVs appear within 20bp of another de novo SNV
     //      http://www.genome.org/cgi/doi/10.1101/gr.239756.118
@@ -274,7 +290,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         //  p->indel  .. is there an indel starting after this position (i.e. does this read have the tested indel)
         if (p->is_del && !is_indel) continue;   // not testing an indel and the read has a spanning deletion
 
-        int inm;
+        int inm = -1;
 
         ++ori_depth;
         if (is_indel)   // testing an indel position
@@ -304,11 +320,14 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             }
 
             is_diff = b ? 1 : 0;
-            inm = get_aux_nm(p->b,p->qpos,is_diff?0:1);
-            if ( inm>=0 )
+            if ( bca->fmt_flag&(B2B_FMT_NMBZ|B2B_INFO_NMBZ|B2B_INFO_NM) )
             {
-                bca->nnm[is_diff]++;
-                bca->nm[is_diff] += inm;
+                inm = get_aux_nm(p,p->qpos,is_diff?0:1);
+                if ( inm>=0 )
+                {
+                    bca->nnm[is_diff]++;
+                    bca->nm[is_diff] += inm;
+                }
             }
 
             if (q < bca->min_baseQ)
@@ -344,11 +363,14 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             baseQ = q;
             seqQ  = 99;
             is_diff = (ref4 < 4 && b == ref4)? 0 : 1;
-            inm = get_aux_nm(p->b,p->qpos,is_diff?0:1);
-            if ( inm>=0 )
+            if ( bca->fmt_flag&(B2B_FMT_NMBZ|B2B_INFO_NMBZ|B2B_INFO_NM) )
             {
-                bca->nnm[is_diff]++;
-                bca->nm[is_diff] += inm;
+                inm = get_aux_nm(p,p->qpos,is_diff?0:1);
+                if ( inm>=0 )
+                {
+                    bca->nnm[is_diff]++;
+                    bca->nm[is_diff] += inm;
+                }
             }
         }
         mapQ  = p->b->core.qual < 255? p->b->core.qual : DEF_MAPQ; // special case for mapQ==255
