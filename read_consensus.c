@@ -185,8 +185,7 @@ static void add_ins(read_cns_t *rcns, int ref_pos, int seq_pos, uint8_t *raw_seq
     for (i=0; i<NI && ifrq->nt16_seq[i]; i++)
         if ( ifrq->len[i]==len && !memcmp(ifrq->nt16_seq[i],str,len) ) break;
 
-if ( i>=NI ) fprintf(stderr,"xxx: many ins types at pos=%d\n",(int)rcns->pos); // how frequent is it to have too many insertion types?
-    if ( i>=NI ) return;    // too many choices; discard
+    if ( i>=NI ) return;    // too many choices, typically homopolymers in long reads; discard
 
     if ( !ifrq->nt16_seq[i] )      // new insertion
     {
@@ -208,8 +207,7 @@ static void add_del(read_cns_t *rcns, int ref_pos, int len)
     for (i=0; i<NI && dfrq->len[i]; i++)
         if ( dfrq->len[i]==len ) break;
 
-if ( i>=NI ) fprintf(stderr,"xxx: many del types at pos=%d\n",(int)rcns->pos); // how frequent is it to have too many insertion types?
-    if ( i>=NI ) return;    // too many choices; discard
+    if ( i>=NI ) return;    // too many choices, typically homopolymers in long reads; discard
 
     if ( !dfrq->len[i] ) dfrq->len[i] = len;    // new deletion
     dfrq->freq[i]++;
@@ -286,6 +284,7 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
                 }
                 x += len;
             }
+            else if ( op==BAM_CHARD_CLIP ) continue;
             else error("rcns_set_reads todo: unknown cigar operator %d\n",op);
             if ( local_band_max < local_band ) local_band_max = local_band;
         }
