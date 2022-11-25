@@ -300,6 +300,8 @@ static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
 {
     cd->p = calloc(1,sizeof(plp_cd_t));
 
+    PLP_NM(cd) = PLP_NM_UNSET;
+
     mplp_aux_t *ma = (mplp_aux_t *)data;
     int n = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
     PLP_SET_SAMPLE_ID(cd, n);
