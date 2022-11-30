@@ -22,20 +22,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
-
-/*
-
-Can't decide how much of the functionality should stay in bcftools and what should be moved to htslib and
-controlled via mpileup_set_option()
-    - list BAM files so that cumbersome nplp,plp,nsmpl,files,nfiles variables can be avoided on user side;
-      check the BAM header consistency (this is currently not done by mpileup)
-    - list of read groups to include or exclude, possibly with sample renaming, as in mpileup -G
-    - list of samples to include or exclude, as in mpileup -S
-    - targets and regions, as in  mpileup -R/-T/-r/-t
-
-*/
-
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,7 +61,7 @@ typedef struct
 {
     int argc;
     char **argv, *output_fname;
-    int rflag_skip_any_unset, rflag_skip_all_unset, rflag_skip_any_set, rflag_skip_all_set, flag;
+    int flag;
     int output_type, clevel, max_read_len;
     int record_cmd_line;
     mpileup_t *mplp;
@@ -84,26 +70,14 @@ typedef struct
 }
 args_t;
 
-
-// Data shared by all bam files
-typedef struct {
-    int min_mq, flag, min_baseQ, max_baseQ, delta_baseQ, capQ_thres, max_depth,
-        max_indel_depth, max_read_len, fmt_flag, ambig_reads;
-    int rflag_skip_any_unset, rflag_skip_all_unset, rflag_skip_any_set, rflag_skip_all_set, output_type;
-    int openQ, extQ, tandemQ, min_support, indel_win_size; // for indels
-    double indel_bias;
-    char *reg_fname, *pl_list, *fai_fname, *output_fname;
-    int reg_is_file, record_cmd_line, n_threads, clevel;
-    int bed_logic;          // 1: include region, 0: exclude region
-
-    // auxiliary structures for calling
-    kstring_t buf;
-    bcf1_t *bcf_rec;
-    htsFile *bcf_fp;
-    bcf_hdr_t *bcf_hdr;
-    int argc;
-    char **argv;
-} mplp_conf_t;
+static int run_mpileup(args_t *args)
+{
+    int ret;
+    while ( (ret=mpileup_next(args->mplp))==1 )
+    {
+    }
+    return ret;
+}
 
 #define SET_FMT_FLAG(str,bit,msg) \
     if (!strcasecmp(tag,str) || !strcasecmp(tag,"FMT/"str) || !strcasecmp(tag,"FORMAT/"str)) \
@@ -215,10 +189,10 @@ static void list_annotations(FILE *fp)
 
 static void print_usage(args_t *args, FILE *fp)
 {
-    char *tmp_skip_all_set = bam_flag2str(args->rflag_skip_all_set);
-    char *tmp_skip_any_unset = bam_flag2str(args->rflag_skip_any_unset);
-    char *tmp_skip_all_unset = bam_flag2str(args->rflag_skip_all_unset);
-    char *tmp_skip_any_set = bam_flag2str(args->rflag_skip_any_set);
+    char *tmp_skip_all_set = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ALL_SET));
+    char *tmp_skip_any_unset = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ANY_UNSET));
+    char *tmp_skip_all_unset = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ALL_UNSET));
+    char *tmp_skip_any_set = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ANY_SET));
 
     fprintf(fp,
         "\n"
@@ -231,7 +205,7 @@ static void print_usage(args_t *args, FILE *fp)
         "  -B, --no-BAQ            Disable BAQ (per-Base Alignment Quality)\n"
         "  -C, --adjust-MQ INT     Adjust mapping quality [0]\n"
         "  -D, --full-BAQ          Apply BAQ everywhere, not just in problematic regions\n"
-        "  -d, --max-depth INT     Max raw per-file depth; avoids excessive memory usage [%d]\n", mpileup_get_opt(args->mplp, int, MAX_DP_PER_FILE));
+        "  -d, --max-depth INT     Max raw per-sample depth; avoids excessive memory usage [%d]\n", mpileup_get_opt(args->mplp, int, MAX_DP_PER_SAMPLE));
     fprintf(fp,
         "  -E, --redo-BAQ          Recalculate BAQ on the fly, ignore existing BQs\n"
         "  -f, --fasta-ref FILE    Faidx indexed reference sequence file\n"
@@ -317,7 +291,7 @@ static void print_usage(args_t *args, FILE *fp)
     free(tmp_skip_any_set);
 }
 
-static void exit_nicely(args_t *args)
+static void clean_up(args_t *args)
 {
     mpileup_destroy(args->mplp);
     free(args);
@@ -328,23 +302,23 @@ int main_mpileup2(int argc, char *argv[])
     int c, ret = 0;
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
-    args->rflag_skip_any_set = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
     args->flag   = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_REALN_PARTIAL | MPLP_SMART_OVERLAPS;
     args->bca.openQ   = 40;
     args->bca.extQ    = 20;
     args->bca.tandemQ = 500;
 
-    args->mplp = mpileup_init();
-    mpileup_set_opt(args->mplp, int, MAX_DP_PER_FILE, 250);
-    mpileup_set_opt(args->mplp, int, MIN_MQ, 0);
-    mpileup_set_opt(args->mplp, int, MAX_BQ, 60);
-    mpileup_set_opt(args->mplp, int, DELTA_BQ, 30);
-    mpileup_set_opt(args->mplp, float, MIN_REALN_FRAC, 0.05);
-    mpileup_set_opt(args->mplp, int, MIN_REALN_DP, 2);
-    mpileup_set_opt(args->mplp, int, MAX_REALN_DP, 250);
-    mpileup_set_opt(args->mplp, int, MAX_REALN_LEN, 500);
+    args->mplp = mpileup_alloc();
+    mpileup_set(args->mplp, MAX_DP_PER_SAMPLE, 250);
+    mpileup_set(args->mplp, MIN_MQ, 0);
+    mpileup_set(args->mplp, MAX_BQ, 60);
+    mpileup_set(args->mplp, DELTA_BQ, 30);
+    mpileup_set(args->mplp, MIN_REALN_FRAC, 0.05);
+    mpileup_set(args->mplp, MIN_REALN_DP, 2);
+    mpileup_set(args->mplp, MAX_REALN_DP, 250);
+    mpileup_set(args->mplp, MAX_REALN_LEN, 500);
+    mpileup_set(args->mplp, SKIP_ANY_SET, BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP);
 
-    int noref = 0;
+    hts_srand48(0);
 
 #if 0
     const char *file_list = NULL;
@@ -372,7 +346,6 @@ int main_mpileup2(int argc, char *argv[])
     mplp.max_read_len = 500;
     mplp.indel_win_size = 110;
     mplp.clevel = -1;
-    hts_srand48(0);
 #endif
 
     static const struct option lopts[] =
@@ -447,57 +420,51 @@ int main_mpileup2(int argc, char *argv[])
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
         switch (c) {
-        case 'x': mpileup_set_opt(args->mplp, int, SMART_OVERLAPS, 0); break;
+        case 'x': mpileup_set(args->mplp, SMART_OVERLAPS, 0); break;
         case  16 :
-            args->rflag_skip_any_unset = bam_str2flag(optarg);
-            if ( args->rflag_skip_any_unset <0 ) { fprintf(stderr,"Could not parse --nf %s\n", optarg); return 1; }
+        {
+            int flag = bam_str2flag(optarg);
+            if ( flag<0 ) { fprintf(stderr,"Could not parse --nu %s\n", optarg); return 1; }
+            mpileup_set(args->mplp, SKIP_ANY_UNSET, flag);
             break;
+        }
         case  17 :
-            args->rflag_skip_all_unset = bam_str2flag(optarg);
-            if ( args->rflag_skip_all_unset<0 ) { fprintf(stderr,"Could not parse --if %s\n", optarg); return 1; }
+        {
+            int flag = bam_str2flag(optarg);
+            if ( flag<0 ) { fprintf(stderr,"Could not parse --lu %s\n", optarg); return 1; }
+            mpileup_set(args->mplp, SKIP_ALL_UNSET, flag);
             break;
+        }
         case  18 :
-            args->rflag_skip_any_set = bam_str2flag(optarg);
-            if ( args->rflag_skip_any_set <0 ) { fprintf(stderr,"Could not parse --ef %s\n", optarg); return 1; }
+        {
+            int flag = bam_str2flag(optarg);
+            if ( flag<0 ) { fprintf(stderr,"Could not parse --ns %s\n", optarg); return 1; }
+            mpileup_set(args->mplp, SKIP_ANY_SET, flag);
             break;
+        }
         case  19 :
-            args->rflag_skip_all_set = bam_str2flag(optarg);
-            if ( args->rflag_skip_all_set <0 ) { fprintf(stderr,"Could not parse --df %s\n", optarg); return 1; }
+        {
+            int flag = bam_str2flag(optarg);
+            if ( flag<0 ) { fprintf(stderr,"Could not parse --ls %s\n", optarg); return 1; }
+            mpileup_set(args->mplp, SKIP_ALL_SET, flag);
             break;
+        }
         case  3 : args->output_fname = optarg; break;
         case  4 : args->bca.openQ = atoi(optarg); break;
-        case  5 : mpileup_set_opt(args->mplp, int, SMPL_IGNORE_RG, 1); break;
+        case  5 : mpileup_set(args->mplp, SMPL_IGNORE_RG, 1); break;
         case 'g':
             args->gvcf = gvcf_init(optarg);
             if ( !args->gvcf ) error("Could not parse: --gvcf %s\n", optarg);
             break;
-        case 'f': mpileup_set_opt(args->mplp, char*, FASTA_REF, optarg); break;
-        case  7 : noref = 1; break;
+        case 'f': mpileup_set(args->mplp, FASTA_REF, optarg); break;
+        case  7 : error("todo: --no-reference"); /*noref = 1;*/ break;
         case  8 : args->record_cmd_line = 0; break;
         case  9 : error("todo: --threads\n"); /* note this was used *only* for output VCF compression, practically useless, moreover -Ou is recommended... */ break;
-        case 'd': mpileup_set_opt(args->mplp, int, MAX_DP_PER_FILE, atoi(optarg)); break;
-        case 'r': mpileup_set_opt(args->mplp, char*, REGIONS, optarg); break;
-        case 'R': mpileup_set_opt(args->mplp, char*, REGIONS_FNAME, optarg); break;
-        case 't': mpileup_set_opt(args->mplp, char*, TARGETS, optarg);
-                  //    // In the original version the whole BAM was streamed which is inefficient
-                  //    //  with few BED intervals and big BAMs. Todo: devise a heuristic to determine
-                  //    //  best strategy, that is streaming or jumping.
-                  //    if ( optarg[0]=='^' ) optarg++;
-                  //    else mplp.bed_logic = 1;
-                  //    mplp.bed = regidx_init(NULL,regidx_parse_reg,NULL,0,NULL);
-                  //    mplp.bed_itr = regitr_init(mplp.bed);
-                  //    if ( regidx_insert_list(mplp.bed,optarg,',') !=0 )
-                  //    {
-                  //        fprintf(stderr,"Could not parse the targets: %s\n", optarg);
-                  //        exit(EXIT_FAILURE);
-                  //    }
-                  break;
-        case 'T': mpileup_set_opt(args->mplp, char*, TARGETS_FNAME, optarg);
-                  //    if ( optarg[0]=='^' ) optarg++;
-                  //    else mplp.bed_logic = 1;
-                  //    mplp.bed = regidx_init(optarg,NULL,NULL,0,NULL);
-                  //    if (!mplp.bed) { fprintf(stderr, "bcftools mpileup: Could not read file \"%s\"", optarg); return 1; }
-                  break;
+        case 'd': mpileup_set(args->mplp, MAX_DP_PER_SAMPLE, atoi(optarg)); break;
+        case 'r': mpileup_set(args->mplp, REGIONS, optarg); break;
+        case 'R': mpileup_set(args->mplp, REGIONS_FNAME, optarg); break;
+        case 't': mpileup_set(args->mplp, TARGETS, optarg); break;
+        case 'T': mpileup_set(args->mplp, TARGETS_FNAME, optarg); break;
         case 'P': error("todo: --platforms\n"); /* this was never used: mplp.pl_list = strdup(optarg); */ break;
         case 'p': args->flag |= MPLP_PER_SAMPLE; break;
         case 'B': args->flag &= ~MPLP_REALN; break;
@@ -505,8 +472,8 @@ int main_mpileup2(int argc, char *argv[])
         case 'I': args->flag |= MPLP_NO_INDEL; break;
         case 'E': args->flag |= MPLP_REDO_BAQ; break;
         case '6': args->flag |= MPLP_ILLUMINA13; break;
-        case 's': mpileup_set_opt(args->mplp, char*, SAMPLES, optarg); break;
-        case 'S': mpileup_set_opt(args->mplp, char*, SAMPLES_FNAME, optarg); break;
+        case 's': mpileup_set(args->mplp, SAMPLES, optarg); break;
+        case 'S': mpileup_set(args->mplp, SAMPLES_FNAME, optarg); break;
         case 'O':
             switch (optarg[0]) {
                 case 'b': args->output_type = FT_BCF_GZ; break;
@@ -527,12 +494,12 @@ int main_mpileup2(int argc, char *argv[])
                 if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --output-type %s\n", optarg+1);
             }
             break;
-        case 'C': mpileup_set_opt(args->mplp, int, ADJUST_MQ, atoi(optarg)); break;
-        case 'q': mpileup_set_opt(args->mplp, int, MIN_MQ, atoi(optarg)); break;
-        case 'Q': mpileup_set_opt(args->mplp, int, MIN_BQ, atoi(optarg)); break;
-        case  11: mpileup_set_opt(args->mplp, int, MAX_BQ, atoi(optarg)); break;
-        case  12: mpileup_set_opt(args->mplp, int, DELTA_BQ, atoi(optarg)); break;
-        case 'b': if ( mpileup_set(args->mplp, BAM_FNAME, &optarg)!=0 ) exit_nicely(args); break;
+        case 'C': mpileup_set(args->mplp, ADJUST_MQ, atoi(optarg)); break;
+        case 'q': mpileup_set(args->mplp, MIN_MQ, atoi(optarg)); break;
+        case 'Q': mpileup_set(args->mplp, MIN_BQ, atoi(optarg)); break;
+        case  11: mpileup_set(args->mplp, MAX_BQ, atoi(optarg)); break;
+        case  12: mpileup_set(args->mplp, DELTA_BQ, atoi(optarg)); break;
+        case 'b': if ( mpileup_set(args->mplp, BAM_FNAME, optarg)!=0 ) clean_up(args); break;
         case 'o':
             /* this option used to be -o INT and -o FILE. In the new code disable -o as an alias of --open-prob as its use is very rare */
             args->output_fname = optarg;
@@ -557,10 +524,10 @@ int main_mpileup2(int argc, char *argv[])
             }
             break;
         case 'A': args->flag &= ~MPLP_NO_ORPHAN; break;
-        case 'F': mpileup_set_opt(args->mplp, float, MIN_REALN_FRAC, atof(optarg)); break;
-        case 'm': mpileup_set_opt(args->mplp, int, MIN_REALN_DP, atoi(optarg)); break;
-        case 'L': mpileup_set_opt(args->mplp, int, MAX_REALN_DP, atoi(optarg)); break;
-        case 'G': mpileup_set_opt(args->mplp, char*, READ_GROUPS_FNAME, optarg); break;
+        case 'F': mpileup_set(args->mplp, MIN_REALN_FRAC, atof(optarg)); break;
+        case 'm': mpileup_set(args->mplp, MIN_REALN_DP, atoi(optarg)); break;
+        case 'L': mpileup_set(args->mplp, MAX_REALN_DP, atoi(optarg)); break;
+        case 'G': mpileup_set(args->mplp, READ_GROUPS_FNAME, optarg); break;
         case 'a':
             if (optarg[0]=='?') {
                 list_annotations(stderr);
@@ -571,26 +538,26 @@ int main_mpileup2(int argc, char *argv[])
         case 'M': args->max_read_len = atoi(optarg); break;
         case 'X':
             if (strcasecmp(optarg, "pacbio-ccs") == 0) {
-                mpileup_set_opt(args->mplp, float, MIN_REALN_FRAC, 0.1);
-                mpileup_set_opt(args->mplp, int, MIN_BQ, 5);
-                mpileup_set_opt(args->mplp, int, MAX_BQ, 50);
-                mpileup_set_opt(args->mplp, int, DELTA_BQ, 10);
+                mpileup_set(args->mplp, MIN_REALN_FRAC, 0.1);
+                mpileup_set(args->mplp, MIN_BQ, 5);
+                mpileup_set(args->mplp, MAX_BQ, 50);
+                mpileup_set(args->mplp, DELTA_BQ, 10);
                 args->bca.openQ = 25;
                 args->bca.extQ = 1;
                 args->flag |= MPLP_REALN_PARTIAL;
-                mpileup_set_opt(args->mplp, int, MAX_REALN_LEN, 99999);
+                mpileup_set(args->mplp, MAX_REALN_LEN, 99999);
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "For ONT it may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
-                mpileup_set_opt(args->mplp, int, MIN_BQ, 5);
-                mpileup_set_opt(args->mplp, int, MAX_BQ, 30);
+                mpileup_set(args->mplp, MIN_BQ, 5);
+                mpileup_set(args->mplp, MAX_BQ, 30);
                 args->flag &= ~MPLP_REALN;
                 args->flag |= MPLP_NO_INDEL;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
-                mpileup_set_opt(args->mplp, float, MIN_REALN_FRAC, 0.002);
+                mpileup_set(args->mplp, MIN_REALN_FRAC, 0.002);
                 args->bca.min_support = 1;
-                mpileup_set_opt(args->mplp, int, MIN_BQ, 13);
+                mpileup_set(args->mplp, MIN_BQ, 13);
                 args->bca.tandemQ = 100;
                 args->flag &= ~MPLP_REALN_PARTIAL;
                 args->flag |= MPLP_REALN;
@@ -621,49 +588,16 @@ int main_mpileup2(int argc, char *argv[])
     if ( argc==1 )
     {
         print_usage(args, stderr);
-        exit_nicely(args);
+        clean_up(args);
         return 1;
     }
     int i;
     for (i=0; i<argc-optind; i++)
-        if ( mpileup_set(args->mplp, BAM, &argv[optind+i])!=0 ) exit_nicely(args);
+        if ( mpileup_set(args->mplp, BAM, argv[optind+i])!=0 ) clean_up(args);
+    mpileup_init(args->mplp);
 
-    exit_nicely(args);
+    ret = run_mpileup(args);
 
-#if 0
-    if ( !(mplp.flag&MPLP_REALN) && mplp.flag&MPLP_REDO_BAQ )
-    {
-        fprintf(stderr,"Error: The -B option cannot be combined with -E\n");
-        return 1;
-    }
-    if (!mplp.fai && !noref) {
-        fprintf(stderr,"Error: mpileup requires the --fasta-ref option by default; use --no-reference to run without a fasta reference\n");
-        return 1;
-    }
-    int ret,i;
-    if (file_list)
-    {
-        if ( read_file_list(file_list,&nfiles,&fn) ) return 1;
-        mplp.files  = fn;
-        mplp.nfiles = nfiles;
-    }
-    else
-    {
-        mplp.nfiles = argc - optind;
-        mplp.files  = (char**) malloc(mplp.nfiles*sizeof(char*));
-        for (i=0; i<mplp.nfiles; i++) mplp.files[i] = strdup(argv[optind+i]);
-    }
-    ret = mpileup(&mplp);
-
-    for (i=0; i<mplp.nfiles; i++) free(mplp.files[i]);
-    free(mplp.files);
-    free(mplp.reg_fname); free(mplp.pl_list);
-    if (mplp.fai) fai_destroy(mplp.fai);
-    if (mplp.bed) regidx_destroy(mplp.bed);
-    if (mplp.bed_itr) regitr_destroy(mplp.bed_itr);
-    if (mplp.reg) regidx_destroy(mplp.reg);
-    bam_smpl_destroy(mplp.bsmpl);
-#endif
-
+    clean_up(args);
     return ret;
 }

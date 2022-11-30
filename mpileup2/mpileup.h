@@ -27,10 +27,9 @@
 #ifndef __MPILEUP20_H__
 #define __MPILEUP20_H__
 
-typedef struct _mpileup_t mpileup_t;
+typedef struct mpileup_t_ mpileup_t;
 
-// Various options. Key marked as 'can fail' shoud be set with mpileup_set() and the
-// return status checked as these can fail.
+// Various options. For keys marked as 'can fail' the return status should be checked as these can fail
 typedef enum
 {
     // required
@@ -50,9 +49,13 @@ typedef enum
     // bit flags
     SMART_OVERLAPS,     // int {0,1}, 1:disable read-pair overlap detection [0]
     SMPL_IGNORE_RG,     // int {0,1}, 1:ignore read groups, one bam = one sample [0]
+    SKIP_ANY_UNSET,     // skip a read if any of the bits is not set [0]
+    SKIP_ALL_UNSET,     // skip a read if all these bits are not set [0]
+    SKIP_ANY_SET,       // skip a read if any of the bits is set [BAM_FUNMAP|BAM_FSECONDARY|BAM_FQCFAIL|BAM_FDUP]
+    SKIP_ALL_SET,       // skip a read if all these bits are set [0]
 
     // numeric parameters
-    MAX_DP_PER_FILE,    // int, maximum depth per file, regardless of the number of samples [250]
+    MAX_DP_PER_SAMPLE,  // int, maximum depth per sample [250]
     ADJUST_MQ,          // int, --adjust-MQ value for downgrading reads with excessive mismatches, 0 to disable [0]
     MIN_MQ,             // int, skip alignments with mapQ smaller than MIN_MQ [0]
     MIN_BQ,             // int, skip bases with baseQ smaller than MIN_BQ [1]
@@ -65,12 +68,13 @@ typedef enum
 }
 mpileup_opt_t;
 
-#define mpileup_set_opt(mplp,type,key,value) { type tmp = value; mpileup_set(mplp, key, (void*)&tmp); }
 #define mpileup_get_opt(mplp,type,key) (*(type*)mpileup_get(mplp, key))
 
-mpileup_t *mpileup_init(void);
-int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, void *value);   // returns 0 on success
+mpileup_t *mpileup_alloc(void);
+int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...);   // returns 0 on success
 void *mpileup_get(mpileup_t *mplp, mpileup_opt_t key);
+int mpileup_init(mpileup_t *mplp);                          // inits regions, bams, iterators, returns 0 on success
+int mpileup_next(mpileup_t *mplp);                          // returns 1 on next position, 0 when done, negative value on error
 void mpileup_destroy(mpileup_t *mplp);
 
 #endif
