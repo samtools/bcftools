@@ -15,6 +15,13 @@ Changes affecting specific commands:
 
     - Fix a bug where indels constrained with `-C alleles -T` would sometimes be missed (#1706)
 
+* bcftools consensus
+
+    - BREAKING CHANGE: the option `-I, --iupac-codes` newly outputs IUPAC codes based on FORMAT/GT
+      of all samples. The `-s, --samples` and `-S, --samples-file` options can be used to subset
+      samples. In order to ignore samples and consider only the REF and ALT columns (the original
+      behavior prior to 1.17), run with `-s -` (#1828)
+
 * bcftools convert
 
     - Make variantkey conversion work for sites without an ALT allele (#1806)

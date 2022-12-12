@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=ref>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b
+ref	2	.	C	A	.	.	.	GT	./.	0/0
+ref	3	.	G	C	.	.	.	GT	0/0	0/0
+ref	4	.	T	C	.	.	.	GT	0/0	0/1
+ref	5	.	A	C	.	.	.	GT	1/1	1/1
