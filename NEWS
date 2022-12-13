@@ -84,11 +84,16 @@ Changes affecting specific commands:
 
 * bcftools +trio-dnm2
 
-    - New -n, --strictly-novel option to downplay alleles which violate Mendelian
+    - New `-n, --strictly-novel` option to downplay alleles which violate Mendelian
       inheritance but are not novel
 
     - Allow to set the `--pn` and `--pns` options separately for SNVs and indels and make
       the indel settings more strict by default
+
+* bcftools +variant-distance
+
+    - New option `-d, --direction` to choose the directionality: forward, reverse, nearest (the default)
+      or both (#1829)
 
 
 ## Release 1.16 (18th August 2022)

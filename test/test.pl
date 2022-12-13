@@ -664,6 +664,10 @@ run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.5.out',cmd=>q[+prun
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.6.out',cmd=>'+prune -w 2bp -n 1 -N 1st');
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.7.out',cmd=>'+prune -w 2bp -n 1 -N rand --random-seed 1');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1.out',cmd=>'+variant-distance');
+run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1.out',cmd=>'+variant-distance -d nearest');
+run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.2.out',cmd=>'+variant-distance -d fwd');
+run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.3.out',cmd=>'+variant-distance -d rev');
+run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.4.out',cmd=>'+variant-distance -d both');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
