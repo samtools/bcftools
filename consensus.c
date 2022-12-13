@@ -266,7 +266,7 @@ static void init_data(args_t *args)
         if ( ! args->fp_out ) error("Failed to create %s: %s\n", args->output_fname, strerror(errno));
     }
     else args->fp_out = stdout;
-    if ( args->isample<0 && !args->iupac_GTs ) fprintf(stderr,"Note: the --sample option not given, applying all records regardless of the genotype\n");
+    if ( args->isample<0 && !args->iupac_GTs ) fprintf(stderr,"Note: the --samples option not given, applying all records regardless of the genotype\n");
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
     args->rid = -1;
@@ -1082,7 +1082,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About: Create consensus sequence by applying VCF variants to a reference fasta\n");
     fprintf(stderr, "       file. By default, the program will apply all ALT variants. Using the\n");
-    fprintf(stderr, "       --sample (and, optionally, --haplotype) option will apply genotype\n");
+    fprintf(stderr, "       --samples (and, optionally, --haplotype) option will apply genotype\n");
     fprintf(stderr, "       (or haplotype) calls from FORMAT/GT. The program ignores allelic depth\n");
     fprintf(stderr, "       information, such as INFO/AD or FORMAT/AD.\n");
     fprintf(stderr, "Usage: bcftools consensus [OPTIONS] <file.vcf.gz>\n");
