@@ -803,7 +803,7 @@ static int mpileup(mplp_conf_t *conf)
     if ( conf->fmt_flag&B2B_INFO_SCBZ )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
     if ( conf->fmt_flag&B2B_INFO_FS )
-        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=FS,Number=1,Type=Float,Description=\"Phred-scaled p-value using Fisher's exact test to detect strand bias\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=FS,Number=1,Type=Float,Description=\"Fisher's exact test P-value to detect strand bias\">");
     if ( conf->fmt_flag&B2B_INFO_SGB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SGB,Number=1,Type=Float,Description=\"Segregation based metric, http://samtools.github.io/bcftools/rd-SegBias.pdf\">");
     if ( conf->fmt_flag&B2B_INFO_MQ0F )
@@ -1147,7 +1147,7 @@ static void list_annotations(FILE *fp)
         "  INFO/ADF   .. Total allelic depths on the forward strand (Number=R,Type=Integer)\n"
         "  INFO/ADR   .. Total allelic depths on the reverse strand (Number=R,Type=Integer)\n"
         "* INFO/BQBZ  .. Mann-Whitney U test of Base Quality Bias (Number=1,Type=Float)\n"
-        "* INFO/FS    .. Phred-scaled p-value using Fisher's exact test to detect strand bias (Number=1,Type=Float)\n"
+        "  INFO/FS    .. Fisher's exact test P-value to detect strand bias (Number=1,Type=Float)\n"
         "* INFO/IDV   .. Maximum number of raw reads supporting an indel (Number=1,Type=Integer)\n"
         "* INFO/IMF   .. Maximum fraction of raw reads supporting an indel (Number=1,Type=Float)\n"
         "  INFO/MIN_PL_SUM\n"
@@ -1300,7 +1300,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
-    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_FS|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
+    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;

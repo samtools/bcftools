@@ -1040,6 +1040,11 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // No need to calculate MWU tests when there is no ALT allele, this should speed up things slightly
     if ( !has_alt ) return 0;
 
+    if ( bca->fmt_flag & B2B_INFO_FS )
+    {
+        double left,right,two;
+        call->strand_bias = kt_fisher_exact(call->anno[0], call->anno[1], call->anno[2], call->anno[3], &left, &right, &two);
+    }
     if ( bca->fmt_flag & B2B_INFO_SGB ) calc_SegBias(calls, call);
 
     // calc_chisq_bias("XPOS", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_pos, bca->alt_pos, bca->npos);

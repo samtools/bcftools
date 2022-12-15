@@ -57,6 +57,9 @@ Changes affecting specific commands:
       it uses diploid reference consensus sequence. Note that in the current version it
       has the potential to increase sensitivity but at the cost of decreased specificity.
 
+    - Make the FS annotation (Fisher exact test strand bias) functional and remove it
+      from the default annotations
+
 * bcftools norm
 
     - New --multi-overlaps option allows to set overlapping alleles either to the
