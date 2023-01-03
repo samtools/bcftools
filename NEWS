@@ -1,5 +1,19 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The -i/-e filtering expressions
+
+    - Error checks were added to prevent incorrect use of vector arithmetics. For example,
+      when evaluating the sum of two vectors A and B, the resulting vector could contain
+      nonsense values when the input vectors were not of the same length. The fix introduces
+      the following logic:
+        - evaluate to C_i = A_i + B_i when length(A)==B(A) and set length(C)=length(A)
+        - evaluate to C_i = A_i + B_0 when length(B)=1 and set length(C)=length(A)
+        - evaluate to C_i = A_0 + B_i when length(A)=1 and set length(C)=length(B)
+        - throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
+
+
 Changes affecting specific commands:
 
 * bcftools annotate

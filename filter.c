@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1974,18 +1974,47 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
     { \
         tok_init_values(atok, btok, rtok); \
         tok_init_samples(atok, btok, rtok); \
-        if ( (atok->nsamples && btok->nsamples) || (!atok->nsamples && !btok->nsamples)) \
+        if ( !atok->nsamples && !btok->nsamples ) \
         { \
-            assert( atok->nsamples==btok->nsamples ); \
-            for (i=0; i<atok->nvalues; i++) \
+            if ( atok->nvalues!=btok->nvalues && atok->nvalues!=1 && btok->nvalues!=1 ) \
+                error("Cannot run numeric operator in -i/-e filtering on vectors of different lengths: %d vs %d\n",atok->nvalues,btok->nvalues); \
+            int ir,ia = 0, ib = 0; \
+            for (ir=0; ir<rtok->nvalues; ir++) \
             { \
-                if ( bcf_double_is_missing_or_vector_end(atok->values[i]) || bcf_double_is_missing_or_vector_end(btok->values[i]) ) \
+                if ( atok->nvalues > 1 ) ia = ir; \
+                if ( btok->nvalues > 1 ) ib = ir; \
+                if ( bcf_double_is_missing_or_vector_end(atok->values[ia]) || bcf_double_is_missing_or_vector_end(btok->values[ib]) ) \
                 { \
-                    bcf_double_set_missing(rtok->values[i]); \
+                    bcf_double_set_missing(rtok->values[ir]); \
                     continue; \
                 } \
                 has_values = 1; \
-                rtok->values[i] = TYPE atok->values[i] AOP TYPE btok->values[i]; \
+                rtok->values[ir] = TYPE atok->values[ia] AOP TYPE btok->values[ib]; \
+            } \
+        } \
+        else if ( atok->nsamples && btok->nsamples ) \
+        { \
+            assert( atok->nsamples==btok->nsamples ); \
+            if ( atok->nval1!=btok->nval1 && atok->nval1!=1 && btok->nval1!=1 ) \
+                error("Cannot run numeric operator in -i/-e filtering on vectors of different lengths: %d vs %d\n",atok->nval1,btok->nval1); \
+            for (i=0; i<rtok->nsamples; i++) \
+            { \
+                double *rval = rtok->values + i*rtok->nval1; \
+                double *aval = atok->values + i*atok->nval1; \
+                double *bval = btok->values + i*btok->nval1; \
+                int ir,ia = 0, ib = 0; \
+                for (ir=0; ir<rtok->nval1; ir++) \
+                { \
+                    if ( atok->nval1 > 1 ) ia = ir; \
+                    if ( btok->nval1 > 1 ) ib = ir; \
+                    if ( bcf_double_is_missing_or_vector_end(aval[ia]) || bcf_double_is_missing_or_vector_end(bval[ib]) ) \
+                    { \
+                        bcf_double_set_missing(rval[ir]); \
+                        continue; \
+                    } \
+                    has_values = 1; \
+                    rval[ir] = TYPE aval[ia] AOP TYPE bval[ib]; \
+                } \
             } \
         } \
         else if ( atok->nsamples ) \
