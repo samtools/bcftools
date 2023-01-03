@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2022 Genome Research Ltd.
+#   Copyright (C) 2012-2023 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -262,6 +262,7 @@ run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.2.out
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.3',out=>'atomize.split.3.1.out',args=>'--atomize --atom-overlaps .');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.4',out=>'atomize.split.4.1.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.1.out',args=>'-m +both');
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.2.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.5',out=>'norm.5.1.out',args=>'-m - --multi-overlaps 0');
