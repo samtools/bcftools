@@ -16,6 +16,11 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
+* bcftools +allele-length
+
+    - fix overflow for indels longer than 512bp and aggregate alleles equal or larger than
+      that in the same bin (#1837)
+
 * bcftools annotate
 
     - Support sample reordering of annotation file (#1785)
