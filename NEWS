@@ -107,6 +107,11 @@ Changes affecting specific commands:
 
     - New `-H, --print-header` option to print the header with `-f`
 
+* bcftools stats
+
+    - The per-sample stats (PSC) would not be computed when `-i/-e` filtering options and
+      the `-s -` option were given but the expression did not include sample columns (1835)
+
 * bcftools +trio-dnm2
 
     - New `-n, --strictly-novel` option to downplay alleles which violate Mendelian
