@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2022 Genome Research Ltd.
+   Copyright (c) 2016-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -256,6 +256,7 @@ const char *csq_strings[] =
 
 
 // GFF line types
+#define GFF_UNKN_LINE    0
 #define GFF_TSCRIPT_LINE 1
 #define GFF_GENE_LINE    2
 
@@ -755,10 +756,11 @@ static void gff_id_destroy(id_tbl_t *tbl)
     khash_str2int_destroy_free(tbl->str2id);
     free(tbl->str);
 }
-static inline uint32_t gff_id_parse(id_tbl_t *tbl, const char *line, const char *needle, char *ss)
+// returns 0 on success, -1 on failure
+static inline int gff_id_parse(id_tbl_t *tbl, const char *needle, char *ss, uint32_t *id_ptr)
 {
     ss = strstr(ss,needle);     // e.g. "ID=transcript:"
-    if ( !ss ) error("[%s:%d %s] Could not parse the line, \"%s\" not present: %s\n",__FILE__,__LINE__,__FUNCTION__,needle,line);
+    if ( !ss ) return -1;
     ss += strlen(needle);
 
     char *se = ss;
@@ -775,8 +777,8 @@ static inline uint32_t gff_id_parse(id_tbl_t *tbl, const char *line, const char 
         khash_str2int_set(tbl->str2id, tbl->str[id], id);
     }
     *se = tmp;
-
-    return id;
+    *id_ptr = id;
+    return 0;
 }
 static inline int gff_parse_type(char *line)
 {
@@ -931,13 +933,34 @@ void gff_parse_transcript(args_t *args, const char *line, char *ss, ftr_t *ftr)
     int biotype = gff_parse_biotype(ss);
     if ( biotype <= 0 )
     {
-        if ( !gff_ignored_biotype(args, ss) && args->verbosity > 0 ) fprintf(stderr,"ignored transcript: %s\n",line);
+        if ( !gff_ignored_biotype(args, ss) && args->verbosity > 0 ) fprintf(stderr,"ignored transcript, unknown biotype: %s\n",line);
         return;
     }
 
     // create a mapping from transcript_id to gene_id
-    uint32_t trid = gff_id_parse(&args->tscript_ids, line, "ID=transcript:", ss);
-    uint32_t gene_id = gff_id_parse(&args->init.gene_ids, line, "Parent=gene:", ss);
+    uint32_t trid, gene_id;
+    if ( gff_id_parse(&args->tscript_ids, "ID=transcript:", ss, &trid) )
+    {
+        if ( gff_id_parse(&args->tscript_ids, "ID=", ss, &trid) )
+            error("[%s:%d %s] Could not parse the line, neither \"ID=transcript:\" nor \"ID=\" substring is present: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
+        static int warned = 0;
+        if ( !warned && args->verbosity > 0 )
+        {
+            fprintf(stderr,"Warning: non-standard transcript ID notation in the GFF, expected \"ID=transcript:XXX\", found %s\n",line);
+            warned = 1;
+        }
+    }
+    if ( gff_id_parse(&args->init.gene_ids, "Parent=gene:", ss, &gene_id) )
+    {
+        if ( gff_id_parse(&args->init.gene_ids, "Parent=", ss, &gene_id) )
+            error("[%s:%d %s] Could not parse the line, neither \"Parent=gene:\" nor \"Parent=\" substring is present: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
+        static int warned = 0;
+        if ( !warned && args->verbosity > 0 )
+        {
+            fprintf(stderr,"Warning: non-standard transcript Parent notation in the GFF, expected \"Parent=gene:XXX\", found %s\n",line);
+            warned = 1;
+        }
+    }
 
     tscript_t *tr = (tscript_t*) calloc(1,sizeof(tscript_t));
     tr->id     = trid;
@@ -957,14 +980,26 @@ void gff_parse_gene(args_t *args, const char *line, char *ss, char *chr_beg, cha
     int biotype = gff_parse_biotype(ss);
     if ( biotype <= 0 )
     {
-        if ( !gff_ignored_biotype(args, ss) && args->verbosity > 0 ) fprintf(stderr,"ignored gene: %s\n",line);
+        if ( !gff_ignored_biotype(args, ss) && args->verbosity > 0 ) fprintf(stderr,"ignored gene, unknown biotype: %s\n",line);
         return;
     }
 
     aux_t *aux = &args->init;
 
     // substring search for "ID=gene:ENSG00000437963"
-    uint32_t gene_id = gff_id_parse(&aux->gene_ids, line, "ID=gene:", ss);
+    uint32_t gene_id;
+    if ( gff_id_parse(&aux->gene_ids, "ID=gene:", ss, &gene_id) )
+    {
+        if ( gff_id_parse(&aux->gene_ids, "ID=", ss, &gene_id) )
+            error("[%s:%d %s] Could not parse the line, neither \"ID=gene:\" nor \"ID=\" substring is present: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
+        static int warned = 0;
+        if ( !warned && args->verbosity > 0 )
+        {
+            fprintf(stderr,"Warning: non-standard gene ID notation in the GFF, expected \"ID=gene:XXX\", found %s\n",line);
+            warned = 1;
+        }
+    }
+
     gf_gene_t *gene = gene_init(aux, gene_id);
     assert( !gene->name );      // the gene_id should be unique
 
@@ -1012,10 +1047,13 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
     else if ( !strncmp("five_prime_UTR\t",ss,15) ) { ftr->type = GF_UTR5; ss += 15; }
     else
     {
+        int type = GFF_UNKN_LINE;
+        if ( !strncmp("gene\t",ss,4) ) type = GFF_GENE_LINE;
+        else if ( !strncmp("transcript\t",ss,4) ) type = GFF_TSCRIPT_LINE;
         ss = gff_skip(line, ss);
         ss = gff_parse_beg_end(line, ss, &ftr->beg,&ftr->end);
         ss = gff_skip(line, ss);
-        int type = gff_parse_type(ss);
+        if ( type==GFF_UNKN_LINE ) type = gff_parse_type(ss);   // determine type from ID=transcript: or ID=gene:
         if ( type!=GFF_TSCRIPT_LINE && type!=GFF_GENE_LINE )
         {
             // we ignore these, debug print to see new types:
@@ -1057,7 +1095,18 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
     ss += 2;
 
     // substring search for "Parent=transcript:ENST00000437963"
-    ftr->trid = gff_id_parse(&args->tscript_ids, line, "Parent=transcript:", ss);
+    if ( gff_id_parse(&args->tscript_ids, "Parent=transcript:", ss, &ftr->trid) )
+    {
+        if ( gff_id_parse(&args->tscript_ids, "Parent=", ss, &ftr->trid) )
+            error("[%s:%d %s] Could not parse the line, neither \"Parent=transcript:\" nor \"Parent=\" substring is present: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
+        static int warned = 0;
+        if ( !warned && args->verbosity > 0 )
+        {
+            fprintf(stderr,"Warning: non-standard gene Parent notation in the GFF, expected \"Parent=transcript:XXX\", found %s\n",line);
+            warned = 1;
+        }
+    }
+
     ftr->iseq = feature_set_seq(args, chr_beg,chr_end);
     return 0;
 }
@@ -1380,6 +1429,11 @@ void init_gff(args_t *args)
                 regidx_nregs(args->idx_cds),
                 regidx_nregs(args->idx_utr));
     }
+    if ( !regidx_nregs(args->idx_tscript) )
+        fprintf(stderr,
+            "Warning: No usable transcripts found, likely a failure to parse a non-standard GFF file. Please check if the misc/gff2gff\n"
+            "         or misc/gff2gff.py script can fix the problem (both do different things). See also the man page for the description\n"
+            "         of the expected format http://samtools.github.io/bcftools/bcftools-man.html#csq\n");
 
     free(aux->ftr);
     khash_str2int_destroy_free(aux->seq2int);

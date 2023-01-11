@@ -50,6 +50,11 @@ Changes affecting specific commands:
     - Fix a bug where a MNV with multiple consequences (e.g. missense + stop_gained)
       would report only the less severe one (#1810)
 
+    - GFF file parsing was made slightly more flexible, newly ids can be just 'XXX'
+      rather than, for example, 'gene:XXX'
+
+    - New gff2gff perl script to fix GFF formatting differences
+
 * bcftools
 
     - More of the available annotations are now added by the `-t all` option

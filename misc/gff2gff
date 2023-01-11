@@ -1,0 +1,163 @@
+#!/usr/bin/env perl
+#
+# Copyright (C) 2023 Genome Research Ltd.
+#
+# Author: Petr Danecek <pd3@sanger.ac.uk>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+gff2gff($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print
+        "About: Attempt to fix a GFF file to be correctly parse by bcftools/csq, see\n",
+        "       the man page for the description of the expected format\n",
+        "           http://samtools.github.io/bcftools/bcftools-man.html#csq\n",
+        "Usage: gff2gff [OPTIONS]\n",
+        "Options:\n",
+        "   -h, -?, --help       This help message\n",
+        "Example:\n",
+        "   zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = {};
+    if ( -t STDIN && !@ARGV ) { error(); }
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-?' or $arg eq '-h' or $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    return $opts;
+}
+
+sub gff2gff
+{
+    my ($opts) = @_;
+    while (my $line=<STDIN>)
+    {
+        if ( $line=~/^#/ ) { print $line; next; }
+        my @row  = split(/\t/,$line);
+        chomp($row[-1]);
+        if ( $row[2] eq 'gene' ) { fix_gene($opts,$line,\@row); }
+        elsif ( $row[2] eq 'transcript' ) { fix_transcript($opts,$line,\@row); }
+        print join("\t",@row)."\n";
+    }
+}
+sub fix_gene
+{
+    my ($opts,$line,$row) = @_;
+    my ($id,$biotype,$name);
+    my $id_ok = 0;
+    my $biotype_ok = 0;
+    my $name_ok = 0;
+
+    if ( $$row[8] =~ /ID=([^;]+)/ ) { $id = $1; $id_ok = 1; }
+    if ( !$id_ok && $$row[8] =~ /gene_id=([^;]+)/i ) { $id = $1; }
+    if ( $$row[8] =~ /biotype=([^;]+)/ ) { $biotype = $1; $biotype_ok = 1; }
+    if ( !$biotype_ok && $$row[8] =~ /gene_type=([^;]+)/i ) { $biotype = $1; }
+    if ( $$row[8] =~ /Name=([^;]+)/ ) { $name = $1; $name_ok = 1; }
+    if ( !$biotype_ok && $$row[8] =~ /gene_name=([^;]+)/i ) { $name = $1; }
+
+    if ( !$id_ok )
+    {
+        if ( defined $id ) { $$row[8] .= ";ID=$id"; }
+        elsif ( !$$opts{gene_id_warned} )
+        {
+            print STDERR "Unable to determine gene ID, see e.g. $line\n";
+            $$opts{gene_id_warned} = 1;
+        }
+    }
+    if ( !$biotype_ok )
+    {
+        if ( defined $biotype ) { $$row[8] .= ";biotype=$biotype"; }
+        elsif ( !$$opts{gene_biotype_warned} )
+        {
+            print STDERR "Unable to determine gene biotype/type, see e.g. $line\n";
+            $$opts{gene_biotype_warned} = 1;
+        }
+    }
+    if ( !$name_ok )
+    {
+        if ( defined $name ) { $$row[8] .= ";Name=$name"; }
+        elsif ( !$$opts{gene_name_warned} )
+        {
+            print STDERR "Unable to determine gene name, see e.g. $line\n";
+            $$opts{gene_name_warned} = 1;
+        }
+    }
+}
+sub fix_transcript
+{
+    my ($opts,$line,$row) = @_;
+    my ($id,$biotype,$parent);
+    my $id_ok = 0;
+    my $biotype_ok = 0;
+    my $parent_ok = 0;
+
+    if ( $$row[8] =~ /ID=([^;]+)/ ) { $id = $1; $id_ok = 1; }
+    if ( !$id_ok && $$row[8] =~ /transcript_id=([^;]+)/i ) { $id = $1; }
+    if ( $$row[8] =~ /biotype=([^;]+)/ ) { $biotype = $1; $biotype_ok = 1; }
+    if ( !$biotype_ok && $$row[8] =~ /transcript_type=([^;]+)/i ) { $biotype = $1; }
+    if ( $$row[8] =~ /Parent=([^;]+)/ ) { $parent = $1; $parent_ok = 1; }
+
+    if ( !$id_ok )
+    {
+        if ( defined $id ) { $$row[8] .= ";ID=$id"; }
+        elsif ( !$$opts{tscript_id_warned} )
+        {
+            print STDERR "Unable to determine transcript ID, see e.g. $line\n";
+            $$opts{tscript_id_warned} = 1;
+        }
+    }
+    if ( !$biotype_ok )
+    {
+        if ( defined $biotype ) { $$row[8] .= ";biotype=$biotype"; }
+        elsif ( !$$opts{tscript_biotype_warned} )
+        {
+            print STDERR "Unable to determine transcript biotype/type, see e.g. $line\n";
+            $$opts{tscript_biotype_warned} = 1;
+        }
+    }
+    if ( !$parent_ok )
+    {
+        if ( defined $parent ) { $$row[8] .= ";Parent=$parent"; }   # currently cannot happen
+        elsif ( !$$opts{tscript_parent_warned} )
+        {
+            print STDERR "Unable to determine transcript Parent, see e.g. $line\n";
+            $$opts{tscript_parent_warned} = 1;
+        }
+    }
+}
+
