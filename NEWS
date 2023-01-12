@@ -117,6 +117,11 @@ Changes affecting specific commands:
     - The per-sample stats (PSC) would not be computed when `-i/-e` filtering options and
       the `-s -` option were given but the expression did not include sample columns (1835)
 
+* bcftools +tag2tag
+
+    - Revamp of the plugin to allo wider range of tag conversions, specifically all combinations
+      from FORMAT/GL,PL,GP to FORMAT/GL,PL,GP,GT
+
 * bcftools +trio-dnm2
 
     - New `-n, --strictly-novel` option to downplay alleles which violate Mendelian
