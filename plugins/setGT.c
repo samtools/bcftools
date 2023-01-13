@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015-2022 Genome Research Ltd.
+    Copyright (C) 2015-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -570,7 +570,7 @@ bcf1_t *process(bcf1_t *rec)
             {
                 if ( ptr[j]==bcf_int32_vector_end ) break;
                 ploidy++;
-                if ( ptr[j]==bcf_gt_missing ) nmiss++;
+                if ( bcf_gt_is_missing(ptr[j]) ) nmiss++;
             }
 
             int do_set = 0;

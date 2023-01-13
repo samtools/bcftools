@@ -105,6 +105,9 @@ Changes affecting specific commands:
 
     - Add new `--new-gt X` option (#1800)
 
+    - Fix a bug where `-t ./x` mode was advertised as selecting both phased and unphased
+      half-missing genotypes, but was in fact selecting only unphased genotypes (#1844)
+
 * bcftools +split-vep
 
     - New options `-g, --gene-list` and `--gene-list-fields` which allow to prioritize
@@ -119,7 +122,7 @@ Changes affecting specific commands:
 
 * bcftools +tag2tag
 
-    - Revamp of the plugin to allo wider range of tag conversions, specifically all combinations
+    - Revamp of the plugin to allow wider range of tag conversions, specifically all combinations
       from FORMAT/GL,PL,GP to FORMAT/GL,PL,GP,GT
 
 * bcftools +trio-dnm2
