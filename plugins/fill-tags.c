@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2022 Genome Research Ltd.
+   Copyright (c) 2015-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -318,7 +318,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             hts_expand(float,nfill*rec->n_sample,ftf->nfval,ftf->fval);
             for (k=0; k<rec->n_sample; k++)
             {
-                float *dst  = ftf->fval + k*nval1;
+                float *dst  = ftf->fval + k*nfill;
                 const double *src = val + k*nval1;
                 for (j=0; j<ncopy; j++) float_set_from_double(dst[j], src[j]);
                 for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
@@ -330,7 +330,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             hts_expand(int32_t,nfill*rec->n_sample,ftf->nival,ftf->ival);
             for (k=0; k<rec->n_sample; k++)
             {
-                int32_t *dst = ftf->ival + k*nval1;
+                int32_t *dst = ftf->ival + k*nfill;
                 const double *src  = val + k*nval1;
                 for (j=0; j<ncopy; j++) dst[j] = int32_from_double(src[j]);
                 for (; j<nfill; j++) dst[j] = bcf_int32_missing;

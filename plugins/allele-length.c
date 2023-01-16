@@ -1,6 +1,7 @@
 /*  plugins/allele-length.c -- Calculate stats about the length of alleles
 
     Copyright (C) 2017-2018 GENOMICS plc.
+    Copyright (C) 2023 Genome Research Ltd.
 
     Author: Nicola Asuni <nicola.asuni@genomicsplc.com>
 
@@ -89,12 +90,16 @@ bcf1_t *process(bcf1_t *rec)
 {
     int rl = strlen(rec->d.allele[0]);
     int al = strlen(rec->d.allele[1]);
+    int ral = rl + al;
+    if ( rl >= MAXLEN ) rl = MAXLEN - 1;
+    if ( al >= MAXLEN ) al = MAXLEN - 1;
+    if ( ral >= MAXLEN ) ral = MAXLEN - 1;
     reflen[rl] += 1;
     altlen[al] += 1;
-    refaltlen[(rl + al)] += 1;
+    refaltlen[ral] += 1;
     if ((contain_non_base(rec->d.allele[0])) || (contain_non_base(rec->d.allele[1])))
     {
-        xrefaltlen[(rl + al)] += 1;
+        xrefaltlen[ral] += 1;
         numxvar++;
     }
     numvar++;

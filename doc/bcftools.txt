@@ -936,7 +936,10 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     *<<expressions,EXPRESSIONS>>*.
 
 *-I, --iupac-codes*::
-    output variants in the form of IUPAC ambiguity codes
+    output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
+    samples are used and can be subset with `-s, --samples` and `-S, --samples-file`. Use `-s -` to ignore
+    samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
+    from REF,ALT columns and sample genotypes were not considered.
 
 *--mark-del* 'CHAR'::
     instead of removing sequence, insert CHAR for deletions
@@ -962,8 +965,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-o, --output* 'FILE'::
     write output to a file
 
-*-s, --sample* 'NAME'::
-    apply variants of the given sample
+*-s, --samples* 'LIST'::
+    apply variants of the listed samples. See also the option `-I, --iupac-codes`
+
+*-S, --samples-file* 'FILE'::
+    apply variants of the samples listed in the file. See also the option `-I, --iupac-codes`
 
 *Examples:*
 ----
@@ -971,8 +977,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     bcftools consensus -i -s NA001 -f in.fa in.vcf.gz > out.fa
 
     # Create consensus for one region. The fasta header lines are then expected
-    # in the form ">chr:from-to".
-    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+    # in the form ">chr:from-to". Ignore samples and consider only the REF and ALT columns
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus -s - in.vcf.gz -o out.fa
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html
 ----
@@ -3587,6 +3593,13 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
     -e 'TAG[0]=1'   .. false
     -e 'TAG[0]!=1'  .. true
 
+* When arithmetic operators are used on vectors A and B, the following logic is used to
+  compute the resulting vector C:
+
+    - C_i = A_i + B_i when length(A)==B(A) and sets length(C)=length(A)
+    - C_i = A_i + B_0 when length(B)=1 and sets length(C)=length(A)
+    - C_i = A_0 + B_i when length(A)=1 and sets length(C)=length(B)
+    - throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
 
 *Examples:*
 
