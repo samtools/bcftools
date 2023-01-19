@@ -3279,9 +3279,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN
-when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
-field, like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
+that filters like '--uncalled', --exclude-uncalled', or '--min-af 0.1' will be calculated from INFO/AC and
+INFO/AN when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing field,
+like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
 
 Also note that one must be careful when sample subsetting and filtering is performed in a single command
 because the order of internal operations can influence the result. For example, the *-i/-e* filtering
@@ -3357,10 +3357,14 @@ when piping!)
     most frequent ('nonmajor') alleles.
 
 *-u, --uncalled*::
-    print sites without a called genotype
+    print sites without a called genotype, i.e. print sites with all genotypes
+    missing. Note that the missingness is determined from INFO/AN and AC tags
+    when available to avoid parsing sample fields.
 
 *-U, --exclude-uncalled*::
-    exclude sites without a called genotype
+    exclude sites without a called genotype, i.e. print sites with at least one
+    non-missing genotype. Note that the missingness is determined from INFO/AN
+    and AC tags when available to avoid parsing sample fields.
 
 *-v, --types* 'snps'|'indels'|'mnps'|'other'::
     comma-separated list of variant types to select. Site is selected if
