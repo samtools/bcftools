@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2022 Genome Research Ltd.
+   Copyright (c) 2018-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1375,6 +1375,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     else
         for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
     for (i=0; i<nsmpl; i++) args->dnm_allele[i] = bcf_int32_missing;
+    for (i=0; i<nsmpl; i++) args->vaf[i] = bcf_int32_missing;
     for (i=0; i<args->ntrio; i++)
     {
         if ( args->filter && !args->trio[i].pass ) continue;

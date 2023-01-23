@@ -133,6 +133,8 @@ Changes affecting specific commands:
     - Allow to set the `--pn` and `--pns` options separately for SNVs and indels and make
       the indel settings more strict by default
 
+    - Output missing FORMAT/VAF values in non-trio samples, rather than random nonsense values
+
 * bcftools +variant-distance
 
     - New option `-d, --direction` to choose the directionality: forward, reverse, nearest (the default)
