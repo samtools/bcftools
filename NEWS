@@ -105,6 +105,8 @@ Changes affecting specific commands:
 
     - Add new `--new-gt X` option (#1800)
 
+    - Add new `--target-gt r:FLOAT` option to randomly select a proportion of genotypes (#1850)
+
     - Fix a bug where `-t ./x` mode was advertised as selecting both phased and unphased
       half-missing genotypes, but was in fact selecting only unphased genotypes (#1844)
 

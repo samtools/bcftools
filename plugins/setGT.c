@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kfunc.h>
+#include <htslib/hts_os.h>
 #include <inttypes.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -58,9 +59,9 @@ typedef struct
         int m_allele, M_allele, *gt, *phased, ploidy;
         char *gt_str;
     } custom;
-    int filter_logic;
+    int filter_logic, rand_seed;
     uint8_t *smpl_pass;
-    double binom_val;
+    double binom_val, rand_frac;
     char *binom_tag;
     cmp_f binom_cmp;
 }
@@ -80,6 +81,7 @@ args_t *args = NULL;
 #define GT_MINOR    (1<<9)
 #define GT_CUSTOM   (1<<10)
 #define GT_X_VAF    (1<<11)
+#define GT_RAND     (1<<12)
 
 #define MINOR_ALLELE -1
 #define MAJOR_ALLELE -2
@@ -93,30 +95,32 @@ const char *usage(void)
 {
     return
         "About: Sets genotypes. The target genotypes can be specified as:\n"
-        "           ./.  .. completely missing (\".\" or \"./.\", depending on ploidy)\n"
-        "           ./x  .. partially missing (e.g., \"./0\" or \".|1\" but not \"./.\")\n"
-        "           .    .. partially or completely missing\n"
-        "           a    .. all genotypes\n"
-        "           b    .. heterozygous genotypes failing two-tailed binomial test (example below)\n"
-        "           q    .. select genotypes using -i/-e options\n"
+        "           ./.     .. completely missing (\".\" or \"./.\", depending on ploidy)\n"
+        "           ./x     .. partially missing (e.g., \"./0\" or \".|1\" but not \"./.\")\n"
+        "           .       .. partially or completely missing\n"
+        "           a       .. all genotypes\n"
+        "           b       .. heterozygous genotypes failing two-tailed binomial test (example below)\n"
+        "           q       .. select genotypes using -i/-e options\n"
+        "           r:FLOAT .. select randomly a proportion of FLOAT genotypes (can be combined with other modes)\n"
         "       and the new genotype can be one of:\n"
-        "           .    .. missing (\".\" or \"./.\", keeps ploidy)\n"
-        "           0    .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
-        "           c:GT .. custom genotype (e.g. 0/0, 0, 0/1, m/M, overrides ploidy)\n"
-        "           m    .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
-        "           M    .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
-        "           X    .. allele with bigger read depth as determined from FMT/AD\n"
-        "           p    .. phase genotype (0/1 becomes 0|1)\n"
-        "           u    .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
+        "           .       .. missing (\".\" or \"./.\", keeps ploidy)\n"
+        "           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
+        "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, overrides ploidy)\n"
+        "           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
+        "           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
+        "           X       .. allele with bigger read depth as determined from FMT/AD\n"
+        "           p       .. phase genotype (0/1 becomes 0|1)\n"
+        "           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
         "Usage: bcftools +setGT [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -e, --exclude <expr>        Exclude a genotype if true (requires -t q)\n"
-        "   -i, --include <expr>        include a genotype if true (requires -t q)\n"
-        "   -n, --new-gt <type>         Genotypes to set, see above\n"
-        "   -t, --target-gt <type>      Genotypes to change, see above\n"
+        "   -e, --exclude EXPR        Exclude a genotype if true (requires -t q)\n"
+        "   -i, --include EXPR        include a genotype if true (requires -t q)\n"
+        "   -n, --new-gt TYPE         Genotypes to set, see above\n"
+        "   -s, --seed INT            Random seed to use with -t r [0]\n"
+        "   -t, --target-gt TYPE      Genotypes to change, see above\n"
         "\n"
         "Example:\n"
         "   # set missing genotypes (\"./.\") to phased ref genotypes (\"0|0\")\n"
@@ -196,6 +200,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args->in_hdr  = in;
     args->out_hdr = out;
 
+    char *tmp;
     int c;
     static struct option loptions[] =
     {
@@ -203,12 +208,17 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"exclude",required_argument,NULL,'e'},
         {"new-gt",required_argument,NULL,'n'},
         {"target-gt",required_argument,NULL,'t'},
+        {"seed",required_argument,NULL,'s'},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "?hn:t:i:e:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hn:t:i:e:s:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 's':
+                args->rand_seed = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse: -s %s\n",optarg);
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
@@ -233,6 +243,13 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( !strcmp(optarg,"a") ) args->tgt_mask |= GT_ALL;
                 if ( !strcmp(optarg,"q") ) args->tgt_mask |= GT_QUERY;
                 if ( !strcmp(optarg,"?") ) args->tgt_mask |= GT_QUERY;        // for backward compatibility
+                if ( !strncmp(optarg,"r:",2) )
+                {
+                    args->rand_frac = strtod(optarg+2,&tmp);
+                    if ( *tmp ) error("Could not parse: -t %s\n", optarg);
+                    if ( args->rand_frac<=0 || args->rand_frac>=1 ) error("Expected value between 0 and 1 with -t\n");
+                    args->tgt_mask |= GT_RAND;
+                }
                 if ( strchr(optarg,'b') ) parse_binom_expr(args, strchr(optarg,'b'));
                 if ( args->tgt_mask==0 ) error("Unknown parameter to --target-gt: %s\n", optarg);
                 break;
@@ -244,6 +261,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
     if ( !args->new_mask ) error("Expected -n option\n");
     if ( !args->tgt_mask ) error("Expected -t option\n");
+    if ( args->tgt_mask & GT_RAND )
+    {
+        if ( args->tgt_mask==GT_RAND ) args->tgt_mask |= GT_ALL;
+        hts_srand48(args->rand_seed);
+    }
 
     if ( args->new_mask & GT_MISSING ) args->new_gt = bcf_gt_missing;
     if ( args->new_mask & GT_REF ) args->new_gt = args->new_mask&GT_PHASED ? bcf_gt_phased(0) : bcf_gt_unphased(0);
@@ -389,6 +411,11 @@ static inline double calc_binom(int na, int nb)
     return prob;
 }
 
+static inline int random_draw(args_t *args)
+{
+    return hts_drand48() > args->rand_frac ? 1 : 0; // reversed random draw
+}
+
 bcf1_t *process(bcf1_t *rec)
 {
     if ( !rec->n_sample ) return rec;
@@ -510,6 +537,7 @@ bcf1_t *process(bcf1_t *rec)
 
             double prob = calc_binom(args->iarr[i*nbinom+ia],args->iarr[i*nbinom+ib]);
             if ( !args->binom_cmp(prob,args->binom_val) ) continue;
+            if ( args->tgt_mask&GT_RAND && random_draw(args) ) continue;
 
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(ptr, ngts);
@@ -548,6 +576,7 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<rec->n_sample; i++)
         {
             if ( args->smpl_pass && !args->smpl_pass[i] ) continue;
+            if ( args->tgt_mask&GT_RAND && random_draw(args) ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else if ( args->new_mask==GT_PHASED )
@@ -579,6 +608,7 @@ bcf1_t *process(bcf1_t *rec)
             else if ( args->tgt_mask&GT_MISSING && ploidy==nmiss ) do_set = 1;
 
             if ( !do_set ) continue;
+            if ( args->tgt_mask&GT_RAND && random_draw(args) ) continue;
 
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(ptr, ngts);
