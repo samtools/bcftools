@@ -13,6 +13,12 @@ Changes affecting the whole of bcftools, or multiple commands:
         - evaluate to C_i = A_0 + B_i when length(A)=1 and set length(C)=length(B)
         - throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
 
+    - Arrays in Number=R tags can be now subscripted by alleles found in FORMAT/GT. For example,
+
+        FORMAT/AD[GT] > 10        .. require support of more than 10 reads for each allele
+        FORMAT/AD[0:GT] > 10      .. same as above, but in the first sample
+        sSUM(FORMAT/AD[GT]) > 20  .. require total sample depth bigger than 20
+
 
 Changes affecting specific commands:
 

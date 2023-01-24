@@ -69,6 +69,7 @@ typedef struct _token_t
     int hdr_id, tag_type;   // BCF header lookup ID and one of BCF_HL_* types
     int idx;            // 0-based index to VCF vectors,
                         //  -2: list (e.g. [0,1,2] or [1..3] or [1..] or any field[*], which is equivalent to [0..])
+                        //  -3: select indices on the fly based on values in GT
     int *idxs;          // set indexes to 0 to exclude, to 1 to include, and last element negative if unlimited; used by VCF retrievers only
     int nidxs, nuidxs;  // size of idxs array and the number of elements set to 1
     uint8_t *usmpl;     // bitmask of used samples as set by idx, set for FORMAT fields, NULL otherwise
@@ -100,6 +101,11 @@ struct _filter_t
     float   *tmpf;
     kstring_t tmps;
     int max_unpack, mtmpi, mtmpf, nsamples;
+    struct {
+        bcf1_t *line;
+        int32_t *buf, nbuf, mbuf;   // GTs as obtained by bcf_get_genotypes()
+        uint64_t *mask;             // GTs as mask, e.g 0/0 is 1; 0/1 is 3, max 63 unique alleles
+    } cached_GT;
 #if ENABLE_PERL_FILTERS
     PerlInterpreter *perl;
 #endif
@@ -349,6 +355,44 @@ char *expand_path(char *path)
     }
 
     return strdup(path);
+}
+static int filters_cache_genotypes(filter_t *flt, bcf1_t *line)
+{
+    if ( flt->cached_GT.line==line ) return flt->cached_GT.nbuf > 0 ? 0 : -1;
+    flt->cached_GT.line = line;
+    flt->cached_GT.nbuf = bcf_get_genotypes(flt->hdr, line, &flt->cached_GT.buf, &flt->cached_GT.mbuf);
+    if ( flt->cached_GT.nbuf<=0 ) return -1;
+    if ( !flt->cached_GT.mask )
+    {
+        flt->cached_GT.mask = (uint64_t*) malloc(sizeof(*flt->cached_GT.mask)*flt->nsamples);
+        if ( !flt->cached_GT.mask ) error("Could not alloc %zu bytes\n",sizeof(*flt->cached_GT.mask)*flt->nsamples);
+    }
+    int i,j, ngt1 = flt->cached_GT.nbuf / line->n_sample;
+    for (i=0; i<line->n_sample; i++)
+    {
+        int32_t *ptr = flt->cached_GT.buf + i*ngt1;
+        flt->cached_GT.mask[i] = 0;
+        for (j=0; j<ngt1; j++)
+        {
+            if ( bcf_gt_is_missing(ptr[j]) ) continue;
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+            int allele = bcf_gt_allele(ptr[j]);
+            if ( allele > 63 )
+            {
+                static int warned = 0;
+                if ( !warned )
+                {
+                    fprintf(stderr,"Too many alleles, skipping GT filtering at this site %s:%"PRId64". "
+                                   "(This warning is printed only once.)\n", bcf_seqname(flt->hdr,line),line->pos+1);
+                    warned = 1;
+                }
+                flt->cached_GT.nbuf = 0;
+                return -1;
+            }
+            flt->cached_GT.mask[i] |= 1<<allele;
+        }
+    }
+    return 0;
 }
 
 static void filters_set_qual(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -762,6 +806,27 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
                 tok->values[i] = ptr[tok->idx];
         }
     }
+    else if ( tok->idx==-3 )
+    {
+        if ( filters_cache_genotypes(flt,line)!=0 )
+        {
+            tok->nvalues = 0;
+            return;
+        }
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            int32_t *src = flt->tmpi + i*nsrc1;
+            double  *dst = tok->values + i*tok->nval1;
+            int k, j = 0;
+            for (k=0; k<nsrc1; k++) // source values are AD[0..nsrc1]
+            {
+                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                dst[j++] = src[k];
+            }
+            for (; j<tok->nval1; j++) bcf_double_set_vector_end(dst[j]);
+        }
+    }
     else
     {
         int kend = tok->idxs[tok->nidxs-1] < 0 ? tok->nval1 : tok->nidxs;
@@ -823,6 +888,33 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
                 bcf_double_set_vector_end(tok->values[i]);
             else
                 tok->values[i] = ptr[tok->idx];
+        }
+    }
+    else if ( tok->idx==-3 )
+    {
+        if ( filters_cache_genotypes(flt,line)!=0 )
+        {
+            tok->nvalues = 0;
+            return;
+        }
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            float  *src = flt->tmpf + i*nsrc1;
+            double *dst = tok->values + i*tok->nval1;
+            int k, j = 0;
+            for (k=0; k<nsrc1; k++) // source values are AF[0..nsrc1]
+            {
+                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                if ( bcf_float_is_missing(src[k]) )
+                    bcf_double_set_missing(dst[j]);
+                else if ( bcf_float_is_vector_end(src[k]) )
+                    bcf_double_set_vector_end(dst[j]);
+                else
+                    dst[j] = src[k];
+                j++;
+            }
+            for (; j<tok->nval1; j++) bcf_double_set_vector_end(dst[j]);
         }
     }
     else
@@ -989,9 +1081,9 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
     tok->str_value.s[tok->str_value.l] = 0;
     tok->nval1 = nvals1;
 }
-static void filters_set_genotype2(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 2); }
-static void filters_set_genotype3(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 3); }
-static void filters_set_genotype4(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 4); }
+static void filters_set_genotype2(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 2); }  // rr, ra, aa, aA etc
+static void filters_set_genotype3(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 3); }  // hap, hom, het
+static void filters_set_genotype4(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 4); }  // mis, alt, ref
 
 static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -2480,6 +2572,14 @@ static int parse_idxs(char *tag_idx, int **idxs, int *nidxs, int *idx)
         *idx       = -2;
         return 0;
     }
+    if ( !strcmp("GT", tag_idx) )
+    {
+        *idxs = (int*) malloc(sizeof(int));
+        (*idxs)[0] = -1;
+        *nidxs     = 1;
+        *idx = -3;
+        return 0;
+    }
 
     // TAG[integer] .. one field; idx positive
     char *end, *beg = tag_idx;
@@ -2595,7 +2695,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
                 tok->idxs = (int*) malloc(sizeof(int));
                 tok->idxs[0] = -1;
                 tok->nidxs   = 1;
-                tok->idx     = -2;
+                tok->idx     = idx1;
             }
             else if ( bcf_hdr_id2number(hdr,BCF_HL_FMT,tok->hdr_id)!=1 )
                 error("The FORMAT tag %s can have multiple subfields, run as %s[sample:subfield]\n", tag,tag);
@@ -2620,7 +2720,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
             if ( idx1 >= bcf_hdr_nsamples(hdr) ) error("The sample index is too large: %s\n", ori);
             tok->usmpl[idx1] = 1;
         }
-        else if ( idx1==-2 )
+        else if ( idx1==-2 || idx1==-3 )
         {
             for (i=0; i<nidxs1; i++)
             {
@@ -2820,7 +2920,11 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         if ( is_fmt==-1 ) is_fmt = 0;
     }
     if ( is_array )
+    {
         parse_tag_idx(filter->hdr, is_fmt, tmp.s, tmp.s+is_array, tok);
+        if ( tok->idx==-3 && bcf_hdr_id2length(filter->hdr,BCF_HL_FMT,tok->hdr_id)!=BCF_VL_R )
+            error("Error: GT subscripts can be used only with Number=R tags\n");
+    }
     else if ( is_fmt && !tok->nsamples )
     {
         int i;
@@ -3525,6 +3629,8 @@ void filter_destroy(filter_t *filter)
             free(filter->filters[i].regex);
         }
     }
+    free(filter->cached_GT.buf);
+    free(filter->cached_GT.mask);
     free(filter->filters);
     free(filter->flt_stack);
     free(filter->str);

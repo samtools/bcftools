@@ -3505,7 +3505,7 @@ to require that all alleles are of the given type. Compare
 
 * array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
-element of the vector, as shown in the examples below
+element of the vector, as shown in the examples below.
 
         INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
         FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
@@ -3521,6 +3521,14 @@ element of the vector, as shown in the examples below
         FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         CSQ[*] ~ "missense_variant.*deleterious"
+
+* in addition to array subscripts shown above, it is possible to subscript arrays
+of Number=R tags by alleles found in FORMAT/GT (starting with version 1.17).
+For example
+
+        FORMAT/AD[GT] > 10        .. require support of more than 10 reads for each allele
+        FORMAT/AD[0:GT] > 10      .. same as above, but in the first sample
+        sSUM(FORMAT/AD[GT]) > 20  .. require total sample depth bigger than 20
 
 * with many samples it can be more practical to provide a file with sample names,
 one sample name per line
