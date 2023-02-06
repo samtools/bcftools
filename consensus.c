@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2022 Genome Research Ltd.
+   Copyright (c) 2014-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -231,9 +231,15 @@ static void init_data(args_t *args)
     if ( !args->sample )
         args->smpl = smpl_ilist_init(args->hdr,NULL,0,SMPL_NONE|SMPL_VERBOSE);
     else if ( args->sample && strcmp("-",args->sample) )
+    {
         args->smpl = smpl_ilist_init(args->hdr,args->sample,0,SMPL_NONE|SMPL_VERBOSE);
+        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
+    }
     else if ( args->sample_fname )
+    {
         args->smpl = smpl_ilist_init(args->hdr,args->sample_fname,1,SMPL_NONE|SMPL_VERBOSE);
+        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
+    }
     if ( args->smpl )
     {
         if ( args->haplotype || args->allele )
