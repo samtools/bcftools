@@ -476,21 +476,21 @@ uint32_t parse_tags(args_t *args, const char *str)
             args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
-        else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC") ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"NS") ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Hom") ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Het") ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Hemi") ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AF") ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"MAF") ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"HWE") ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AN") || !strcasecmp(tags[i],"INFO/AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC") || !strcasecmp(tags[i],"INFO/AC")  ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"NS") || !strcasecmp(tags[i],"INFO/NS")  ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hom") || !strcasecmp(tags[i],"INFO/AC_Hom")  ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Het") || !strcasecmp(tags[i],"INFO/AC_Het")  ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hemi") || !strcasecmp(tags[i],"INFO_Hemi")  ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AF") || !strcasecmp(tags[i],"INFO/AF")  ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"MAF") || !strcasecmp(tags[i],"INFO/MAF")  ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"HWE") || !strcasecmp(tags[i],"INFO/HWE")  ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"ExcHet") || !strcasecmp(tags[i],"INFO/ExcHet")  ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"VAF") || !strcasecmp(tags[i],"FORMAT/VAF") ) { flag |= SET_VAF; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"VAF1") || !strcasecmp(tags[i],"FORMAT/VAF1") ) { flag |= SET_VAF1; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
-        else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
-        else if ( !strcasecmp(tags[i],"F_MISSING") ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"END") || !strcasecmp(tags[i],"INFO/END")  ) flag |= SET_END;
+        else if ( !strcasecmp(tags[i],"TYPE") || !strcasecmp(tags[i],"INFO/TYPE")  ) flag |= SET_TYPE;
+        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
