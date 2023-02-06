@@ -19,12 +19,17 @@ Changes affecting the whole of bcftools, or multiple commands:
         FORMAT/AD[0:GT] > 10      .. same as above, but in the first sample
         sSUM(FORMAT/AD[GT]) > 20  .. require total sample depth bigger than 20
 
+* The commands `consensus -H` and `+split-vep -H`
+
+    - Drop unnecessary leading space in the first header column and newly print `#[1]columnName`
+      instead of the previous `# [1]columnName` (#1856)
+
 
 Changes affecting specific commands:
 
 * bcftools +allele-length
 
-    - fix overflow for indels longer than 512bp and aggregate alleles equal or larger than
+    - Fix overflow for indels longer than 512bp and aggregate alleles equal or larger than
       that in the same bin (#1837)
 
 * bcftools annotate

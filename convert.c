@@ -1,6 +1,6 @@
 /*  convert.c -- functions for converting between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1568,7 +1568,7 @@ int convert_header(convert_t *convert, kstring_t *str)
     if ( i!=convert->nfmt )
         return str->l - l_ori;
 
-    kputs("# ", str);
+    kputc('#', str);
     for (i=0; i<convert->nfmt; i++)
     {
         // Genotype fields
