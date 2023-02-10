@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2022 Genome Research Ltd.
+   Copyright (c) 2019-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1095,6 +1095,55 @@ static void restrict_csqs_to_genes(args_t *args)
     }
     args->ncols_csq = nhit;
 }
+
+// Split the VEP annotation by transcript and by field, then check if the number of subfields looks alright.
+// Unfortunately, we cannot enforce the number of subfields to match the header definition because that can
+// be variable: `bcftools csq` outputs different number of fields for different consequence types.
+// So we need to distinguish between this reasonable case and incorrectly formated consequences such
+// as those reported for LoF_info subfield here https://github.com/Ensembl/ensembl-vep/issues/1351.
+static void split_csq_fields(args_t *args, bcf1_t *rec, int csq_str_len)
+{
+    int i;
+    args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
+    if ( args->cols_tr->n > args->mcols_csq )
+    {
+        args->cols_csq = (cols_t**)realloc(args->cols_csq,args->cols_tr->n*sizeof(*args->cols_csq));
+        for (i=args->mcols_csq; i<args->cols_tr->n; i++) args->cols_csq[i] = NULL;
+        args->mcols_csq = args->cols_tr->n;
+    }
+    args->ncols_csq = args->cols_tr->n;
+    int nfield_diff = 0, need_fix = 0;
+    for (i=0; i<args->cols_tr->n; i++)
+    {
+        args->cols_csq[i] = cols_split(args->cols_tr->off[i], args->cols_csq[i], '|');
+        if ( args->csq_idx >= args->cols_csq[i]->n ) need_fix = 1;
+        if ( nfield_diff < abs(args->cols_csq[i]->n - args->nfield) ) nfield_diff = args->cols_csq[i]->n - args->nfield;
+    }
+    if ( !csq_str_len ) return;     // called 2nd time, don't attempt to fix
+    if ( !need_fix ) return;
+
+    static int warned = 0;
+    if ( !warned )
+        fprintf(stderr,"Warning: The number of INFO/%s subfields at %s:%"PRIhts_pos" does not match the header definition,\n"
+                       "         expected %d subfields, found as %s as %d. (This warning is printed only once.)\n",
+                       args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1,args->nfield,nfield_diff>0?"much":"few",args->nfield+nfield_diff);
+    warned = 1;
+
+    // One known failure mode is LoF_info subfield which can contain commas. Work around this by relying on
+    // the number of pipe delimiters matching the header definition, replacing offending commas with slash
+    // characters. This assumes that there is never a comma in the first subfield, otherwise it would be
+    // impossible to distinguish between A|A,A,B,B|B and A|A,A,A,B|B
+    int npipe = 0;
+    while ( csq_str_len > 0 )
+    {
+        csq_str_len--;
+        if ( args->csq_str[csq_str_len]=='|' ) { npipe++; continue; }
+        if ( args->csq_str[csq_str_len]!=',' ) continue;
+        if ( npipe && !(npipe % (args->nfield-1)) ) { npipe = 0; continue; }    // wholesome number of pipes encountered, this is a valid comma
+        args->csq_str[csq_str_len] = '/';
+    }
+    split_csq_fields(args,rec,0);   // try once more
+}
 static void process_record(args_t *args, bcf1_t *rec)
 {
     int i,len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
@@ -1108,17 +1157,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         return;
     }
 
-    // split by transcript and by field
-    args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
-    if ( args->cols_tr->n > args->mcols_csq )
-    {
-        args->cols_csq = (cols_t**)realloc(args->cols_csq,args->cols_tr->n*sizeof(*args->cols_csq));
-        for (i=args->mcols_csq; i<args->cols_tr->n; i++) args->cols_csq[i] = NULL;
-        args->mcols_csq = args->cols_tr->n;
-    }
-    args->ncols_csq = args->cols_tr->n;
-    for (i=0; i<args->cols_tr->n; i++)
-        args->cols_csq[i] = cols_split(args->cols_tr->off[i], args->cols_csq[i], '|');
+    split_csq_fields(args,rec,len);
 
     // restrict to -g genes
     if ( args->genes ) restrict_csqs_to_genes(args);

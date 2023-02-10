@@ -128,6 +128,11 @@ Changes affecting specific commands:
 
     - New `-H, --print-header` option to print the header with `-f`
 
+    - Work around a bug in the LOFTEE VEP plugin used to annotate gnomAD VCFs. There the
+      LoF_info subfield contains commas which, in general, makes it impossible to parse the
+      VEP subfields. The +split-vep plugin can now work with such files, replacing the offending
+      commas with slash (/) characters. See also https://github.com/Ensembl/ensembl-vep/issues/1351
+
 * bcftools stats
 
     - The per-sample stats (PSC) would not be computed when `-i/-e` filtering options and

@@ -659,6 +659,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.1.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.2.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g {PATH}/split-vep.gene-list.txt]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.3.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g +{PATH}/split-vep.gene-list.txt]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.broken-LoF',out=>'split-vep.broken-LoF.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Consequence %LoF_info\\n' -a vep]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
