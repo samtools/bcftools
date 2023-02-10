@@ -109,6 +109,9 @@ struct _filter_t
 #if ENABLE_PERL_FILTERS
     PerlInterpreter *perl;
 #endif
+    char **undef_tag;
+    int nundef_tag;
+    int status, exit_on_error;
 };
 
 
@@ -302,6 +305,28 @@ static int filters_next_token(char **str, int *len)
 
     *len = tmp - (*str);
     return TOK_VAL;
+}
+
+#define FILTER_OK 0
+#define FILTER_ERR_UNKN_TAGS 1
+#define FILTER_ERR_OTHER 2
+
+static void filter_add_undef_tag(filter_t *filter, char *str)
+{
+    int i;
+    for (i=0; i<filter->nundef_tag; i++)
+        if ( !strcmp(str,filter->undef_tag[i]) ) break;
+    if ( i<filter->nundef_tag ) return;
+    filter->nundef_tag++;
+    filter->undef_tag = (char**)realloc(filter->undef_tag,sizeof(*filter->undef_tag)*filter->nundef_tag);
+    if ( !filter->undef_tag ) error("Could not allocate memory\n");
+    filter->undef_tag[filter->nundef_tag-1] = strdup(str);
+    if ( !filter->undef_tag[filter->nundef_tag-1] ) error("Could not allocate memory\n");
+}
+const char **filter_list_undef_tags(filter_t *filter, int *ntags)
+{
+    *ntags = filter->nundef_tag;
+    return (const char**)filter->undef_tag;
 }
 
 
@@ -3063,14 +3088,19 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     {
         errno = 0;
         tok->threshold = strtod(tmp.s, &end);   // float?
-        if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
+        if ( errno!=0 || end!=tmp.s+len )
+        {
+            if ( filter->exit_on_error )
+                error("[%s:%d %s] Error: the tag \"%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
+            filter->status |= FILTER_ERR_UNKN_TAGS;
+            filter_add_undef_tag(filter,tmp.s);
+        }
     }
     tok->is_constant = 1;
 
     if ( tmp.s ) free(tmp.s);
     return 0;
 }
-
 
 static void filter_debug_print(token_t *toks, token_t **tok_ptrs, int ntoks)
 {
@@ -3221,12 +3251,13 @@ static void perl_destroy(filter_t *filter)
 
 
 // Parse filter expression and convert to reverse polish notation. Dijkstra's shunting-yard algorithm
-filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
+static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error)
 {
     filter_t *filter = (filter_t *) calloc(1,sizeof(filter_t));
     filter->str = strdup(str);
     filter->hdr = hdr;
     filter->max_unpack |= BCF_UN_STR;
+    filter->exit_on_error = exit_on_error;
 
     int nops = 0, mops = 0;    // operators stack
     int nout = 0, mout = 0;    // filter tokens, RPN
@@ -3608,6 +3639,14 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     filter->flt_stack = (token_t **)malloc(sizeof(token_t*)*nout);
     return filter;
 }
+filter_t *filter_parse(bcf_hdr_t *hdr, const char *str)
+{
+    return filter_init_(hdr, str, 0);
+}
+filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
+{
+    return filter_init_(hdr, str, 1);
+}
 
 void filter_destroy(filter_t *filter)
 {
@@ -3629,6 +3668,8 @@ void filter_destroy(filter_t *filter)
             free(filter->filters[i].regex);
         }
     }
+    for (i=0; i<filter->nundef_tag; i++) free(filter->undef_tag[i]);
+    free(filter->undef_tag);
     free(filter->cached_GT.buf);
     free(filter->cached_GT.mask);
     free(filter->filters);
@@ -3642,6 +3683,7 @@ void filter_destroy(filter_t *filter)
 
 int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
 {
+    if ( filter->status != FILTER_OK ) error("Error: the caller did not check the filter status\n");
     bcf_unpack(line, filter->max_unpack);
 
     int i, nstack = 0;
@@ -3802,5 +3844,10 @@ void filter_set_samples(filter_t *filter, const uint8_t *samples)
         if ( !filter->filters[i].nsamples ) continue;
         for (j=0; j<filter->filters[i].nsamples; j++) filter->filters[i].usmpl[j] = samples[j];
     }
+}
+
+int filter_status(filter_t *filter)
+{
+    return filter->status;
 }
 

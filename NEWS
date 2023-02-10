@@ -133,6 +133,10 @@ Changes affecting specific commands:
       VEP subfields. The +split-vep plugin can now work with such files, replacing the offending
       commas with slash (/) characters. See also https://github.com/Ensembl/ensembl-vep/issues/1351
 
+    - Newly the `-c, --columns` option can be omitted when a subfield is used in `-i/-e` filtering
+      expression. Note that `-c` may still have to be given when it is not possible to infer the
+      type of the subfield. Note that this is an experimental feature.
+
 * bcftools stats
 
     - The per-sample stats (PSC) would not be computed when `-i/-e` filtering options and
