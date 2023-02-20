@@ -192,8 +192,8 @@ specific commands to see if they apply.
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
     tab-delimited file (the default). The columns of the tab-delimited file
-    can contain either positions (two-column format) or intervals (three-column
-    format): CHROM, POS, and, optionally, END,  where positions are 1-based
+    can contain either positions (two-column format: CHROM, POS) or intervals
+    (three-column format: CHROM, BEG, END), but not both. Positions are 1-based
     and inclusive. The columns of the tab-delimited BED file are also
     CHROM, POS and END (trailing columns are ignored), but coordinates
     are 0-based, half-open.  To indicate that a file be treated as BED rather
