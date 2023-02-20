@@ -66,11 +66,11 @@ Changes affecting specific commands:
 
     - New gff2gff perl script to fix GFF formatting differences
 
-* bcftools
+* bcftools +fill-tags
 
     - More of the available annotations are now added by the `-t all` option
 
-* bcftools fixref
+* bcftools +fixref
 
     - New INFO/FIXREF annotation
 
