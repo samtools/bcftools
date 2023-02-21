@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1>
+##FORMAT=<ID=IR,Number=R,Type=Integer,Description=".">
+##FORMAT=<ID=FR,Number=R,Type=Integer,Description=".">
+##FORMAT=<ID=IA,Number=A,Type=Float,Description=".">
+##FORMAT=<ID=FA,Number=A,Type=Float,Description=".">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Samp1	Samp2
+chr1	98	.	GCCT	G,GC	.	.	.	IR:FR:IA:FA	1,2,3	.:1,2,3:1,2:1,2

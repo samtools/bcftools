@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##INFO=<ID=DIST,Number=1,Type=Integer,Description="Distance to the previous variant">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	101	.	T	A	.	.	.
+1	101	.	T	C	.	.	.
+1	104	.	T	A	.	.	DIST=3
+1	104	.	T	C	.	.	DIST=3
+1	108	.	T	A	.	.	DIST=4
+1	108	.	T	C	.	.	DIST=4
+1	115	.	T	A	.	.	DIST=7
+2	120	.	T	A	.	.	.
+2	130	.	T	A	.	.	DIST=10

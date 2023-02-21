@@ -133,14 +133,21 @@ if interactive==False:
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
 else:
+    gui_set = False;
+
     for gui in ['TKAgg','GTKAgg','Qt4Agg','WXAgg','MacOSX']:
         try:
             mpl.use(gui,warn=False, force=True)
             import matplotlib.pyplot as plt
             import matplotlib.patches as patches
+            gui_set = True;
             break
         except:
             continue
+
+    if gui_set==False:
+        usage("Unable to set GUI for interactive plot")
+
 
 cols = [ '#337ab7', '#5cb85c', '#5bc0de', '#f0ad4e', '#d9534f', 'grey', 'black' ]
 
@@ -352,6 +359,13 @@ off_hash = {}
 off = 0
 off_sep = 0
 dat_rg1 = {}
+
+if not chrs:
+    usage("\nNo GT lines found in input file. Was it generated using the run-roh.pl script?\n"
+          "This script is unable to process the raw output of \"bcftools roh\",\n"
+          "the output of the following query may need to be added to the roh result.\n\n"
+          "bcftools query -f'GT\\t%CHROM\\t%POS[\\t%SAMPLE\\t%GT]\\n' in.bcf\n")
+
 for chr in chrs:
     if chr in dat_rg:
         rg1 = merge_regions(dat_rg[chr])

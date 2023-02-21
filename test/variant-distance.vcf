@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.2
 ##reference=file://some/path/human_g1k_v37.fasta
 ##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 1	101	.	T	A	.	.	.
 1	101	.	T	C	.	.	.
@@ -9,3 +10,5 @@
 1	108	.	T	A	.	.	.
 1	108	.	T	C	.	.	.
 1	115	.	T	A	.	.	.
+2	120	.	T	A	.	.	.
+2	130	.	T	A	.	.	.

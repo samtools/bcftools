@@ -1,0 +1,18 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=3>
+##contig=<ID=4>
+##contig=<ID=5>
+##contig=<ID=6>
+##contig=<ID=X>
+##contig=<ID=Y>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	mom1	dad1	child1
+1	103	.	A	G	100	PASS	.	GT	./.	0/0	1/1
+1	104	.	A	G	100	PASS	.	GT	.	0/0	1/1
+1	105	.	A	G	100	PASS	.	GT	.	0/0	0/1
+X	104	.	A	G	100	PASS	.	GT	.	0	1
+X	105	.	A	G	100	PASS	.	GT	.	0	0/1
+Y	103	.	A	G	100	PASS	.	GT	.	0	.

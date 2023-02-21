@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2022-08-18</strong> and refers to bcftools git version <strong>1.16</strong>.</p>
+<p>This manual page was last updated <strong>2023-02-21</strong> and refers to bcftools git version <strong>1.17</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -282,8 +282,8 @@ Note that <strong>-r</strong> cannot be used in combination with <strong>-R</str
 <dd>
 <p>Regions can be specified either on command line or in a VCF, BED, or
 tab-delimited file (the default). The columns of the tab-delimited file
-can contain either positions (two-column format) or intervals (three-column
-format): CHROM, POS, and, optionally, END,  where positions are 1-based
+can contain either positions (two-column format: CHROM, POS) or intervals
+(three-column format: CHROM, BEG, END), but not both. Positions are 1-based
 and inclusive. The columns of the tab-delimited BED file are also
 CHROM, POS and END (trailing columns are ignored), but coordinates
 are 0-based, half-open.  To indicate that a file be treated as BED rather
@@ -1246,7 +1246,10 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 </dd>
 <dt class="hdlist1"><strong>-I, --iupac-codes</strong></dt>
 <dd>
-<p>output variants in the form of IUPAC ambiguity codes</p>
+<p>output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
+samples are used and can be subset with <code>-s, --samples</code> and <code>-S, --samples-file</code>. Use <code>-s -</code> to ignore
+samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
+from REF,ALT columns and sample genotypes were not considered.</p>
 </dd>
 <dt class="hdlist1"><strong>--mark-del</strong> <em>CHAR</em></dt>
 <dd>
@@ -1279,9 +1282,13 @@ format details.</p>
 <dd>
 <p>write output to a file</p>
 </dd>
-<dt class="hdlist1"><strong>-s, --sample</strong> <em>NAME</em></dt>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
-<p>apply variants of the given sample</p>
+<p>apply variants of the listed samples. See also the option <code>-I, --iupac-codes</code></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>apply variants of the samples listed in the file. See also the option <code>-I, --iupac-codes</code></p>
 </dd>
 </dl>
 </div>
@@ -1294,8 +1301,8 @@ format details.</p>
     bcftools consensus -i -s NA001 -f in.fa in.vcf.gz &gt; out.fa
 
     # Create consensus for one region. The fasta header lines are then expected
-    # in the form "&gt;chr:from-to".
-    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+    # in the form "&gt;chr:from-to". Ignore samples and consider only the REF and ALT columns
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus -s - in.vcf.gz -o out.fa
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html</pre>
 </div>
@@ -2703,6 +2710,13 @@ is the opposite of <strong>samtools mpileup -G</strong>.</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--indels-2.0</strong></dt>
+<dd>
+<p>A new EXPERIMENTAL indel calling model which aims to address some known deficiencies of
+the current indel calling algorithm. Specifically, it uses diploid reference consensus
+sequence. Note that in the current version it has the potential to increase sensitivity
+but at the cost of decreased specificity</p>
+</dd>
 <dt class="hdlist1"><strong>-q, -min-MQ</strong> <em>INT</em></dt>
 <dd>
 <p>Minimum mapping quality for an alignment to be used [0]</p>
@@ -3100,6 +3114,11 @@ both SNPs and indels should be merged separately into two records, specify
 <em>both</em>; if SNPs and indels should be merged into a single record, specify
 <em>any</em>.</p>
 </dd>
+<dt class="hdlist1"><strong>--multi-overlaps</strong> <em>0</em>|<em>.</em></dt>
+<dd>
+<p>use the reference (<em>0</em>) or missing (<em>.</em>) allele for overlapping alleles after
+splitting multiallelic sites</p>
+</dd>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3437,6 +3456,10 @@ to <strong>smpl-stats</strong> and <strong>trio-stats</strong></p>
 <p>compare two files and set non-identical genotypes to missing</p>
 </dd>
 <dt class="hdlist1"><strong>mendelian</strong></dt>
+<dd>
+<p>count Mendelian consistent / inconsistent genotypes (deprecated, use +mendelian2 instead)</p>
+</dd>
+<dt class="hdlist1"><strong>mendelian2</strong></dt>
 <dd>
 <p>count Mendelian consistent / inconsistent genotypes.</p>
 </dd>
@@ -4011,6 +4034,30 @@ it will be in the range (10,1000).</p>
 both types are printed and the output is uncompressed. Add <em>z</em> for
 a compressed output.</p>
 </dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    # Output fields:
+    RG = predicted homo/autozygous regions
+        - Sample
+        - Chromosome
+        - Start
+        - End
+        - Length (bp)
+        - Number of markers
+        - Quality .. average phred score in the region from the forward-backward algorithm
+
+    ST = per-site output showing:
+        - Sample
+        - Chromosome
+        - Position
+        - State .. predicted state from the Viterbi algorithm, 0 for normal (HW, Hardy-Weinberg) or 1 for autozygous (AZ)
+        - Quality .. quality score from the forward-backward algorithm</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -4333,9 +4380,9 @@ multiple subsets simultaneously using the <strong>split</strong> plugin.</p>
 <p>Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like <em>--min-af 0.1</em> will be calculated from INFO/AC and INFO/AN
-when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
-field, like INFO/AF for example. For that, use <em>--exclude AF&lt;0.1</em> instead.</p>
+that filters like <em>--uncalled</em>, --exclude-uncalled', or <em>--min-af 0.1</em> will be calculated from INFO/AC and
+INFO/AN when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing field,
+like INFO/AF for example. For that, use <em>--exclude AF&lt;0.1</em> instead.</p>
 </div>
 <div class="paragraph">
 <p>Also note that one must be careful when sample subsetting and filtering is performed in a single command
@@ -4429,11 +4476,15 @@ most frequent (<em>nonmajor</em>) alleles.</p>
 </dd>
 <dt class="hdlist1"><strong>-u, --uncalled</strong></dt>
 <dd>
-<p>print sites without a called genotype</p>
+<p>print sites without a called genotype, i.e. print sites with all genotypes
+missing. Note that the missingness is determined from INFO/AN and AC tags
+when available to avoid parsing sample fields.</p>
 </dd>
 <dt class="hdlist1"><strong>-U, --exclude-uncalled</strong></dt>
 <dd>
-<p>exclude sites without a called genotype</p>
+<p>exclude sites without a called genotype, i.e. print sites with at least one
+non-missing genotype. Note that the missingness is determined from INFO/AN
+and AC tags when available to avoid parsing sample fields.</p>
 </dd>
 <dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>other</em></dt>
 <dd>
@@ -4646,7 +4697,7 @@ TYPE!~"snp"</pre>
 <li>
 <p>array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
-element of the vector, as shown in the examples below</p>
+element of the vector, as shown in the examples below.</p>
 <div class="literalblock">
 <div class="content">
 <pre>INFO/AF[0] &gt; 0.3             .. first AF value bigger than 0.3
@@ -4663,6 +4714,18 @@ FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
 FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
 CSQ[*] ~ "missense_variant.*deleterious"</pre>
+</div>
+</div>
+</li>
+<li>
+<p>in addition to array subscripts shown above, it is possible to subscript arrays
+of Number=R tags by alleles found in FORMAT/GT (starting with version 1.17).
+For example</p>
+<div class="literalblock">
+<div class="content">
+<pre>FORMAT/AD[GT] &gt; 10        .. require support of more than 10 reads for each allele
+FORMAT/AD[0:GT] &gt; 10      .. same as above, but in the first sample
+sSUM(FORMAT/AD[GT]) &gt; 20  .. require total sample depth bigger than 20</pre>
 </div>
 </div>
 </li>
@@ -4781,6 +4844,26 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 -e 'TAG[0]=1'   .. false
 -e 'TAG[0]!=1'  .. true</pre>
 </div>
+</div>
+</li>
+<li>
+<p>When arithmetic operators are used on vectors A and B, the following logic is used to
+compute the resulting vector C:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>C_i = A_i + B_i when length(A)==B(A) and sets length&#169;=length(A)</p>
+</li>
+<li>
+<p>C_i = A_i + B_0 when length(B)=1 and sets length&#169;=length(A)</p>
+</li>
+<li>
+<p>C_i = A_0 + B_i when length(A)=1 and sets length&#169;=length(B)</p>
+</li>
+<li>
+<p>throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1</p>
+</li>
+</ul>
 </div>
 </li>
 </ul>
@@ -5036,7 +5119,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-08-18 11:55:56 +0100
+Last updated 2023-02-21 12:25:09 UTC
 </div>
 </div>
 </body>

@@ -11,10 +11,8 @@
 ##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
 ##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
 ##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
-##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)">
 ##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
-##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
-##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric, http://samtools.github.io/bcftools/rd-SegBias.pdf">
 ##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
 ##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
 ##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
@@ -33,7 +31,7 @@
 1	72	.	C	<*>	0	.	DP=9;SCR=3;I16=6,3,0,0,318,11254,0,0,456,24672,0,0,82,1074,0,0;QS=1,0;MQ0F=0	PL:SCR	0,27,216:3
 1	73	.	C	<*>	0	.	DP=10;SCR=3;I16=7,3,0,0,348,12146,0,0,516,28272,0,0,91,1247,0,0;QS=1,0;MQ0F=0	PL:SCR	0,30,224:3
 1	74	.	C	<*>	0	.	DP=10;SCR=3;I16=7,3,0,0,350,12278,0,0,516,28272,0,0,100,1388,0,0;QS=1,0;MQ0F=0	PL:SCR	0,30,228:3
-1	75	.	C	G,<*>	0	.	DP=12;SCR=4;I16=6,2,3,1,274,9444,132,4392,480,28800,119,3601,55,501,54,1046;QS=0.697201,0.302799,0;VDB=0.0483573;SGB=-0.556411;RPBZ=1.71346;MQBZ=-3.26599;MQSBZ=0.111111;BQBZ=-0.515877;NMBZ=3.31662;SCBZ=3.23349;FS=0;MQ0F=0	PL:SCR	73,0,170,97,182,252:4
+1	75	.	C	G,<*>	0	.	DP=12;SCR=4;I16=6,2,3,1,274,9444,132,4392,480,28800,119,3601,55,501,54,1046;QS=0.697201,0.302799,0;VDB=0.0533436;SGB=-0.556411;RPBZ=1.63069;MQBZ=-3.26599;MQSBZ=0.111111;BQBZ=-0.515877;SCBZ=3.23349;MQ0F=0	PL:SCR	73,0,170,97,182,252:4
 1	76	.	C	<*>	0	.	DP=12;SCR=4;I16=9,3,0,0,410,14076,0,0,599,32401,0,0,120,1726,0,0;QS=1,0;MQ0F=0	PL:SCR	0,36,233:4
 1	77	.	G	<*>	0	.	DP=12;SCR=4;I16=9,3,0,0,385,12495,0,0,599,32401,0,0,131,1927,0,0;QS=1,0;MQ0F=0	PL:SCR	0,36,225:4
 1	78	.	T	<*>	0	.	DP=12;SCR=4;I16=9,3,0,0,365,11201,0,0,599,32401,0,0,142,2150,0,0;QS=1,0;MQ0F=0	PL:SCR	0,36,213:4

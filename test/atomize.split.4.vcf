@@ -1,0 +1,6 @@
+##fileformat=VCFv4.3
+##contig=<ID=11,length=135006516>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+11	100	.	CC	GG	.	.	.
+11	200	.	CC	GGGG	.	.	.
+11	300	.	C	GGGG	.	.	.

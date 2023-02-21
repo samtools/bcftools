@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2022 Genome Research Ltd.
+   Copyright (c) 2015-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -90,7 +90,8 @@ struct _pop_t
 struct _args_t
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int npop, tags, drop_missing, gt_id;
+    uint32_t tags, warned;
+    int npop, drop_missing, gt_id;
     pop_t *pop, **smpl2pop;
     float *farr;
     int32_t *iarr, niarr, miarr, nfarr, mfarr, unpack;
@@ -317,7 +318,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             hts_expand(float,nfill*rec->n_sample,ftf->nfval,ftf->fval);
             for (k=0; k<rec->n_sample; k++)
             {
-                float *dst  = ftf->fval + k*nval1;
+                float *dst  = ftf->fval + k*nfill;
                 const double *src = val + k*nval1;
                 for (j=0; j<ncopy; j++) float_set_from_double(dst[j], src[j]);
                 for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
@@ -329,7 +330,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             hts_expand(int32_t,nfill*rec->n_sample,ftf->nival,ftf->ival);
             for (k=0; k<rec->n_sample; k++)
             {
-                int32_t *dst = ftf->ival + k*nval1;
+                int32_t *dst = ftf->ival + k*nfill;
                 const double *src  = val + k*nval1;
                 for (j=0; j<ncopy; j++) dst[j] = int32_from_double(src[j]);
                 for (; j<nfill; j++) dst[j] = bcf_int32_missing;
@@ -459,34 +460,37 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
         ret |= parse_func_pop(args,&args->pop[i],tag_expr,expr);
     return ret;
 }
-int parse_tags(args_t *args, const char *str)
+uint32_t parse_tags(args_t *args, const char *str)
 {
     if ( !args->in_hdr ) error("%s", usage());
 
-    int i,j, flag = 0, n_tags;
+    args->warned = 0;
+    uint32_t flag = 0;
+    int i, n_tags;
     char **tags = hts_readlist(str, 0, &n_tags), *ptr;
     for(i=0; i<n_tags; i++)
     {
         if ( !strcasecmp(tags[i],"all") )
         {
-            for (j=0; j<=10; j++) flag |= 1<<j;
+            flag |= ~(SET_END|SET_TYPE);
+            args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
-        else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC") ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"NS") ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Hom") ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Het") ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AC_Hemi") ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"AF") ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"MAF") ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"HWE") ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AN") || !strcasecmp(tags[i],"INFO/AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC") || !strcasecmp(tags[i],"INFO/AC")  ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"NS") || !strcasecmp(tags[i],"INFO/NS")  ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hom") || !strcasecmp(tags[i],"INFO/AC_Hom")  ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Het") || !strcasecmp(tags[i],"INFO/AC_Het")  ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hemi") || !strcasecmp(tags[i],"INFO_Hemi")  ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AF") || !strcasecmp(tags[i],"INFO/AF")  ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"MAF") || !strcasecmp(tags[i],"INFO/MAF")  ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"HWE") || !strcasecmp(tags[i],"INFO/HWE")  ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"ExcHet") || !strcasecmp(tags[i],"INFO/ExcHet")  ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"VAF") || !strcasecmp(tags[i],"FORMAT/VAF") ) { flag |= SET_VAF; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"VAF1") || !strcasecmp(tags[i],"FORMAT/VAF1") ) { flag |= SET_VAF1; args->unpack |= BCF_UN_FMT; }
-        else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
-        else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
-        else if ( !strcasecmp(tags[i],"F_MISSING") ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"END") || !strcasecmp(tags[i],"INFO/END")  ) flag |= SET_END;
+        else if ( !strcasecmp(tags[i],"TYPE") || !strcasecmp(tags[i],"INFO/TYPE")  ) flag |= SET_TYPE;
+        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
@@ -977,11 +981,10 @@ static void process_vaf_vaf1(bcf1_t *rec)
     args->niarr = bcf_get_format_int32(args->in_hdr, rec, "AD", &args->iarr, &args->miarr);
     if ( args->niarr <= 0 )
     {
-        static int missing_ad_warned = 0;
-        if ( !missing_ad_warned )
+        if ( !(args->warned&(SET_VAF|SET_VAF1)) )
             fprintf(stderr,"Warning: cannot add the VAF/VAF1 annotations, the required FORMAT/AD tag is missing at %s:%"PRIhts_pos".\n"
                            "         (This warning is printed only once.)\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
-        missing_ad_warned = 1;
+        args->warned |= SET_VAF|SET_VAF1;
         return;
     }
 
