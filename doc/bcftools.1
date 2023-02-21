@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2022-08-18
+.\"      Date: 2023-02-21
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2022-08-18" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-02-21" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2022\-08\-18\fP and refers to bcftools git version \fB1.16\fP.
+This manual page was last updated \fB2023\-02\-21\fP and refers to bcftools git version \fB1.17\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -455,8 +455,8 @@ Note that \fB\-r\fP cannot be used in combination with \fB\-R\fP.
 .RS 4
 Regions can be specified either on command line or in a VCF, BED, or
 tab\-delimited file (the default). The columns of the tab\-delimited file
-can contain either positions (two\-column format) or intervals (three\-column
-format): CHROM, POS, and, optionally, END,  where positions are 1\-based
+can contain either positions (two\-column format: CHROM, POS) or intervals
+(three\-column format: CHROM, BEG, END), but not both. Positions are 1\-based
 and inclusive. The columns of the tab\-delimited BED file are also
 CHROM, POS and END (trailing columns are ignored), but coordinates
 are 0\-based, half\-open.  To indicate that a file be treated as BED rather
@@ -1493,7 +1493,10 @@ include only sites for which \fIEXPRESSION\fP is true. For valid expressions see
 .sp
 \fB\-I, \-\-iupac\-codes\fP
 .RS 4
-output variants in the form of IUPAC ambiguity codes
+output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
+samples are used and can be subset with \f(CR\-s, \-\-samples\fP and \f(CR\-S, \-\-samples\-file\fP. Use \f(CR\-s \-\fP to ignore
+samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
+from REF,ALT columns and sample genotypes were not considered.
 .RE
 .sp
 \fB\-\-mark\-del\fP \fICHAR\fP
@@ -1534,9 +1537,14 @@ instead of skipping the missing genotypes, output the character CHAR (e.g. "?")
 write output to a file
 .RE
 .sp
-\fB\-s, \-\-sample\fP \fINAME\fP
+\fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
-apply variants of the given sample
+apply variants of the listed samples. See also the option \f(CR\-I, \-\-iupac\-codes\fP
+.RE
+.sp
+\fB\-S, \-\-samples\-file\fP \fIFILE\fP
+.RS 4
+apply variants of the samples listed in the file. See also the option \f(CR\-I, \-\-iupac\-codes\fP
 .RE
 .sp
 \fBExamples:\fP
@@ -1548,8 +1556,8 @@ apply variants of the given sample
     bcftools consensus \-i \-s NA001 \-f in.fa in.vcf.gz > out.fa
 
     # Create consensus for one region. The fasta header lines are then expected
-    # in the form ">chr:from\-to".
-    samtools faidx ref.fa 8:11870\-11890 | bcftools consensus in.vcf.gz \-o out.fa
+    # in the form ">chr:from\-to". Ignore samples and consider only the REF and ALT columns
+    samtools faidx ref.fa 8:11870\-11890 | bcftools consensus \-s \- in.vcf.gz \-o out.fa
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus\-sequence.html
 .fam
@@ -3001,6 +3009,14 @@ is the opposite of \fBsamtools mpileup \-G\fP.
 .fi
 .if n .RE
 .sp
+\fB\-\-indels\-2.0\fP
+.RS 4
+A new EXPERIMENTAL indel calling model which aims to address some known deficiencies of
+the current indel calling algorithm. Specifically, it uses diploid reference consensus
+sequence. Note that in the current version it has the potential to increase sensitivity
+but at the cost of decreased specificity
+.RE
+.sp
 \fB\-q, \-min\-MQ\fP \fIINT\fP
 .RS 4
 Minimum mapping quality for an alignment to be used [0]
@@ -3431,6 +3447,12 @@ together: If only SNP records should be split or merged, specify \fIsnps\fP; if
 both SNPs and indels should be merged separately into two records, specify
 \fIboth\fP; if SNPs and indels should be merged into a single record, specify
 \fIany\fP.
+.RE
+.sp
+\fB\-\-multi\-overlaps\fP \fI0\fP|\fI.\fP
+.RS 4
+use the reference (\fI0\fP) or missing (\fI.\fP) allele for overlapping alleles after
+splitting multiallelic sites
 .RE
 .sp
 \fB\-\-no\-version\fP
@@ -3955,6 +3977,11 @@ compare two files and set non\-identical genotypes to missing
 .RE
 .sp
 \fBmendelian\fP
+.RS 4
+count Mendelian consistent / inconsistent genotypes (deprecated, use +mendelian2 instead)
+.RE
+.sp
+\fBmendelian2\fP
 .RS 4
 count Mendelian consistent / inconsistent genotypes.
 .RE
@@ -4596,6 +4623,29 @@ both types are printed and the output is uncompressed. Add \fIz\fP for
 a compressed output.
 .RE
 .sp
+.if n .RS 4
+.nf
+.fam C
+    # Output fields:
+    RG = predicted homo/autozygous regions
+        \- Sample
+        \- Chromosome
+        \- Start
+        \- End
+        \- Length (bp)
+        \- Number of markers
+        \- Quality .. average phred score in the region from the forward\-backward algorithm
+
+    ST = per\-site output showing:
+        \- Sample
+        \- Chromosome
+        \- Position
+        \- State .. predicted state from the Viterbi algorithm, 0 for normal (HW, Hardy\-Weinberg) or 1 for autozygous (AZ)
+        \- Quality .. quality score from the forward\-backward algorithm
+.fam
+.fi
+.if n .RE
+.sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 see \fBCommon Options\fP
@@ -4929,9 +4979,9 @@ multiple subsets simultaneously using the \fBsplit\fP plugin.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like \fI\-\-min\-af 0.1\fP will be calculated from INFO/AC and INFO/AN
-when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
-field, like INFO/AF for example. For that, use \fI\-\-exclude AF<0.1\fP instead.
+that filters like \fI\-\-uncalled\fP, \-\-exclude\-uncalled\*(Aq, or \fI\-\-min\-af 0.1\fP will be calculated from INFO/AC and
+INFO/AN when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing field,
+like INFO/AF for example. For that, use \fI\-\-exclude AF<0.1\fP instead.
 .sp
 Also note that one must be careful when sample subsetting and filtering is performed in a single command
 because the order of internal operations can influence the result. For example, the \fB\-i/\-e\fP filtering
@@ -5036,12 +5086,16 @@ most frequent (\fInonmajor\fP) alleles.
 .sp
 \fB\-u, \-\-uncalled\fP
 .RS 4
-print sites without a called genotype
+print sites without a called genotype, i.e. print sites with all genotypes
+missing. Note that the missingness is determined from INFO/AN and AC tags
+when available to avoid parsing sample fields.
 .RE
 .sp
 \fB\-U, \-\-exclude\-uncalled\fP
 .RS 4
-exclude sites without a called genotype
+exclude sites without a called genotype, i.e. print sites with at least one
+non\-missing genotype. Note that the missingness is determined from INFO/AN
+and AC tags when available to avoid parsing sample fields.
 .RE
 .sp
 \fB\-v, \-\-types\fP \fIsnps\fP|\fIindels\fP|\fImnps\fP|\fIother\fP
@@ -5403,7 +5457,7 @@ TYPE!~"snp"
 .\}
 array subscripts (0\-based), "*" for any element, "\-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
-element of the vector, as shown in the examples below
+element of the vector, as shown in the examples below.
 .sp
 .if n .RS 4
 .nf
@@ -5422,6 +5476,29 @@ FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
 FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
 CSQ[*] ~ "missense_variant.*deleterious"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+in addition to array subscripts shown above, it is possible to subscript arrays
+of Number=R tags by alleles found in FORMAT/GT (starting with version 1.17).
+For example
+.sp
+.if n .RS 4
+.nf
+.fam C
+FORMAT/AD[GT] > 10        .. require support of more than 10 reads for each allele
+FORMAT/AD[0:GT] > 10      .. same as above, but in the first sample
+sSUM(FORMAT/AD[GT]) > 20  .. require total sample depth bigger than 20
 .fam
 .fi
 .if n .RE
@@ -5646,6 +5723,62 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 .fam
 .fi
 .if n .RE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+When arithmetic operators are used on vectors A and B, the following logic is used to
+compute the resulting vector C:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+C_i = A_i + B_i when length(A)==B(A) and sets length\(co=length(A)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+C_i = A_i + B_0 when length(B)=1 and sets length\(co=length(A)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+C_i = A_0 + B_i when length(A)=1 and sets length\(co=length(B)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
+.RE
 .RE
 .sp
 \fBExamples:\fP

@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.17 (21st February 2023)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * The -i/-e filtering expressions
