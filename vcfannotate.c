@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -2863,9 +2863,16 @@ static void init_data(args_t *args)
 
     if ( args->mark_sites )
     {
-        if ( !args->targets_fname ) error("The -a option not given\n");
-        bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites %slisted in %s\">",
-            args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
+        if ( !args->targets_fname )
+        {
+            if ( args->mark_sites_logic!=MARK_LISTED ) error("The -a option not given but -%s logic was requested\n",args->mark_sites);
+            fprintf(stderr,"Note: The -a option not given, all sites will be annotated with INFO/%s\n",args->mark_sites);
+            bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites marked with `bcftools annotate -m %s`\">",
+                    args->mark_sites,args->mark_sites);
+        }
+        else
+            bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites %slisted in %s\">",
+                args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
 
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
@@ -3273,6 +3280,8 @@ static void annotate(args_t *args, bcf1_t *line)
 
     if ( args->mark_sites )
     {
+        if ( !args->targets_fname ) has_overlap = 1;
+
         // ideally, we'd like to be far more general than this in future, see https://github.com/samtools/bcftools/issues/87
         if ( args->mark_sites_logic==MARK_LISTED )
             bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,has_overlap?1:0);

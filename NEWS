@@ -2,6 +2,11 @@
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - The `-m, --mark-sites` option can be now used to mark all sites without the
+      need to provide the `-a` file (#1861)
+
 * bcftools stats
 
     - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field
