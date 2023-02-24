@@ -1,5 +1,18 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools stats
+
+    - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field
+
+    - When counting transitions/transversions, consider also alternate het genotypes
+
+* plot-vcfstats
+
+    - Add three new VAF plots
+
+
 ## Release 1.17 (21st February 2023)
 
 

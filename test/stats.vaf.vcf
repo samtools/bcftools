@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##reference=ref.fa
+##contig=<ID=chr1,length=248956422>
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b
+chr1	603697	.	C	A,T	.	.	.	GT:AD	0/1:0,1,0	0/2:0,0,1
+chr1	847172	.	C	A	.	.	.	GT:AD	0/1:1,1	0/1:1,1
+chr1	895916	.	C	A,G	.	.	.	GT:AD	1/2:8,2,0	0/0:8,0,0
+chr1	940526	.	CTTTTT	C,CTT,CT	.	.	.	GT:AD	2/3:2,0,2,3	0/0:2,0,0,0
+chr1	1054587	.	C	A	.	.	.	GT:AD	0/1:5,1	0/1:5,1
+chr1	1123455	.	C	A	.	.	.	GT:AD	0/1:0,1	0/1:0,1
+chr1	1130454	.	C	A	.	.	.	GT:AD	0/1:4,1	0/1:4,1
+chr1	1145661	.	G	T	.	.	.	GT:AD	0/1:0,1	0/1:0,1
+chr1	1198538	.	C	A	.	.	.	GT:AD	0/1:0,1	0/1:0,1
+chr1	1349818	.	C	A	.	.	.	GT:AD	0/1:2,1	0/1:2,1
