@@ -3103,9 +3103,9 @@ static void annotate(args_t *args, bcf1_t *line)
                         error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
                     if ( ret==0 )
                         args->cols[j].done = 1;
+                    has_overlap = 1;
                 }
             }
-            has_overlap = 1;
         }
         for (j=0; j<args->ncols; j++)
         {
@@ -3264,6 +3264,7 @@ static void annotate(args_t *args, bcf1_t *line)
             has_overlap = 1;
         }
     }
+fprintf(stderr,"has_overlap=%d  mark=%s\n",has_overlap,args->mark_sites);
     if ( args->set_ids )
     {
         args->tmpks.l = 0;

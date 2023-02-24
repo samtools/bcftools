@@ -499,7 +499,7 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.5.out',args=>'-c CHROM,POS,REF,ALT,.=TSTR,.=TFLT,.=TINT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.6.out',args=>'-c CHROM,POS,REF,ALT,=TSTR,=TFLT,=TINT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.1.out',args=>'-c CHROM,BEG,END,DB -l DB:unique');
-run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.2.out',args=>'-c CHROM,BEG,END,DB -l DB:unique --min-overlap 0.4:0.5');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.2.out',args=>'-c CHROM,BEG,END,DB -l DB:unique --min-overlap 0.4:0.5 -m XXX');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.1.out',args=>'-c ALT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.2.out',args=>'-c +ALT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id.2',vcf=>'annots.id.2',out=>'annotate.id.2.1.out',args=>'--pair-logic some -c +ID');
