@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1819,7 +1819,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
 {
     bcf1_t *line;
     int i, k;
-    int prev_rid = -1, prev_pos = -1, prev_type = 0;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY, prev_type = 0;
     for (i=0; i<n; i++)
     {
         k = rbuf_shift(&args->rbuf);
@@ -2020,7 +2020,7 @@ static void normalize_vcf(args_t *args)
     if ( bcf_hdr_write(args->out, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
     bcf1_t *line;
-    int prev_rid = -1, prev_pos = -1, prev_type = 0;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY, prev_type = 0;
     while ( (line = next_atomized_line(args)) )
     {
         args->ntotal++;

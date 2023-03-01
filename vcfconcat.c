@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -38,6 +38,8 @@ THE SOFTWARE.  */
 #include <htslib/thread_pool.h>
 #include <sys/time.h>
 #include "bcftools.h"
+
+#define EMPTY_FILE -3
 
 typedef struct _args_t
 {
@@ -95,11 +97,11 @@ static void init_data(args_t *args)
         if ( args->phased_concat )
         {
             int ret = bcf_read(fp, hdr, line);
-            if ( ret!=0 ) args->start_pos[i] = -2;  // empty file
+            if ( ret!=0 ) args->start_pos[i] = EMPTY_FILE;
             else
             {
                 int chrid = bcf_hdr_id2int(args->out_hdr,BCF_DT_CTG,bcf_seqname(hdr,line));
-                args->start_pos[i] = chrid==prev_chrid ? line->pos : -1;
+                args->start_pos[i] = chrid==prev_chrid ? line->pos : CSI_COOR_EMPTY;
                 prev_chrid = chrid;
             }
         }
@@ -171,11 +173,11 @@ static void init_data(args_t *args)
         int nok = 0;
         while (1)
         {
-            while ( nok<args->nfnames && args->start_pos[nok]!=-2 ) nok++;
+            while ( nok<args->nfnames && args->start_pos[nok]!=EMPTY_FILE ) nok++;
             if ( nok==args->nfnames ) break;
 
             i = nok;
-            while ( i<args->nfnames && args->start_pos[i]==-2 ) i++;
+            while ( i<args->nfnames && args->start_pos[i]==EMPTY_FILE ) i++;
             if ( i==args->nfnames ) break;
 
             int tmp = args->start_pos[nok]; args->start_pos[nok] = args->start_pos[i]; args->start_pos[i] = tmp;
@@ -185,7 +187,7 @@ static void init_data(args_t *args)
         args->nfnames = nok;
 
         for (i=1; i<args->nfnames; i++)
-            if ( args->start_pos[i-1]!=-1 && args->start_pos[i]!=-1 && args->start_pos[i]<args->start_pos[i-1] )
+            if ( args->start_pos[i-1]!=CSI_COOR_EMPTY && args->start_pos[i]!=CSI_COOR_EMPTY && args->start_pos[i]<args->start_pos[i-1] )
                 error("The files not in ascending order: %d in %s, %d in %s\n", args->start_pos[i-1]+1,args->fnames[i-1],args->start_pos[i]+1,args->fnames[i]);
 
         args->prev_chr = -1;
@@ -264,7 +266,7 @@ static void phased_flush(args_t *args)
         bcf1_t *brec = args->buf[i+1];
 
         int nGTs = bcf_get_genotypes(ahdr, arec, &args->GTa, &args->mGTa);
-        if ( nGTs < 0 ) 
+        if ( nGTs < 0 )
         {
             if ( !gt_absent_warned )
             {
@@ -359,7 +361,7 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,rec,"PQ",args->phase_qual,nsmpl);
             PQ_printed = 1;
             for (j=0; j<nsmpl; j++)
-                if ( args->phase_qual[j] < args->min_PQ ) 
+                if ( args->phase_qual[j] < args->min_PQ )
                 {
                     args->phase_set[j] = rec->pos+1;
                     args->phase_set_changed = 1;
@@ -404,7 +406,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec, int is_overlap
         if ( args->seen_seq[chr_id] ) error("The chromosome block %s is not contiguous\n", arec ? bcf_seqname(ahdr,arec) : bcf_seqname(bhdr,brec));
         args->seen_seq[chr_id] = 1;
         args->prev_chr = chr_id;
-        args->prev_pos_check = -1;
+        args->prev_pos_check = CSI_COOR_EMPTY;
     }
 
     if ( !is_overlap )
@@ -463,12 +465,12 @@ static void concat(args_t *args)
                 new_file = 1;
 
                 args->ifname++;
-                if ( args->start_pos[args->ifname-1]==-1 ) break;   // new chromosome, start with only one file open
-                if ( args->ifname < args->nfnames && args->start_pos[args->ifname]==-1 ) break; // next file starts on a different chromosome
+                if ( args->start_pos[args->ifname-1]==CSI_COOR_EMPTY ) break;   // new chromosome, start with only one file open
+                if ( args->ifname < args->nfnames && args->start_pos[args->ifname]==CSI_COOR_EMPTY ) break; // next file starts on a different chromosome
             }
 
             // is there a line from the previous run? Seek the newly opened reader to that position
-            int seek_pos = -1;
+            int seek_pos = CSI_COOR_EMPTY;
             int seek_chr = -1;
             if ( bcf_sr_has_line(args->files,0) )
             {
@@ -521,11 +523,12 @@ static void concat(args_t *args)
 
                 // This can happen after bcf_sr_seek: indel may start before the coordinate which we seek to.
                 if ( seek_chr>=0 && seek_pos>line->pos && seek_chr==bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[ir].header,line)) ) continue;
-                seek_pos = seek_chr = -1;
+                seek_pos = CSI_COOR_EMPTY;
+                seek_chr = -1;
 
                 //  Check if the position overlaps with the next, yet unopened, reader
                 int must_seek = 0;
-                while ( args->ifname < args->nfnames && args->start_pos[args->ifname]!=-1 && line->pos >= args->start_pos[args->ifname] )
+                while ( args->ifname < args->nfnames && args->start_pos[args->ifname]!=CSI_COOR_EMPTY && line->pos >= args->start_pos[args->ifname] )
                 {
                     must_seek = 1;
                     if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s: %s\n", args->fnames[args->ifname],bcf_sr_strerror(args->files->errnum));
@@ -618,7 +621,7 @@ static void concat(args_t *args)
                     if ( chr_id<0 ) error("\nThe sequence \"%s\" not defined in the header: %s\n(Quick workaround: index the file.)\n", tmp.s, args->fnames[i]);
                     if ( prev_chr_id!=chr_id )
                     {
-                        prev_pos = -1;
+                        prev_pos = CSI_COOR_EMPTY;
                         if ( args->seen_seq[chr_id] )
                             error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", tmp.s);
                     }
@@ -643,7 +646,7 @@ static void concat(args_t *args)
 
                     if ( prev_chr_id!=line->rid )
                     {
-                        prev_pos = -1;
+                        prev_pos = CSI_COOR_EMPTY;
                         if ( args->seen_seq[line->rid] )
                             error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", bcf_seqname(args->out_hdr, line));
                     }
@@ -980,7 +983,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'd': args->remove_dups = optarg; break;
             case 'D': args->remove_dups = "exact"; break;
-            case 'q': 
+            case 'q':
                 args->min_PQ = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --min-PQ %s\n", optarg);
                 break;

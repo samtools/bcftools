@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2022 Genome Research Ltd.
+    Copyright (C) 2012-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -828,7 +828,7 @@ void maux_reset(maux_t *ma, int *rid_tab)
     }
     const char *chr = NULL;
     ma->nals  = 0;
-    ma->pos   = -1;
+    ma->pos   = CSI_COOR_EMPTY;
     for (i=0; i<ma->n; i++)
     {
         if ( !bcf_sr_has_line(ma->files,i) ) continue;
@@ -897,7 +897,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
     bcf_float_set_missing(out->qual);
 
     // CHROM, POS, ID, QUAL
-    out->pos = -1;
+    out->pos = CSI_COOR_EMPTY;
     for (i=0; i<files->nreaders; i++)
     {
         bcf1_t *line = maux_get_line(args, i);
@@ -916,7 +916,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         }
 
         // position
-        if ( out->pos==-1 )
+        if ( out->pos==CSI_COOR_EMPTY )
         {
             const char *chr = hdr->id[BCF_DT_CTG][line->rid].key;
             out->rid = bcf_hdr_name2id(out_hdr, chr);

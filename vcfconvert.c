@@ -1,6 +1,6 @@
 /*  vcfconvert.c -- convert between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -59,7 +59,7 @@ struct _args_t
     bcf_hdr_t *header;
     void (*convert_func)(struct _args_t *);
     struct {
-        int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing; 
+        int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing;
     } n;
     kstring_t str;
     int32_t *gts;
@@ -160,7 +160,7 @@ static int _set_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     // REF,ALT
     args->str.l = 0;
     se = ++ss;
-    while ( se < tsv->se && *se!='_' ) se++; 
+    while ( se < tsv->se && *se!='_' ) se++;
     if ( *se!='_' ) return -1;
     kputsn(ss,se-ss,&args->str);
     ss = ++se;
@@ -202,14 +202,14 @@ static int tsv_setter_chrom_pos_ref_alt_or_id(tsv_t *tsv, bcf1_t *rec, void *usr
 {
     args_t *args = (args_t*)usr;
     if ( _set_chrom_pos_ref_alt(tsv,rec,usr)==0 )  return 0;
-    rec->pos = -1;  // mark the record as unset
+    rec->pos = CSI_COOR_EMPTY;  // mark the record as unset
     if ( !args->output_vcf_ids) return 0;
     return tsv_setter_id(tsv,rec,usr);
 }
 static int tsv_setter_chrom_pos_ref_alt_id_or_die(tsv_t *tsv, bcf1_t *rec, void *usr)
 {
     args_t *args = (args_t*)usr;
-    if ( rec->pos!=-1 )
+    if ( rec->pos!=CSI_COOR_EMPTY )
     {
         if ( !args->output_vcf_ids ) return 0;
         return tsv_setter_id(tsv,rec,usr);
@@ -269,12 +269,12 @@ static int tsv_setter_gt_gp(tsv_t *tsv, bcf1_t *rec, void *usr)
         if ( aa >= ab )
         {
             if ( aa >= bb ) args->gts[2*i+0] = args->gts[2*i+1] = bcf_gt_unphased(0);
-            else args->gts[2*i+0] = args->gts[2*i+1] = bcf_gt_unphased(1); 
+            else args->gts[2*i+0] = args->gts[2*i+1] = bcf_gt_unphased(1);
         }
-        else if ( ab >= bb ) 
+        else if ( ab >= bb )
         {
             args->gts[2*i+0] = bcf_gt_unphased(0);
-            args->gts[2*i+1] = bcf_gt_unphased(1); 
+            args->gts[2*i+1] = bcf_gt_unphased(1);
         }
         else args->gts[2*i+0] = args->gts[2*i+1] = bcf_gt_unphased(1);
     }
@@ -293,7 +293,7 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
     else { a0 = bcf_gt_phased(0); a1 = bcf_gt_phased(1); }
 
     // up is short for "unphased"
-    int nup = 0; 
+    int nup = 0;
     for (i=0; i<nsamples; i++)
     {
         char *ss = tsv->ss + 4*i + nup;
@@ -324,11 +324,11 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
                 break;
             default :
                 fprintf(stderr,"Could not parse: [%c][%s]\n", ss[all*2+up],tsv->ss);
-                return -1; 
+                return -1;
             }
             if( ss[all*2+up+1]=='*' ) up = up + 1;
         }
-        
+
         if(up && up != 2)
         {
             fprintf(stderr,"Missing unphased marker '*': [%c][%s]", ss[2+up], tsv->ss);
@@ -356,13 +356,13 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
 static void gensample_to_vcf(args_t *args)
 {
     /*
-     *  Inpute: IMPUTE2 output (indentation changed here for clarity): 
+     *  Inpute: IMPUTE2 output (indentation changed here for clarity):
      *
      *      20:62116619_C_T 20:62116619     62116619 C T 0.969 0.031 0 ...
      *      ---             20:62116698_C_A 62116698 C A 1     0     0 ...
      *
      *  Second column is expected in the form of CHROM:POS_REF_ALT. We use second
-     *  column because the first can be empty ("--") when filling sites from reference 
+     *  column because the first can be empty ("--") when filling sites from reference
      *  panel. When the option --vcf-ids is given, the first column is used to set the
      *  VCF ID.
      *
@@ -784,7 +784,7 @@ char *init_sample2sex(bcf_hdr_t *hdr, char *sex_fname)
     }
     for (i=0; i<nlines; i++) free(lines[i]);
     free(lines);
-    for (i=0; i<bcf_hdr_nsamples(hdr); i++) 
+    for (i=0; i<bcf_hdr_nsamples(hdr); i++)
         if ( !sample2sex[i] ) error("Missing sex for sample %s in %s\n", bcf_hdr_int2id(hdr, BCF_DT_SAMPLE, i),sex_fname);
     return sample2sex;
 }
@@ -847,7 +847,7 @@ static void vcf_to_gensample(args_t *args)
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
 
     // write samples file
-    if (sample_fname) 
+    if (sample_fname)
     {
         char *sample2sex = NULL;
         if ( args->sex_fname ) sample2sex = init_sample2sex(args->header,args->sex_fname);
@@ -877,7 +877,7 @@ static void vcf_to_gensample(args_t *args)
         return;
     }
 
-    int prev_rid = -1, prev_pos = -1;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY;
     int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0, nok = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )
@@ -915,7 +915,7 @@ static void vcf_to_gensample(args_t *args)
             nok++;
         }
     }
-    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n",
         nok, no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
 
     if ( str.m ) free(str.s);
@@ -976,7 +976,7 @@ static void vcf_to_haplegendsample(args_t *args)
     {
         char *sample2sex = NULL;
         if ( args->sex_fname ) sample2sex = init_sample2sex(args->header,args->sex_fname);
-        
+
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
@@ -1078,7 +1078,7 @@ static void vcf_to_hapsample(args_t *args)
         kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT %ID %POS %REF %FIRST_ALT ", &str);
     else
         kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
-    
+
     if ( args->hap2dip )
         kputs("%_GT_TO_HAP2\n", &str);
     else
@@ -1229,7 +1229,7 @@ static inline int tsv_setter_aa1(args_t *args, char *ss, char *se, int alleles[]
     if ( alleles[a0]<0 ) alleles[a0] = (*nals)++;
     if ( alleles[a1]<0 ) alleles[a1] = (*nals)++;
 
-    gts[0] = bcf_gt_unphased(alleles[a0]); 
+    gts[0] = bcf_gt_unphased(alleles[a0]);
     gts[1] = ss[1] ? bcf_gt_unphased(alleles[a1]) : bcf_int32_vector_end;
 
     if ( ref==a0 && ref==a1  ) args->n.hom_rr++;    // hom ref: RR
@@ -1265,7 +1265,7 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
         }
         ret = tsv_setter_aa1(args, tsv->ss, tsv->se, alleles, &nals, iref, args->gts+i*2);
         if ( ret==-1 ) error("Error parsing the site %s:%"PRId64", expected two characters\n", bcf_hdr_id2name(args->header,rec->rid),(int64_t) rec->pos+1);
-        if ( ret==-2 ) 
+        if ( ret==-2 )
         {
             // something else than a SNP
             free(ref);
@@ -1275,7 +1275,7 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 
     args->str.l = 0;
     kputc(ref[0], &args->str);
-    for (i=0; i<5; i++) 
+    for (i=0; i<5; i++)
     {
         if ( alleles[i]>0 )
         {
@@ -1419,7 +1419,7 @@ static void gvcf_to_vcf(args_t *args)
         {
             int pass = filter_test(args->filter, line, NULL);
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) 
+            if ( !pass )
             {
                 if ( bcf_write(out_fh,hdr,line)!=0  ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
                 continue;
@@ -1667,7 +1667,7 @@ int main_vcfconvert(int argc, char *argv[])
         else args->infname = argv[optind];
     }
     if ( !args->infname ) usage();
-    
+
     if ( args->convert_func ) args->convert_func(args);
     else vcf_to_vcf(args);
 
