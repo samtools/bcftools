@@ -706,7 +706,7 @@ static void parse_filter_str(args_t *args)
         const char **tags = filter_list_undef_tags(args->filter, &ntags);
         kstring_t str;
         str.s = args->column_str;
-        str.l = str.m = strlen(str.s);
+        str.l = str.m = str.s ? strlen(str.s) : 0;
         destroy_annot(args);
         destroy_column2type(args);
         for (i=0; i<ntags; i++)

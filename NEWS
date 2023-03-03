@@ -9,6 +9,10 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+* bcftools +split-vep
+
+    - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)
+
 * bcftools stats
 
     - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field
