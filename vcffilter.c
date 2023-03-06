@@ -536,7 +536,7 @@ int main_vcffilter(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:o:O:g:G:S:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:M:o:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g':
                 args->snp_gap = strtol(optarg,&tmp,10); 
