@@ -839,8 +839,10 @@ int main_vcfview(int argc, char *argv[])
     }
 
     if (args->write_index) {
-        if (bcf_idx_save(args->out) < 0)
+        if (bcf_idx_save(args->out) < 0) {
+            hts_close(args->out);
             error("Error: cannot write to index %s\n", args->index_fn);
+        }
         free(args->index_fn);
     }
 
