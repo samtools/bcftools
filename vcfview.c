@@ -76,6 +76,8 @@ typedef struct _args_t
     char *include_types, *exclude_types;
     int include, exclude;
     int record_cmd_line;
+    char *index_fn;
+    int write_index;
     htsFile *out;
 }
 args_t;
@@ -536,6 +538,38 @@ static void usage(args_t *args)
     exit(1);
 }
 
+// See also samtools/sam_utils.c auto_index()
+int init_index(args_t *args, bcf_hdr_t *hdr) {
+    int min_shift = 14; // CSI
+    char *fn = args->fn_out;
+
+    if (!fn || !*fn || strcmp(fn, "-") == 0)
+        return -1;
+
+    char *delim = strstr(fn, HTS_IDX_DELIM);
+    if (delim) {
+        delim += strlen(HTS_IDX_DELIM);
+        args->index_fn = strdup(delim);
+        if (!args->index_fn)
+            return -1;
+
+        size_t l = strlen(args->index_fn);
+        if (l >= 4 &&
+            (strcmp(args->index_fn + l - 4, ".tbi") == 0 ||
+             strcmp(args->index_fn + l - 4, ".bai") == 0))
+            min_shift = 0;
+    } else {
+        if (!(args->index_fn = malloc(strlen(fn)+6)))
+            return -1;
+        sprintf(args->index_fn, "%s.csi", fn);
+    }
+
+    if (bcf_idx_init(args->out, hdr, min_shift, args->index_fn) < 0)
+        return -1;
+
+    return 0;
+}
+
 int main_vcfview(int argc, char *argv[])
 {
     int c;
@@ -548,6 +582,7 @@ int main_vcfview(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->n_threads = 0;
     args->record_cmd_line = 1;
+    args->write_index = 0;
     args->min_ac = args->max_ac = args->min_af = args->max_af = -1;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
@@ -596,6 +631,7 @@ int main_vcfview(int argc, char *argv[])
         {"phased",no_argument,NULL,'p'},
         {"exclude-phased",no_argument,NULL,'P'},
         {"no-version",no_argument,NULL,8},
+        {"write-index",no_argument,NULL,10},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -727,6 +763,7 @@ int main_vcfview(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
+            case 10 : args->write_index = 1; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
@@ -783,6 +820,11 @@ int main_vcfview(int argc, char *argv[])
     else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
 
+    if (args->write_index) {
+        if (init_index(args, out_hdr) < 0)
+            error("Failed to initialise index\n");
+    }
+
     int ret = 0;
     if (!args->header_only)
     {
@@ -795,6 +837,13 @@ int main_vcfview(int argc, char *argv[])
         ret = args->files->errnum;
         if ( ret ) fprintf(stderr,"Error: %s\n", bcf_sr_strerror(args->files->errnum));
     }
+
+    if (args->write_index) {
+        if (bcf_idx_save(args->out) < 0)
+            error("Error: cannot write to index %s\n", args->index_fn);
+        free(args->index_fn);
+    }
+
     hts_close(args->out);
     destroy_data(args);
     bcf_sr_destroy(args->files);
