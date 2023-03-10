@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -46,6 +46,8 @@ typedef struct _args_t
     int output_type, n_threads, record_cmd_line, clevel;
     bcf_hdr_t *out_hdr;
     int *seen_seq;
+    char *index_fn;
+    int write_index;
 
     // phasing
     int *start_pos, start_tid, ifname;
@@ -142,6 +144,7 @@ static void init_data(args_t *args)
         hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->tpool);
     }
     if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname);
+    if ( args->write_index && init_index(args->out_fh,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     if ( args->allow_overlaps )
     {
@@ -203,7 +206,16 @@ static void destroy_data(args_t *args)
     int i;
     if ( args->out_fh )
     {
-        if ( hts_close(args->out_fh)!=0 ) error("hts_close error\n");
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->out_fh)<0 )
+            {
+                if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
+        if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n",args->output_fname?args->output_fname:"stdout");
     }
     if ( args->tpool && !args->files )
     {
@@ -264,7 +276,7 @@ static void phased_flush(args_t *args)
         bcf1_t *brec = args->buf[i+1];
 
         int nGTs = bcf_get_genotypes(ahdr, arec, &args->GTa, &args->mGTa);
-        if ( nGTs < 0 ) 
+        if ( nGTs < 0 )
         {
             if ( !gt_absent_warned )
             {
@@ -359,7 +371,7 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,rec,"PQ",args->phase_qual,nsmpl);
             PQ_printed = 1;
             for (j=0; j<nsmpl; j++)
-                if ( args->phase_qual[j] < args->min_PQ ) 
+                if ( args->phase_qual[j] < args->min_PQ )
                 {
                     args->phase_set[j] = rec->pos+1;
                     args->phase_set_changed = 1;
@@ -931,6 +943,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "   -v, --verbose 0|1              Set verbosity level [1]\n");
+    fprintf(stderr, "       --write-index              Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -969,6 +982,7 @@ int main_vcfconcat(int argc, char *argv[])
         {"file-list",required_argument,NULL,'f'},
         {"min-PQ",required_argument,NULL,'q'},
         {"no-version",no_argument,NULL,8},
+        {"write-index",no_argument,NULL,13},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -980,7 +994,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'd': args->remove_dups = optarg; break;
             case 'D': args->remove_dups = "exact"; break;
-            case 'q': 
+            case 'q':
                 args->min_PQ = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --min-PQ %s\n", optarg);
                 break;
@@ -1021,6 +1035,7 @@ int main_vcfconcat(int argc, char *argv[])
                       args->verbose = strtol(optarg, &tmp, 0);
                       if ( *tmp || args->verbose<0 || args->verbose>1 ) error("Error: currently only --verbose 0 or --verbose 1 is supported\n");
                       break;
+            case 13 : args->write_index = 1; break;
             case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);

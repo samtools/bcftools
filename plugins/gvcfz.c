@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2017-2021 Genome Research Ltd.
+/*
+    Copyright (C) 2017-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -78,6 +78,8 @@ typedef struct
     char **argv, *region, *target, *fname, *output_fname, *keep_tags;
     bcf_hdr_t *hdr_in, *hdr_out;
     bcf_srs_t *sr;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -88,18 +90,19 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Compress gVCF file by resizing gVCF blocks according to specified criteria.\n"
         "\n"
         "Usage: bcftools +gvcfz [Options]\n"
         "Plugin options:\n"
-        "   -a, --trim-alt-alleles          trim alternate alleles not seen in the genotypes\n"
-        "   -e, --exclude <expr>            exclude sites for which the expression is true\n"
-        "   -i, --include <expr>            include sites for which the expression is true\n"
-        "   -g, --group-by EXPR             group gVCF blocks according to the expression\n"
-        "   -o, --output FILE               write gVCF output to the FILE\n"
+        "   -a, --trim-alt-alleles          Trim alternate alleles not seen in the genotypes\n"
+        "   -e, --exclude <expr>            Exclude sites for which the expression is true\n"
+        "   -i, --include <expr>            Include sites for which the expression is true\n"
+        "   -g, --group-by EXPR             Group gVCF blocks according to the expression\n"
+        "   -o, --output FILE               Write gVCF output to the FILE\n"
         "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Compress blocks by GQ and DP. Multiple blocks separated by a semicolon can be defined\n"
         "   bcftools +gvcfz input.bcf -g'PASS:GQ>60 & DP<20; PASS:GQ>40 & DP<15; Flt1:QG>20; Flt2:-'\n"
@@ -136,7 +139,7 @@ static void init_groups(args_t *args)
         beg = ++end;
         while ( *end && *end!=';' ) end++;
         char tmp = *end; *end = 0;
-        if ( strcmp(flt,"PASS") ) 
+        if ( strcmp(flt,"PASS") )
         {
             bcf_hdr_printf(args->hdr_out, "##FILTER=<ID=%s,Description=\"%s\">", flt, hdr_str);
             if (bcf_hdr_sync(args->hdr_out) < 0)
@@ -174,6 +177,15 @@ static void destroy_data(args_t *args)
     free(args->grp);
 
     if ( args->filter ) filter_destroy(args->filter);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->fh_out)<0 )
+        {
+            if ( hts_close(args->fh_out)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
     if ( hts_close(args->fh_out)!=0 ) error("failed to close %s\n", args->output_fname);
 
     bcf_sr_destroy(args->sr);
@@ -203,7 +215,7 @@ static void flush_block(args_t *args, bcf1_t *rec)
         if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,"PL",&gvcf->pl,3) != 0 )
             error("Could not update FORMAT/PL at %s:%"PRId64"\n", bcf_seqname(args->hdr_out,gvcf->rec),(int64_t) gvcf->rec->pos+1);
     }
-    if ( gvcf->grp < args->ngrp && args->grp[gvcf->grp].flt_id >= 0 ) 
+    if ( gvcf->grp < args->ngrp && args->grp[gvcf->grp].flt_id >= 0 )
         bcf_add_filter(args->hdr_out, gvcf->rec, args->grp[gvcf->grp].flt_id);
 
     if ( bcf_write(args->fh_out, args->hdr_out, gvcf->rec)!=0 ) error("Failed to write the header\n");
@@ -323,13 +335,14 @@ int run(int argc, char **argv)
         {"stats",required_argument,NULL,'s'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
+        {"write-index",no_argument,NULL,1},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:g:i:e:a",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'a': args->trim_alts = 1; break;
             case 'e':
@@ -358,6 +371,7 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
+            case  1 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -385,6 +399,7 @@ int run(int argc, char **argv)
     set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
     args->fh_out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( bcf_hdr_write(args->fh_out, args->hdr_out)!=0 ) error("Failed to write the header\n");
+    if ( args->write_index && init_index(args->fh_out,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
     while ( bcf_sr_next_line(args->sr) ) process_gvcf(args);
     flush_block(args, NULL);
 

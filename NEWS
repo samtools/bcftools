@@ -1,5 +1,10 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Support auto indexing during writing BCF and VCF.gz via new `--write-index` option
+
+
 Changes affecting specific commands:
 
 * bcftools annotate

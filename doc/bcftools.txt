@@ -52,7 +52,7 @@ commands can thus be  combined  with  Unix pipes.
 This manual page was last updated *{date}* and refers to bcftools git version *{version}*.
 
 === BCF1
-The BCF1 format output by versions of samtools \<= 0.1.19 is *not*
+The obsolete BCF1 format output by versions of samtools \<= 0.1.19 is *not*
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions \<= 0.1.19 to convert to VCF, which can then be read by
@@ -69,6 +69,10 @@ done with 'bcftools view'. Users are now required to choose between the old
 samtools calling model ('-c/--consensus-caller') and the new multiallelic
 calling model ('-m/--multiallelic-caller'). The multiallelic calling model
 is recommended for most tasks.
+
+
+=== FILTERING EXPRESSIONS
+See *<<expressions,EXPRESSIONS>>*
 
 
 LIST OF COMMANDS
@@ -105,6 +109,7 @@ LIST OF SCRIPTS
 ---------------
 Some helper scripts are bundled with the bcftools code.
 
+- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,csq>>*
 - *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
 
 
@@ -297,6 +302,9 @@ Such a file can be easily created from a VCF using:
 *--threads* 'INT'::
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
+
+*--write-index*::
+    Automatically index the output files. Can be used only for compressed BCF and VCF output.
 
 
 [[annotate]]
@@ -501,6 +509,9 @@ Add or remove annotations.
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
+*--write-index*::
+    Automatically index the output file
+
 *Examples:*
 ----
     # Remove three fields
@@ -603,6 +614,9 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== Input/output options:
 
@@ -878,6 +892,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*--write-index*::
+    Automatically index the output file
+
 
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'
@@ -1020,6 +1037,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== VCF output options:
 
@@ -1290,6 +1310,7 @@ output VCF and are ignored for the prediction analysis.
 
 *-g, --gff-annot* 'FILE'::
     GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    The script *<<gff2gff,gff2gff>>* can help with conversion from non-standard GFF formats.
     An example of a minimal working GFF file:
 ----
     # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
@@ -1391,6 +1412,9 @@ output VCF and are ignored for the prediction analysis.
 
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 *Examples:*
 ----
@@ -1558,6 +1582,9 @@ And similarly here, the second is filtered:
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 
 
@@ -1815,6 +1842,9 @@ in the other files.
     list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
+*--write-index*::
+    Automatically index the output file. This is done automatically with the *-p* option.
+
 ==== Examples:
 
 Create intersection and complements of two sets saving the output in dir/*
@@ -1951,6 +1981,8 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*--write-index*::
+    Automatically index the output file
 
 [[mpileup]]
 === bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
@@ -2199,6 +2231,9 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
+*--write-index*::
+    Automatically index the output file
+
 ==== Options for SNP/INDEL genotype likelihood computation
 
 *-X, --config* 'STR'::
@@ -2428,6 +2463,8 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
 
+*--write-index*::
+    Automatically index the output file
 
 [[plugin]]
 
@@ -2484,6 +2521,9 @@ the usage examples that each plugin comes with.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== Plugin options:
 
@@ -3105,6 +3145,9 @@ Transition probabilities:
 *-T, --temp-dir* 'DIR'::
     Use this directory to store temporary files
 
+*--write-index*::
+    Automatically index the output file
+
 
 
 [[stats]]
@@ -3251,6 +3294,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 
 ==== Subset options:
@@ -3403,8 +3449,8 @@ Display the full bcftools version number in a machine-readable format.
 
 
 [[expressions]]
-EXPRESSIONS
------------
+FILTERING EXPRESSIONS
+---------------------
 
 These filtering expressions are accepted by most of the commands.
 
@@ -3662,8 +3708,17 @@ that the whole expression is passed to the program as intended:
 Please refer to the documentation of your shell for details.
 
 
-SCRIPTS AND OPTIONS
--------------------
+SCRIPTS
+-------
+
+[[gff2gff]]
+=== gff2gff
+Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
+
+--
+    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+--
+
 
 [[plot-vcfstats]]
 === plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
@@ -3729,8 +3784,9 @@ AUTHORS
 -------
 Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
-and further developing bcftools.  Many other people contributed to the program
+BGZF library. Petr Danecek is maintaining and further developing bcftools, together
+with the rest of the https://www.sanger.ac.uk/tool/samtools-bcftools-htslib[samtools team].
+Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.
 

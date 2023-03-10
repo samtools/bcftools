@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -105,6 +105,8 @@ typedef struct
     int use_star_allele, ma_use_ref_allele;
     char *old_rec_tag;
     htsFile *out;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -2018,6 +2020,7 @@ static void normalize_vcf(args_t *args)
         hts_set_opt(args->out, HTS_OPT_THREAD_POOL, args->files->p);
     if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_norm");
     if ( bcf_hdr_write(args->out, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    if ( args->write_index && init_index(args->out,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     bcf1_t *line;
     int prev_rid = -1, prev_pos = -1, prev_type = 0;
@@ -2081,6 +2084,15 @@ static void normalize_vcf(args_t *args)
         if ( j>0 ) flush_buffer(args, args->out, j);
     }
     flush_buffer(args, args->out, args->rbuf.n);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->out)<0 )
+        {
+            if ( hts_close(args->out)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
     fprintf(stderr,"Lines   total/split/realigned/skipped:\t%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->nchanged,args->nskipped);
@@ -2121,6 +2133,7 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
+    fprintf(stderr, "        --write-index               Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # normalize and left-align indels\n");
@@ -2181,6 +2194,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"check-ref",required_argument,NULL,'c'},
         {"strict-filter",no_argument,NULL,'s'},
         {"no-version",no_argument,NULL,8},
+        {"write-index",no_argument,NULL,14},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -2204,6 +2218,7 @@ int main_vcfnorm(int argc, char *argv[])
                 else if ( optarg[0]=='.' ) args->ma_use_ref_allele = 0;
                 else error("Invalid argument to --multi-overlaps\n");
                 break;
+            case 14 : args->write_index = 1; break;
             case 'N': args->do_indels = 0; break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;

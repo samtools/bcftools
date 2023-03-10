@@ -118,6 +118,8 @@ typedef struct _args_t
     htsFile *out_fh;
     int output_type, n_threads, clevel;
     bcf_sr_regions_t *tgts;
+    char *index_fn;
+    int write_index;
 
     regidx_t *tgt_idx;  // keep everything in memory only with .tab annotation file and -c BEG,END columns
     regitr_t *tgt_itr;
@@ -2888,6 +2890,7 @@ static void init_data(args_t *args)
         if ( args->n_threads )
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p);
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: failed to write the header to %s\n", __func__,args->output_fname);
+        if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
     }
 }
 
@@ -2950,7 +2953,19 @@ static void destroy_data(args_t *args)
         convert_destroy(args->set_ids);
     if ( args->filter )
         filter_destroy(args->filter);
-    if (args->out_fh) hts_close(args->out_fh);
+    if (args->out_fh)
+    {
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->out_fh)<0 )
+            {
+                if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
+        if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+    }
     free(args->sample_map);
     free(args->merge_method_str.s);
 }
@@ -3264,7 +3279,6 @@ static void annotate(args_t *args, bcf1_t *line)
             has_overlap = 1;
         }
     }
-fprintf(stderr,"has_overlap=%d  mark=%s\n",has_overlap,args->mark_sites);
     if ( args->set_ids )
     {
         args->tmpks.l = 0;
@@ -3325,6 +3339,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --single-overlaps           Keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
     fprintf(stderr, "   -x, --remove LIST               List of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
     fprintf(stderr, "       --threads INT               Number of extra output compression threads [0]\n");
+    fprintf(stderr, "       --write-index               Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   http://samtools.github.io/bcftools/howtos/annotate.html\n");
@@ -3381,6 +3396,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"min-overlap",required_argument,NULL,12},
         {"no-version",no_argument,NULL,8},
         {"force",no_argument,NULL,'f'},
+        {"write-index",no_argument,NULL,13},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -3457,6 +3473,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 10 : args->single_overlaps = 1; break;
             case 11 : args->rename_annots = optarg; break;
             case 12 : args->min_overlap_str = optarg; break;
+            case 13 : args->write_index = 1; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }

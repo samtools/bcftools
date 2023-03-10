@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2023-02-21
+.\" Generator: Asciidoctor 2.0.16
+.\"      Date: 2023-03-10
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-02-21" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-03-10" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,10 +51,10 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-02\-21\fP and refers to bcftools git version \fB1.17\fP.
+This manual page was last updated \fB2023\-03\-10 08:27 GMT\fP and refers to bcftools git version \fB1.17\-10\-g9655089+\fP.
 .SS "BCF1"
 .sp
-The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
+The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions <= 0.1.19 to convert to VCF, which can then be read by
@@ -75,6 +75,9 @@ done with \fIbcftools view\fP. Users are now required to choose between the old
 samtools calling model (\fI\-c/\-\-consensus\-caller\fP) and the new multiallelic
 calling model (\fI\-m/\-\-multiallelic\-caller\fP). The multiallelic calling model
 is recommended for most tasks.
+.SS "FILTERING EXPRESSIONS"
+.sp
+See \fBEXPRESSIONS\fP
 .SH "LIST OF COMMANDS"
 .sp
 For a full list of available commands, run \fBbcftools\fP without arguments. For a full
@@ -344,6 +347,17 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
+\fBgff2gff\fP  .. converts a GFF file to the format required by \fBcsq\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
 \fBplot\-vcfstats\fP  .. plots the output of \fBstats\fP
 .RE
 .SH "COMMANDS AND OPTIONS"
@@ -596,6 +610,11 @@ Same as \fB\-\-regions\-overlap\fP but for \fB\-t/\-T\fP.
 .RS 4
 Use multithreading with \fIINT\fP worker threads. The option is currently used only for the compression of the
 output stream, only when \fI\-\-output\-type\fP is \fIb\fP or \fIz\fP. Default: 0.
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output files. Can be used only for compressed BCF and VCF output.
 .RE
 .SS "bcftools annotate \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
@@ -881,6 +900,11 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 .RE
 .sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -1016,6 +1040,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "Input/output options:"
 .sp
@@ -1401,6 +1430,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools consensus \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 Create consensus sequence by applying VCF variants to a reference fasta file.
@@ -1616,6 +1650,11 @@ see \fBCommon Options\fP
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "VCF output options:"
 .sp
@@ -1987,6 +2026,7 @@ transcripts in malformatted GFFs with incorrect phase
 .RS 4
 GFF3 annotation file (required), such as \c
 .URL "ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" "" "."
+The script \fBgff2gff\fP can help with conversion from non\-standard GFF formats.
 An example of a minimal working GFF file:
 .RE
 .sp
@@ -2135,6 +2175,11 @@ see \fBCommon Options\fP
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .sp
 \fBExamples:\fP
@@ -2365,6 +2410,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "bcftools gtcheck [\fIOPTIONS\fP] [\fB\-g\fP \fIgenotypes.vcf.gz\fP] \fIquery.vcf.gz\fP"
 .sp
@@ -2676,6 +2726,11 @@ see \fBCommon Options\fP
 list of input files to output given as 1\-based indices. With \fB\-p\fP and no
 \fB\-w\fP, all files are written.
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file. This is done automatically with the \fB\-p\fP option.
+.RE
 .SS "Examples:"
 .sp
 Create intersection and complements of two sets saving the output in dir/*
@@ -2875,6 +2930,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "bcftools mpileup [\fIOPTIONS\fP] \fB\-f\fP \fIref.fa\fP \fIin.bam\fP [\fIin2.bam\fP [...]]"
 .sp
@@ -3209,6 +3269,11 @@ BQB.
 .fi
 .if n .RE
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "Options for SNP/INDEL genotype likelihood computation"
 .sp
 \fB\-X, \-\-config\fP \fISTR\fP
@@ -3528,6 +3593,11 @@ see \fBCommon Options\fP
 maximum distance between two records to consider when locally
 sorting variants which changed position during the realignment
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools [plugin \fINAME\fP|+\fINAME\fP] \fI[OPTIONS]\fP \fIFILE\fP \(em \fI[PLUGIN OPTIONS]\fP"
 .sp
 A common framework for various utilities. The plugins can be used
@@ -3600,6 +3670,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "Plugin options:"
 .sp
@@ -4725,6 +4800,11 @@ see \fBCommon Options\fP
 .RS 4
 Use this directory to store temporary files
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools stats [\fIOPTIONS\fP] \fIA.vcf.gz\fP [\fIB.vcf.gz\fP]"
 .sp
 Parses VCF or BCF and produces text file stats which is suitable for machine
@@ -4943,6 +5023,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "Subset options:"
 .sp
 \fB\-a, \-\-trim\-alt\-alleles\fP
@@ -5137,7 +5222,7 @@ important libraries used by bcftools.
 .SS "bcftools [\fI\-\-version\-only\fP]"
 .sp
 Display the full bcftools version number in a machine\-readable format.
-.SH "EXPRESSIONS"
+.SH "FILTERING EXPRESSIONS"
 .sp
 These filtering expressions are accepted by most of the commands.
 .sp
@@ -5919,7 +6004,18 @@ bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
 .if n .RE
 .sp
 Please refer to the documentation of your shell for details.
-.SH "SCRIPTS AND OPTIONS"
+.SH "SCRIPTS"
+.SS "gff2gff"
+.sp
+Attempts to fix a GFF file to be correctly parsed by \fBcsq\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+zcat in.gff.gz | gff2gff | gzip \-c > out.gff.gz
+.fam
+.fi
+.if n .RE
 .SS "plot\-vcfstats [\fIOPTIONS\fP] \fIfile.vchk\fP [...]"
 .sp
 Script for processing output of \fBbcftools stats\fP. It can merge
@@ -6013,8 +6109,10 @@ Please report any bugs you encounter on the github website: \c
 .sp
 Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
-and further developing bcftools.  Many other people contributed to the program
+BGZF library. Petr Danecek is maintaining and further developing bcftools, together
+with the rest of the \c
+.URL "https://www.sanger.ac.uk/tool/samtools\-bcftools\-htslib" "samtools team" "."
+Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.
 .SH "RESOURCES"

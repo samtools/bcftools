@@ -574,6 +574,8 @@ typedef struct _args_t
     // text tab-delimited output (out) or vcf/bcf output (out_fh)
     FILE *out;
     htsFile *out_fh;
+    char *index_fn;
+    int write_index;
 
     // vcf
     bcf_srs_t *sr;
@@ -1536,6 +1538,7 @@ void init_data(args_t *args)
         if ( args->hdr_nsmpl )
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
         if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
+        if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
     }
     if ( args->verbosity > 0 ) fprintf(stderr,"Calling...\n");
 }
@@ -1571,7 +1574,18 @@ void destroy_data(args_t *args)
     if ( args->smpl ) smpl_ilist_destroy(args->smpl);
     int ret;
     if ( args->out_fh )
+    {
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->out_fh)<0 )
+            {
+                if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
         ret = hts_close(args->out_fh);
+    }
     else
         ret = fclose(args->out);
     if ( ret ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
@@ -4272,6 +4286,7 @@ static const char *usage(void)
         "       --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --threads INT                 Use multithreading with <int> worker threads [0]\n"
         "   -v, --verbose INT                 Verbosity level 0-2 [1]\n"
+        "       --write-index                 Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf\n"
@@ -4321,6 +4336,7 @@ int main_csq(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,5},
         {"no-version",no_argument,NULL,3},
+        {"write-index",no_argument,NULL,6},
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0;
@@ -4409,6 +4425,7 @@ int main_csq(int argc, char *argv[])
                 targets_overlap = parse_overlap_option(optarg);
                 if ( targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
+            case  6 : args->write_index = 1; break;
             case 'h':
             case '?': error("%s",usage());
             default: error("The option not recognised: %s\n\n", optarg); break;

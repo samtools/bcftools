@@ -127,6 +127,8 @@ typedef struct
     int allow_undef_tags;
     int genes_mode;             // --gene-list +FILE, one of GENES_* mode, prioritize or restrict
     int print_header;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -234,6 +236,7 @@ static const char *usage_text(void)
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # List available fields of the INFO/CSQ annotation\n"
@@ -903,7 +906,19 @@ static void destroy_data(args_t *args)
     free(args->csq_str);
     if ( args->filter ) filter_destroy(args->filter);
     if ( args->convert ) convert_destroy(args->convert);
-    if ( args->fh_vcf && hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
+    if ( args->fh_vcf )
+    {
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->fh_vcf)<0 )
+            {
+                if ( hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
+        if ( hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
+    }
     if ( args->fh_bgzf && bgzf_close(args->fh_bgzf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
     free(args);
 }
@@ -1325,6 +1340,7 @@ int run(int argc, char **argv)
         {"targets-overlap",required_argument,NULL,4},
         {"no-version",no_argument,NULL,2},
         {"allow-undef-tags",no_argument,0,'u'},
+        {"write-index",no_argument,NULL,6},
         {NULL,0,NULL,0}
     };
     int c;
@@ -1390,6 +1406,7 @@ int run(int argc, char **argv)
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
             case  5 : args->gene_fields_str = optarg; break;
+            case  6 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -1440,6 +1457,7 @@ int run(int argc, char **argv)
             args->fh_vcf = hts_open(args->output_fname ? args->output_fname : "-", wmode);
             if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
+            if ( args->write_index && init_index(args->fh_vcf,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
         }
         while ( bcf_sr_next_line(args->sr) )
             process_record(args, bcf_sr_get_line(args->sr,0));

@@ -39,7 +39,7 @@ sub error
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg; }
     print
-        "About: Attempt to fix a GFF file to be correctly parse by bcftools/csq, see\n",
+        "About: Attempt to fix a GFF file to be correctly parsed by bcftools/csq, see\n",
         "       the man page for the description of the expected format\n",
         "           http://samtools.github.io/bcftools/bcftools-man.html#csq\n",
         "Usage: gff2gff [OPTIONS]\n",

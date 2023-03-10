@@ -1,6 +1,6 @@
 /*  vcfview.c -- VCF/BCF conversion, view, subset and filter VCF/BCF files.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2023 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -534,40 +534,9 @@ static void usage(args_t *args)
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled    Select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types LIST     Select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private      Select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
+    fprintf(stderr, "          --write-index                    Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
-}
-
-// See also samtools/sam_utils.c auto_index()
-int init_index(args_t *args, bcf_hdr_t *hdr) {
-    int min_shift = 14; // CSI
-    char *fn = args->fn_out;
-
-    if (!fn || !*fn || strcmp(fn, "-") == 0)
-        return -1;
-
-    char *delim = strstr(fn, HTS_IDX_DELIM);
-    if (delim) {
-        delim += strlen(HTS_IDX_DELIM);
-        args->index_fn = strdup(delim);
-        if (!args->index_fn)
-            return -1;
-
-        size_t l = strlen(args->index_fn);
-        if (l >= 4 &&
-            (strcmp(args->index_fn + l - 4, ".tbi") == 0 ||
-             strcmp(args->index_fn + l - 4, ".bai") == 0))
-            min_shift = 0;
-    } else {
-        if (!(args->index_fn = malloc(strlen(fn)+6)))
-            return -1;
-        sprintf(args->index_fn, "%s.csi", fn);
-    }
-
-    if (bcf_idx_init(args->out, hdr, min_shift, args->index_fn) < 0)
-        return -1;
-
-    return 0;
 }
 
 int main_vcfview(int argc, char *argv[])
@@ -820,10 +789,7 @@ int main_vcfview(int argc, char *argv[])
     else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
 
-    if (args->write_index) {
-        if (init_index(args, out_hdr) < 0)
-            error("Failed to initialise index\n");
-    }
+    if ( args->write_index && init_index(args->out,out_hdr,args->fn_out,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->fn_out);
 
     int ret = 0;
     if (!args->header_only)
@@ -838,13 +804,17 @@ int main_vcfview(int argc, char *argv[])
         if ( ret ) fprintf(stderr,"Error: %s\n", bcf_sr_strerror(args->files->errnum));
     }
 
-    if (args->write_index) {
+    if (args->write_index)
+    {
         if (bcf_idx_save(args->out) < 0)
+        {
+            if ( hts_close(args->out)!=0 ) error("Error: close failed %s\n", args->fn_out?args->fn_out:"stdout");
             error("Error: cannot write to index %s\n", args->index_fn);
+        }
         free(args->index_fn);
     }
 
-    hts_close(args->out);
+    if ( hts_close(args->out)!=0 ) error("Error: close failed %s\n", args->fn_out?args->fn_out:"stdout");
     destroy_data(args);
     bcf_sr_destroy(args->files);
     free(args);

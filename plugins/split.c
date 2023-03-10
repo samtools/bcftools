@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2017-2021 Genome Research Ltd.
+/*
+    Copyright (C) 2017-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,6 +52,7 @@ typedef struct
     char *fname;        // output file name
     filter_t *filter;
     bcf_hdr_t *hdr;
+    char *index_fn;
 }
 subset_t;
 
@@ -70,6 +71,7 @@ typedef struct
     subset_t *sets;
     int nsets, nhts_opts;
     char **hts_opts;
+    int write_index;
 }
 args_t;
 
@@ -80,7 +82,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Split VCF by sample, creating single- or multi-sample VCFs. The output files are named\n"
         "       by sample names whenever possible, with the characters from the set [ \\t:/\\] replaced\n"
@@ -124,6 +126,7 @@ static const char *usage_text(void)
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # Split a VCF file\n"
@@ -485,6 +488,7 @@ static void init_data(args_t *args)
         for (j=0; j<set->nsmpl; j++)
             set->hdr->samples[j] = set->rename ? set->rename[j] : args->hdr_in->samples[set->smpl[j]];
         if ( bcf_hdr_write(set->fh, set->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
+        if ( args->write_index && init_index(set->fh,set->hdr,str.s,&set->index_fn)<0 ) error("Error: failed to initialise index for %s\n",str.s);
         if ( args->filter_str )
             set->filter = filter_init(set->hdr, args->filter_str);
     }
@@ -500,6 +504,15 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->nsets; i++)
     {
         subset_t *set = &args->sets[i];
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(set->fh)<0 )
+            {
+                if ( hts_close(set->fh)!=0 ) error("Error: close failed .. %s\n", set->fname);
+                error("Error: cannot write to index %s\n", set->index_fn);
+            }
+            free(set->index_fn);
+        }
         if ( hts_close(set->fh)!=0 ) error("Error: close failed .. %s\n",set->fname);
         free(set->fname);
         free(set->smpl);
@@ -596,7 +609,7 @@ static void process(args_t *args)
     bcf_unpack(rec, BCF_UN_ALL);
 
     int i;
-    bcf1_t *out = NULL; 
+    bcf1_t *out = NULL;
     for (i=0; i<args->nsets; i++)
     {
         subset_t *set = &args->sets[i];
@@ -641,13 +654,14 @@ int run(int argc, char **argv)
         {"groups-file",required_argument,NULL,'G'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
+        {"write-index",no_argument,NULL,4},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:G:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  1 : args->hts_opts = hts_readlist(optarg,0,&args->nhts_opts); break;
             case 'k': args->keep_tags = optarg; break;
@@ -658,11 +672,11 @@ int run(int argc, char **argv)
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target = optarg; args->target_is_file = 1; break;
-            case 't': args->target = optarg; break; 
+            case 't': args->target = optarg; break;
             case 'R': args->region = optarg; args->region_is_file = 1;  break;
             case 'S': args->samples_fname = optarg; break;
             case 'G': args->groups_fname = optarg; break;
-            case 'r': args->region = optarg; break; 
+            case 'r': args->region = optarg; break;
             case 'o': args->output_dir = optarg; break;
             case 'O':
                       switch (optarg[0]) {
@@ -690,6 +704,7 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
+            case  4 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -708,7 +723,7 @@ int run(int argc, char **argv)
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
 
     init_data(args);
-    
+
     while ( bcf_sr_next_line(args->sr) ) process(args);
 
     destroy_data(args);

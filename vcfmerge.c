@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2022 Genome Research Ltd.
+    Copyright (C) 2012-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -166,6 +166,8 @@ typedef struct
     int argc, n_threads, record_cmd_line, clevel;
     int local_alleles;    // the value of -L option
     int keep_AC_AN;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -3087,6 +3089,7 @@ void merge_vcf(args_t *args)
         if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
         return;
     }
+    else if ( args->write_index && init_index(args->out_fh,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     if ( args->collapse==COLLAPSE_NONE ) args->vcmp = vcmp_init();
     args->maux = maux_init(args);
@@ -3124,7 +3127,16 @@ void merge_vcf(args_t *args)
     info_rules_destroy(args);
     maux_destroy(args->maux);
     bcf_hdr_destroy(args->out_hdr);
-    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->out_fh)<0 )
+        {
+            if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname?args->output_fname:"stdout");
     bcf_destroy1(args->out_line);
     kh_destroy(strdict, args->tmph);
     if ( args->tmps.m ) free(args->tmps.s);
@@ -3159,6 +3171,7 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "        --threads INT                 Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --write-index                 Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -3200,6 +3213,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
+        {"write-index",no_argument,NULL,11},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -3271,6 +3285,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->no_index = 1; break;
+            case 11 : args->write_index = 1; break;
             case 'h':
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);

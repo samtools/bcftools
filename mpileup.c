@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2022 Genome Research Ltd.
+    Copyright (C) 2008-2023 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -101,6 +101,8 @@ typedef struct {
     int indels_v20;
     int argc;
     char **argv;
+    int write_index;
+    char *index_fn;
 } mplp_conf_t;
 
 typedef struct {
@@ -849,6 +851,7 @@ static int mpileup(mplp_conf_t *conf)
     for (i=0; i<nsmpl; i++)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
     if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
+    if ( conf->write_index && init_index(conf->bcf_fp,conf->bcf_hdr,conf->output_fname,&conf->index_fn)<0 ) error("Error: failed to initialise index for %s\n",conf->output_fname);
 
     conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ,
                               conf->delta_baseQ);
@@ -958,6 +961,15 @@ static int mpileup(mplp_conf_t *conf)
     bcf_destroy1(conf->bcf_rec);
     if (conf->bcf_fp)
     {
+        if ( conf->write_index )
+        {
+            if ( bcf_idx_save(conf->bcf_fp)<0 )
+            {
+                if ( hts_close(conf->bcf_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,conf->output_fname);
+                error("Error: cannot write to index %s\n",conf->index_fn);
+            }
+            free(conf->index_fn);
+        }
         if ( hts_close(conf->bcf_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,conf->output_fname);
         bcf_hdr_destroy(conf->bcf_hdr);
         bcf_call_destroy(conf->bca);
@@ -1227,6 +1239,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
         "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "      --threads INT       Use multithreading with INT worker threads [0]\n"
+        "      --write-index       Automatically index the output files [off]\n"
         "\n"
         "SNP/INDEL genotype likelihoods options:\n"
         "  -X, --config STR        Specify platform specific profiles (see below)\n"
@@ -1375,6 +1388,7 @@ int main_mpileup(int argc, char *argv[])
         {"seed", required_argument, NULL, 13},
         {"ambig-reads", required_argument, NULL, 14},
         {"ar", required_argument, NULL, 14},
+        {"write-index",no_argument,NULL,21},
         {NULL, 0, NULL, 0}
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
@@ -1497,6 +1511,7 @@ int main_mpileup(int argc, char *argv[])
             }
             break;
         case  20: mplp.indels_v20 = 1; break;
+        case  21: mplp.write_index = 1; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
