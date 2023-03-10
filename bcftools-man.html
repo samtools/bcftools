@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.16">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,13 +50,13 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-02-21</strong> and refers to bcftools git version <strong>1.17</strong>.</p>
+<p>This manual page was last updated <strong>2023-03-10 08:27 GMT</strong> and refers to bcftools git version <strong>1.17-10-g9655089+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_bcf1">BCF1</h3>
 <div class="paragraph">
-<p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <strong>not</strong>
+<p>The obsolete BCF1 format output by versions of samtools &lt;= 0.1.19 is <strong>not</strong>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -77,6 +77,12 @@ done with <em>bcftools view</em>. Users are now required to choose between the o
 samtools calling model (<em>-c/--consensus-caller</em>) and the new multiallelic
 calling model (<em>-m/--multiallelic-caller</em>). The multiallelic calling model
 is recommended for most tasks.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_filtering_expressions">FILTERING EXPRESSIONS</h3>
+<div class="paragraph">
+<p>See <strong><a href="#expressions">EXPRESSIONS</a></strong></p>
 </div>
 </div>
 </div>
@@ -171,6 +177,9 @@ list of available options, run <strong>bcftools</strong> <em>COMMAND</em> withou
 </div>
 <div class="ulist">
 <ul>
+<li>
+<p><strong><a href="#gff2gff">gff2gff</a></strong>  .. converts a GFF file to the format required by <strong><a href="#csq">csq</a></strong></p>
+</li>
 <li>
 <p><strong><a href="#plot-vcfstats">plot-vcfstats</a></strong>  .. plots the output of <strong><a href="#stats">stats</a></strong></p>
 </li>
@@ -416,6 +425,10 @@ Such a file can be easily created from a VCF using:</p>
 <dd>
 <p>Use multithreading with <em>INT</em> worker threads. The option is currently used only for the compression of the
 output stream, only when <em>--output-type</em> is <em>b</em> or <em>z</em>. Default: 0.</p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output files. Can be used only for compressed BCF and VCF output.</p>
 </dd>
 </dl>
 </div>
@@ -668,6 +681,10 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
 "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".</p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 <div class="paragraph">
@@ -796,6 +813,10 @@ below), unlisted regions have ploidy 2. The default ploidy definition is</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -1161,6 +1182,10 @@ is performed and the program throws an error if it is not safe to use the option
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -1355,6 +1380,10 @@ format details.</p>
 <dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -1738,6 +1767,7 @@ transcripts in malformatted GFFs with incorrect phase</p>
 <dt class="hdlist1"><strong>-g, --gff-annot</strong> <em>FILE</em></dt>
 <dd>
 <p>GFF3 annotation file (required), such as <a href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" class="bare">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens</a>.
+The script <strong><a href="#gff2gff">gff2gff</a></strong> can help with conversion from non-standard GFF formats.
 An example of a minimal working GFF file:</p>
 </dd>
 </dl>
@@ -1870,6 +1900,10 @@ plain text output can be printed (<em>t</em>).</p>
 <dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -2083,6 +2117,10 @@ by the program ("Filter%d").</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -2394,6 +2432,10 @@ output, their names are controlled via <strong>-p</strong> instead.</p>
 <p>list of input files to output given as 1-based indices. With <strong>-p</strong> and no
 <strong>-w</strong>, all files are written.</p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file. This is done automatically with the <strong>-p</strong> option.</p>
+</dd>
 </dl>
 </div>
 <div class="sect3">
@@ -2576,6 +2618,10 @@ the same order and consistent with the order of sequences in the VCF header.</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -2889,6 +2935,10 @@ BQB.</pre>
 </div>
 </div>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -3179,6 +3229,10 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <p>maximum distance between two records to consider when locally
 sorting variants which changed position during the realignment</p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -3253,6 +3307,10 @@ the usage examples that each plugin comes with.</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
 </dd>
 </dl>
 </div>
@@ -4136,6 +4194,10 @@ your system limit on the number of open files ("ulimit") may need to be increase
 <dd>
 <p>Use this directory to store temporary files</p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -4339,6 +4401,10 @@ best compression.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--write-index</strong></dt>
+<dd>
+<p>Automatically index the output file</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -4538,7 +4604,7 @@ important libraries used by bcftools.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="expressions">EXPRESSIONS</h2>
+<h2 id="expressions">FILTERING EXPRESSIONS</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>These filtering expressions are accepted by most of the commands.</p>
@@ -4974,8 +5040,23 @@ that the whole expression is passed to the program as intended:</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_scripts_and_options">SCRIPTS AND OPTIONS</h2>
+<h2 id="_scripts">SCRIPTS</h2>
 <div class="sectionbody">
+<div class="sect2">
+<h3 id="gff2gff">gff2gff</h3>
+<div class="paragraph">
+<p>Attempts to fix a GFF file to be correctly parsed by <strong><a href="#csq">csq</a></strong>.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>zcat in.gff.gz | gff2gff | gzip -c &gt; out.gff.gz</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
 <div class="sect2">
 <h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
 <div class="paragraph">
@@ -5077,8 +5158,9 @@ large overhead of the VCF &#8594; BCF &#8594; VCF conversion.</p>
 <div class="paragraph">
 <p>Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
-and further developing bcftools.  Many other people contributed to the program
+BGZF library. Petr Danecek is maintaining and further developing bcftools, together
+with the rest of the <a href="https://www.sanger.ac.uk/tool/samtools-bcftools-htslib">samtools team</a>.
+Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.</p>
 </div>
@@ -5119,7 +5201,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-02-21 12:25:09 UTC
+Last updated 2023-03-10 08:27:52 UTC
 </div>
 </div>
 </body>
