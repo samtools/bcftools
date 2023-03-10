@@ -633,6 +633,7 @@ int main_vcfisec(int argc, char *argv[])
         }
     }
     if ( argc-optind<1 ) usage();   // no file given
+    if ( !isatty(fileno((FILE *)stdin)) ) error("Error: stdin input is not supported, index is required\n");
     if ( args->targets_list )
     {
         bcf_sr_set_opt(args->files,BCF_SR_TARGETS_OVERLAP,targets_overlap);
