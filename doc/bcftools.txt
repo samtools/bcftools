@@ -1919,7 +1919,8 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     file 'FILE' is not given and the dash ('-') is given, unknown reference
     bases generated at gVCF block splits will be substituted with N's.
     The *--gvcf* option uses the following default INFO rules:
-    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
+    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max* and the following missing
+    rules: *-M PL:max,AD:0*.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
@@ -1954,6 +1955,15 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 -m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
 -m id          ..  merge by ID
 ----
+
+*-M, --missing-rules* '-'|'TAG:METHOD'[,...]::
+    Rules for merging vector tags at multiallelic sites. When input files have different alternate
+    alleles, vector fields pertaining to unobserved alleles are set to missing ('.') by default.
+    The 'METHOD' is one of '.' (the default, use missing values), 'NUMBER' (use a constant value, e.g. 0),
+    'max' (the maximum value observed for other alleles in the sample). When *--gvcf* option is set,
+    the rule *-M PL:max,AD:0* is implied. This can be overriden with providing *-M -* or *-M PL:.,AD:.*.
+    Note that if the unobserved allele is explicitly present as '<*>' or '<NON_REF>', then its corresponding
+    value will be used regardless of *-M* settings.
 
 *--no-index*::
     the option allows to merge files without indexing them first. In order for this

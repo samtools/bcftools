@@ -63,6 +63,19 @@ typedef khash_t(strdict) strdict_t;
 
 #define PL2PROB_MAX 1024
 
+// Rules for merging FORMAT Number=A,G,R vectors with missing values
+#define MERGE_MISSING_DOT   0   // leave as is, i.e. use a missing value "."
+#define MERGE_MISSING_CONST 1   // use a constant value
+#define MERGE_MISSING_MAX   2   // use the existing maximum value
+
+typedef struct _missing_rule_t
+{
+    char *hdr_tag;
+    int type;
+    float value;
+}
+missing_rule_t;
+
 // For merging INFO Number=A,G,R tags
 typedef struct
 {
@@ -109,6 +122,7 @@ typedef struct
 {
     int rid;        // current rid
     int beg,end;    // valid ranges in reader's buffer [beg,end). Maintained by maux_reset and gvcf_flush.
+    int unkn_allele;// the index of the unknown allele (<*>, <NON_REF>)
     int cur;        // current line or -1 if none
     int mrec;       // allocated size of buf
     maux1_t *rec;   // buffer to keep reader's lines
@@ -123,9 +137,10 @@ typedef struct
     int nals, mals, nout_als, mout_als; // size of the output array
     int *cnt, ncnt; // number of records that refer to the alleles
     int *smpl_ploidy, *smpl_nGsize; // ploidy and derived number of values in Number=G tags, updated for each line (todo: cache for missing cases)
+    const char **fmt_key;// temporary short-lived array to store output tag names
     bcf_fmt_t **fmt_map; // i-th output FORMAT field corresponds in j-th reader to i*nreader+j, first row is reserved for GT
     int nfmt_map;        // number of rows in the fmt_map array
-    int *agr_map, nagr_map, magr_map;   // mapping between Number=AGR element indexes
+    int *agr_map, nagr_map, magr_map;   // mapping between Number=AGR element indexes, from src idxs to dst file idxs
     void *tmp_arr;
     size_t ntmp_arr;
     buffer_t *buf;
@@ -156,6 +171,9 @@ typedef struct
     faidx_t *gvcf_fai;
     info_rule_t *rules;
     int nrules;
+    char *missing_rules_str;
+    missing_rule_t *missing_rules;    // lookup for -M, --missing-rules
+    int nmissing_rules;
     strdict_t *tmph;
     kstring_t tmps;
     bcf_srs_t *files;
@@ -298,6 +316,89 @@ static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rul
         rule->nvals = idst;
         bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,rule->nvals,rule->type);
     }
+}
+
+static int missing_rules_comp_key2(const void *a, const void *b)
+{
+    missing_rule_t *rule1 = (missing_rule_t*) a;
+    missing_rule_t *rule2 = (missing_rule_t*) b;
+    return strcmp(rule1->hdr_tag, rule2->hdr_tag);
+}
+static int missing_rules_comp_key(const void *a, const void *b)
+{
+    char *key = (char*) a;
+    missing_rule_t *rule = (missing_rule_t*) b;
+    return strcmp(key, rule->hdr_tag);
+}
+static void missing_rules_init(args_t *args)
+{
+    kstring_t str = {0,0,0};
+    if ( args->missing_rules_str )
+    {
+        if ( !strcmp("-",args->missing_rules_str) ) kputs("PL:.,AD:.",&str);
+        else kputs(args->missing_rules_str,&str);
+    }
+    else if ( args->do_gvcf ) kputs("PL:max,AD:0",&str);
+    else return;
+
+    args->nmissing_rules = 1;
+    char *ss = str.s, *tmp = ss;
+    int n = 0;
+    while ( *ss )
+    {
+        if ( *ss==':' ) { *ss = 0; n++; if ( n%2==0 ) error("Could not parse --missing-rules: \"%s\"\n", args->missing_rules_str); }
+        else if ( *ss==',' ) { *ss = 0; args->nmissing_rules++; n++; if ( n%2==1 ) error("Could not parse --missing-rules: \"%s\"\n", args->missing_rules_str); }
+        ss++;
+    }
+    if ( n%2==0 ) error("Could not parse --missing-rules: \"%s\"\n", args->missing_rules_str);
+    args->missing_rules = (missing_rule_t*) calloc(args->nmissing_rules,sizeof(missing_rule_t));
+
+    n = args->nmissing_rules;
+    args->nmissing_rules = 0;
+    ss = tmp;
+    while ( args->nmissing_rules < n  )
+    {
+        missing_rule_t *rule = &args->missing_rules[args->nmissing_rules];
+        rule->hdr_tag = strdup(ss);
+        int id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, rule->hdr_tag);
+        if ( !bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_FMT,id) )
+        {
+            if ( args->missing_rules_str ) error("The FORMAT tag is not defined in the header: \"%s\"\n", rule->hdr_tag);
+            free(rule->hdr_tag);
+            n--;
+            ss = strchr(ss, '\0'); ss++;
+            if ( !*ss ) error("Could not parse --missing-rules, missing logic of \"%s\"\n", rule->hdr_tag);
+            ss = strchr(ss, '\0'); ss++;
+            continue;
+        }
+
+        ss = strchr(ss, '\0'); ss++;
+        if ( !*ss ) error("Could not parse --missing-rules, missing logic of \"%s\"\n", rule->hdr_tag);
+
+        if ( !strcasecmp(ss,".") ) rule->type = MERGE_MISSING_DOT;
+        else if ( !strcasecmp(ss,"max") ) rule->type = MERGE_MISSING_MAX;
+        else
+        {
+            char *tmp = ss;
+            rule->value = strtod(ss, &tmp);
+            if ( *tmp ) error("Could not parse --missing-rules: \"%s\"\n", args->missing_rules_str);
+            rule->type = MERGE_MISSING_CONST;
+        }
+        ss = strchr(ss, '\0'); ss++;
+        args->nmissing_rules++;
+    }
+    qsort(args->missing_rules, args->nmissing_rules, sizeof(*args->missing_rules), missing_rules_comp_key2);
+    free(str.s);
+}
+static void missing_rules_destroy(args_t *args)
+{
+    int i;
+    for (i=0; i<args->nmissing_rules; i++)
+    {
+        missing_rule_t *rule = &args->missing_rules[i];
+        free(rule->hdr_tag);
+    }
+    free(args->missing_rules);
 }
 
 static int info_rules_comp_key2(const void *a, const void *b)
@@ -795,6 +896,7 @@ void maux_destroy(maux_t *ma)
     free(ma->AGR_info);
     if (ma->ntmp_arr) free(ma->tmp_arr);
     if (ma->nfmt_map) free(ma->fmt_map);
+    free(ma->fmt_key);
     // ma->inf freed in bcf_destroy1
     for (i=0; i<ma->mals; i++) free(ma->als[i]);
     if (ma->mout_als) free(ma->out_als);
@@ -961,12 +1063,14 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         int ir, j;
         for (ir=0; ir<files->nreaders; ir++)
         {
+            ma->buf[ir].unkn_allele = 0;
             bcf1_t *line = maux_get_line(args,ir);
             if ( !line ) continue;
             for (j=1; j<line->n_allele; j++)
             {
                 int irec = ma->buf[ir].cur;
                 if ( ma->buf[ir].rec[irec].map[j]==i ) ma->buf[ir].rec[irec].map[j] = ma->nout_als;
+                if ( bcf_has_variant_type(line,j,VCF_REF) && line->d.allele[j][0]=='<' ) ma->buf[ir].unkn_allele = j;
             }
         }
     }
@@ -1987,7 +2091,7 @@ void merge_localized_numberAR_format_field(args_t *args, bcf_fmt_t **fmt_map, bc
         bcf_update_format_int32(args->out_hdr, out, args->tmps.s, (int32_t*)ma->tmp_arr, nsamples*nsize);
     ma->laa_dirty = 1;
 }
-void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
+void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, missing_rule_t *mrule, bcf1_t *out)
 {
     bcf_srs_t *files = args->files;
     bcf_hdr_t *out_hdr = args->out_hdr;
@@ -2137,12 +2241,32 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                         for (l=1; l<nsize; l++) { tgt++; tgt_set_vector_end; } \
                         continue; \
                     } \
-                    int ngsize = ma->smpl_ploidy[ismpl+j]==1 ? out->n_allele : out->n_allele*(out->n_allele + 1)/2; \
-                    for (l=0; l<ngsize; l++) { tgt_set_missing; tgt++; } \
-                    for (; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
-                    if ( ma->smpl_ploidy[ismpl+j]==1 ) \
+                    int haploid = ma->smpl_ploidy[ismpl+j]==1 ? 1 : 0; \
+                    int ngsize = haploid ? out->n_allele : out->n_allele*(out->n_allele + 1)/2; \
+                    if ( ma->buf[i].unkn_allele )  /* Use value from the unknown allele when available */ \
+                    {  \
+                        src = (src_type_t*) fmt_ori->p + j*fmt_ori->n; \
+                        int iunkn = haploid ? ma->buf[i].unkn_allele : (ma->buf[i].unkn_allele+1)*(ma->buf[i].unkn_allele + 2)/2 - 1; \
+                        for (l=0; l<ngsize; l++) { *tgt = src[iunkn]; tgt++; } \
+                    } \
+                    else if ( mrule && mrule->type==MERGE_MISSING_CONST ) \
                     { \
-                        /* Haploid */ \
+                        for (l=0; l<ngsize; l++) { *tgt = mrule->value; tgt++; } \
+                    } \
+                    else if ( mrule && mrule->type==MERGE_MISSING_MAX ) \
+                    { \
+                        src = (src_type_t*) fmt_ori->p + j*fmt_ori->n; \
+                        src_type_t max = src[0]; \
+                        for (l=1; l<fmt_ori->n; l++) if ( max < src[l] ) max = src[l]; \
+                        for (l=0; l<ngsize; l++) { *tgt = max; tgt++; } \
+                    } \
+                    else \
+                    { \
+                        for (l=0; l<ngsize; l++) { tgt_set_missing; tgt++; } \
+                    } \
+                    for (; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
+                    if ( haploid ) \
+                    { \
                         int iori, inew; \
                         for (iori=0; iori<line->n_allele; iori++) \
                         { \
@@ -2196,7 +2320,26 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                         continue; \
                     } \
                     src = (src_type_t*) (fmt_ori->p + j*fmt_ori->size); \
-                    for (l=0; l<nsize; l++) { tgt_set_missing; tgt++; } \
+                    if ( ma->buf[i].unkn_allele )  /* Use value from the unknown allele when available */ \
+                    { \
+                        int iunkn = ma->buf[i].unkn_allele; \
+                        for (l=0; l<nsize; l++) { *tgt = src[iunkn]; tgt++; } \
+                    } \
+                    else if ( mrule && mrule->type==MERGE_MISSING_CONST ) \
+                    { \
+                        for (l=0; l<nsize; l++) { *tgt = mrule->value; tgt++; } \
+                    } \
+                    else if ( mrule && mrule->type==MERGE_MISSING_MAX ) \
+                    { \
+                        src = (src_type_t*) fmt_ori->p + j*fmt_ori->n; \
+                        src_type_t max = src[0]; \
+                        for (l=1; l<fmt_ori->n; l++) if ( max < src[l] ) max = src[l]; \
+                        for (l=0; l<nsize; l++) { *tgt = max; tgt++; } \
+                    } \
+                    else \
+                    { \
+                        for (l=0; l<nsize; l++) { tgt_set_missing; tgt++; } \
+                    } \
                     int iori,inew; \
                     for (iori=ifrom; iori<line->n_allele; iori++) \
                     { \
@@ -2236,6 +2379,7 @@ void merge_format(args_t *args, bcf1_t *out)
     {
         ma->nfmt_map = 2;
         ma->fmt_map  = (bcf_fmt_t**) calloc(ma->nfmt_map*files->nreaders, sizeof(bcf_fmt_t*));
+        ma->fmt_key  = (const char**) malloc(ma->nfmt_map*sizeof(*ma->fmt_key));
     }
     else
         memset(ma->fmt_map, 0, ma->nfmt_map*files->nreaders*sizeof(bcf_fmt_t**));
@@ -2252,7 +2396,7 @@ void merge_format(args_t *args, bcf1_t *out)
         bcf_hdr_t *hdr = reader->header;
         for (j=0; j<line->n_fmt; j++)
         {
-            // Wat this tag already seen?
+            // Was this tag already seen?
             bcf_fmt_t *fmt = &line->d.fmt[j];
             const char *key = hdr->id[BCF_DT_ID][fmt->id].key;
             kitr = kh_get(strdict, tmph, key);
@@ -2271,9 +2415,11 @@ void merge_format(args_t *args, bcf1_t *out)
                     {
                         ma->fmt_map = (bcf_fmt_t**) realloc(ma->fmt_map, sizeof(bcf_fmt_t*)*(max_ifmt+1)*files->nreaders);
                         memset(ma->fmt_map+ma->nfmt_map*files->nreaders, 0, (max_ifmt-ma->nfmt_map+1)*files->nreaders*sizeof(bcf_fmt_t*));
+                        ma->fmt_key = (const char**) realloc(ma->fmt_key, sizeof(*ma->fmt_key)*(max_ifmt+1));
                         ma->nfmt_map = max_ifmt+1;
                     }
                     if ( key[0]=='P' && key[1]=='L' && key[2]==0  ) { has_PL = ifmt; }
+                    ma->fmt_key[max_ifmt] = key;
                 }
                 kitr = kh_put(strdict, tmph, key, &ret);
                 kh_value(tmph, kitr) = ifmt;
@@ -2300,7 +2446,10 @@ void merge_format(args_t *args, bcf1_t *out)
         update_AN_AC(out_hdr, out);
 
     for (i=1; i<=max_ifmt; i++)
-        merge_format_field(args, &ma->fmt_map[i*files->nreaders], out);
+    {
+        missing_rule_t *rule = (missing_rule_t*) bsearch(ma->fmt_key[i], args->missing_rules, args->nmissing_rules, sizeof(*args->missing_rules), missing_rules_comp_key);
+        merge_format_field(args, &ma->fmt_map[i*files->nreaders], rule, out);
+    }
 
     if ( ma->laa_dirty )
         update_local_alleles(args, out);
@@ -3080,6 +3229,7 @@ void merge_vcf(args_t *args)
             error_errno("[%s] Failed to update header", __func__);
     }
     info_rules_init(args);
+    missing_rules_init(args);
 
     bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
     if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
@@ -3125,6 +3275,7 @@ void merge_vcf(args_t *args)
         gvcf_flush(args,1);
 
     info_rules_destroy(args);
+    missing_rules_destroy(args);
     maux_destroy(args->maux);
     bcf_hdr_destroy(args->out_hdr);
     if ( args->write_index )
@@ -3158,11 +3309,12 @@ static void usage(void)
     fprintf(stderr, "    -0  --missing-to-ref              Assume genotypes at missing sites are 0/0\n");
     fprintf(stderr, "    -f, --apply-filters LIST          Require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --filter-logic x|+            Remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
-    fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
+    fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max -M PL:max,AD:0\n");
     fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
     fprintf(stderr, "    -L, --local-alleles INT           EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
     fprintf(stderr, "    -m, --merge STRING                Allow multiallelic records for <snps|indels|both|snp-ins-del|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "    -M, --missing-rules TAG:METHOD    Rules for replacing missing values in numeric vectors (.,0,max) when unknown allele <*> is not present [.]\n");
     fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output FILE                 Write output to a file [standard output]\n");
@@ -3210,6 +3362,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"regions-file",required_argument,NULL,'R'},
         {"regions-overlap",required_argument,NULL,4},
         {"info-rules",required_argument,NULL,'i'},
+        {"missing-rules",required_argument,NULL,'M'},
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
@@ -3217,7 +3370,7 @@ int main_vcfmerge(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0L:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
@@ -3241,6 +3394,7 @@ int main_vcfmerge(int argc, char *argv[])
                 break;
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
+            case 'M': args->missing_rules_str = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {

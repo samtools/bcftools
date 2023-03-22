@@ -14,6 +14,14 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+* bcftools merge
+
+    - New `-M, --missing-rules` option to control the behavior of merging of vector tags
+      to prevent mixtures of known and missing values in tags when desired
+
+    - Use values pertaining to the unknown allele (<*> or <NON_REF>) when available
+      to prevent mixtures of known and missing values (#1888)
+
 * bcftools +split-vep
 
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)

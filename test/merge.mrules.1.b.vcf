@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##reference=file://hs38DH.fa
+##contig=<ID=chr1>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Minimum per-sample depth in this gVCF block">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SampleB
+chr1	1769968	.	T	<NON_REF>	.	.	END=1769968	GT:PL	0/0:0,18,270
+chr1	1769969	.	CAAAACAAAAACA	C,<NON_REF>	.	.	.	GT:AD:PL	1/1:0,4,0:181,12,0,181,12,181
+chr1	1769982	.	A	<NON_REF>	.	.	END=1769982	GT:PL	0/0:0,0,0
+chr1	1769983	.	C	A	.	.	.	GT:AD:PL	1/1:0,4:181,12,0
+chr1	1769990	.	CAAAACAAAAACA	C,<NON_REF>	.	.	.	GT:AD:PL	1:0,4,0:181,12,0
+chr1	1769991	.	C	A	.	.	.	GT:AD:PL	1:0,4:181,0
