@@ -1283,10 +1283,12 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
         ngts2 /= nsmpl;
         if ( ngts!=ngts2 ) error("Error at %s:%"PRId64": cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1);
 
-        int32_t *gt  = (int32_t*) args->tmp_arr1;
-        int32_t *gt2 = (int32_t*) args->tmp_arr2;
+        int32_t *gt  = (int32_t*) args->tmp_arr1;       // the first, destination line
+        int32_t *gt2 = (int32_t*) args->tmp_arr2;       // one of the subsequent lines, i.e. the source line
         for (j=0; j<nsmpl; j++)
         {
+            // Take each source allele and apply to the first line. We try to preserve the order and phasing and we
+            // never overwrite with ref allele
             for (k2=0; k2<ngts2; k2++)
             {
                 if ( gt2[k2]==bcf_int32_vector_end ) break;
@@ -1294,12 +1296,18 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
                 int ial2 = bcf_gt_allele(gt2[k2]);
                 if ( ial2==0 ) continue;    // never overwrite with ref
                 if ( ial2>=args->maps[i].nals ) error("Error at %s:%"PRId64": incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1,ial2);
+
+                // The destination allele
                 int ial = args->maps[i].map[ial2];
-                for (k=0; k<ngts; k++)
-                    if ( gt[k]==bcf_int32_vector_end || bcf_gt_is_missing(gt[k]) || !bcf_gt_allele(gt[k]) ) break;
-                if ( k<ngts )
+                if ( gt[k2]==bcf_int32_vector_end || bcf_gt_is_missing(gt[k2]) || !bcf_gt_allele(gt[k2]) )
+                    gt[k2] = bcf_gt_is_phased(gt[k2]) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
+                else
                 {
-                    gt[k] = bcf_gt_unphased(ial);
+                    // conflict, the first line has non-zero allele, use the old way, possibly disrupt the phasing
+                    for (k=0; k<ngts; k++)
+                        if ( gt[k]==bcf_int32_vector_end || bcf_gt_is_missing(gt[k]) || !bcf_gt_allele(gt[k]) ) break;
+                    if ( k<ngts )
+                        gt[k] = bcf_gt_unphased(ial);
                 }
             }
             gt  += ngts;

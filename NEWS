@@ -26,6 +26,10 @@ Changes affecting specific commands:
     - Use values pertaining to the unknown allele (<*> or <NON_REF>) when available
       to prevent mixtures of known and missing values (#1888)
 
+* bcftools norm
+
+    - The `-m, --multiallelics +` mode now preserves phasing (#1893)
+
 * bcftools +split-vep
 
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)

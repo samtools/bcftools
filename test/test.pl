@@ -275,6 +275,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.2.out',args=>'-m +any')
 run_test(\&test_vcf_norm,$opts,in=>'norm.5',out=>'norm.5.1.out',args=>'-m - --multi-overlaps 0');
 run_test(\&test_vcf_norm,$opts,in=>'norm.5',out=>'norm.5.2.out',args=>'-m - --multi-overlaps .');
 run_test(\&test_vcf_norm,$opts,in=>'norm.m-any',out=>'norm.m-any.1.out',args=>'-m -any');
+run_test(\&test_vcf_norm,$opts,in=>'norm.phased-split',out=>'norm.phased-split.1.out',args=>'-m -any');
+run_test(\&test_vcf_norm,$opts,in=>'norm.phased-join',out=>'norm.phased-join.1.out',args=>'-m +any');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
