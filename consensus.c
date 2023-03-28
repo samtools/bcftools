@@ -1099,14 +1099,13 @@ static void usage(args_t *args)
     fprintf(stderr, "    -f, --fasta-ref FILE           Reference sequence in fasta format\n");
     fprintf(stderr, "    -H, --haplotype WHICH          Choose which allele to use from the FORMAT/GT field, note\n");
     fprintf(stderr, "                                   the codes are case-insensitive:\n");
-    fprintf(stderr, "                                       1: first allele from GT, regardless of phasing\n");
-    fprintf(stderr, "                                       2: second allele from GT, regardless of phasing\n");
+    fprintf(stderr, "                                       N: N={1,2,3,..} is the index of the allele from GT, regardless of phasing (e.g. \"2\")\n");
     fprintf(stderr, "                                       R: REF allele in het genotypes\n");
     fprintf(stderr, "                                       A: ALT allele\n");
     fprintf(stderr, "                                       I: IUPAC code for all genotypes\n");
     fprintf(stderr, "                                       LR,LA: longer allele and REF/ALT if equal length\n");
     fprintf(stderr, "                                       SR,SA: shorter allele and REF/ALT if equal length\n");
-    fprintf(stderr, "                                       1pIu,2pIu: first/second allele for phased and IUPAC code for unphased GTs\n");
+    fprintf(stderr, "                                       NpIu: index of the allele for phased and IUPAC code for unphased GTs (e.g. \"2pIu\")\n");
     fprintf(stderr, "    -i, --include EXPR             Select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -I, --iupac-codes              Output IUPAC codes based on FORMAT/GT, use -s/-S to subset samples\n");
     fprintf(stderr, "        --mark-del CHAR            Instead of removing sequence, insert CHAR for deletions\n");
@@ -1211,7 +1210,8 @@ int main_consensus(int argc, char *argv[])
                 {
                     char *tmp;
                     args->haplotype = strtol(optarg, &tmp, 10);
-                    if ( tmp==optarg || *tmp ) error("Error: Could not parse --haplotype %s, expected numeric argument\n", optarg);
+                    if ( tmp==optarg || (*tmp && strcasecmp(tmp,"pIu")) ) error("Error: Could not parse \"--haplotype %s\", expected number of number followed with \"pIu\"\n", optarg);
+                    if ( *tmp ) args->allele |= PICK_IUPAC;
                     if ( args->haplotype <=0 ) error("Error: Expected positive integer with --haplotype\n");
                 }
                 break;

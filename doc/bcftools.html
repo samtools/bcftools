@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-03-10 08:27 GMT</strong> and refers to bcftools git version <strong>1.17-10-g9655089+</strong>.</p>
+<p>This manual page was last updated <strong>2023-03-28 13:46 BST</strong> and refers to bcftools git version <strong>1.17-15-gf2d2fdf8+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1219,18 +1219,14 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 <dd>
 <p>reference sequence in fasta format</p>
 </dd>
-<dt class="hdlist1"><strong>-H, --haplotype</strong> <em>1</em>|<em>2</em>|<em>R</em>|<em>A</em>|<em>I</em>|<em>LR</em>|<em>LA</em>|<em>SR</em>|<em>SA</em>|<em>1pIu</em>|<em>2pIu</em></dt>
+<dt class="hdlist1"><strong>-H, --haplotype</strong> N|<em>R</em>|<em>A</em>|<em>I</em>|<em>LR</em>|<em>LA</em>|<em>SR</em>|<em>SA</em>|<em>NpIu</em></dt>
 <dd>
 <p>choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):</p>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><em>1</em></dt>
+<dt class="hdlist1"><em>N</em></dt>
 <dd>
-<p>the first allele, regardless of phasing</p>
-</dd>
-<dt class="hdlist1"><em>2</em></dt>
-<dd>
-<p>the second allele, regardless of phasing</p>
+<p>N={1,2,3,&#8230;&#8203;}, the allele index within the genotype, regardless of phasing</p>
 </dd>
 <dt class="hdlist1"><em>R</em></dt>
 <dd>
@@ -1252,18 +1248,21 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 <dd>
 <p>the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)</p>
 </dd>
-<dt class="hdlist1"><em>1pIu, 2pIu</em></dt>
+<dt class="hdlist1"><em>NpIu</em></dt>
 <dd>
-<p>first/second allele for phased genotypes and IUPAC code for unphased genotypes</p>
-<div class="literalblock">
-<div class="content">
-<pre>This option requires *-s*, unless exactly one sample is present in the VCF</pre>
-</div>
-</div>
+<p>N={1,2,3,&#8230;&#8203;}, the allele index within genotype for phased genotypes and IUPAC code for unphased genotypes.
+For example, <em>1pIu</em> or <em>2pIu</em></p>
 </dd>
 </dl>
 </div>
 </dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Note that the <strong>-H, --haplotype</strong> option requires the <strong>-s, --samples</strong> option, unless exactly one sample is present in the VCF</p>
+</div>
+<div class="dlist">
+<dl>
 <dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
 <dd>
 <p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
@@ -2539,7 +2538,8 @@ or apply all filters (<em>+</em>), which is the default.</p>
 file <em>FILE</em> is not given and the dash (<em>-</em>) is given, unknown reference
 bases generated at gVCF block splits will be substituted with N&#8217;s.
 The <strong>--gvcf</strong> option uses the following default INFO rules:
-<strong>-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max</strong>.</p>
+<strong>-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max</strong> and the following missing
+rules: <strong>-M PL:max,AD:0</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --info-rules</strong> <em>-</em>|<em>TAG:METHOD</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -2585,6 +2585,16 @@ is 0 which disables the feature and outputs values for all alternate alleles.</p
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>-M, --missing-rules</strong> <em>-</em>|<em>TAG:METHOD</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>Rules for merging vector tags at multiallelic sites. When input files have different alternate
+alleles, vector fields pertaining to unobserved alleles are set to missing (<em>.</em>) by default.
+The <em>METHOD</em> is one of <em>.</em> (the default, use missing values), <em>NUMBER</em> (use a constant value, e.g. 0),
+<em>max</em> (the maximum value observed for other alleles in the sample). When <strong>--gvcf</strong> option is set,
+the rule <strong>-M PL:max,AD:0</strong> is implied. This can be overriden with providing <strong>-M -</strong> or <strong>-M PL:.,AD:.</strong>.
+Note that if the unobserved allele is explicitly present as <em>&lt;*&gt;</em> or <em>&lt;NON_REF&gt;</em>, then its corresponding
+value will be used regardless of <strong>-M</strong> settings.</p>
+</dd>
 <dt class="hdlist1"><strong>--no-index</strong></dt>
 <dd>
 <p>the option allows to merge files without indexing them first. In order for this
@@ -3126,7 +3136,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -5201,7 +5211,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-03-10 08:27:52 UTC
+Last updated 2023-03-28 13:46:18 +0100
 </div>
 </div>
 </body>

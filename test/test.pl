@@ -761,9 +761,13 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus4',out=>'consensus4.out',fa=>'
 run_test(\&test_vcf_consensus,$opts,in=>'consensus5',out=>'consensus5.out',fa=>'consensus5.fa',args=>'--haplotype LA');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus6',out=>'consensus6.out',fa=>'consensus6.fa',args=>'-s -');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7a.out',fa=>'consensus7.fa',args=>'-H 2');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7a.out',fa=>'consensus7.fa',args=>'-H 4');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7b.out',fa=>'consensus7.fa',args=>'-H 2pIu');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7b.out',fa=>'consensus7.fa',args=>'-H 4pIu');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7c.out',fa=>'consensus7.fa',args=>'-H 1');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7c.out',fa=>'consensus7.fa',args=>'-H 3');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7d.out',fa=>'consensus7.fa',args=>'-H 1pIu');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus7',out=>'consensus7d.out',fa=>'consensus7.fa',args=>'-H 3pIu');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus8',out=>'consensus.8a.out',fa=>'consensus.fa',args=>'-s -');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus8',out=>'consensus.8b.out',fa=>'consensus.fa',args=>'-s - -a .');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus8',out=>'consensus.8c.out',fa=>'consensus.fa',args=>q[-s - -a . -i 'type="snp" || type="ref"']);

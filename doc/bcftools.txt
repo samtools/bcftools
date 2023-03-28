@@ -919,14 +919,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
+*-H, --haplotype* N|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'NpIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
 
-        '1';;
-            the first allele, regardless of phasing
-
-        '2';;
-            the second allele, regardless of phasing
+        'N';;
+            N={1,2,3,...}, the allele index within the genotype, regardless of phasing
 
         'R';;
             the REF allele (in heterozygous genotypes)
@@ -943,10 +940,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
         'SR, SA';;
             the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
 
-        '1pIu, 2pIu';;
-            first/second allele for phased genotypes and IUPAC code for unphased genotypes
+        'NpIu';;
+            N={1,2,3,...}, the allele index within genotype for phased genotypes and IUPAC code for unphased genotypes.
+            For example, '1pIu' or '2pIu'
 
-    This option requires *-s*, unless exactly one sample is present in the VCF
+Note that the *-H, --haplotype* option requires the *-s, --samples* option, unless exactly one sample is present in the VCF
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
