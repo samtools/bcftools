@@ -91,8 +91,6 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.2.out',args=>'-m none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.3.out',args=>'-g {PATH}/merge.gvcf.10.fa');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
-run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.5.out',args=>'-g {PATH}/merge.gvcf.10.fa');
-run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'--no-index',noidx=>1);
 run_test(\&test_vcf_merge,$opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'');
@@ -104,6 +102,8 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.10.a','merge.10.b'],out=>'merge.10.2
 run_test(\&test_vcf_merge,$opts,in=>['merge.10.a','merge.10.b'],out=>'merge.10.3.out',args=>'-m snp-ins-del');
 run_test(\&test_vcf_merge,$opts,in=>['merge.mrules.1.a','merge.mrules.1.b'],out=>'merge.mrules.1.1.out',args=>'--gvcf -');
 run_test(\&test_vcf_merge,$opts,in=>['merge.mrules.1.a','merge.mrules.1.b'],out=>'merge.mrules.1.2.out',args=>'--gvcf - -M AD:.,PL:.');
+run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf -');
+run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
@@ -1284,7 +1284,7 @@ sub test_vcf_merge
         $args     =~ s/{PATH}/$$opts{path}/g;
         my $files = join(' ',@files);
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge --no-version $args $files", exp_fix=>1);
-        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge -Ob $args $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_", exp_fix => 1);
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge --no-version -Ob $args $files | $$opts{bin}/bcftools view --no-version | grep -v ^##bcftools_", exp_fix => 1);
     }
 }
 sub test_vcf_isec

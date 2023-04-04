@@ -1,8 +1,9 @@
 ##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##contig=<ID=1,assembly=b37,length=249250621>
 ##reference=file:ref.fa
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	3000000	.	C	CAA	.	.	.
-1	3000150	.	C	CTT	.	.	.
-1	3000152	.	C	CA	.	.	.
-1	3000154	.	C	T	.	.	.
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	b
+1	3000000	.	C	CAA	.	.	.	GT	0/1
+1	3000150	.	C	CTT	.	.	.	GT	0/1
+1	3000152	.	C	CA	.	.	.	GT	0/1
+1	3000154	.	C	T	.	.	.	GT	0/1

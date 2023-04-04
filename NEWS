@@ -26,6 +26,9 @@ Changes affecting specific commands:
     - Use values pertaining to the unknown allele (<*> or <NON_REF>) when available
       to prevent mixtures of known and missing values (#1888)
 
+    - Revamped line matching code to fix problems in gVCF merging where split gVCF blocks
+      would not update genotypes (#1891, #1164).
+
 * bcftools norm
 
     - The `-m, --multiallelics +` mode now preserves phasing (#1893)

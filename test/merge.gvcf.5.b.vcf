@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##ALT=<ID=NON_REF,Description="Represents any possible alternative allele at this location">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
+##contig=<ID=chr22,length=10514891>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	13
+chr22	10510113	.	C	T,<NON_REF>	.	.	.	GT	1/1
