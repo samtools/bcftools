@@ -2564,6 +2564,9 @@ void gvcf_write_block(args_t *args, int start, int end)
     {
         int slen  = 0;
         char *seq = faidx_fetch_seq(args->gvcf_fai,maux->chr,out->pos,out->pos,&slen);
+        if (!seq)
+            exit(1); // faidx_fetch_seq has already reported the error.
+
         if (slen)
         {
             out->d.allele[0][0] = seq[0];
