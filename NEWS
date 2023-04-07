@@ -18,6 +18,8 @@ Changes affecting specific commands:
 
     - Support higher-ploidy genotypes with `-H, --haplotype` (#1892)
 
+    - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
+
 * bcftools merge
 
     - New `-M, --missing-rules` option to control the behavior of merging of vector tags

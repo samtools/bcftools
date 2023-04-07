@@ -786,6 +786,7 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus.12',out=>'consensus.12.out',f
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.13',out=>'consensus.13.out',fa=>'consensus.13.fa',args=>'-s -');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.14',out=>'consensus.14.out',fa=>'consensus.14.fa',args=>'-s -');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.12',out=>'consensus.15.out',fa=>'consensus.12.fa',args=>'-s - --mark-del - --mark-ins uc --mark-snv uc');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.12',out=>'consensus.19.out',fa=>'consensus.12.fa',args=>'-s - --mark-del - --mark-ins + --mark-snv :');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.15',out=>'consensus.17.out',fa=>'consensus.15.fa',args=>'-H I --mark-ins lc --mark-snv lc');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.16',out=>'consensus.18.out',fa=>'consensus.fa',args=>'-s - -I');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.16',out=>'consensus.18.out',fa=>'consensus.fa',args=>'-H I');

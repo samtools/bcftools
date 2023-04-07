@@ -957,13 +957,13 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
     from REF,ALT columns and sample genotypes were not considered.
 
 *--mark-del* 'CHAR'::
-    instead of removing sequence, insert CHAR for deletions
+    instead of removing sequence, insert character CHAR for deletions
 
-*--mark-ins* 'uc'|'lc'::
-    highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+*--mark-ins* 'uc'|'lc'|'CHAR'::
+    highlight inserted sequence in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 
 *--mark-snv* 'uc'|'lc'::
-    highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+    highlight substitutions in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 
 *-m, --mask* 'FILE'::
     BED file or TAB file with regions to be replaced with N (the default) or as specified by

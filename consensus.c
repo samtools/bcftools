@@ -54,8 +54,8 @@
 #define PICK_SHORT 8
 #define PICK_IUPAC 16
 
-#define TO_UPPER 0
-#define TO_LOWER 1
+#define TO_UPPER 1
+#define TO_LOWER 2
 
 typedef struct
 {
@@ -466,24 +466,36 @@ static char *mark_del(char *ref, int rlen, char *alt, int mark)
 static void mark_ins(char *ref, char *alt, char mark)
 {
     int i, nref = strlen(ref), nalt = strlen(alt);
-    if ( mark=='l' )
+    if ( mark==TO_LOWER )
         for (i=nref; i<nalt; i++) alt[i] = tolower(alt[i]);
-    else
+    else if ( mark==TO_UPPER )
         for (i=nref; i<nalt; i++) alt[i] = toupper(alt[i]);
+    else if ( mark )
+        for (i=nref; i<nalt; i++) alt[i] = mark;
 }
 static void mark_snv(char *ref, char *alt, char mark)
 {
     int i, nref = strlen(ref), nalt = strlen(alt);
     int n = nref < nalt ? nref : nalt;
-    if ( mark=='l' )
+    if ( mark==TO_LOWER )
     {
         for (i=0; i<n; i++)
             if ( tolower(ref[i])!=tolower(alt[i]) ) alt[i] = tolower(alt[i]);
     }
-    else
+    else if ( mark==TO_UPPER)
     {
         for (i=0; i<n; i++)
             if ( tolower(ref[i])!=tolower(alt[i]) ) alt[i] = toupper(alt[i]);
+    }
+    else if ( mark==TO_UPPER)
+    {
+        for (i=0; i<n; i++)
+            if ( tolower(ref[i])!=tolower(alt[i]) ) alt[i] = toupper(alt[i]);
+    }
+    else if ( mark )
+    {
+        for (i=0; i<n; i++)
+            if ( tolower(ref[i])!=tolower(alt[i]) ) alt[i] = mark;
     }
 }
 static void iupac_init(args_t *args, bcf1_t *rec)
@@ -1108,9 +1120,9 @@ static void usage(args_t *args)
     fprintf(stderr, "                                       NpIu: index of the allele for phased and IUPAC code for unphased GTs (e.g. \"2pIu\")\n");
     fprintf(stderr, "    -i, --include EXPR             Select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -I, --iupac-codes              Output IUPAC codes based on FORMAT/GT, use -s/-S to subset samples\n");
-    fprintf(stderr, "        --mark-del CHAR            Instead of removing sequence, insert CHAR for deletions\n");
-    fprintf(stderr, "        --mark-ins uc|lc           Highlight insertions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
-    fprintf(stderr, "        --mark-snv uc|lc           Highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
+    fprintf(stderr, "        --mark-del CHAR            Instead of removing sequence, insert character CHAR for deletions\n");
+    fprintf(stderr, "        --mark-ins uc|lc|CHAR      Highlight insertions in uppercase (uc), lowercase (lc), or use CHAR, leaving the rest as is\n");
+    fprintf(stderr, "        --mark-snv uc|lc|CHAR      Highlight substitutions in uppercase (uc), lowercase (lc), or use CHAR, leaving the rest as is\n");
     fprintf(stderr, "    -m, --mask FILE                Replace regions according to the next --mask-with option. The default is --mask-with N\n");
     fprintf(stderr, "        --mask-with CHAR|uc|lc     Replace with CHAR (skips overlapping variants); change to uppercase (uc) or lowercase (lc)\n");
     fprintf(stderr, "    -M, --missing CHAR             Output CHAR instead of skipping a missing genotype \"./.\"\n");
@@ -1162,13 +1174,15 @@ int main_consensus(int argc, char *argv[])
         {
             case  1 : args->mark_del = optarg[0]; break;
             case  2 :
-                if ( !strcasecmp(optarg,"uc") ) args->mark_ins = 'u';
-                else if ( !strcasecmp(optarg,"lc") ) args->mark_ins = 'l';
+                if ( !strcasecmp(optarg,"uc") ) args->mark_ins = TO_UPPER;
+                else if ( !strcasecmp(optarg,"lc") ) args->mark_ins = TO_LOWER;
+                else if ( !optarg[1] && optarg[0]>32 && optarg[0]<127 ) args->mark_ins = optarg[0];
                 else error("The argument is not recognised: --mark-ins %s\n",optarg);
                 break;
             case  3 :
-                if ( !strcasecmp(optarg,"uc") ) args->mark_snv = 'u';
-                else if ( !strcasecmp(optarg,"lc") ) args->mark_snv = 'l';
+                if ( !strcasecmp(optarg,"uc") ) args->mark_snv = TO_UPPER;
+                else if ( !strcasecmp(optarg,"lc") ) args->mark_snv = TO_LOWER;
+                else if ( !optarg[1] && optarg[0]>32 && optarg[0]<127 ) args->mark_snv = optarg[0];
                 else error("The argument is not recognised: --mark-snv %s\n",optarg);
                 break;
             case 'p': args->chr_prefix = optarg; break;
