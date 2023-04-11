@@ -781,13 +781,9 @@ int run(int argc, char **argv)
 
     static struct option loptions[] =
     {
-        {"trio",1,0,'t'},
-        {"trio-file",1,0,'T'},
-        {"ped",1,0,'p'},
-        {"delete",0,0,'d'},
-        {"list",1,0,'l'},
+        {"pfm",1,0,'p'},
+        {"ped",1,0,'P'},
         {"mode",1,0,'m'},
-        {"count",0,0,'c'},
         {"rules",1,0,1},
         {"rules-file",1,0,2},
         {"output",required_argument,NULL,'o'},
@@ -805,7 +801,7 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?ht:T:p:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
     {
         switch (c)
         {

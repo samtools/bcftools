@@ -20,6 +20,11 @@ Changes affecting specific commands:
 
     - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
 
+* bcftools +mendelian2
+
+    - Fix in command line argument parsing, the `-p` and `-P` options were not
+      functioning (#1906)
+
 * bcftools merge
 
     - New `-M, --missing-rules` option to control the behavior of merging of vector tags
