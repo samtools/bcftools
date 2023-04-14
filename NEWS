@@ -40,6 +40,12 @@ Changes affecting specific commands:
 
     - The `-m, --multiallelics +` mode now preserves phasing (#1893)
 
+* bcftools query
+
+    - Force newline character in formatting expression when not given explicitly
+
+    - Fix `-H` header output in formatting expressions containing newlines
+
 * bcftools +split-vep
 
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)

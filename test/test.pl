@@ -236,6 +236,13 @@ run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.88.out',args=>q[-i'F
 run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.89.out',args=>q[-i'FILTER~"A;B"' -f'%FILTER\\n']);
 run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.90.out',args=>q[-i'FILTER!~"A;B"' -f'%FILTER\\n']);
 run_test(\&test_vcf_query,$opts,in=>'filter.10',out=>'query.91.out',args=>q[-i'DP%10==2' -f'[ %DP]\\n']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.95.out',args=>q[-H -f'[%CHROM %POS  %SAMPLE %DP %GT\\n]']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.95.out',args=>q[-H -f'[%CHROM %POS  %SAMPLE %DP %GT]']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.96.out',args=>q[-H -f'[%CHROM %POS  %SAMPLE %DP %GT]\\n']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.97.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE %DP %GT]\\n']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.97.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE %DP %GT]']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]\\n']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
 run_test(\&test_vcf_norm,$opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
