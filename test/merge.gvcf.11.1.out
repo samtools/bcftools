@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file.fa
+##contig=<ID=chr20,length=59373566,assembly=B37,md5=1e86411d73e6f00a10590f976be01623,species="Homo sapiens">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the region described in this record">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	s1	s2	s3
+chr20	64249835	.	T	<NON_REF>	0	.	END=64249836	GT	0/0	0/0	0/0
+chr20	64249837	.	T	<NON_REF>	0	.	.	GT	0/0	0/0	0/0
+chr20	64249838	.	T	<NON_REF>	0	.	END=64250066	GT	0/0	0/0	0/0
+chr20	64250067	.	T	<NON_REF>	0	.	.	GT	0/0	0/0	./.
+chr20	64250068	.	N	<NON_REF>	0	.	END=64251648	GT	0/0	./.	./.

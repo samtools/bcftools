@@ -2780,7 +2780,7 @@ void clean_buffer(args_t *args)
         {
             if ( ma->gvcf[ir].active )
             {
-                if ( ma->pos >= ma->gvcf[ir].end )  ma->gvcf[ir].active = 0;
+                if ( ma->pos > ma->gvcf[ir].end )  ma->gvcf[ir].active = 0;
                 else if ( ma->buf[ir].cur==-1 ) ma->buf[ir].cur = ma->buf[ir].beg;  // re-activate interrupted gVCF block
             }
             if ( !ma->gvcf[ir].active ) ma->buf[ir].cur = -1;
