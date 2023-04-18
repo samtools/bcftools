@@ -222,8 +222,8 @@ static const char *usage_text(void)
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
         "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
-        "   -x, --drop-sites                Drop sites with none of the consequences matching the severity specified by -s.\n"
-        "                                      This switch is intended for use with VCF/BCF output (i.e. -f not given).\n"
+        "   -x, --drop-sites                Drop sites without consequences (the default with -f)\n"
+        "   -X, --keep-sites                Do not drop sites without consequences (the default without -f)\n"
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR              Include sites and samples for which the expression is true\n"
@@ -1111,7 +1111,7 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
     {
         if ( args->nannot )
         {
-            if ( !updated || all_missing ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
+            if ( args->drop_sites && (!updated || all_missing) ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
         }
         else
         {
@@ -1316,6 +1316,7 @@ int run(int argc, char **argv)
     static struct option loptions[] =
     {
         {"drop-sites",no_argument,0,'x'},
+        {"keep-sites",no_argument,0,'X'},
         {"all-fields",no_argument,0,'A'},
         {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
@@ -1343,9 +1344,9 @@ int run(int argc, char **argv)
         {"write-index",no_argument,NULL,6},
         {NULL,0,NULL,0}
     };
-    int c;
+    int c, drop_sites = -1;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xuHg:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1357,7 +1358,8 @@ int run(int argc, char **argv)
                 else args->all_fields_delim = optarg;
                 break;
             case 'H': args->print_header = 1; break;
-            case 'x': args->drop_sites = 1; break;
+            case 'x': drop_sites = 1; break;
+            case 'X': drop_sites = 0; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
             case 'g': args->genes_fname = optarg; break;
@@ -1412,7 +1414,8 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
-    if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
+    if ( drop_sites==-1 ) drop_sites = args->format_str ? 1 : 0;
+    args->drop_sites = drop_sites;
     if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());

@@ -50,6 +50,8 @@ Changes affecting specific commands:
 
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)
 
+    - New `-X, --keep-sites` option complementing the existing `-x, --drop-sites` options
+
 * bcftools stats
 
     - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field
