@@ -714,6 +714,8 @@ run_test(\&test_vcf_concat,$opts,in=>['concat.4.a','concat.4.b'],out=>'concat.5.
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>0,args=>'-l --ligate-warn');
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>1,args=>'-l --ligate-warn');
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.2.out',do_bcf=>1,args=>'-l --ligate-force');
+run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.3.out',do_bcf=>0,args=>'-G -a -D');
+run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.3.out',do_bcf=>1,args=>'-G -a -D');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
