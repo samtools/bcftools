@@ -1295,6 +1295,10 @@ output VCF and are ignored for the prediction analysis.
     aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
     written.
 
+*--dump-gff* 'FILE'::
+    dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,
+    shows how is the input GFF viewed by the program.
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -1315,6 +1319,17 @@ output VCF and are ignored for the prediction analysis.
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
     # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
+    #
+    # Empty and commented lines are skipped, the following GFF columns are required
+    #   1.  chromosome
+    #   2.  IGNORED
+    #   3.  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
+    #   4.  start of the feature (1-based)
+    #   5.  end of the feature (1-based)
+    #   6.  IGNORED
+    #   7.  strand (+ or -)
+    #   8.  phase (0, 1, 2 or .)
+    #   9.  semicolon-separated attributes (see below)
     #
     # Attributes required for
     #   gene lines:
@@ -1410,6 +1425,11 @@ output VCF and are ignored for the prediction analysis.
 
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
+
+*--unify-chr-names* '0'|'1'::
+    Automatically detect and unify chromosome naming conventions in the GFF, fasta
+    and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
+    that of the input VCF. The default is to attempt the automatic translation.
 
 *--write-index*::
     Automatically index the output file

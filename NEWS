@@ -14,6 +14,16 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+* bcftools csq
+
+    - New `--unify-chr-names` option to automatically unify different chromosome
+      naming conventions in the input GFF, fasta and VCF files (e.g. "chrX" vs "X")
+
+    - More versatility in parsing various flavors of GFF
+
+    - A new `--dump-gff` option to help with debugging and investigating the internals
+      of hGFF parsing
+
 * bcftools consensus
 
     - Support higher-ploidy genotypes with `-H, --haplotype` (#1892)

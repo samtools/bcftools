@@ -839,6 +839,14 @@ run_test(\&test_csq,$opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {
 run_test(\&test_csq,$opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.chr.gff3');
 run_test(\&test_csq,$opts,in=>'csq.2',out=>'csq.2.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff',tbcsq=>1);
 run_test(\&test_csq,$opts,in=>'csq.2',out=>'csq.3.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff --ncsq 64',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.nchr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.nchr.fa -g {PATH}/csq.nchr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.nchr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.ychr.fa -g {PATH}/csq.nchr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.nchr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.nchr.fa -g {PATH}/csq.ychr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.nchr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.ychr.fa -g {PATH}/csq.ychr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.ychr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.ychr.fa -g {PATH}/csq.ychr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.ychr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.ychr.fa -g {PATH}/csq.nchr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.ychr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.nchr.fa -g {PATH}/csq.ychr.gff',tbcsq=>1);
+run_test(\&test_csq,$opts,in=>'csq.ychr',out=>'csq.chr.out',cmd=>'-f {PATH}/csq.nchr.fa -g {PATH}/csq.nchr.gff',tbcsq=>1);
 run_test(\&test_csq_real,$opts,in=>'csq');
 run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.1.out',args=>q[-Or -G30 --AF-dflt 0.4]);
 run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.1.out',args=>q[-Or -G30 --AF-file {PATH}/roh.1.tab.gz]);
