@@ -61,9 +61,19 @@ typedef struct _args_t
     int argc, nfnames, allow_overlaps, phased_concat, regions_is_file, regions_overlap;
     int compact_PS, phase_set_changed, naive_concat, naive_concat_trust_headers;
     int verbose, explicit_output_type, ligate_force, ligate_warn;
+    int sites_only;
     htsThreadPool *tpool;
 }
 args_t;
+
+#define DROP_GENOTYPES(args, line) if ( args->sites_only ) {\
+    bcf_subset(args->out_hdr, line, 0, 0);\
+    }
+
+#define DROP_HDR_GENOTYPES(args, hdr)  if (args->sites_only) {\
+	    hdr = bcf_hdr_subset(hdr, 0, 0, 0);\
+	    bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);\
+        }
 
 static void init_data(args_t *args)
 {
@@ -85,6 +95,9 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
+
+        DROP_HDR_GENOTYPES(args, hdr)
+
         args->out_hdr = bcf_hdr_merge(args->out_hdr,hdr);
         if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
             error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
@@ -594,13 +607,14 @@ static void concat(args_t *args)
             {
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
                 if ( !line ) continue;
+                DROP_GENOTYPES(args,line);
                 bcf_translate(args->out_hdr, args->files->readers[i].header, line);
                 if ( bcf_write1(args->out_fh, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
                 if ( args->remove_dups ) break;
             }
         }
     }
-    else    // concatenating
+    else    // concatenate as is
     {
         struct timeval t0, t1;
         kstring_t tmp = {0,0,0};
@@ -616,6 +630,7 @@ static void concat(args_t *args)
             htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("\nFailed to open: %s\n", args->fnames[i]);
             if ( args->n_threads ) hts_set_opt(fp, HTS_OPT_THREAD_POOL, args->tpool);
             bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("\nFailed to parse header: %s\n", args->fnames[i]);
+            DROP_HDR_GENOTYPES(args, hdr);
             if ( !fp->is_bin && args->output_type&FT_VCF )
             {
                 line->max_unpack = BCF_UN_STR;
@@ -623,6 +638,22 @@ static void concat(args_t *args)
                 while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )
                 {
                     char *str = fp->line.s;
+
+                    // remove genotypes
+                    if ( args->sites_only )
+                    {
+                        int ntab = 0;
+                        while ( *str )
+                        {
+                            if ( *str == '\t' && ++ntab==8 )
+                            {
+                                *str = 0;
+                                break;
+                            }
+                            str++;
+                        }
+                        str = fp->line.s;
+                    }
                     while ( *str && *str!='\t' ) str++;
                     tmp.l = 0;
                     kputsn(fp->line.s,str-fp->line.s,&tmp);
@@ -651,6 +682,7 @@ static void concat(args_t *args)
                 line->max_unpack = 0;
                 while ( bcf_read(fp, hdr, line)==0 )
                 {
+                    DROP_GENOTYPES(args,line);
                     bcf_translate(args->out_hdr, hdr, line);
 
                     if ( prev_chr_id!=line->rid )
@@ -929,6 +961,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -d, --rm-dups STRING           Output duplicate records present in multiple files only once: <snps|indels|both|all|exact>\n");
     fprintf(stderr, "   -D, --remove-duplicates        Alias for -d exact\n");
     fprintf(stderr, "   -f, --file-list FILE           Read the list of files from a file.\n");
+    fprintf(stderr, "   -G, --drop-genotypes           Drop individual genotype information.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
     fprintf(stderr, "       --ligate-force             Ligate even non-overlapping chunks, keep all sites\n");
     fprintf(stderr, "       --ligate-warn              Drop sites in imperfect overlaps\n");
@@ -983,10 +1016,11 @@ int main_vcfconcat(int argc, char *argv[])
         {"min-PQ",required_argument,NULL,'q'},
         {"no-version",no_argument,NULL,8},
         {"write-index",no_argument,NULL,13},
+        {"drop-genotypes",no_argument,NULL,'G'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:r:R:cnv:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:Gr:R:cnv:",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'c': args->compact_PS = 1; break;
@@ -1002,6 +1036,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'a': args->allow_overlaps = 1; break;
             case 'l': args->phased_concat = 1; break;
             case 'f': args->file_list = optarg; break;
+            case 'G': args->sites_only = 1; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 args->explicit_output_type = 1;
@@ -1050,6 +1085,7 @@ int main_vcfconcat(int argc, char *argv[])
     }
     if ( args->ligate_force && args->ligate_warn ) error("The options cannot be combined: --ligate-force and --ligate-warn\n");
     if ( args->allow_overlaps && args->phased_concat ) error("The options -a and -l should not be combined. Please run with -l only.\n");
+    if ( args->sites_only && args->phased_concat ) error("The options --drop-genotypes and --ligate cannot be combined\n");
     if ( args->compact_PS && !args->phased_concat ) error("The -c option is intended only with -l\n");
     if ( args->file_list )
     {
@@ -1064,6 +1100,7 @@ int main_vcfconcat(int argc, char *argv[])
     {
         if ( args->allow_overlaps ) error("The option --naive cannot be combined with --allow-overlaps\n");
         if ( args->phased_concat ) error("The option --naive cannot be combined with --ligate\n");
+        if ( args->sites_only ) error("The option --naive cannot be combined with --drop-genotypes\n");
         naive_concat(args);
         destroy_data(args);
         free(args);
