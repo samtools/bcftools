@@ -491,37 +491,43 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             if ((flag & MPLP_REALN_PARTIAL) && nt > 15 && ncig > 1) {
                 // Left & right cigar op match.
                 int lr = b->core.l_qseq > 500;
-                int lm = 0, rm = 0, k;
+                int lm = 0, rm = 0, k, nm = 0;
                 for (k = 0; k < ncig; k++) {
                     int cop = bam_cigar_op(cig[k]);
                     if (lr && (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP))
                         continue;
 
                     if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
-                        cop == BAM_CEQUAL)
+                        cop == BAM_CEQUAL) {
                         lm += bam_cigar_oplen(cig[k]);
-                    else
+                        nm++;
+                    } else {
                         break;
+                    }
                 }
 
-                for (k = ncig-1; k >= 0; k--) {
-                    int cop = bam_cigar_op(cig[k]);
-                    if (lr && (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP))
+                // if everything is a match (or sequence (mis)match) then move on
+                // because we don't have an indel in the middle
+                if (nm != ncig) {
+                    for (k = ncig-1; k >= 0; k--) {
+                        int cop = bam_cigar_op(cig[k]);
+                        if (lr && (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP))
+                            continue;
+
+                        if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
+                            cop == BAM_CEQUAL)
+                            rm += bam_cigar_oplen(cig[k]);
+                        else
+                            break;
+                    }
+
+                    if (lm >= REALN_DIST*4 && rm >= REALN_DIST*4)
                         continue;
 
-                    if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
-                        cop == BAM_CEQUAL)
-                        rm += bam_cigar_oplen(cig[k]);
-                    else
-                        break;
+                    if (lm >= REALN_DIST && rm >= REALN_DIST &&
+                        has_clip < (0.15+0.05*(nt>20))*nt)
+                        continue;
                 }
-
-                if (lm >= REALN_DIST*4 && rm >= REALN_DIST*4)
-                    continue;
-
-                if (lm >= REALN_DIST && rm >= REALN_DIST &&
-                    has_clip < (0.15+0.05*(nt>20))*nt)
-                    continue;
             }
 
             if (b->core.l_qseq > 500) {
