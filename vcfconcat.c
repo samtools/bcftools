@@ -95,9 +95,9 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-        
+
         DROP_HDR_GENOTYPES(args, hdr)
-        
+
         args->out_hdr = bcf_hdr_merge(args->out_hdr,hdr);
         if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
             error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
@@ -498,7 +498,6 @@ static void concat(args_t *args)
             if ( bcf_sr_has_line(args->files,0) )
             {
                 bcf1_t *line = bcf_sr_get_line(args->files,0);
-                DROP_GENOTYPES(args, line)
                 bcf_sr_seek(args->files, bcf_seqname(args->files->readers[0].header,line), line->pos);
                 seek_pos = line->pos;
                 seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,line));
@@ -544,8 +543,7 @@ static void concat(args_t *args)
                 // Get a line to learn about current position
                 ir = _get_active_index(args->files);
                 bcf1_t *line = bcf_sr_get_line(args->files,ir);
-                DROP_GENOTYPES(args,line)
-                
+
                 // This can happen after bcf_sr_seek: indel may start before the coordinate which we seek to.
                 if ( seek_chr>=0 && seek_pos>line->pos && seek_chr==bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[ir].header,line)) ) continue;
                 seek_pos = seek_chr = -1;
@@ -589,7 +587,6 @@ static void concat(args_t *args)
                 }
 
                 bcf1_t *line0 = bcf_sr_get_line(args->files,0);
-                DROP_GENOTYPES(args,line0)
                 bcf1_t *line1 = args->files->nreaders > 1 ? bcf_sr_get_line(args->files,1) : NULL;
                 phased_push(args, line0, line1, is_overlap);
             }
@@ -610,14 +607,14 @@ static void concat(args_t *args)
             {
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
                 if ( !line ) continue;
-                DROP_GENOTYPES(args,line)
+                DROP_GENOTYPES(args,line);
                 bcf_translate(args->out_hdr, args->files->readers[i].header, line);
                 if ( bcf_write1(args->out_fh, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
                 if ( args->remove_dups ) break;
             }
         }
     }
-    else    // concatenating
+    else    // concatenate as is
     {
         struct timeval t0, t1;
         kstring_t tmp = {0,0,0};
@@ -633,8 +630,7 @@ static void concat(args_t *args)
             htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("\nFailed to open: %s\n", args->fnames[i]);
             if ( args->n_threads ) hts_set_opt(fp, HTS_OPT_THREAD_POOL, args->tpool);
             bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("\nFailed to parse header: %s\n", args->fnames[i]);
-            DROP_HDR_GENOTYPES(args, hdr)
-            
+            DROP_HDR_GENOTYPES(args, hdr);
             if ( !fp->is_bin && args->output_type&FT_VCF )
             {
                 line->max_unpack = BCF_UN_STR;
@@ -642,23 +638,20 @@ static void concat(args_t *args)
                 while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )
                 {
                     char *str = fp->line.s;
-                    
+
                     // remove genotypes
                     if ( args->sites_only )
                     {
                         int ntab = 0;
                         while ( *str )
                         {
-                            if ( *str == '\t' )
+                            if ( *str == '\t' && ++ntab==8 )
                             {
-                                if ( ++ntab == 8)
-                                    {
-                                        *str = 0;
-                                        break;
-                                    }
+                                *str = 0;
+                                break;
                             }
                             str++;
-                        }           
+                        }
                         str = fp->line.s;
                     }
                     while ( *str && *str!='\t' ) str++;
@@ -689,7 +682,7 @@ static void concat(args_t *args)
                 line->max_unpack = 0;
                 while ( bcf_read(fp, hdr, line)==0 )
                 {
-                    DROP_GENOTYPES(args,line)
+                    DROP_GENOTYPES(args,line);
                     bcf_translate(args->out_hdr, hdr, line);
 
                     if ( prev_chr_id!=line->rid )
@@ -812,7 +805,6 @@ static void naive_concat_check_headers(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-        DROP_HDR_GENOTYPES(args, hdr)
         htsFormat type = *hts_get_format(fp);
         hts_close(fp);
 
@@ -1093,6 +1085,7 @@ int main_vcfconcat(int argc, char *argv[])
     }
     if ( args->ligate_force && args->ligate_warn ) error("The options cannot be combined: --ligate-force and --ligate-warn\n");
     if ( args->allow_overlaps && args->phased_concat ) error("The options -a and -l should not be combined. Please run with -l only.\n");
+    if ( args->sites_only && args->phased_concat ) error("The options --drop-genotypes and --ligate cannot be combined\n");
     if ( args->compact_PS && !args->phased_concat ) error("The -c option is intended only with -l\n");
     if ( args->file_list )
     {
@@ -1107,6 +1100,7 @@ int main_vcfconcat(int argc, char *argv[])
     {
         if ( args->allow_overlaps ) error("The option --naive cannot be combined with --allow-overlaps\n");
         if ( args->phased_concat ) error("The option --naive cannot be combined with --ligate\n");
+        if ( args->sites_only ) error("The option --naive cannot be combined with --drop-genotypes\n");
         naive_concat(args);
         destroy_data(args);
         free(args);
