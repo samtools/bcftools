@@ -999,7 +999,7 @@ static void gff_parse_gene(args_t *args, const char *line, ftr_t *ftr)
 
     if ( aux->name )
     {
-        gene->name = (char*) malloc(aux->name_end - aux->name + 1);
+        gene->name = (char*) malloc(aux->name_end - aux->name + 2);
         memcpy(gene->name,aux->name,aux->name_end - aux->name + 1);
         gene->name[aux->name_end - aux->name + 1] = 0;
     }
