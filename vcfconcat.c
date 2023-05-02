@@ -66,14 +66,15 @@ typedef struct _args_t
 }
 args_t;
 
-#define DROP_GENOTYPES(args, line) if ( args->sites_only ) {\
-    bcf_subset(args->out_hdr, line, 0, 0);\
-    }
-
-#define DROP_HDR_GENOTYPES(args, hdr)  if (args->sites_only) {\
-	    hdr = bcf_hdr_subset(hdr, 0, 0, 0);\
-	    bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);\
-        }
+static bcf_hdr_t *drop_hdr_genotypes(args_t *args, bcf_hdr_t *hdr)
+{
+    if ( !args->sites_only ) return hdr;
+    bcf_hdr_t *rmme = hdr;
+    hdr = bcf_hdr_subset(rmme, 0, 0, 0);
+    bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);
+    bcf_hdr_destroy(rmme);
+    return hdr;
+}
 
 static void init_data(args_t *args)
 {
@@ -95,8 +96,7 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-
-        DROP_HDR_GENOTYPES(args, hdr)
+        hdr = drop_hdr_genotypes(args, hdr);
 
         args->out_hdr = bcf_hdr_merge(args->out_hdr,hdr);
         if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
@@ -607,7 +607,7 @@ static void concat(args_t *args)
             {
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
                 if ( !line ) continue;
-                DROP_GENOTYPES(args,line);
+                if ( args->sites_only ) bcf_subset(args->out_hdr, line, 0, 0);
                 bcf_translate(args->out_hdr, args->files->readers[i].header, line);
                 if ( bcf_write1(args->out_fh, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
                 if ( args->remove_dups ) break;
@@ -630,7 +630,13 @@ static void concat(args_t *args)
             htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("\nFailed to open: %s\n", args->fnames[i]);
             if ( args->n_threads ) hts_set_opt(fp, HTS_OPT_THREAD_POOL, args->tpool);
             bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("\nFailed to parse header: %s\n", args->fnames[i]);
-            DROP_HDR_GENOTYPES(args, hdr);
+            if ( args->sites_only )
+            {
+                bcf_hdr_t *hdr_ori = hdr;
+                hdr = bcf_hdr_subset(hdr_ori, 0, 0, 0);
+                bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);
+                bcf_hdr_destroy(hdr_ori);
+            }
             if ( !fp->is_bin && args->output_type&FT_VCF )
             {
                 line->max_unpack = BCF_UN_STR;
@@ -682,7 +688,7 @@ static void concat(args_t *args)
                 line->max_unpack = 0;
                 while ( bcf_read(fp, hdr, line)==0 )
                 {
-                    DROP_GENOTYPES(args,line);
+                    if ( args->sites_only ) bcf_subset(args->out_hdr, line, 0, 0);
                     bcf_translate(args->out_hdr, hdr, line);
 
                     if ( prev_chr_id!=line->rid )
