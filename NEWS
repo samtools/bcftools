@@ -14,6 +14,16 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+* bcftools concat
+
+    - New option `--drop-genotypes`
+
+* bcftools consensus
+
+    - Support higher-ploidy genotypes with `-H, --haplotype` (#1892)
+
+    - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
+
 * bcftools csq
 
     - New `--unify-chr-names` option to automatically unify different chromosome
@@ -23,12 +33,6 @@ Changes affecting specific commands:
 
     - A new `--dump-gff` option to help with debugging and investigating the internals
       of hGFF parsing
-
-* bcftools consensus
-
-    - Support higher-ploidy genotypes with `-H, --haplotype` (#1892)
-
-    - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
 
 * bcftools +mendelian2
 
