@@ -748,29 +748,6 @@ static void gff_id_destroy(id_tbl_t *tbl)
     khash_str2int_destroy_free(tbl->str2id);
     free(tbl->str);
 }
-// returns 0 on success, -1 on failure
-static inline int gff_id_parse(id_tbl_t *tbl, const char *needle, char *ss, uint32_t *id_ptr)
-{
-    ss = strstr(ss,needle);     // e.g. "ID=transcript:" or "Parent=gene:"
-    if ( !ss ) return -1;
-    ss += strlen(needle);
-
-    char *se = ss;
-    while ( *se && *se!=';' && !isspace(*se) ) se++;
-    char tmp = *se;
-    *se = 0;
-    int id;
-    if ( khash_str2int_get(tbl->str2id, ss, &id) < 0 )
-    {
-        id = tbl->nstr++;
-        hts_expand(char*, tbl->nstr, tbl->mstr, tbl->str);
-        tbl->str[id] = strdup(ss);
-        khash_str2int_set(tbl->str2id, tbl->str[id], id);
-    }
-    *se = tmp;
-    *id_ptr = id;
-    return 0;
-}
 static inline int gff_id_register(id_tbl_t *tbl, char *beg, char *end, uint32_t *id_ptr)
 {
     char tmp = end[1];
