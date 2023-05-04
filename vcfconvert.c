@@ -204,14 +204,14 @@ static int tsv_setter_chrom_pos_ref_alt_or_id(tsv_t *tsv, bcf1_t *rec, void *usr
 {
     args_t *args = (args_t*)usr;
     if ( _set_chrom_pos_ref_alt(tsv,rec,usr)==0 )  return 0;
-    rec->pos = -1;  // mark the record as unset
+    rec->pos = CSI_COOR_EMPTY;  // mark the record as unset
     if ( !args->output_vcf_ids) return 0;
     return tsv_setter_id(tsv,rec,usr);
 }
 static int tsv_setter_chrom_pos_ref_alt_id_or_die(tsv_t *tsv, bcf1_t *rec, void *usr)
 {
     args_t *args = (args_t*)usr;
-    if ( rec->pos!=-1 )
+    if ( rec->pos!=CSI_COOR_EMPTY )
     {
         if ( !args->output_vcf_ids ) return 0;
         return tsv_setter_id(tsv,rec,usr);
@@ -909,7 +909,7 @@ static void vcf_to_gensample(args_t *args)
         return;
     }
 
-    int prev_rid = -1, prev_pos = -1;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY;
     int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0, nok = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )

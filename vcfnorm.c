@@ -1829,7 +1829,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
 {
     bcf1_t *line;
     int i, k;
-    int prev_rid = -1, prev_pos = -1, prev_type = 0;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY, prev_type = 0;
     for (i=0; i<n; i++)
     {
         k = rbuf_shift(&args->rbuf);
@@ -2031,7 +2031,7 @@ static void normalize_vcf(args_t *args)
     if ( args->write_index && init_index(args->out,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     bcf1_t *line;
-    int prev_rid = -1, prev_pos = -1, prev_type = 0;
+    int prev_rid = -1, prev_pos = CSI_COOR_EMPTY, prev_type = 0;
     while ( (line = next_atomized_line(args)) )
     {
         args->ntotal++;

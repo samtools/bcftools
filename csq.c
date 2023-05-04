@@ -3510,7 +3510,7 @@ void vbuf_flush(args_t *args, uint32_t pos)
         i = rbuf_shift(&args->vcf_rbuf);
         assert( i>=0 );
         vbuf = args->vcf_buf[i];
-        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
+        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : CSI_COOR_EMPTY;
         for (i=0; i<vbuf->n; i++)
         {
             vrec_t *vrec = vbuf->vrec[i];
@@ -3549,7 +3549,7 @@ void vbuf_flush(args_t *args, uint32_t pos)
             bcf_empty(vrec->line);
             vrec->line->pos = save_pos;
         }
-        if ( pos!=-1 )
+        if ( pos!=CSI_COOR_EMPTY )
         {
             khint_t k = kh_get(pos2vbuf, args->pos2vbuf, pos);
             if ( k != kh_end(args->pos2vbuf) ) kh_del(pos2vbuf, args->pos2vbuf, k);
@@ -4311,7 +4311,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     }
 
     bcf1_t *rec = *rec_ptr;
-    static int32_t prev_rid = -1, prev_pos = -1;
+    static int32_t prev_rid = -1, prev_pos = CSI_COOR_EMPTY;
     if ( prev_rid!=rec->rid )
     {
         prev_rid = rec->rid;

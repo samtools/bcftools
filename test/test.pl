@@ -38,6 +38,8 @@ run_test(\&test_tabix,$opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2
 run_test(\&test_tabix,$opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 run_test(\&test_index,$opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this
 run_test(\&test_index,$opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
+run_test(\&test_index,$opts,in=>'telomere',reg=>'22:0',out=>'telomere.0.out');
+run_test(\&test_index,$opts,in=>'telomere',reg=>'22:1',out=>'telomere.1.out');
 run_test(\&test_vcf_idxstats,$opts,in=>'idx',args=>'-s',out=>'idx.out');
 run_test(\&test_vcf_idxstats,$opts,in=>'idx',args=>'-n',out=>'idx_count.out');
 run_test(\&test_vcf_idxstats,$opts,in=>'empty',args=>'-s',out=>'empty.idx.out');
