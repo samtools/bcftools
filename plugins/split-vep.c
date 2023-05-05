@@ -874,6 +874,7 @@ static void init_data(args_t *args)
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
         if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
+        convert_set_option(args->convert, force_newline, 1);
     }
     if ( args->filter_str ) parse_filter_str(args);
     if ( args->genes_fname ) init_gene_list(args);
