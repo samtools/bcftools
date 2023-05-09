@@ -59,7 +59,7 @@ struct _args_t
     bcf_hdr_t *header;
     void (*convert_func)(struct _args_t *);
     struct {
-        int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing;
+        int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing, written;
     } n;
     kstring_t str;
     int32_t *gts;
@@ -72,6 +72,9 @@ struct _args_t
     int argc, n_threads, record_cmd_line, keep_duplicates, clevel;
     char *index_fn;
     int write_index;
+    struct {
+        kstring_t ref,alt,refalt;
+    } tsv;
 };
 
 static void destroy_data(args_t *args)
@@ -139,6 +142,36 @@ static void open_vcf(args_t *args, const char *format_str)
     }
     if ( format_str ) args->convert = convert_init(args->header, samples, nsamples, format_str);
     free(samples);
+}
+
+static int _set_ref_alt(args_t *args, bcf1_t *rec)
+{
+    args->tsv.refalt.l = 0;
+    kputs(args->tsv.ref.s, &args->tsv.refalt);
+    if ( strcmp(".",args->tsv.alt.s) && strcmp(args->tsv.ref.s,args->tsv.alt.s) )
+    {
+        kputc(',', &args->tsv.refalt);
+        kputs(args->tsv.alt.s, &args->tsv.refalt);
+    }
+    bcf_update_alleles_str(args->header, rec, args->tsv.refalt.s);
+    args->tsv.ref.l = 0;
+    args->tsv.alt.l = 0;
+    args->tsv.refalt.l = 0;
+    return 0;
+}
+static int tsv_setter_ref(tsv_t *tsv, bcf1_t *rec, void *usr)
+{
+    args_t *args = (args_t*) usr;
+    kputsn(tsv->ss,tsv->se - tsv->ss,&args->tsv.ref);
+    if ( args->tsv.alt.l ) return _set_ref_alt(args,rec);
+    return 0;
+}
+static int tsv_setter_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
+{
+    args_t *args = (args_t*) usr;
+    kputsn(tsv->ss,tsv->se - tsv->ss,&args->tsv.alt);
+    if ( args->tsv.ref.l ) return _set_ref_alt(args,rec);
+    return 0;
 }
 
 // Try to set CHROM:POS_REF_ALT[_END]. Return 0 on success, -1 on error
@@ -1245,7 +1278,7 @@ static inline int tsv_setter_aa1(args_t *args, char *ss, char *se, int alleles[]
 {
     if ( se - ss > 2 ) return -1;   // currently only SNPs
 
-    if ( ss[0]=='-' )
+    if ( ss[0]=='-' || ss[0]=='.' )
     {
         // missing GT
         gts[0] = bcf_gt_missing;
@@ -1325,7 +1358,6 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 static void tsv_to_vcf(args_t *args)
 {
     if ( !args->ref_fname ) error("--tsv2vcf requires the --fasta-ref option\n");
-    if ( !args->sample_list ) error("--tsv2vcf requires the --samples option\n");
 
     args->ref = fai_load(args->ref_fname);
     if ( !args->ref ) error("Could not load the reference %s\n", args->ref_fname);
@@ -1335,17 +1367,21 @@ static void tsv_to_vcf(args_t *args)
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     if (args->record_cmd_line) bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
-    int i, n;
-    char **smpls = hts_readlist(args->sample_list, args->sample_is_file, &n);
-    if ( !smpls ) error("Could not parse %s\n", args->sample_list);
-    for (i=0; i<n; i++)
+    int i, nsmpl;
+    char **smpl;
+    if ( args->sample_list )
     {
-        bcf_hdr_add_sample(args->header, smpls[i]);
-        free(smpls[i]);
+        smpl = hts_readlist(args->sample_list, args->sample_is_file, &nsmpl);
+        if ( !smpl ) error("Could not parse %s\n", args->sample_list);
+        for (i=0; i<nsmpl; i++)
+        {
+            bcf_hdr_add_sample(args->header, smpl[i]);
+            free(smpl[i]);
+        }
+        free(smpl);
+        bcf_hdr_add_sample(args->header, NULL);
+        args->gts = (int32_t *) malloc(sizeof(int32_t)*nsmpl*2);
     }
-    free(smpls);
-    bcf_hdr_add_sample(args->header, NULL);
-    args->gts = (int32_t *) malloc(sizeof(int32_t)*n*2);
 
     char wmode[8];
     set_wmode(wmode,args->output_type,args->outfname,args->clevel);
@@ -1359,7 +1395,12 @@ static void tsv_to_vcf(args_t *args)
     if ( tsv_register(tsv, "CHROM", tsv_setter_chrom, args->header) < 0 ) error("Expected CHROM column\n");
     if ( tsv_register(tsv, "POS", tsv_setter_pos, NULL) < 0 ) error("Expected POS column\n");
     if ( tsv_register(tsv, "ID", tsv_setter_id, args->header) < 0 && !args->columns ) error("Expected ID column\n");
-    if ( tsv_register(tsv, "AA", tsv_setter_aa, args) < 0 ) error("Expected AA column\n");
+    if ( tsv_register(tsv, "AA", tsv_setter_aa, args) < 0 )
+    {
+        if ( args->sample_list ) error("Expected AA column with -s/-S\n");
+        if ( tsv_register(tsv, "REF", tsv_setter_ref, args) < 0 || tsv_register(tsv, "ALT", tsv_setter_alt, args) < 0 )
+            error("Expected REF and ALT columns when AA was not given\n");
+    }
 
     bcf1_t *rec = bcf_init();
     bcf_float_set_missing(rec->qual);
@@ -1376,6 +1417,7 @@ static void tsv_to_vcf(args_t *args)
         if ( !tsv_parse(tsv, rec, line.s) )
         {
             if ( bcf_write(out_fh, args->header, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
+            args->n.written++;
         }
         else
             args->n.skipped++;
@@ -1398,14 +1440,21 @@ static void tsv_to_vcf(args_t *args)
     bcf_destroy(rec);
     free(args->str.s);
     free(args->gts);
+    free(args->tsv.ref.s);
+    free(args->tsv.alt.s);
+    free(args->tsv.refalt.s);
 
     fprintf(stderr,"Rows total: \t%d\n", args->n.total);
     fprintf(stderr,"Rows skipped: \t%d\n", args->n.skipped);
-    fprintf(stderr,"Missing GTs: \t%d\n", args->n.missing);
-    fprintf(stderr,"Hom RR: \t%d\n", args->n.hom_rr);
-    fprintf(stderr,"Het RA: \t%d\n", args->n.het_ra);
-    fprintf(stderr,"Hom AA: \t%d\n", args->n.hom_aa);
-    fprintf(stderr,"Het AA: \t%d\n", args->n.het_aa);
+    fprintf(stderr,"Sites written: \t%d\n", args->n.written);
+    if ( args->sample_list )
+    {
+        fprintf(stderr,"Missing GTs: \t%d\n", args->n.missing);
+        fprintf(stderr,"Hom RR: \t%d\n", args->n.hom_rr);
+        fprintf(stderr,"Het RA: \t%d\n", args->n.het_ra);
+        fprintf(stderr,"Hom AA: \t%d\n", args->n.hom_aa);
+        fprintf(stderr,"Het AA: \t%d\n", args->n.het_aa);
+    }
 }
 
 static void vcf_to_vcf(args_t *args)
@@ -1591,7 +1640,7 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV conversion:\n");
     fprintf(stderr, "       --tsv2vcf FILE\n");
-    fprintf(stderr, "   -c, --columns STRING           Columns of the input tsv file [ID,CHROM,POS,AA]\n");
+    fprintf(stderr, "   -c, --columns STRING           Columns of the input tsv file, see man page for details [ID,CHROM,POS,AA]\n");
     fprintf(stderr, "   -f, --fasta-ref FILE           Reference sequence in fasta format\n");
     fprintf(stderr, "   -s, --samples LIST             List of sample names\n");
     fprintf(stderr, "   -S, --samples-file FILE        File of sample names\n");
