@@ -24,6 +24,10 @@ Changes affecting specific commands:
 
     - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
 
+* bcftools convert
+
+    - Support for conversion from tab-delimited files (CHROM,POS,REF,ALT) to sites-only VCFs
+
 * bcftools csq
 
     - New `--unify-chr-names` option to automatically unify different chromosome
@@ -33,6 +37,13 @@ Changes affecting specific commands:
 
     - A new `--dump-gff` option to help with debugging and investigating the internals
       of hGFF parsing
+
+    - When printing consequences in nonsense mediated decay transcripts, include 'NMD_transcript'
+      in the consequence part of the annotation. This is to make filtering easier and analogous to
+      VEP annotations. For example the consequence annotation
+            3_prime_utr|PCGF3|ENST00000430644|NMD
+      is newly printed as
+            3_prime_utr&NMD_transcript|PCGF3|ENST00000430644|NMD
 
 * bcftools +mendelian2
 
@@ -65,6 +76,8 @@ Changes affecting specific commands:
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)
 
     - New `-X, --keep-sites` option complementing the existing `-x, --drop-sites` options
+
+    - Force newline character in formatting expression when not given explicitly
 
 * bcftools stats
 

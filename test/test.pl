@@ -755,6 +755,7 @@ run_test(\&test_vcf_convert_hs2vcf,$opts,h=>'convert.hs.gt.hap',s=>'convert.hs.g
 run_test(\&test_vcf_convert_hs2vcf,$opts,h=>'convert.hs.gt.ids.hap',s=>'convert.hs.gt.samples',out=>'convert.gt.noHead.ids.vcf',args=>'--vcf-ids --hapsample2vcf');
 run_test(\&test_vcf_convert_gvcf,$opts,in=>'convert.gvcf',out=>'convert.gvcf.out',fa=>'gvcf.fa',args=>'--gvcf2vcf -i\'FILTER="PASS"\'');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.23andme',out=>'convert.23andme.vcf',args=>'-c ID,CHROM,POS,AA -s SAMPLE1',fai=>'23andme');
+run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.tsv',out=>'convert.tsv.vcf',args=>'-c -,CHROM,POS,REF,ALT',fai=>'23andme');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus',out=>'consensus.1.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-s -');
 run_test(\&test_vcf_consensus_chain,$opts,in=>'consensus',out=>'consensus.1.chain',chain=>'consensus.1.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-s -');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus',out=>'consensus.2.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-H 1');
@@ -980,11 +981,12 @@ sub run_test
         my %args = @args;
         my $run  = 0;
         if ( exists($$opts{run_function}{$name}) ) { $run = 1; }
-        if ( !$run && exists($args{cmd}) )
+        if ( !$run )
         {
             for my $func (keys %{$$opts{run_function}})
             {
-                if ( $args{cmd}=~/$func/ ) { $run = 1; last; }
+                if ( exists($args{cmd}) && $args{cmd}=~/$func/ ) { $run = 1; last; }
+                if ( $name=~/$func/ ) { $run = 1; last; }
             }
         }
         if ( !$run ) { return; }

@@ -225,6 +225,7 @@
 
 #define CSQ_PRN_STRAND(csq)     ((csq)&CSQ_COMPOUND && !((csq)&(CSQ_SPLICE_ACCEPTOR|CSQ_SPLICE_DONOR|CSQ_SPLICE_REGION)))
 #define CSQ_PRN_TSCRIPT         (~(CSQ_INTRON|CSQ_NON_CODING))
+#define CSQ_PRN_NMD             (~(CSQ_INTRON|CSQ_NON_CODING))
 #define CSQ_PRN_BIOTYPE         CSQ_NON_CODING
 
 // see kput_vcsq()
@@ -2936,12 +2937,18 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
     if ( csq->type & CSQ_UPSTREAM_STOP )
         kputc_('*',str);
 
-    int i, n = sizeof(csq_strings)/sizeof(char*);
+    int has_csq = 0, i, n = sizeof(csq_strings)/sizeof(char*);
     for (i=1; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { kputs(csq_strings[i],str); break; }
+        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputs(csq_strings[i],str); break; }
     i++;
     for (; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { kputc_('&',str); kputs(csq_strings[i],str); }
+        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputc_('&',str); kputs(csq_strings[i],str); }
+
+    if ( (csq->biotype==GF_NMD) && (csq->type & CSQ_PRN_NMD) )
+    {
+        if ( has_csq ) kputc_('&',str); // just in case, this should always be true
+        kputs("NMD_transcript",str);
+    }
 
     kputc_('|', str);
     if ( csq->gene ) kputs(csq->gene , str);

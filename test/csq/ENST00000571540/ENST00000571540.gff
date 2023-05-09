@@ -1,0 +1,15 @@
+17	ensembl_havana	gene	-995	16824	.	+	.	ID=gene:ENSG00000170037;Name=CNTROB;biotype=protein_coding;description=centrobin%2C centriole duplication and spindle assembly protein [Source:HGNC Symbol%3BAcc:HGNC:29616];gene_id=ENSG00000170037;logic_name=ensembl_havana_gene_homo_sapiens;version=14
+17	havana	mRNA	21	6607	.	+	.	ID=transcript:ENST00000571540;Parent=gene:ENSG00000170037;Name=CNTROB-206;biotype=nonsense_mediated_decay;transcript_id=ENST00000571540;transcript_support_level=5;version=5
+17	havana	exon	21	253	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00002655061;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00002655061;rank=1;version=1
+17	havana	CDS	21	253	.	+	2	ID=CDS:ENSP00000458688;Parent=transcript:ENST00000571540;protein_id=ENSP00000458688
+17	havana	exon	1042	1126	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00003522521;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00003522521;rank=2;version=1
+17	havana	CDS	1042	1126	.	+	0	ID=CDS:ENSP00000458688;Parent=transcript:ENST00000571540;protein_id=ENSP00000458688
+17	havana	exon	1369	1450	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00001609771;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00001609771;rank=3;version=1
+17	havana	CDS	1369	1450	.	+	2	ID=CDS:ENSP00000458688;Parent=transcript:ENST00000571540;protein_id=ENSP00000458688
+17	havana	exon	1893	2049	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00003784956;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003784956;rank=4;version=1
+17	havana	CDS	1893	2049	.	+	1	ID=CDS:ENSP00000458688;Parent=transcript:ENST00000571540;protein_id=ENSP00000458688
+17	havana	CDS	3142	3312	.	+	0	ID=CDS:ENSP00000458688;Parent=transcript:ENST00000571540;protein_id=ENSP00000458688
+17	havana	exon	3142	3386	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00002678822;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002678822;rank=5;version=1
+17	havana	exon	3605	3721	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00003688389;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003688389;rank=6;version=1
+17	havana	exon	4068	4166	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00003562163;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003562163;rank=7;version=1
+17	havana	exon	6417	6607	.	+	.	Parent=transcript:ENST00000571540;Name=ENSE00002649879;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002649879;rank=8;version=1
