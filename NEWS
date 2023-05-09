@@ -79,6 +79,9 @@ Changes affecting specific commands:
 
     - Force newline character in formatting expression when not given explicitly
 
+    - Fix a subtle ambiguity: identical rows must be returned when `-s` is applied regardless
+      of `-f` containing the `-a` VEP tag itself or not.
+
 * bcftools stats
 
     - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field

@@ -549,6 +549,7 @@ static void parse_format_str(args_t *args)
 // The program was requested to extract one or more columns via -c. It can contain names,  0-based indexes or ranges of indexes
 static void parse_column_str(args_t *args)
 {
+    if ( args->nannot ) return; // already called from parse_filter_str
     int i,j;
     int *column = NULL;
     int *types  = NULL;
@@ -696,7 +697,6 @@ static void parse_column_str(args_t *args)
 // as if the user passed them via the -c option.
 static void parse_filter_str(args_t *args)
 {
-    int max_unpack = args->convert ? convert_max_unpack(args->convert) : 0;
     args->filter = filter_parse(args->hdr_out, args->filter_str);
     if ( !args->filter ) error(NULL);     // this type of error would have been reported
     int ret = filter_status(args->filter);
@@ -710,8 +710,6 @@ static void parse_filter_str(args_t *args)
         kstring_t str;
         str.s = args->column_str;
         str.l = str.m = str.s ? strlen(str.s) : 0;
-        destroy_annot(args);
-        destroy_column2type(args);
         for (i=0; i<ntags; i++)
         {
             if ( khash_str2int_get(args->field2idx,tags[i],&j)!=0 )
@@ -724,11 +722,10 @@ static void parse_filter_str(args_t *args)
         filter_destroy(args->filter);
         args->filter = filter_init(args->hdr_out, args->filter_str);
     }
-    max_unpack |= filter_max_unpack(args->filter);
-    if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
-    args->sr->max_unpack = max_unpack;
-    if ( args->convert && (max_unpack & BCF_UN_FMT) )
-        convert_set_option(args->convert, subset_samples, &args->smpl_pass);
+    int ntags, i;
+    const char **tags = filter_list_used_tags(args->filter, &ntags);
+    for (i=0; i<ntags; i++)
+        if ( !strncmp("INFO/",tags[i],5) && !strcmp(tags[i]+5,args->vep_tag) ) args->raw_vep_request = 1;
 }
 static void init_data(args_t *args)
 {
@@ -867,6 +864,7 @@ static void init_data(args_t *args)
     free(tmp);
 
     if ( args->format_str ) parse_format_str(args);    // Text output, e.g. bcftools +split-vep -f '%Consequence\n'
+    if ( args->filter_str ) parse_filter_str(args);
     if ( args->column_str ) parse_column_str(args);    // The --columns option was given, update the header
     if ( args->format_str )
     {
@@ -876,8 +874,15 @@ static void init_data(args_t *args)
         if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
         convert_set_option(args->convert, force_newline, 1);
     }
-    if ( args->filter_str ) parse_filter_str(args);
     if ( args->genes_fname ) init_gene_list(args);
+
+    int max_unpack = BCF_UN_SHR;
+    if ( args->convert ) max_unpack |= convert_max_unpack(args->convert);
+    if ( args->filter ) max_unpack |= filter_max_unpack(args->filter);
+    if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
+    args->sr->max_unpack = max_unpack;
+    if ( args->convert && (max_unpack & BCF_UN_FMT) )
+        convert_set_option(args->convert, subset_samples, &args->smpl_pass);
 
     free(str.s);
 }
