@@ -473,6 +473,7 @@ uint32_t parse_tags(args_t *args, const char *str)
         if ( !strcasecmp(tags[i],"all") )
         {
             flag |= ~(SET_END|SET_TYPE);
+            flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); // include F_MISSING as part of 'all'
             args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
