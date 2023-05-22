@@ -3,6 +3,7 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##contig=<ID=1,assembly=b37,length=249250621>
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=F_MISSING,Number=.,Type=Float,Description="Added by +fill-tags expression F_MISSING=F_MISSING">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
@@ -16,7 +17,7 @@
 ##FORMAT=<ID=VAF,Number=A,Type=Float,Description="The fraction of reads with alternate allele (nALT/nSumAll)">
 ##FORMAT=<ID=VAF1,Number=1,Type=Float,Description="The fraction of reads with alternate alleles (nSumALT/nSumAll)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
-1	3177144	.	G	T,A	45	PASS	NS=2;AN=2;AF=0.5,0.5;MAF=0.5;AC=1,1;AC_Het=0,0;AC_Hom=0,0;AC_Hemi=1,1;HWE=1,1;ExcHet=1,1	GT	1	2
-1	3177144	.	G	T	45	PASS	NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	0/.	1/.
-1	3177144	.	G	T	45	PASS	NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	./0	./1
-1	3177144	.	G	T	45	PASS	NS=1;AN=1;AF=1;MAF=0;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	./.	./1
+1	3177144	.	G	T,A	45	PASS	F_MISSING=0;NS=2;AN=2;AF=0.5,0.5;MAF=0.5;AC=1,1;AC_Het=0,0;AC_Hom=0,0;AC_Hemi=1,1;HWE=1,1;ExcHet=1,1	GT	1	2
+1	3177144	.	G	T	45	PASS	F_MISSING=1;NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	0/.	1/.
+1	3177144	.	G	T	45	PASS	F_MISSING=1;NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	./0	./1
+1	3177144	.	G	T	45	PASS	F_MISSING=1;NS=1;AN=1;AF=1;MAF=0;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=1;HWE=1;ExcHet=1	GT	./.	./1
