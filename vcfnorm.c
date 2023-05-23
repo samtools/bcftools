@@ -86,8 +86,8 @@ typedef struct
     int32_t *int32_arr;
     int ntmp_arr1, ntmp_arr2, nint32_arr;
     kstring_t *tmp_str;
-    kstring_t *tmp_als, tmp_kstr;
-    int ntmp_als;
+    kstring_t *tmp_als, *tmp_del, tmp_kstr;
+    int ntmp_als, ntmp_del;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
     int aln_win;            // the realignment window size (maximum repeat size)
@@ -398,10 +398,32 @@ static int realign(args_t *args, bcf1_t *line)
 
     // make a copy of each allele for trimming
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_del,args->tmp_del);
     kstring_t *als = args->tmp_als;
+    kstring_t *del = args->tmp_del;
     for (i=0; i<line->n_allele; i++)
     {
-        if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;  // symbolic allele
+        del[i].l = 0;
+        if ( line->d.allele[i][0]=='<' )
+        {
+            // symbolic allele, only <DEL.*> will be realigned
+            if ( strncmp("<DEL",line->d.allele[i],4) ) return ERR_SYMBOLIC;
+            if ( nref < line->rlen )
+            {
+                free(ref);
+                reflen = line->rlen;
+                ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+                if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
+                seq_to_upper(ref,0);
+                replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+                als[0].l = 0;
+                kputs(ref, &als[0]);
+                als[i].l = 0;
+                kputsn(ref,1,&als[i]);
+                kputs(line->d.allele[i],&del[i]);
+                continue;
+            }
+        }
         if ( line->d.allele[i][0]=='*' ) return ERR_SPANNING_DELETION;  // spanning deletion
         if ( has_non_acgtn(line->d.allele[i],line->shared.l) )
         {
@@ -493,7 +515,8 @@ static int realign(args_t *args, bcf1_t *line)
     for (i=0; i<line->n_allele; i++)
     {
         if (i>0) kputc(',',&args->tmp_kstr);
-        kputsn(als[i].s,als[i].l,&args->tmp_kstr);
+        if ( del[i].l ) kputs(del[i].s,&args->tmp_kstr);
+        else kputsn(als[i].s,als[i].l,&args->tmp_kstr);
     }
     args->tmp_kstr.s[ args->tmp_kstr.l ] = 0;
     bcf_update_alleles_str(args->out_hdr,line,args->tmp_kstr.s);
@@ -1939,7 +1962,10 @@ static void destroy_data(args_t *args)
         free(args->maps[i].map);
     for (i=0; i<args->ntmp_als; i++)
         free(args->tmp_als[i].s);
+    for (i=0; i<args->ntmp_del; i++)
+        free(args->tmp_del[i].s);
     free(args->tmp_als);
+    free(args->tmp_del);
     free(args->tmp_kstr.s);
     if ( args->tmp_str )
     {

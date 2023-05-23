@@ -65,6 +65,8 @@ Changes affecting specific commands:
 
     - The `-m, --multiallelics +` mode now preserves phasing (#1893)
 
+    - Symbolic <DEL.*> alleles are now normalized too (#1919)
+
 * bcftools query
 
     - Force newline character in formatting expression when not given explicitly
