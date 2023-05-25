@@ -811,6 +811,7 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.1.out',
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.2.out',fa=>'consensus.20.fa',args=>'');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.3.out',fa=>'consensus.20.fa',args=>'-M . -s b');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.4.out',fa=>'consensus.20.fa',args=>'-M . -s a');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.21',out=>'consensus21.1.out',fa=>'consensus.21.fa',args=>'');
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
@@ -1173,6 +1174,18 @@ sub bgzip_tabix_vcf
 {
     my ($opts,$file) = @_;
     bgzip_tabix($opts,file=>$file,suffix=>'vcf',args=>'-p vcf');
+}
+sub bgzip_index_bcf
+{
+    my ($opts,$file) = @_;
+    if ( !-e "$$opts{tmp}/$file.bcf" or is_file_newer("$$opts{path}/$file.vcf","$$opts{tmp}/$file.bcf") )
+    {
+        cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$file.vcf -o $$opts{tmp}/$file.bcf");
+    }
+    if ( !-e "$$opts{tmp}/$file.bcf.csi" or is_file_newer("$$opts{tmp}/$file.bcf","$$opts{tmp}/$file.bcf.csi") )
+    {
+        cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$file.bcf");
+    }
 }
 
 
@@ -1755,10 +1768,12 @@ sub test_vcf_consensus
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
+    bgzip_index_bcf($opts,$args{in});
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     my $mask = $args{mask} ? "-m $$opts{path}/$args{mask}" : '';
     my $chain = $args{chain} ? "-c $$opts{tmp}/$args{chain}" : '';
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.bcf    -f $$opts{path}/$args{fa} $args{args} $mask $chain");
 }
 sub test_vcf_consensus_chain
 {
