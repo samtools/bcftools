@@ -324,7 +324,7 @@ static void init_region(args_t *args, char *line)
 {
     char *ss, *se = line;
     while ( *se && !isspace(*se) && *se!=':' ) se++;
-    int from = 0, to = 0;
+    hts_pos_t from = 0, to = 0;
     char tmp = 0, *tmp_ptr = NULL;
     if ( *se )
     {
@@ -356,7 +356,14 @@ static void init_region(args_t *args, char *line)
     args->fa_frz_mod = -1;
     args->fa_case    = -1;
     args->vcf_rbuf.n = 0;
-    bcf_sr_seek(args->files,line,args->fa_ori_pos);
+
+    kstring_t str = {0,0,0};
+    if ( from==0 ) from = 1;
+    if ( to==0 ) to = HTS_POS_MAX;
+    ksprintf(&str,"%s:%"PRIhts_pos"-%"PRIhts_pos,line,from,to);
+    bcf_sr_set_regions(args->files,line,0);
+    free(str.s);
+
     if ( tmp_ptr ) *tmp_ptr = tmp;
     fprintf(args->fp_out,">%s%s\n",args->chr_prefix?args->chr_prefix:"",line);
     if ( args->chain_fname )
