@@ -1320,14 +1320,10 @@ void tscript_init_cds(args_t *args)
             gf_cds_t *b = tr->cds[i];
             if ( a->beg + a->len - 1 >= b->beg )
             {
-                if ( !args->force )
-                    error("Error: CDS overlap in the transcript %s: %"PRIu32"-%"PRIu32" and %"PRIu32"-%"PRIu32", is this intended (e.g. ribosomal slippage)?\n"
-                            "       Use the --force option to override (at your own risk).\n",
-                            args->tscript_ids.str[tr->id], a->beg+1,a->beg+a->len, b->beg+1,b->beg+b->len);
                 if ( args->verbosity > 0 )
                 {
                     if ( !args->warned.overlapping_cds || args->verbosity > 1 )
-                        fprintf(stderr,"Warning: GFF contains overlapping CDS %s: %"PRIu32"-%"PRIu32" and %"PRIu32"-%"PRIu32".\n",
+                        fprintf(stderr,"Warning: GFF contains overlapping CDS %s, %"PRIu32"-%"PRIu32" and %"PRIu32"-%"PRIu32" (ribosomal slippage?)\n",
                                 args->tscript_ids.str[tr->id], a->beg+1,a->beg+a->len, b->beg+1,b->beg+b->len);
                     args->warned.overlapping_cds++;
                 }
