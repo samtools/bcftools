@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-03-28 13:46 BST</strong> and refers to bcftools git version <strong>1.17-15-gf2d2fdf8+</strong>.</p>
+<p>This manual page was last updated <strong>2023-05-30 09:18 BST</strong> and refers to bcftools git version <strong>1.17-50-ga8249495+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1271,21 +1271,21 @@ For example, <em>1pIu</em> or <em>2pIu</em></p>
 <dt class="hdlist1"><strong>-I, --iupac-codes</strong></dt>
 <dd>
 <p>output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
-samples are used and can be subset with <code>-s, --samples</code> and <code>-S, --samples-file</code>. Use <code>-s -</code> to ignore
+samples are used and can be subset with <strong>-s, --samples</strong> and <strong>-S, --samples-file</strong>. Use <strong>-s -</strong> to ignore
 samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
 from REF,ALT columns and sample genotypes were not considered.</p>
 </dd>
 <dt class="hdlist1"><strong>--mark-del</strong> <em>CHAR</em></dt>
 <dd>
-<p>instead of removing sequence, insert CHAR for deletions</p>
+<p>instead of removing sequence, insert character CHAR for deletions</p>
 </dd>
-<dt class="hdlist1"><strong>--mark-ins</strong> <em>uc</em>|<em>lc</em></dt>
+<dt class="hdlist1"><strong>--mark-ins</strong> <em>uc</em>|<em>lc</em>|<em>CHAR</em></dt>
 <dd>
-<p>highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is</p>
+<p>highlight inserted sequence in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is</p>
 </dd>
 <dt class="hdlist1"><strong>--mark-snv</strong> <em>uc</em>|<em>lc</em></dt>
 <dd>
-<p>highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is</p>
+<p>highlight substitutions in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is</p>
 </dd>
 <dt class="hdlist1"><strong>-m, --mask</strong> <em>FILE</em></dt>
 <dd>
@@ -1308,11 +1308,11 @@ format details.</p>
 </dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
-<p>apply variants of the listed samples. See also the option <code>-I, --iupac-codes</code></p>
+<p>apply variants of the listed samples. See also the option <strong>-I, --iupac-codes</strong></p>
 </dd>
 <dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
 <dd>
-<p>apply variants of the samples listed in the file. See also the option <code>-I, --iupac-codes</code></p>
+<p>apply variants of the samples listed in the file. See also the option <strong>-I, --iupac-codes</strong></p>
 </dd>
 </dl>
 </div>
@@ -1330,6 +1330,27 @@ format details.</p>
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html</pre>
 </div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>Notes:</strong></dt>
+<dd>
+<p>Masking options are applied in the following order</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>mask regions with <strong>--mask-with</strong> character if <strong>--mask</strong> is given. All overlapping VCF variants are ignored</p>
+</li>
+<li>
+<p>replace sequence not mentioned in the VCF with the requested character if <strong>--absent</strong> is given</p>
+</li>
+<li>
+<p>finally apply <strong>--mark-del</strong>, <strong>--mark-ins</strong>, <strong>--mark-snv</strong> masks</p>
+</li>
+</ol>
+</div>
+</dd>
+</dl>
 </div>
 </div>
 <div class="sect2">
@@ -1665,13 +1686,13 @@ be used with <strong>--haplegendsample</strong> but not with <strong>--haplegend
 <dt class="hdlist1"><strong>-c, --columns</strong> <em>list</em></dt>
 <dd>
 <p>comma-separated list of fields in the input file. In the current
-version, the fields CHROM, POS, ID, and AA are expected and
-can appear in arbitrary order, columns which should be ignored in the input
+version, the fields CHROM, POS, ID, and AA or REF, ALT are expected and
+can appear in arbitrary order. Columns which should be ignored in the input
 file can be indicated by "-".
 The AA field lists alleles on the forward reference strand,
 for example "CC" or "CT" for diploid genotypes or "C"
 for haploid genotypes (sex chromosomes). Insertions and deletions
-are not supported yet, missing data can be indicated with "--".</p>
+are supported only with REF and ALT but not with AA. Missing data can be indicated with "--" or ".".</p>
 </dd>
 <dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>file</em></dt>
 <dd>
@@ -1693,7 +1714,10 @@ are not supported yet, missing data can be indicated with "--".</p>
 <div class="listingblock">
 <div class="content">
 <pre># Convert 23andme results into VCF
-bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz</pre>
+bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -o out.vcf.gz
+
+# Convert tab-delimited file into a sites-only VCF (no genotypes), in this example first column to be ignored
+bcftools convert -c -,CHROM,POS,REF,ALT -f ref.fa --tsv2vcf calls.txt -o out.bcf</pre>
 </div>
 </div>
 </div>
@@ -1749,6 +1773,11 @@ For example, instead of writing the whole modified protein sequence with potenti
 aminoacids, with <strong>-B 1</strong> only an abbreviated version such as <em>25E..329&gt;25G..94</em> will be
 written.</p>
 </dd>
+<dt class="hdlist1"><strong>--dump-gff</strong> <em>FILE</em></dt>
+<dd>
+<p>dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,
+shows how is the input GFF viewed by the program.</p>
+</dd>
 <dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
 <dd>
 <p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
@@ -1777,6 +1806,17 @@ An example of a minimal working GFF file:</p>
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
     # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
+    #
+    # Empty and commented lines are skipped, the following GFF columns are required
+    #   1.  chromosome
+    #   2.  IGNORED
+    #   3.  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
+    #   4.  start of the feature (1-based)
+    #   5.  end of the feature (1-based)
+    #   6.  IGNORED
+    #   7.  strand (+ or -)
+    #   8.  phase (0, 1, 2 or .)
+    #   9.  semicolon-separated attributes (see below)
     #
     # Attributes required for
     #   gene lines:
@@ -1899,6 +1939,12 @@ plain text output can be printed (<em>t</em>).</p>
 <dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--unify-chr-names</strong> <em>0</em>|<em>1</em></dt>
+<dd>
+<p>Automatically detect and unify chromosome naming conventions in the GFF, fasta
+and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
+that of the input VCF. The default is to attempt the automatic translation.</p>
 </dd>
 <dt class="hdlist1"><strong>--write-index</strong></dt>
 <dd>
@@ -5211,7 +5257,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-03-28 13:46:18 +0100
+Last updated 2023-05-30 09:18:06 +0100
 </div>
 </div>
 </body>

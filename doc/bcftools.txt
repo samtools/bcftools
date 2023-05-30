@@ -952,7 +952,7 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 
 *-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
-    samples are used and can be subset with `-s, --samples` and `-S, --samples-file`. Use `-s -` to ignore
+    samples are used and can be subset with *-s, --samples* and *-S, --samples-file*. Use *-s -* to ignore
     samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
     from REF,ALT columns and sample genotypes were not considered.
 
@@ -981,10 +981,10 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
     write output to a file
 
 *-s, --samples* 'LIST'::
-    apply variants of the listed samples. See also the option `-I, --iupac-codes`
+    apply variants of the listed samples. See also the option *-I, --iupac-codes*
 
 *-S, --samples-file* 'FILE'::
-    apply variants of the samples listed in the file. See also the option `-I, --iupac-codes`
+    apply variants of the samples listed in the file. See also the option *-I, --iupac-codes*
 
 *Examples:*
 ----
@@ -997,6 +997,14 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html
 ----
+
+*Notes:*::
+    Masking options are applied in the following order
+    1. mask regions with *--mask-with* character if *--mask* is given. All overlapping VCF variants are ignored
+    2. replace sequence not mentioned in the VCF with the requested character if *--absent* is given
+    3. finally apply *--mark-del*, *--mark-ins*, *--mark-snv* masks
+
+
 
 
 [[convert]]
