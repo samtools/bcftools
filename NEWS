@@ -61,6 +61,11 @@ Changes affecting specific commands:
     - Revamped line matching code to fix problems in gVCF merging where split gVCF blocks
       would not update genotypes (#1891, #1164).
 
+* bcftool mpileup
+
+    - Fix a bug in --indels-v2.0 which caused an endless loop when CIGAR operator 'H' or 'P'
+      was encountered
+
 * bcftools norm
 
     - The `-m, --multiallelics +` mode now preserves phasing (#1893)
