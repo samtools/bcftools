@@ -45,6 +45,12 @@ Changes affecting specific commands:
       is newly printed as
             3_prime_utr&NMD_transcript|PCGF3|ENST00000430644|NMD
 
+* bcftools gtcheck
+
+    - Add stats for the number of sites matched in the GT-vs-GT, GT-vs-PL, etc modes. This
+      information is important for interpretation of the discordance score, as only the
+      GT-vs-GT matching can be interpreted as the number of mismatching genotypes.
+
 * bcftools +mendelian2
 
     - Fix in command line argument parsing, the `-p` and `-P` options were not

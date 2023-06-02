@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-05-30 09:18 BST</strong> and refers to bcftools git version <strong>1.17-50-ga8249495+</strong>.</p>
+<p>This manual page was last updated <strong>2023-06-02 11:27 BST</strong> and refers to bcftools git version <strong>1.17-52-g0773541c+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -2178,6 +2178,11 @@ option is given, the identity of samples from <em>query.vcf.gz</em>
 is checked against the samples in the <strong>-g</strong> file.
 Without the <strong>-g</strong> option, multi-sample cross-check of samples in <em>query.vcf.gz</em> is performed.</p>
 </div>
+<div class="paragraph">
+<p>Note that the interpretation of the discordance score depends on the options provided (specifically <strong>-e</strong> and
+<strong>-u</strong>) and on the available annotations (FORMAT/PL vs FORMAT/GT).
+The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.</p>
+</div>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><strong>--distinctive-sites</strong> <em>NUM[,MEM[,DIR]]</em></dt>
@@ -2196,11 +2201,14 @@ in-memory sorting and DIR is the temporary directory for external sorting. This 
 <p>Interpret genotypes and genotype likelihoods probabilistically. The value of <em>INT</em>
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
 Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
-non-zero integer can be provided). See also the <strong>-u, --use</strong> option below. If set to 0,
-the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
-Note that the values with and without <strong>-e</strong> are not comparable, only values generated
-with <strong>-e 0</strong> correspond to mismatching genotypes.
-If performance is an issue, set to 0 for faster run but less accurate results.</p>
+non-zero integer can be provided).
+&#160;<br>
+&#160;<br>
+If <strong>-e</strong> is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+but only in the GT-vs-GT matching mode. See the <strong>-u, --use</strong> option below for additional notes and caveats.
+&#160;<br>
+&#160;<br>
+If performance is an issue, set <strong>-e 0</strong> for faster run times but less accurate results.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --genotypes</strong> <em>FILE</em></dt>
 <dd>
@@ -2274,8 +2282,13 @@ from the query file, the second from the genotypes file when <strong>-g</strong>
 <dt class="hdlist1"><strong>-u, --use</strong> <em>TAG1</em>[,<em>TAG2</em>]</dt>
 <dd>
 <p>specifies which tag to use in the query file (<em>TAG1</em>) and the <strong>-g</strong> (<em>TAG2</em>) file.
-By default, the PL tag is used in the query file and GT in the <strong>-g</strong> file when
-available.</p>
+By default, the PL tag is used in the query file and, when available, the GT tags in the
+<strong>-g</strong> file.
+&#160;<br>
+&#160;<br>
+Note that when the requested tag is not available, the program will attempt to use
+the other tag. The output includes the number of sites that were matched by the four
+possible mode (for example GT-vs-GT or GT-vs-PL).</p>
 </dd>
 </dl>
 </div>
@@ -5257,7 +5270,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-05-30 09:18:06 +0100
+Last updated 2023-06-02 11:27:10 +0100
 </div>
 </div>
 </body>
