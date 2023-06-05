@@ -286,6 +286,18 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.m-any',out=>'norm.m-any.1.out',args=>'-
 run_test(\&test_vcf_norm,$opts,in=>'norm.phased-split',out=>'norm.phased-split.1.out',args=>'-m -any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.phased-join',out=>'norm.phased-join.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic',fai=>'norm.symbolic',out=>'norm.symbolic.1.out',args=>'--old-rec-tag ORI');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1:1-2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1:1,1:2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.2.out',args=>'',reg=>'-r 1:1-1');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.3.out',args=>'',reg=>'-r {1:1}');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.3.out',args=>'',reg=>'-r {1:1}:1-2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.3.out',args=>'',reg=>'-r {1:1}:1,{1:1}:2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.4.out',args=>'',reg=>'-r {1:1}:1-1');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out',args=>'',reg=>'-r {1:1-1}');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out',args=>'',reg=>'-r {1:1-1}:1-2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out',args=>'',reg=>'-r {1:1-1}:1,{1:1-1}:2');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.6.out',args=>'',reg=>'-r {1:1-1}:1-1');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
