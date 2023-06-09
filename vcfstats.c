@@ -97,12 +97,13 @@ typedef struct
     int *insertions, *deletions, m_indel;   // maximum indel length
     int in_frame, out_frame, na_frame, in_frame_alt1, out_frame_alt1, na_frame_alt1;
     int subst[15];
-    int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
+    int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl, *smpl_ngq;
     int *smpl_hapRef, *smpl_hapAlt, *smpl_missing;
     int *smpl_ins_hets, *smpl_del_hets, *smpl_ins_homs, *smpl_del_homs;
     int *smpl_frm_shifts;   // not-applicable, in-frame, out-frame
     vaf_t vaf, *smpl_vaf;   // total (INFO/AD) and per-sample (FMT/VAF) VAF distributions
     unsigned long int *smpl_dp;
+    unsigned long int *smpl_gq;
     idist_t dp, dp_sites;
     int nusr;
     user_stats_t *usr;
@@ -513,6 +514,8 @@ static void init_stats(args_t *args)
             stats->smpl_dp     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
             stats->smpl_ndp    = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_sngl   = (int *) calloc(args->files->n_smpl,sizeof(int));
+            stats->smpl_gq     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
+            stats->smpl_ngq    = (int *) calloc(args->files->n_smpl,sizeof(int));
             if ( has_fmt_ad )
                 stats->smpl_vaf = (vaf_t*) calloc(args->files->n_smpl,sizeof(vaf_t));
             #if HWE_STATS
@@ -599,6 +602,8 @@ static void destroy_stats(args_t *args)
         free(stats->smpl_indels);
         free(stats->smpl_dp);
         free(stats->smpl_ndp);
+        free(stats->smpl_gq);
+        free(stats->smpl_ngq);
         free(stats->smpl_sngl);
         free(stats->smpl_vaf);
         idist_destroy(&stats->dp);
@@ -943,6 +948,26 @@ static inline void update_vaf(vaf_t *smpl_vaf, bcf1_t *line, int ial, float vaf)
     else smpl_vaf->indel[idx]++;
 }
 
+static inline int calc_sample_genotype_quality(args_t *args, int ismpl, bcf_fmt_t *gq_fmt_ptr)
+{
+    if ( gq_fmt_ptr )
+    {
+        #define BRANCH_INT(type_t,missing,vector_end) { \
+            type_t *ptr = (type_t *) (gq_fmt_ptr->p + gq_fmt_ptr->size*ismpl); \
+            if ( *ptr==missing || *ptr==vector_end ) return -1; \
+            return *ptr; \
+        }
+        switch (gq_fmt_ptr->type) {
+            case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
+            case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
+            case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+            default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, gq_fmt_ptr->type); exit(1); break;
+        }
+        #undef BRANCH_INT
+    }
+    return -1;
+}
+
 static inline int calc_sample_depth(args_t *args, int ismpl, bcf_fmt_t *ad_fmt_ptr, bcf_fmt_t *dp_fmt_ptr)
 {
     if ( dp_fmt_ptr )
@@ -1095,6 +1120,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     bcf_fmt_t *gt_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GT");
     bcf_fmt_t *ad_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"AD");
     bcf_fmt_t *dp_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"DP");
+    bcf_fmt_t *gq_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GQ");
 
     int is;
     for (is=0; is<args->files->n_smpl; is++)
@@ -1138,6 +1164,17 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             {
                 update_dvaf(stats,line,jal,(float)jad/dp);
                 update_vaf(&stats->smpl_vaf[is],line,jal,(float)jad/dp);
+            }
+        }
+
+        // Determine genotype quality
+        if ( gq_fmt_ptr )
+        {
+            int gq = calc_sample_genotype_quality(args,is,gq_fmt_ptr);
+            if ( gq >= 0 )
+            {
+                stats->smpl_ngq[is]++;
+                stats->smpl_gq[is] += gq;
             }
         }
     }
@@ -1753,17 +1790,18 @@ static void print_stats(args_t *args)
     {
         printf("# PSC, Per-sample counts. Note that the ref/het/hom counts include only SNPs, for indels see PSI. The rest include both SNPs and indels.\n");
         printf("# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons"
-            "\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing\n");
+            "\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing\t[15]average genotype quality\n");
         for (id=0; id<args->nstats; id++)
         {
             stats_t *stats = &args->stats[id];
             for (i=0; i<args->files->n_smpl; i++)
             {
                 float dp = stats->smpl_ndp[i] ? stats->smpl_dp[i]/(float)stats->smpl_ndp[i] : 0;
-                printf("PSC\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%d\t%d\t%d\t%d\n", id,args->files->samples[i],
+                float gq = stats->smpl_ngq[i] ? stats->smpl_gq[i]/(float)stats->smpl_ngq[i] : 0;
+                printf("PSC\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%d\t%d\t%d\t%d\t%.1f\n", id,args->files->samples[i],
                     stats->smpl_homRR[i], stats->smpl_homAA[i], stats->smpl_hets[i], stats->smpl_ts[i],
                     stats->smpl_tv[i], stats->smpl_indels[i],dp, stats->smpl_sngl[i], stats->smpl_hapRef[i],
-                    stats->smpl_hapAlt[i], stats->smpl_missing[i]);
+                    stats->smpl_hapAlt[i], stats->smpl_missing[i], gq);
             }
         }
 
