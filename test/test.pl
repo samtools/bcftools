@@ -298,6 +298,7 @@ run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out',args=>'',reg=>'-r {1:1-1}:1-2');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.5.out',args=>'',reg=>'-r {1:1-1}:1,{1:1-1}:2');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.6.out',args=>'',reg=>'-r {1:1-1}:1-1');
+run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',args=>'',reg=>'-r {1:1-1}-2',expected_failure=>1);
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
@@ -1083,7 +1084,13 @@ sub test_cmd
 
     my ($ret,$out,$err) = _cmd3("$args{cmd}");
     if ( length($err) ) { $err =~ s/\n/\n\t\t/gs; $err = "\n\n\t\t$err\n"; }
-    if ( $ret ) { failed($opts,$test,"Non-zero status $ret$err"); return; }
+    if ( $ret && !$args{expected_failure} ) { failed($opts,$test,"Non-zero status $ret$err"); return; }
+    if ( $args{expected_failure} )
+    {
+        if ( !$ret ) { failed($opts,$test,"Expected failure but the test returned $ret$err"); }
+        else { passed($opts,$test,"ok, expected non-zero status"); }
+        return;
+    }
     if ( $$opts{redo_outputs} && -e "$$opts{path}/$args{out}" )
     {
         rename("$$opts{path}/$args{out}","$$opts{path}/$args{out}.old");
@@ -1155,9 +1162,10 @@ sub failed
 }
 sub passed
 {
-    my ($opts,$test) = @_;
+    my ($opts,$test,$reason) = @_;
     $$opts{nok}++;
-    print ".. ok\n\n";
+    if ( !defined $reason ) { $reason = 'ok'; }
+    print ".. $reason\n\n";
 }
 sub is_file_newer
 {
