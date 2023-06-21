@@ -2,7 +2,7 @@
 
     Copyright (C) 2017-2018 GENOMICS plc.
 
-    Author: Nicola Asuni <nicola.asuni@genomicsplc.com>
+    Author: Nicola Asuni <nicola.asuni@tecnick.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
