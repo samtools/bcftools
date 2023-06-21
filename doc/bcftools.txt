@@ -3194,7 +3194,8 @@ Transition probabilities:
     see *<<common_options,Common Options>>*
 
 *-T, --temp-dir* 'DIR'::
-    Use this directory to store temporary files
+    Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
+    then these are replaced with a string that makes the directory name unique.
 
 *--write-index*::
     Automatically index the output file
