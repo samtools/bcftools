@@ -1,6 +1,6 @@
 /*  mpileup2.c -- mpileup2, new version of mpileup
 
-    Copyright (C) 2022 Genome Research Ltd.
+    Copyright (C) 2022-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 

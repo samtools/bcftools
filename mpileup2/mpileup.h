@@ -1,6 +1,6 @@
 /*  mileup2.h -- mpileup v2.0 API
 
-   Copyright (C) 2022 Genome Research Ltd.
+   Copyright (C) 2022-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -29,13 +29,12 @@
 
 typedef struct mpileup_t_ mpileup_t;
 
-// Various options. For keys marked as 'can fail' the return status should be checked as these can fail
 typedef enum
 {
     // required
     FASTA_REF,          // char*, fasta reference
-    BAM,                // char*, add another BAM/CRAM. Can fail.
-    BAM_FNAME,          // char*, read list of BAMs/CRAMs from a file. Can fail.
+    BAM,                // char*, add another BAM/CRAM
+    BAM_FNAME,          // char*, read list of BAMs/CRAMs from a file
 
     // optional
     REGIONS,            // char*, comma-separated regions
@@ -68,13 +67,50 @@ typedef enum
 }
 mpileup_opt_t;
 
+/**
+ *  mpileup_alloc() - allocate the mpileup structure
+ *
+ *  Note that any default values set by the function can change without a warning and
+ *  therefore should be set explicitly with `mpileup_set()` by the caller.
+ */
+mpileup_t *mpileup_alloc(void);
+
+/**
+ *  mpileup_destroy - destroy the mpileup structure
+ */
+void mpileup_destroy(mpileup_t *mplp);
+
+/**
+ *  mpileup_set() - set various options, see the mpileup_opt_t keys for the complete list
+ *
+ *  Returns 0 if the call succeeded, or negative number on error.
+ */
+int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...);   // returns 0 on success
+
+/**
+ *  mpileup_get()     - get various options, see the mpileup_opt_t keys
+ *  mpileup_get_opt() - wrapper for `mpileup_get()` to return typed value
+ *
+ *  The former returns pointer to the memory area populated by the requested setting,
+ *  its type can be inferred from the mpileup_opt_t documentation.
+ */
+void *mpileup_get(mpileup_t *mplp, mpileup_opt_t key);
 #define mpileup_get_opt(mplp,type,key) (*(type*)mpileup_get(mplp, key))
 
-mpileup_t *mpileup_alloc(void);
-int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...);   // returns 0 on success
-void *mpileup_get(mpileup_t *mplp, mpileup_opt_t key);
-int mpileup_init(mpileup_t *mplp);                          // inits regions, bams, iterators, returns 0 on success
-int mpileup_next(mpileup_t *mplp);                          // returns 1 on next position, 0 when done, negative value on error
-void mpileup_destroy(mpileup_t *mplp);
+/**
+ *  mpileup_init() - inits regions, bams, iterators, etc.
+ *
+ *  Should be called after fully set up, i.e. after all `mpileup_set()` calls.
+ *
+ *  Returns 0 on success or negative number on error.
+ */
+int mpileup_init(mpileup_t *mplp);
+
+/**
+ *  mpileup_next() - positions mpileup to the next genomic position
+ *
+ *  Returns 1 when next position is available, 0 when all regions are done, negative value on error
+ */
+int mpileup_next(mpileup_t *mplp);
 
 #endif

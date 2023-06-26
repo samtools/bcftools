@@ -1,6 +1,6 @@
 /*  mileup2.c -- mpileup v2.0 API
 
-   Copyright (C) 2022 Genome Research Ltd.
+   Copyright (C) 2022-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -31,6 +31,8 @@
 #include <ctype.h>
 #include <htslib/hts.h>
 #include <htslib/sam.h>
+//#include <htslib/regidx.h>    // fixme: itr_loop and itr->seq is not working for some reason
+#include "regidx.h"
 #include <sys/stat.h>
 #include "mpileup.h"
 #include "bam_sample.h"
@@ -53,6 +55,7 @@ typedef struct
 }
 rb_node_t;
 
+// Reads from a small window around the current position, per sample, not per BAM
 typedef struct
 {
     int tid;
@@ -70,6 +73,7 @@ typedef struct
 {
     samFile *fp;
     bam_hdr_t *hdr;
+    hts_idx_t *idx;
     hts_itr_t *iter;
     char *fname;
     int bam_id;
@@ -82,12 +86,15 @@ bam_aux_t;
 
 struct mpileup_t_
 {
-    char *fasta_ref, *regions, *regions_fname, *targets, *targets_fname, *samples, *samples_fname, *read_groups_fname;
+    char *fasta_ref, *targets, *targets_fname, *samples, *samples_fname, *read_groups_fname;
     int smart_overlaps, smpl_ignore_rg, max_dp_per_sample, adjust_mq, min_mq, min_bq, max_bq, delta_bq;
     int min_realn_dp, max_realn_dp, max_realn_len, skip_any_unset, skip_all_unset, skip_any_set, skip_all_set;
     float min_realn_frac;
     int nbam, nbam_names;
     char **bam_names;
+    regidx_t *regions_idx;
+    regitr_t *regions_itr;
+    int nregions;
     bam_aux_t *bam;
     bam_hdr_t *hdr;
     bam_smpl_t *bsmpl;
@@ -97,10 +104,13 @@ struct mpileup_t_
     hts_pos_t pos;
     bam_pileup1_t **plp;
     int *nplp;
+    kstring_t tmp_str;
 };
 
 static int mplp_add_bam(mpileup_t *mplp, char *bam, int is_file);
+static int mplp_add_region(mpileup_t *mplp, char *regions, int is_file);
 static void read_buffer_clear(read_buffer_t *rbuf);
+static void read_buffer_reset(read_buffer_t *rbuf);
 
 mpileup_t *mpileup_alloc(void)
 {
@@ -148,18 +158,20 @@ int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...)
         }
 
         case REGIONS:
-            free(mplp->regions);
+        {
             va_start(args, key);
-            mplp->regions = strdup(va_arg(args,char*));
+            char *regions = va_arg(args,char*);
             va_end(args);
-            return mplp->regions ? 0 : -1;
+            return mplp_add_region(mplp,regions,0);
+        }
 
         case REGIONS_FNAME:
-            free(mplp->regions_fname);
+        {
             va_start(args, key);
-            mplp->regions_fname = strdup(va_arg(args,char*));
+            char *regions = va_arg(args,char*);
             va_end(args);
-            return mplp->regions_fname ? 0 : -1;
+            return mplp_add_region(mplp,regions,1);
+        }
 
         case TARGETS:
             free(mplp->targets);
@@ -294,7 +306,7 @@ int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...)
 
         default:
             hts_log_error("Todo: mpileup_set key=%d",(int)key);
-            return 1;
+            return -1;
             break;
     }
     return 0;
@@ -332,6 +344,8 @@ void mpileup_destroy(mpileup_t *mplp)
     {
         sam_close(mplp->bam[i].fp);
         if ( mplp->bam[i].cached_rec ) bam_destroy1(mplp->bam[i].cached_rec);
+        if ( mplp->bam[i].idx ) hts_idx_destroy(mplp->bam[i].idx);
+        if ( mplp->bam[i].iter ) hts_itr_destroy(mplp->bam[i].iter);
     }
     for (i=0; i<mplp->nbam_names; i++) free(mplp->bam_names[i]);
     free(mplp->bam);
@@ -343,13 +357,14 @@ void mpileup_destroy(mpileup_t *mplp)
     bam_hdr_destroy(mplp->hdr);
     if ( mplp->bsmpl ) bam_smpl_destroy(mplp->bsmpl);
     free(mplp->fasta_ref);
-    free(mplp->regions);
-    free(mplp->regions_fname);
     free(mplp->targets);
     free(mplp->targets_fname);
+    if ( mplp->regions_idx ) regidx_destroy(mplp->regions_idx);
+    if ( mplp->regions_itr ) regitr_destroy(mplp->regions_itr);
     free(mplp->samples);
     free(mplp->samples_fname);
     free(mplp->read_groups_fname);
+    free(mplp->tmp_str.s);
     free(mplp);
 }
 
@@ -359,6 +374,30 @@ static int is_url(const char *str)
     return str[strspn(str, uri_scheme_chars)] == ':';
 }
 
+static int mplp_add_region(mpileup_t *mplp, char *regions, int is_file)
+{
+    if ( mplp->regions_idx ) return -1;     // regions can be added only once
+    if ( is_file )
+        mplp->regions_idx = regidx_init(regions,NULL,NULL,0,NULL);
+    else
+    {
+        mplp->regions_idx = regidx_init(NULL,regidx_parse_reg,NULL,sizeof(char*),NULL);
+        if ( !mplp->regions_idx || regidx_insert_list(mplp->regions_idx,regions,',')!=0  )
+        {
+            hts_log_error("Could not initialize the regions: %s",regions);
+            return -1;
+        }
+    }
+    if ( !mplp->regions_idx )
+    {
+        hts_log_error("Could not initialize the regions: %s",regions);
+        return -1;
+    }
+    mplp->nregions = regidx_nregs(mplp->regions_idx);
+    mplp->regions_itr = regitr_init(mplp->regions_idx);
+    regitr_loop(mplp->regions_itr);   // region iterator now positioned at the first region
+    return 0;
+}
 static int mplp_add_bam(mpileup_t *mplp, char *bam, int is_file)
 {
     struct stat sbuf;
@@ -394,13 +433,13 @@ static int mplp_add_bam(mpileup_t *mplp, char *bam, int is_file)
         }
         for (i=0; i<nnames; i++) free(names[i]);
         free(names);
-        return i==nnames ? 0 : 1;
+        return i==nnames ? 0 : -1;
     }
     char **tmp = (char**)realloc(mplp->bam_names,(mplp->nbam_names+1)*sizeof(*mplp->bam_names));
     if ( !tmp )
     {
         hts_log_error("Could not allocate %zu bytes",(mplp->nbam_names+1)*sizeof(*mplp->bam_names));
-        return 1;
+        return -1;
     }
     mplp->bam_names = tmp;
     mplp->bam_names[mplp->nbam_names++] = strdup(bam);
@@ -422,19 +461,19 @@ int mpileup_init(mpileup_t *mplp)
     if ( mplp->samples && !bam_smpl_add_samples(mplp->bsmpl,mplp->samples,0) )
     {
         hts_log_error("Could not parse samples: %s", mplp->samples);
-        return 1;
+        return -1;
     }
     if ( mplp->samples_fname && !bam_smpl_add_samples(mplp->bsmpl,mplp->samples_fname,0) )
     {
         hts_log_error("Could not read samples: %s", mplp->samples_fname);
-        return 1;
+        return -1;
     }
 
     mplp->bam = (bam_aux_t*)calloc(mplp->nbam_names,sizeof(*mplp->bam));
     if ( !mplp->bam )
     {
         hts_log_error("Could not allocate %zu bytes",mplp->nbam_names*sizeof(*mplp->bam));
-        return 1;
+        return -1;
     }
     int i;
     for (i=0; i<mplp->nbam_names; i++)
@@ -447,17 +486,17 @@ int mpileup_init(mpileup_t *mplp)
         if ( !baux->fp )
         {
             hts_log_error("Failed to open %s: %s",fname,strerror(errno));
-            return 1;
+            return -1;
         }
         if ( hts_set_opt(baux->fp, CRAM_OPT_DECODE_MD, 1) )
         {
             hts_log_error("Failed to set CRAM_OPT_DECODE_MD value: %s\n",fname);
-            return 1;
+            return -1;
         }
         if ( mplp->fasta_ref && hts_set_fai_filename(baux->fp,mplp->fasta_ref)!=0 )
         {
             hts_log_error("Failed to process %s: %s\n",mplp->fasta_ref, strerror(errno));
-            return 1;
+            return -1;
         }
   // baux->conf = conf;
   // baux->ref = &mp_ref;
@@ -465,7 +504,7 @@ int mpileup_init(mpileup_t *mplp)
         if ( !hdr )
         {
             hts_log_error("Failed to read the header of %s\n",fname);
-            return 1;
+            return -1;
         }
         baux->bam_id = bam_smpl_add_bam(mplp->bsmpl,hdr->text,fname);
         if ( baux->bam_id < 0 )
@@ -475,12 +514,43 @@ int mpileup_init(mpileup_t *mplp)
             bam_hdr_destroy(hdr);
         }
         mplp->nbam++;
+
+        // iterators
+        if ( mplp->regions_idx )
+        {
+            hts_idx_t *idx = sam_index_load(baux->fp,baux->fname);
+            if ( !idx )
+            {
+                hts_log_error("Failed to load index: %s\n",fname);
+                return 1;
+            }
+            mplp->tmp_str.l = 0;
+            //ksprintf(&mplp->tmp_str,"%s:%"PRIhts_pos"-%"PRIhts_pos,mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
+            ksprintf(&mplp->tmp_str,"%s:%u-%u",mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
+            baux->iter = sam_itr_querys(idx, hdr, mplp->tmp_str.s);
+            if ( !baux->iter )
+            {
+                baux->iter = sam_itr_querys(idx, hdr, mplp->regions_itr->seq);
+                if ( baux->iter )
+                {
+                    hts_log_error("[Failed to parse the region: %s",mplp->tmp_str.s);
+                    return 1;
+                }
+                hts_log_error("The sequence \"%s\" not found: %s",mplp->regions_itr->seq,fname);
+                return 1;
+            }
+            if ( mplp->nregions==1 ) // no need to keep the index in memory
+                hts_idx_destroy(idx);
+            else
+                baux->idx = idx;
+        }
+
         if ( !mplp->hdr ) mplp->hdr = hdr;
         else
         {
             int ret = mplp_check_header_contigs(mplp,hdr);
             bam_hdr_destroy(hdr);
-            if ( ret!=0 ) return 1;
+            if ( ret!=0 ) return -1;
         }
         baux->hdr = mplp->hdr;
         baux->tid = -1;
@@ -489,7 +559,7 @@ int mpileup_init(mpileup_t *mplp)
     if ( !mplp->nsmpl )
     {
         hts_log_error("Failed to initialize samples");
-        return 1;
+        return -1;
     }
     mplp->read_buf = (read_buffer_t*) calloc(mplp->nsmpl,sizeof(*mplp->read_buf));
     mplp->plp  = (bam_pileup1_t**) calloc(mplp->nsmpl,sizeof(*mplp->plp));
@@ -498,7 +568,9 @@ int mpileup_init(mpileup_t *mplp)
     return 0;
 }
 
-void read_buffer_clear(read_buffer_t *rbuf)
+
+// Clear the per-sample buffer, destroying all its data
+static void read_buffer_clear(read_buffer_t *rbuf)
 {
     int i;
     for (i=0; i<rbuf->m; i++)
@@ -508,6 +580,18 @@ void read_buffer_clear(read_buffer_t *rbuf)
     free(rbuf->buf);
     memset(rbuf,0,sizeof(*rbuf));
 }
+
+// Reset the buffer to be ready for the next region
+static void read_buffer_reset(read_buffer_t *rbuf)
+{
+    int i;
+    for (i=0; i<rbuf->m; i++) rbuf->buf[i].is_set = 0;
+    rbuf->n = 0;
+    rbuf->tid = 0;
+    rbuf->pos = 0;
+    rbuf->empty = 0;
+}
+
 /*
  * Returns
  *   0 .. on success (pushed onto the buffer, swapped rec for NULL or an empty record)
@@ -515,7 +599,7 @@ void read_buffer_clear(read_buffer_t *rbuf)
  *   2 .. cannot push (past the current position)
  *  -1 .. error
  */
-int read_buffer_push(read_buffer_t *rbuf, hts_pos_t pos, bam1_t **rec_ptr)
+static int read_buffer_push(read_buffer_t *rbuf, hts_pos_t pos, bam1_t **rec_ptr)
 {
 static int warned = 0;
 if ( !warned ) hts_log_error("read_buffer_push - left softclip vs read start");
@@ -751,14 +835,9 @@ static int mplp_set_pileup(mpileup_t *mplp, read_buffer_t *rbuf)
     return 0;
 }
 
-int mpileup_next(mpileup_t *mplp)
+static int mplp_region_next(mpileup_t *mplp)
 {
     int i;
-
-    // if new region is needed
-    //  - advance regitr_loop
-    //  - reset read_buffers
-    //  - reset mplp tid and pos
 
     // fill buffers
     mplp->pos++;
@@ -781,8 +860,6 @@ int mpileup_next(mpileup_t *mplp)
         }
     }
 
-fprintf(stderr,"tid,pos=%d %d\n",mplp->tid,(int)mplp->pos+1);
-
     // prepare the pileup
     int nreads = 0;
     for (i=0; i<mplp->nsmpl; i++)
@@ -794,5 +871,52 @@ fprintf(stderr,"tid,pos=%d %d\n",mplp->tid,(int)mplp->pos+1);
     return nreads>0 /* || nregions */ ? 1 : 0;
 }
 
+int mpileup_next(mpileup_t *mplp)
+{
+    // if new region is needed
+    //  o advance regitr_loop
+    //  - reset read_buffers
+    //  o reset mplp tid and pos
 
+    if ( !mplp->nregions )
+        return mplp_region_next(mplp);
+
+    int i;
+    while (1)
+    {
+        int ret = mplp_region_next(mplp);
+        if ( ret>0 )
+        {
+            if ( mplp->pos < mplp->regions_itr->beg ) continue;
+if ( mplp->pos <= mplp->regions_itr->end ) fprintf(stderr,"mpileup_next: ret=%d tid,pos=%d %d\n",ret,mplp->tid,(int)mplp->pos+1);
+            if ( mplp->pos <= mplp->regions_itr->end ) return ret;
+        }
+        if ( !regitr_loop(mplp->regions_itr) ) return 0;
+
+        for (i=0; i<mplp->nsmpl; i++) read_buffer_reset(&mplp->read_buf[i]);
+
+        mplp->tmp_str.l = 0;
+        //ksprintf(&mplp->tmp_str,"%s:%"PRIhts_pos"-%"PRIhts_pos,mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
+        ksprintf(&mplp->tmp_str,"%s:%u-%u",mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
+        for (i=0; i<mplp->nbam; i++)
+        {
+            bam_aux_t *baux = &mplp->bam[i];
+            hts_itr_destroy(baux->iter);
+            baux->iter = sam_itr_querys(baux->idx, baux->hdr, mplp->tmp_str.s);
+            if ( !baux->iter )
+            {
+                baux->iter = sam_itr_querys(baux->idx, baux->hdr, mplp->regions_itr->seq);
+                if ( baux->iter )
+                {
+                    hts_log_error("[Failed to parse the region: %s",mplp->tmp_str.s);
+                    return 1;
+                }
+                hts_log_error("The sequence \"%s\" not found: %s",mplp->regions_itr->seq,baux->fname);
+                return -1;
+            }
+            baux->tid = baux->pos = -1;
+        }
+        mplp->tid = mplp->pos = -1;
+    }
+}
 
