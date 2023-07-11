@@ -64,6 +64,11 @@ typedef enum
     MIN_REALN_DP,       // int, minimum number of reads with evidence for an indel to consider the site needing realignment [2]
     MAX_REALN_DP,       // int, subsample to this many reads for realignment [250]
     MAX_REALN_LEN,      // int, realign reads this long max [500]
+
+    // pileup related values
+    N_SAMPLES,          // int, number of samples in the pileup
+    N_READS,            // int*, number of reads per sample at the current position
+    PILEUP,             //
 }
 mpileup_opt_t;
 
@@ -89,13 +94,13 @@ int mpileup_set(mpileup_t *mplp, mpileup_opt_t key, ...);   // returns 0 on succ
 
 /**
  *  mpileup_get()     - get various options, see the mpileup_opt_t keys
- *  mpileup_get_opt() - wrapper for `mpileup_get()` to return typed value
+ *  mpileup_get_val() - wrapper for `mpileup_get()` to return typed value
  *
  *  The former returns pointer to the memory area populated by the requested setting,
  *  its type can be inferred from the mpileup_opt_t documentation.
  */
 void *mpileup_get(mpileup_t *mplp, mpileup_opt_t key);
-#define mpileup_get_opt(mplp,type,key) (*(type*)mpileup_get(mplp, key))
+#define mpileup_get_val(mplp,type,key) (*(type*)mpileup_get(mplp, key))
 
 /**
  *  mpileup_init() - inits regions, bams, iterators, etc.

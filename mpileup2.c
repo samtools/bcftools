@@ -72,9 +72,20 @@ args_t;
 
 static int run_mpileup(args_t *args)
 {
-    int ret;
+    int ret, nsmpl = mpileup_get_val(args->mplp,int,N_SAMPLES);
     while ( (ret=mpileup_next(args->mplp))==1 )
     {
+xxxx        hts_pos_t pos = mpileup_get_val(args->mplp,int,PLP_POS);
+        int *nreads = mpileup_get_val(args->mplp,int,N_READS);
+        char *bases = mpileup_get_val(args->mplp,char,BASES);
+        int i,j,k=0;
+        for (i=0; i<nsmpl; i++)
+        {
+            int ni = nreads[i];
+            for (j=0; j<ni; j++,k++) fprintf(stderr,"%c",bases[k]);
+            fprintf(stderr,"\t");
+        }
+
     }
     return ret;
 }
@@ -189,10 +200,10 @@ static void list_annotations(FILE *fp)
 
 static void print_usage(args_t *args, FILE *fp)
 {
-    char *tmp_skip_all_set = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ALL_SET));
-    char *tmp_skip_any_unset = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ANY_UNSET));
-    char *tmp_skip_all_unset = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ALL_UNSET));
-    char *tmp_skip_any_set = bam_flag2str(mpileup_get_opt(args->mplp, int, SKIP_ANY_SET));
+    char *tmp_skip_all_set = bam_flag2str(mpileup_get_val(args->mplp, int, SKIP_ALL_SET));
+    char *tmp_skip_any_unset = bam_flag2str(mpileup_get_val(args->mplp, int, SKIP_ANY_UNSET));
+    char *tmp_skip_all_unset = bam_flag2str(mpileup_get_val(args->mplp, int, SKIP_ALL_UNSET));
+    char *tmp_skip_any_set = bam_flag2str(mpileup_get_val(args->mplp, int, SKIP_ANY_SET));
 
     fprintf(fp,
         "\n"
@@ -205,19 +216,19 @@ static void print_usage(args_t *args, FILE *fp)
         "  -B, --no-BAQ            Disable BAQ (per-Base Alignment Quality)\n"
         "  -C, --adjust-MQ INT     Adjust mapping quality [0]\n"
         "  -D, --full-BAQ          Apply BAQ everywhere, not just in problematic regions\n"
-        "  -d, --max-depth INT     Max raw per-sample depth; avoids excessive memory usage [%d]\n", mpileup_get_opt(args->mplp, int, MAX_DP_PER_SAMPLE));
+        "  -d, --max-depth INT     Max raw per-sample depth; avoids excessive memory usage [%d]\n", mpileup_get_val(args->mplp, int, MAX_DP_PER_SAMPLE));
     fprintf(fp,
         "  -E, --redo-BAQ          Recalculate BAQ on the fly, ignore existing BQs\n"
         "  -f, --fasta-ref FILE    Faidx indexed reference sequence file\n"
         "      --no-reference      Do not require fasta reference file\n"
         "  -G, --read-groups FILE  Select or exclude read groups listed in the file\n"
-        "  -q, --min-MQ INT        Skip alignments with mapQ smaller than INT [%d]\n", mpileup_get_opt(args->mplp, int, MIN_MQ));
+        "  -q, --min-MQ INT        Skip alignments with mapQ smaller than INT [%d]\n", mpileup_get_val(args->mplp, int, MIN_MQ));
     fprintf(fp,
-        "  -Q, --min-BQ INT        Skip bases with baseQ/BAQ smaller than INT [%d]\n", mpileup_get_opt(args->mplp, int, MIN_BQ));
+        "  -Q, --min-BQ INT        Skip bases with baseQ/BAQ smaller than INT [%d]\n", mpileup_get_val(args->mplp, int, MIN_BQ));
     fprintf(fp,
-        "      --max-BQ INT        Limit baseQ/BAQ to no more than INT [%d]\n", mpileup_get_opt(args->mplp, int, MAX_BQ));
+        "      --max-BQ INT        Limit baseQ/BAQ to no more than INT [%d]\n", mpileup_get_val(args->mplp, int, MAX_BQ));
     fprintf(fp,
-        "      --delta-BQ INT      Use neighbour_qual + INT if less than qual [%d]\n", mpileup_get_opt(args->mplp, int, DELTA_BQ));
+        "      --delta-BQ INT      Use neighbour_qual + INT if less than qual [%d]\n", mpileup_get_val(args->mplp, int, DELTA_BQ));
     fprintf(fp,
         "  -r, --regions REG[,...] Comma separated list of regions in which pileup is generated\n"
         "  -R, --regions-file FILE Restrict to regions listed in a file\n"
@@ -250,16 +261,16 @@ static void print_usage(args_t *args, FILE *fp)
         "  -X, --config STR        Specify platform specific profiles (see below)\n"
         "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", args->bca.extQ);
     fprintf(fp,
-        "  -F, --gap-frac FLOAT    Minimum fraction of gapped reads [%f]\n", mpileup_get_opt(args->mplp, float, MIN_REALN_FRAC));
+        "  -F, --gap-frac FLOAT    Minimum fraction of gapped reads [%f]\n", mpileup_get_val(args->mplp, float, MIN_REALN_FRAC));
     fprintf(fp,
         "  -h, --tandem-qual INT   Coefficient for homopolymer errors [%d]\n", args->bca.tandemQ);
     fprintf(fp,
         "  -I, --skip-indels       Do not perform indel calling\n"
-        "  -L, --max-idepth INT    Subsample to maximum per-sample depth for INDEL calling [%d]\n", mpileup_get_opt(args->mplp, int, MAX_REALN_DP));
+        "  -L, --max-idepth INT    Subsample to maximum per-sample depth for INDEL calling [%d]\n", mpileup_get_val(args->mplp, int, MAX_REALN_DP));
     fprintf(fp,
-        "  -m, --min-ireads INT    Minimum number gapped reads for indel candidates [%d]\n", mpileup_get_opt(args->mplp, int, MIN_REALN_DP));
+        "  -m, --min-ireads INT    Minimum number gapped reads for indel candidates [%d]\n", mpileup_get_val(args->mplp, int, MIN_REALN_DP));
     fprintf(fp,
-        "  -M, --max-read-len INT  Maximum length of read to pass to BAQ algorithm [%d]\n", mpileup_get_opt(args->mplp, int, MAX_REALN_LEN));
+        "  -M, --max-read-len INT  Maximum length of read to pass to BAQ algorithm [%d]\n", mpileup_get_val(args->mplp, int, MAX_REALN_LEN));
     fprintf(fp,
         "  -o, --open-prob INT     Phred-scaled gap open seq error probability [%d]\n", args->bca.openQ);
     fprintf(fp,

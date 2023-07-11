@@ -786,6 +786,7 @@ static int cigar_get_pos(cigar_state_t *cs, bam1_t *bam, hts_pos_t pos, int32_t 
     return -1;
 }
 
+// Go through all reads in the buffer and make the pileup structures ready for output
 static int mplp_set_pileup(mpileup_t *mplp, read_buffer_t *rbuf)
 {
     if ( !rbuf->n ) return 0;
@@ -793,7 +794,7 @@ static int mplp_set_pileup(mpileup_t *mplp, read_buffer_t *rbuf)
     int iprev = -1, i = rbuf->head;
     while ( 1 )
     {
-        rb_node_t *node = &rbuf->buf[i];
+        rb_node_t *node = &rbuf->buf[i];    // rb_node_t keeps info about a single read
         int32_t ipos;
         int ret = cigar_get_pos(&node->cstate, node->bam, mplp->pos, &ipos);
         if ( ret==BAM_CMATCH )   // there is a base, match or mismatch
@@ -839,8 +840,10 @@ static int mplp_region_next(mpileup_t *mplp)
 {
     int i;
 
-    // fill buffers
     mplp->pos++;
+    if ( mplp->nregions && mplp->pos > mplp->regions_itr->end ) return 0;
+
+    // fill buffers
     for (i=0; i<mplp->nbam; i++)
     {
         int ret = mplp_read_bam(mplp, &mplp->bam[i]);
@@ -858,6 +861,7 @@ static int mplp_region_next(mpileup_t *mplp)
             if ( mplp->tid > mplp->read_buf[i].tid ) mplp->tid = mplp->read_buf[i].tid, mplp->pos = HTS_POS_MAX;
             if ( mplp->pos > mplp->read_buf[i].pos ) mplp->pos = mplp->read_buf[i].pos;
         }
+        if ( mplp->nregions && mplp->pos < mplp->regions_itr->beg ) mplp->pos = mplp->regions_itr->beg;
     }
 
     // prepare the pileup
@@ -875,7 +879,7 @@ int mpileup_next(mpileup_t *mplp)
 {
     // if new region is needed
     //  o advance regitr_loop
-    //  - reset read_buffers
+    //  o reset read_buffers
     //  o reset mplp tid and pos
 
     if ( !mplp->nregions )
@@ -888,7 +892,6 @@ int mpileup_next(mpileup_t *mplp)
         if ( ret>0 )
         {
             if ( mplp->pos < mplp->regions_itr->beg ) continue;
-if ( mplp->pos <= mplp->regions_itr->end ) fprintf(stderr,"mpileup_next: ret=%d tid,pos=%d %d\n",ret,mplp->tid,(int)mplp->pos+1);
             if ( mplp->pos <= mplp->regions_itr->end ) return ret;
         }
         if ( !regitr_loop(mplp->regions_itr) ) return 0;
