@@ -84,6 +84,10 @@ Changes affecting specific commands:
 
     - Fix `-H` header output in formatting expressions containing newlines
 
+* bcftools reheader
+
+    - Make `-f, --fai` aware of long contigs not representable by 32-bit integer (#1959)
+
 * bcftools +split-vep
 
     - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)

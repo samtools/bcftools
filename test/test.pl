@@ -729,6 +729,7 @@ run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.4.out',samples=
 run_test(\&test_vcf_reheader,$opts,in=>'empty',out=>'reheader.empty.out',header=>'reheader.empty.hdr');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader.2',out=>'reheader.5.out',args=>'-f {PATH}/reheader.fai',nostdin=>1);
 run_test(\&test_vcf_reheader,$opts,in=>'reheader.2',out=>'reheader.5.out',args=>'-h {PATH}/reheader.2.hdr -f {PATH}/reheader.fai',nostdin=>1);
+run_test(\&test_vcf_reheader,$opts,in=>'reheader.3',out=>'reheader.6.out',args=>'-f {PATH}/reheader.3.fai',nostdin=>1);
 run_test(\&test_rename_chrs,$opts,in=>'annotate');
 run_test(\&test_vcf_convert,$opts,in=>'convert',out=>'convert.gs.gt.gen',args=>'-g -,.');
 run_test(\&test_vcf_convert,$opts,in=>'convert',out=>'convert.gs.gt.ids.gen',args=>'-g -,. --vcf-ids');
