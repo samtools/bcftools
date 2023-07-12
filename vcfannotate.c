@@ -3094,6 +3094,7 @@ static void annotate(args_t *args, bcf1_t *line)
         for (j=0; j<args->ncols; j++) args->cols[j].done = 0;
         if ( regidx_overlap(args->tgt_idx, bcf_seqname(args->hdr,line),line->pos,line->pos+line->rlen-1, args->tgt_itr) )
         {
+            hts_pos_t vcf_end = line->pos + line->rlen - 1;
             while ( regitr_overlap(args->tgt_itr) )
             {
                 annot_line_t *tmp = &args->alines[0];
@@ -3104,7 +3105,7 @@ static void annotate(args_t *args, bcf1_t *line)
                 // Check min overlap
                 int len_ann = tmp->end - tmp->start + 1;
                 int len_vcf = line->rlen;
-                int isec = (tmp->end < line->pos+line->rlen-1 ? tmp->end : line->pos+line->rlen-1) - (tmp->start > line->pos ? tmp->start : line->pos) + 1;
+                int isec = (tmp->end < vcf_end ? tmp->end : vcf_end) - (tmp->start > line->pos ? tmp->start : line->pos) + 1;
                 assert( isec > 0 );
                 if ( args->min_overlap_ann && args->min_overlap_ann > (float)isec/len_ann ) continue;
                 if ( args->min_overlap_vcf && args->min_overlap_vcf > (float)isec/len_vcf ) continue;

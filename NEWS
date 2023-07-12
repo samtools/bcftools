@@ -14,6 +14,8 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+    - Fix a bug when update of INFO/END results in assertion error (#1957)
+
 * bcftools concat
 
     - New option `--drop-genotypes`

@@ -523,6 +523,7 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annota
 run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.3.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl1');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.4.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl2');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',out=>'annotate.33.out',args=>'-m XXX');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate34',tab=>'annots34',out=>'annotate34.out',args=>q[-c CHROM,FROM,TO,INFO/END -H '##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate in reference for SV">']);
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');
