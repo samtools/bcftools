@@ -108,7 +108,8 @@ plp_cd_t;
 
 
 typedef struct __bcf_callaux_t {
-    int fmt_flag, ambig_reads;
+    uint32_t fmt_flag;
+    int ambig_reads;
     int capQ, min_baseQ, max_baseQ, delta_baseQ;
     int openQ, extQ, tandemQ; // for indels
     uint32_t min_support, max_support; // for collecting indel candidates
