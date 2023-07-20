@@ -1,0 +1,16 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=2364278061>
+##contig=<ID=2,length=2317450362>
+##contig=<ID=3,length=2291775479>
+##contig=<ID=4,length=2192534405>
+##contig=<ID=5,length=2148190925>
+##contig=<ID=6,length=2107674557>
+##contig=<ID=7,length=2082167746>
+##contig=<ID=8,length=2081484518>
+##contig=<ID=9,length=2024734096>
+##contig=<ID=10,length=1752849333>
+##contig=<ID=11,length=1650012615>
+##contig=<ID=12,length=1392452741>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	22	.	A	G	.	.	.

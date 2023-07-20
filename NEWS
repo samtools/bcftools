@@ -14,6 +14,8 @@ Changes affecting specific commands:
 
     - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
 
+    - Fix a bug when update of INFO/END results in assertion error (#1957)
+
 * bcftools concat
 
     - New option `--drop-genotypes`
@@ -78,11 +80,18 @@ Changes affecting specific commands:
 
     - Symbolic <DEL.*> alleles are now normalized too (#1919)
 
+    - New `-g, --gff-annot` option to right-align indels in forward transcripts to follow
+      HGVS 3'rule (#1929)
+
 * bcftools query
 
     - Force newline character in formatting expression when not given explicitly
 
     - Fix `-H` header output in formatting expressions containing newlines
+
+* bcftools reheader
+
+    - Make `-f, --fai` aware of long contigs not representable by 32-bit integer (#1959)
 
 * bcftools +split-vep
 

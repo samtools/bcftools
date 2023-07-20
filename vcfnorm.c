@@ -40,6 +40,8 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 #include "rbuf.h"
 #include "abuf.h"
+#include "gff.h"
+#include "regidx.h"
 
 #define CHECK_REF_EXIT 1
 #define CHECK_REF_WARN 2
@@ -107,6 +109,11 @@ typedef struct
     htsFile *out;
     char *index_fn;
     int write_index;
+    int right_align;
+    char *gff_fname;
+    gff_t *gff;
+    regidx_t *idx_tscript;
+    regitr_t *itr_tscript;
 }
 args_t;
 
@@ -346,6 +353,157 @@ static void set_old_rec_tag(args_t *args, bcf1_t *dst, bcf1_t *src, int ialt)
             error("An error occurred while updating INFO/%s\n",args->old_rec_tag);
 }
 
+static int is_left_align(args_t *args, bcf1_t *line)
+{
+    if ( args->right_align ) return 0;
+    if ( !args->gff ) return 1;
+    const char *chr = bcf_seqname(args->hdr,line);
+    if ( !strncasecmp("chr",chr,3) ) chr += 3;  // strip 'chr' prefix, that's what we requested the GFF reader to do
+    if ( !regidx_overlap(args->idx_tscript,chr,line->pos,line->pos+line->rlen, args->itr_tscript) ) return 1;
+
+    // if there are two conflicting overlapping transcripts, go with the default left-alignment
+    int has_fwd = 0;
+    while ( regitr_overlap(args->itr_tscript) )
+    {
+        gf_tscript_t *tr = regitr_payload(args->itr_tscript, gf_tscript_t*);
+        if ( tr->strand==STRAND_FWD ) has_fwd = 1;
+        if ( tr->strand==STRAND_REV ) return 1;
+    }
+    // either no hit at all (then left-align) or everything was on fwd strand (then right-align)
+    return has_fwd ? 0 : 1;
+}
+static hts_pos_t realign_left(args_t *args, bcf1_t *line)
+{
+    // trim from right
+    char *ref = NULL;
+    int i;
+    hts_pos_t nref=0, new_pos = line->pos;
+    kstring_t *als = args->tmp_als;
+    while (1)
+    {
+        // is the rightmost base identical in all alleles?
+        int min_len = als[0].l;
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( toupper(als[0].s[ als[0].l-1 ]) != toupper(als[i].s[ als[i].l-1 ]) ) break;
+            if ( als[i].l < min_len ) min_len = als[i].l;
+        }
+        if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
+        if ( min_len<=1 && new_pos==0 ) break;
+
+        int pad_from_left = 0;
+        for (i=0; i<line->n_allele; i++) // trim all alleles
+        {
+            als[i].l--;
+            if ( !als[i].l ) pad_from_left = 1;
+        }
+        if ( pad_from_left )
+        {
+            // extend all alleles to the left by aln_win bases (unless close to the chr start).
+            // Extra bases will be trimmed from the left after this loop is done
+            int npad = new_pos >= args->aln_win ? args->aln_win : new_pos;
+            free(ref);
+            ref = faidx_fetch_seq64(args->fai, bcf_seqname(args->hdr,line), new_pos-npad, new_pos-1, &nref);
+            if ( !ref ) error("faidx_fetch_seq64 failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,line), (int64_t) new_pos-npad+1);
+            replace_iupac_codes(ref,nref);
+            for (i=0; i<line->n_allele; i++)
+            {
+                ks_resize(&als[i], als[i].l + npad);
+                if ( als[i].l ) memmove(als[i].s+npad,als[i].s,als[i].l);
+                memcpy(als[i].s,ref,npad);
+                als[i].l += npad;
+            }
+            new_pos -= npad;
+        }
+    }
+    free(ref);
+
+    // trim from left
+    int ntrim_left = 0;
+    while (1)
+    {
+        // is the first base identical in all alleles?
+        int min_len = als[0].l - ntrim_left;
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( toupper(als[0].s[ntrim_left]) != toupper(als[i].s[ntrim_left]) ) break;
+            if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
+        }
+        if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed
+        ntrim_left++;
+    }
+    if ( ntrim_left )
+    {
+        for (i=0; i<line->n_allele; i++)
+        {
+            memmove(als[i].s,als[i].s+ntrim_left,als[i].l-ntrim_left);
+            als[i].l -= ntrim_left;
+        }
+        new_pos += ntrim_left;
+    }
+    return new_pos;
+}
+
+static hts_pos_t realign_right(args_t *args, bcf1_t *line)
+{
+    char *ref = NULL;
+    int i;
+    hts_pos_t new_pos = line->pos, nref = 0;
+    kstring_t *als = args->tmp_als;
+
+    // trim from left
+    int ntrim_left = 0, npad_right = line->rlen, has_indel = 0;
+    while (1)
+    {
+        // is the leftmost base identical in all alleles?
+        int min_len = als[0].l - ntrim_left;
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( als[0].l!=als[i].l ) has_indel = 1;
+            if ( toupper(als[0].s[ntrim_left]) != toupper(als[i].s[ntrim_left]) ) break;
+            if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
+        }
+        if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed further
+
+        ntrim_left++;
+        if ( min_len<=1 ) // pad from the right
+        {
+            free(ref);
+            ref = faidx_fetch_seq64(args->fai, bcf_seqname(args->hdr,line), line->pos + npad_right, line->pos + npad_right + args->aln_win, &nref);
+            if ( !ref ) error("faidx_fetch_seq64 failed at %s:%"PRIhts_pos"\n",bcf_seqname(args->hdr,line), new_pos + ntrim_left);
+            npad_right += args->aln_win;
+            replace_iupac_codes(ref,nref);
+            for (i=0; i<line->n_allele; i++) kputs(ref, &als[i]);
+        }
+    }
+    ntrim_left -= has_indel;
+    if ( ntrim_left > 0 )
+    {
+        for (i=0; i<line->n_allele; i++)
+        {
+            memmove(als[i].s, als[i].s + ntrim_left, als[i].l - ntrim_left);
+            als[i].l -= ntrim_left;
+        }
+        new_pos += ntrim_left;
+    }
+    free(ref);
+
+    // trim from right
+    while (1)
+    {
+        // is the last base identical in all alleles?
+        int min_len = als[0].l;
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( toupper(als[0].s[ als[0].l-1 ]) != toupper(als[i].s[ als[i].l-1 ]) ) break;
+            if ( min_len > als[i].l ) min_len = als[i].l;
+        }
+        if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed more
+        for (i=0; i<line->n_allele; i++) { als[i].l--; als[i].s[als[i].l]=0; }
+    }
+    return new_pos;
+}
+
 #define ERR_DUP_ALLELE       -2
 #define ERR_REF_MISMATCH     -1
 #define ERR_OK                0
@@ -441,68 +599,14 @@ static int realign(args_t *args, bcf1_t *line)
         if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
 
-    // trim from right
-    int new_pos = line->pos;
-    while (1)
-    {
-        // is the rightmost base identical in all alleles?
-        int min_len = als[0].l;
-        for (i=1; i<line->n_allele; i++)
-        {
-            if ( toupper(als[0].s[ als[0].l-1 ])!=toupper(als[i].s[ als[i].l-1 ]) ) break;
-            if ( als[i].l < min_len ) min_len = als[i].l;
-        }
-        if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
-        if ( min_len<=1 && new_pos==0 ) break;
+    // which direction are we aligning?
+    int left_align = is_left_align(args, line);
 
-        int pad_from_left = 0;
-        for (i=0; i<line->n_allele; i++) // trim all alleles
-        {
-            als[i].l--;
-            if ( !als[i].l ) pad_from_left = 1;
-        }
-        if ( pad_from_left )
-        {
-            int npad = new_pos >= args->aln_win ? args->aln_win : new_pos;
-            free(ref);
-            ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, new_pos-npad, new_pos-1, &nref);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) new_pos-npad+1);
-            replace_iupac_codes(ref,nref);
-            for (i=0; i<line->n_allele; i++)
-            {
-                ks_resize(&als[i], als[i].l + npad);
-                if ( als[i].l ) memmove(als[i].s+npad,als[i].s,als[i].l);
-                memcpy(als[i].s,ref,npad);
-                als[i].l += npad;
-            }
-            new_pos -= npad;
-        }
-    }
-    free(ref);
-
-    // trim from left
-    int ntrim_left = 0;
-    while (1)
-    {
-        // is the first base identical in all alleles?
-        int min_len = als[0].l - ntrim_left;
-        for (i=1; i<line->n_allele; i++)
-        {
-            if ( als[0].s[ntrim_left]!=als[i].s[ntrim_left] ) break;
-            if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
-        }
-        if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed
-        ntrim_left++;
-    }
-    if ( ntrim_left )
-    {
-        for (i=0; i<line->n_allele; i++)
-        {
-            memmove(als[i].s,als[i].s+ntrim_left,als[i].l-ntrim_left);
-            als[i].l -= ntrim_left;
-        }
-        new_pos += ntrim_left;
-    }
+    hts_pos_t new_pos;
+    if ( left_align )
+        new_pos = realign_left(args, line);
+    else
+        new_pos = realign_right(args, line);
 
     // Have the alleles changed?
     als[0].s[ als[0].l ] = 0;  // in order for strcmp to work
@@ -1939,10 +2043,24 @@ static void init_data(args_t *args)
             abuf_set_opt(args->abuf, const char*, INFO_TAG, args->old_rec_tag);
         abuf_set_opt(args->abuf, int, STAR_ALLELE, args->use_star_allele);
     }
+    if ( args->gff_fname )
+    {
+        args->gff = gff_init(args->gff_fname);
+        gff_set(args->gff,verbosity,1);
+        gff_set(args->gff,strip_chr_names,1);
+        gff_parse(args->gff);
+        args->idx_tscript = gff_get(args->gff,idx_tscript);
+        args->itr_tscript = regitr_init(NULL);
+    }
 }
 
 static void destroy_data(args_t *args)
 {
+    if ( args->gff )
+    {
+        gff_destroy(args->gff);
+        regitr_destroy(args->itr_tscript);
+    }
     cmpals_destroy(&args->cmpals_in);
     cmpals_destroy(&args->cmpals_out);
     int i;
@@ -2150,6 +2268,7 @@ static void usage(void)
     fprintf(stderr, "    -d, --rm-dup TYPE               Remove duplicate snps|indels|both|all|exact\n");
     fprintf(stderr, "    -f, --fasta-ref FILE            Reference sequence\n");
     fprintf(stderr, "        --force                     Try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
+    fprintf(stderr, "    -g, --gff-annot FILE            Follow HGVS 3'rule and right-align variants in transcripts on the forward strand\n");
     fprintf(stderr, "        --keep-sum TAG,..           Keep vector sum constant when splitting multiallelics (see github issue #360)\n");
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
@@ -2190,6 +2309,7 @@ int main_vcfnorm(int argc, char *argv[])
     args->n_threads = 0;
     args->record_cmd_line = 1;
     args->aln_win = 100;
+args->aln_win = 1;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
     args->do_indels = 1;
@@ -2210,6 +2330,8 @@ int main_vcfnorm(int argc, char *argv[])
         {"old-rec-tag",required_argument,NULL,12},
         {"keep-sum",required_argument,NULL,10},
         {"fasta-ref",required_argument,NULL,'f'},
+        {"gff-annot",required_argument,NULL,'g'},
+        {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
         {"do-not-normalize",no_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
         {"multi-overlaps",required_argument,NULL,13},
@@ -2232,7 +2354,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNa",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2240,6 +2362,7 @@ int main_vcfnorm(int argc, char *argv[])
                     error("Error: only --keep-sum AD is currently supported. See https://github.com/samtools/bcftools/issues/360 for more.\n");
                 args->keep_sum_ad = 1;  // this will be set to the header id or -1 in init_data
                 break;
+            case 'g': args->gff_fname = optarg; break;
             case 'a': args->atomize = SPLIT; break;
             case 11 :
                 if ( optarg[0]=='*' ) args->use_star_allele = 1;
@@ -2253,6 +2376,7 @@ int main_vcfnorm(int argc, char *argv[])
                 else error("Invalid argument to --multi-overlaps\n");
                 break;
             case 14 : args->write_index = 1; break;
+            case 15 : args->right_align = 1; break;
             case 'N': args->do_indels = 0; break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;
