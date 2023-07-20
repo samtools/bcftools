@@ -598,6 +598,8 @@ static int realign(args_t *args, bcf1_t *line)
 
         if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
+    free(ref);
+    ref = NULL;
 
     // which direction are we aligning?
     int left_align = is_left_align(args, line);
