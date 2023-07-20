@@ -286,6 +286,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.m-any',out=>'norm.m-any.1.out',args=>'-
 run_test(\&test_vcf_norm,$opts,in=>'norm.phased-split',out=>'norm.phased-split.1.out',args=>'-m -any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.phased-join',out=>'norm.phased-join.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic',fai=>'norm.symbolic',out=>'norm.symbolic.1.out',args=>'--old-rec-tag ORI');
+run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.1.out',args=>'--old-rec-tag ORI');
+run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.2.out',args=>'--old-rec-tag ORI -g {PATH}/norm.right-align.gff');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 run_test(\&test_vcf_view,$opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
@@ -1409,6 +1411,7 @@ sub test_vcf_norm
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     my $params = '';
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     if ( exists($args{args}) ) { $params .= " $args{args}"; }
     if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm --no-version $params $$opts{tmp}/$args{in}.vcf.gz",exp_fix=>1);

@@ -1074,15 +1074,18 @@ gff_t *gff_init(const char *fname)
 }
 void gff_destroy(gff_t *gff)
 {
-    khint_t k; //,i,j;
-    for (k=0; k<kh_end(gff->init.gid2gene); k++)
+    khint_t k;
+    if ( gff->init.gid2gene )
     {
-        if ( !kh_exist(gff->init.gid2gene, k) ) continue;
-        gf_gene_t *gene = (gf_gene_t*) kh_val(gff->init.gid2gene, k);
-        free(gene->name);
-        free(gene);
+        for (k=0; k<kh_end(gff->init.gid2gene); k++)
+        {
+            if ( !kh_exist(gff->init.gid2gene, k) ) continue;
+            gf_gene_t *gene = (gf_gene_t*) kh_val(gff->init.gid2gene, k);
+            free(gene->name);
+            free(gene);
+        }
+        kh_destroy(int2gene,gff->init.gid2gene);
     }
-    kh_destroy(int2gene,gff->init.gid2gene);
 
     regidx_destroy(gff->idx_cds);
     regidx_destroy(gff->idx_utr);

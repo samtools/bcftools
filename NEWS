@@ -80,6 +80,9 @@ Changes affecting specific commands:
 
     - Symbolic <DEL.*> alleles are now normalized too (#1919)
 
+    - New `-g, --gff-annot` option to right-align indels in forward transcripts to follow
+      HGVS 3'rule (#1929)
+
 * bcftools query
 
     - Force newline character in formatting expression when not given explicitly

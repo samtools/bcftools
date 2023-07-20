@@ -2451,6 +2451,11 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     try to proceed with *-m-* even if malformed tags with incorrect number of fields
     are encountered, discarding such tags. (Experimental, use at your own risk.)
 
+*-g, --gff-annot* 'FILE'::
+    when a GFF file is provided, follow HGVS 3'rule and right-align variants in transcripts on the forward
+    strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
+    description of the supported GFF3 file format see *<<csq,bcftools csq>>*.
+
 *--keep-sum* 'TAG'[,...]::
     keep vector sum constant when splitting multiallelic sites. Only AD tag
     is currently supported. See also https://github.com/samtools/bcftools/issues/360
