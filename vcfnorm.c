@@ -2311,7 +2311,6 @@ int main_vcfnorm(int argc, char *argv[])
     args->n_threads = 0;
     args->record_cmd_line = 1;
     args->aln_win = 100;
-args->aln_win = 1;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
     args->do_indels = 1;
