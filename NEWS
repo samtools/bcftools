@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.18 (25th July 2023)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Support auto indexing during writing BCF and VCF.gz via new `--write-index` option
