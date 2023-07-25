@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2023-02-21
+.\"      Date: 2023-07-25
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-02-21" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-07-25" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,10 +51,10 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-02\-21\fP and refers to bcftools git version \fB1.17\fP.
+This manual page was last updated \fB2023\-07\-25\fP and refers to bcftools git version \fB1.18\fP.
 .SS "BCF1"
 .sp
-The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
+The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions <= 0.1.19 to convert to VCF, which can then be read by
@@ -75,6 +75,9 @@ done with \fIbcftools view\fP. Users are now required to choose between the old
 samtools calling model (\fI\-c/\-\-consensus\-caller\fP) and the new multiallelic
 calling model (\fI\-m/\-\-multiallelic\-caller\fP). The multiallelic calling model
 is recommended for most tasks.
+.SS "FILTERING EXPRESSIONS"
+.sp
+See \fBEXPRESSIONS\fP
 .SH "LIST OF COMMANDS"
 .sp
 For a full list of available commands, run \fBbcftools\fP without arguments. For a full
@@ -344,6 +347,17 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
+\fBgff2gff\fP  .. converts a GFF file to the format required by \fBcsq\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
 \fBplot\-vcfstats\fP  .. plots the output of \fBstats\fP
 .RE
 .SH "COMMANDS AND OPTIONS"
@@ -596,6 +610,11 @@ Same as \fB\-\-regions\-overlap\fP but for \fB\-t/\-T\fP.
 .RS 4
 Use multithreading with \fIINT\fP worker threads. The option is currently used only for the compression of the
 output stream, only when \fI\-\-output\-type\fP is \fIb\fP or \fIz\fP. Default: 0.
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output files. Can be used only for compressed BCF and VCF output.
 .RE
 .SS "bcftools annotate \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
@@ -881,6 +900,11 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 .RE
 .sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -1016,6 +1040,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "Input/output options:"
 .sp
@@ -1401,6 +1430,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools consensus \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 Create consensus sequence by applying VCF variants to a reference fasta file.
@@ -1432,18 +1466,13 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 reference sequence in fasta format
 .RE
 .sp
-\fB\-H, \-\-haplotype\fP \fI1\fP|\fI2\fP|\fIR\fP|\fIA\fP|\fII\fP|\fILR\fP|\fILA\fP|\fISR\fP|\fISA\fP|\fI1pIu\fP|\fI2pIu\fP
+\fB\-H, \-\-haplotype\fP N|\fIR\fP|\fIA\fP|\fII\fP|\fILR\fP|\fILA\fP|\fISR\fP|\fISA\fP|\fINpIu\fP
 .RS 4
 choose which allele from the FORMAT/GT field to use (the codes are case\-insensitive):
 .sp
-\fI1\fP
+\fIN\fP
 .RS 4
-the first allele, regardless of phasing
-.RE
-.sp
-\fI2\fP
-.RS 4
-the second allele, regardless of phasing
+N={1,2,3,...}, the allele index within the genotype, regardless of phasing
 .RE
 .sp
 \fIR\fP
@@ -1471,19 +1500,14 @@ the longer allele. If both have the same length, use the REF allele (LR), or the
 the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
 .RE
 .sp
-\fI1pIu, 2pIu\fP
+\fINpIu\fP
 .RS 4
-first/second allele for phased genotypes and IUPAC code for unphased genotypes
+N={1,2,3,...}, the allele index within genotype for phased genotypes and IUPAC code for unphased genotypes.
+For example, \fI1pIu\fP or \fI2pIu\fP
+.RE
+.RE
 .sp
-.if n .RS 4
-.nf
-.fam C
-This option requires *\-s*, unless exactly one sample is present in the VCF
-.fam
-.fi
-.if n .RE
-.RE
-.RE
+Note that the \fB\-H, \-\-haplotype\fP option requires the \fB\-s, \-\-samples\fP option, unless exactly one sample is present in the VCF
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP
 .RS 4
@@ -1494,24 +1518,24 @@ include only sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fB\-I, \-\-iupac\-codes\fP
 .RS 4
 output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
-samples are used and can be subset with \f(CR\-s, \-\-samples\fP and \f(CR\-S, \-\-samples\-file\fP. Use \f(CR\-s \-\fP to ignore
+samples are used and can be subset with \fB\-s, \-\-samples\fP and \fB\-S, \-\-samples\-file\fP. Use \fB\-s \-\fP to ignore
 samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
 from REF,ALT columns and sample genotypes were not considered.
 .RE
 .sp
 \fB\-\-mark\-del\fP \fICHAR\fP
 .RS 4
-instead of removing sequence, insert CHAR for deletions
+instead of removing sequence, insert character CHAR for deletions
 .RE
 .sp
-\fB\-\-mark\-ins\fP \fIuc\fP|\fIlc\fP
+\fB\-\-mark\-ins\fP \fIuc\fP|\fIlc\fP|\fICHAR\fP
 .RS 4
-highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+highlight inserted sequence in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 .RE
 .sp
 \fB\-\-mark\-snv\fP \fIuc\fP|\fIlc\fP
 .RS 4
-highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+highlight substitutions in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 .RE
 .sp
 \fB\-m, \-\-mask\fP \fIFILE\fP
@@ -1539,12 +1563,12 @@ write output to a file
 .sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
-apply variants of the listed samples. See also the option \f(CR\-I, \-\-iupac\-codes\fP
+apply variants of the listed samples. See also the option \fB\-I, \-\-iupac\-codes\fP
 .RE
 .sp
 \fB\-S, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
-apply variants of the samples listed in the file. See also the option \f(CR\-I, \-\-iupac\-codes\fP
+apply variants of the samples listed in the file. See also the option \fB\-I, \-\-iupac\-codes\fP
 .RE
 .sp
 \fBExamples:\fP
@@ -1563,6 +1587,44 @@ apply variants of the samples listed in the file. See also the option \f(CR\-I, 
 .fam
 .fi
 .if n .RE
+.sp
+\fBNotes:\fP
+.RS 4
+Masking options are applied in the following order
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 1." 4.2
+.\}
+mask regions with \fB\-\-mask\-with\fP character if \fB\-\-mask\fP is given. All overlapping VCF variants are ignored
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 2." 4.2
+.\}
+replace sequence not mentioned in the VCF with the requested character if \fB\-\-absent\fP is given
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 3.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 3." 4.2
+.\}
+finally apply \fB\-\-mark\-del\fP, \fB\-\-mark\-ins\fP, \fB\-\-mark\-snv\fP masks
+.RE
+.RE
 .SS "bcftools convert \fI[OPTIONS]\fP \fIFILE\fP"
 .SS "VCF input options:"
 .sp
@@ -1616,6 +1678,11 @@ see \fBCommon Options\fP
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "VCF output options:"
 .sp
@@ -1887,13 +1954,13 @@ convert from TSV (tab\-separated values) format (such as generated by
 \fB\-c, \-\-columns\fP \fIlist\fP
 .RS 4
 comma\-separated list of fields in the input file. In the current
-version, the fields CHROM, POS, ID, and AA are expected and
-can appear in arbitrary order, columns which should be ignored in the input
+version, the fields CHROM, POS, ID, and AA or REF, ALT are expected and
+can appear in arbitrary order. Columns which should be ignored in the input
 file can be indicated by "\-".
 The AA field lists alleles on the forward reference strand,
 for example "CC" or "CT" for diploid genotypes or "C"
 for haploid genotypes (sex chromosomes). Insertions and deletions
-are not supported yet, missing data can be indicated with "\-\-".
+are supported only with REF and ALT but not with AA. Missing data can be indicated with "\-\-" or ".".
 .RE
 .sp
 \fB\-f, \-\-fasta\-ref\fP \fIfile\fP
@@ -1917,7 +1984,10 @@ file of sample names. See \fBCommon Options\fP
 .nf
 .fam C
 # Convert 23andme results into VCF
-bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref.fa \-\-tsv2vcf 23andme.txt \-Oz \-o out.vcf.gz
+bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref.fa \-\-tsv2vcf 23andme.txt \-o out.vcf.gz
+
+# Convert tab\-delimited file into a sites\-only VCF (no genotypes), in this example first column to be ignored
+bcftools convert \-c \-,CHROM,POS,REF,ALT \-f ref.fa \-\-tsv2vcf calls.txt \-o out.bcf
 .fam
 .fi
 .if n .RE
@@ -1966,6 +2036,12 @@ aminoacids, with \fB\-B 1\fP only an abbreviated version such as \fI25E..329>25G
 written.
 .RE
 .sp
+\fB\-\-dump\-gff\fP \fIFILE\fP
+.RS 4
+dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,
+shows how is the input GFF viewed by the program.
+.RE
+.sp
 \fB\-e, \-\-exclude\fP \fIEXPRESSION\fP
 .RS 4
 exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
@@ -1987,6 +2063,7 @@ transcripts in malformatted GFFs with incorrect phase
 .RS 4
 GFF3 annotation file (required), such as \c
 .URL "ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" "" "."
+The script \fBgff2gff\fP can help with conversion from non\-standard GFF formats.
 An example of a minimal working GFF file:
 .RE
 .sp
@@ -1997,6 +2074,17 @@ An example of a minimal working GFF file:
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
     # the gene (determined from the transcript\*(Aqs "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
+    #
+    # Empty and commented lines are skipped, the following GFF columns are required
+    #   1.  chromosome
+    #   2.  IGNORED
+    #   3.  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
+    #   4.  start of the feature (1\-based)
+    #   5.  end of the feature (1\-based)
+    #   6.  IGNORED
+    #   7.  strand (+ or \-)
+    #   8.  phase (0, 1, 2 or .)
+    #   9.  semicolon\-separated attributes (see below)
     #
     # Attributes required for
     #   gene lines:
@@ -2135,6 +2223,18 @@ see \fBCommon Options\fP
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-unify\-chr\-names\fP \fI0\fP|\fI1\fP
+.RS 4
+Automatically detect and unify chromosome naming conventions in the GFF, fasta
+and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
+that of the input VCF. The default is to attempt the automatic translation.
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .sp
 \fBExamples:\fP
@@ -2366,12 +2466,21 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools gtcheck [\fIOPTIONS\fP] [\fB\-g\fP \fIgenotypes.vcf.gz\fP] \fIquery.vcf.gz\fP"
 .sp
 Checks sample identity. The program can operate in two modes. If the \fB\-g\fP
 option is given, the identity of samples from \fIquery.vcf.gz\fP
 is checked against the samples in the \fB\-g\fP file.
 Without the \fB\-g\fP option, multi\-sample cross\-check of samples in \fIquery.vcf.gz\fP is performed.
+.sp
+Note that the interpretation of the discordance score depends on the options provided (specifically \fB\-e\fP and
+\fB\-u\fP) and on the available annotations (FORMAT/PL vs FORMAT/GT).
+The discordance score can be interpreted as the number of mismatching genotypes if only GT\-vs\-GT matching is performed.
 .sp
 \fB\-\-distinctive\-sites\fP \fINUM[,MEM[,DIR]]\fP
 .RS 4
@@ -2391,11 +2500,18 @@ Stop after first record to estimate required time.
 Interpret genotypes and genotype likelihoods probabilistically. The value of \fIINT\fP
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
 Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
-non\-zero integer can be provided). See also the \fB\-u, \-\-use\fP option below. If set to 0,
-the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
-Note that the values with and without \fB\-e\fP are not comparable, only values generated
-with \fB\-e 0\fP correspond to mismatching genotypes.
-If performance is an issue, set to 0 for faster run but less accurate results.
+non\-zero integer can be provided).
+\~
+.br
+\~
+.br
+If \fB\-e\fP is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+but only in the GT\-vs\-GT matching mode. See the \fB\-u, \-\-use\fP option below for additional notes and caveats.
+\~
+.br
+\~
+.br
+If performance is an issue, set \fB\-e 0\fP for faster run times but less accurate results.
 .RE
 .sp
 \fB\-g, \-\-genotypes\fP \fIFILE\fP
@@ -2476,8 +2592,15 @@ see \fBCommon Options\fP
 \fB\-u, \-\-use\fP \fITAG1\fP[,\fITAG2\fP]
 .RS 4
 specifies which tag to use in the query file (\fITAG1\fP) and the \fB\-g\fP (\fITAG2\fP) file.
-By default, the PL tag is used in the query file and GT in the \fB\-g\fP file when
-available.
+By default, the PL tag is used in the query file and, when available, the GT tags in the
+\fB\-g\fP file.
+\~
+.br
+\~
+.br
+Note that when the requested tag is not available, the program will attempt to use
+the other tag. The output includes the number of sites that were matched by the four
+possible mode (for example GT\-vs\-GT or GT\-vs\-PL).
 .RE
 .sp
 \fBExamples:\fP
@@ -2676,6 +2799,11 @@ see \fBCommon Options\fP
 list of input files to output given as 1\-based indices. With \fB\-p\fP and no
 \fB\-w\fP, all files are written.
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file. This is done automatically with the \fB\-p\fP option.
+.RE
 .SS "Examples:"
 .sp
 Create intersection and complements of two sets saving the output in dir/*
@@ -2785,7 +2913,8 @@ merge gVCF blocks, INFO/END tag is expected. If the reference fasta
 file \fIFILE\fP is not given and the dash (\fI\-\fP) is given, unknown reference
 bases generated at gVCF block splits will be substituted with N\(cqs.
 The \fB\-\-gvcf\fP option uses the following default INFO rules:
-\fB\-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\fP.
+\fB\-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\fP and the following missing
+rules: \fB\-M PL:max,AD:0\fP.
 .RE
 .sp
 \fB\-i, \-\-info\-rules\fP \fI\-\fP|\fITAG:METHOD\fP[,...]
@@ -2835,6 +2964,17 @@ The option controls what types of multiallelic records can be created:
 .fi
 .if n .RE
 .sp
+\fB\-M, \-\-missing\-rules\fP \fI\-\fP|\fITAG:METHOD\fP[,...]
+.RS 4
+Rules for merging vector tags at multiallelic sites. When input files have different alternate
+alleles, vector fields pertaining to unobserved alleles are set to missing (\fI.\fP) by default.
+The \fIMETHOD\fP is one of \fI.\fP (the default, use missing values), \fINUMBER\fP (use a constant value, e.g. 0),
+\fImax\fP (the maximum value observed for other alleles in the sample). When \fB\-\-gvcf\fP option is set,
+the rule \fB\-M PL:max,AD:0\fP is implied. This can be overriden with providing \fB\-M \-\fP or \fB\-M PL:.,AD:.\fP.
+Note that if the unobserved allele is explicitly present as \fI<*>\fP or \fI<NON_REF>\fP, then its corresponding
+value will be used regardless of \fB\-M\fP settings.
+.RE
+.sp
 \fB\-\-no\-index\fP
 .RS 4
 the option allows to merge files without indexing them first. In order for this
@@ -2875,6 +3015,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "bcftools mpileup [\fIOPTIONS\fP] \fB\-f\fP \fIref.fa\fP \fIin.bam\fP [\fIin2.bam\fP [...]]"
 .sp
@@ -3209,6 +3354,11 @@ BQB.
 .fi
 .if n .RE
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "Options for SNP/INDEL genotype likelihood computation"
 .sp
 \fB\-X, \-\-config\fP \fISTR\fP
@@ -3431,6 +3581,13 @@ try to proceed with \fB\-m\-\fP even if malformed tags with incorrect number of 
 are encountered, discarding such tags. (Experimental, use at your own risk.)
 .RE
 .sp
+\fB\-g, \-\-gff\-annot\fP \fIFILE\fP
+.RS 4
+when a GFF file is provided, follow HGVS 3\(cqrule and right\-align variants in transcripts on the forward
+strand.  In case of overlapping transcripts, the default mode is to left\-align the variant. For a
+description of the supported GFF3 file format see \fBbcftools csq\fP.
+.RE
+.sp
 \fB\-\-keep\-sum\fP \fITAG\fP[,...]
 .RS 4
 keep vector sum constant when splitting multiallelic sites. Only AD tag
@@ -3528,6 +3685,11 @@ see \fBCommon Options\fP
 maximum distance between two records to consider when locally
 sorting variants which changed position during the realignment
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "bcftools [plugin \fINAME\fP|+\fINAME\fP] \fI[OPTIONS]\fP \fIFILE\fP \(em \fI[PLUGIN OPTIONS]\fP"
 .sp
 A common framework for various utilities. The plugins can be used
@@ -3600,6 +3762,11 @@ see \fBCommon Options\fP
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "Plugin options:"
 .sp
@@ -4723,7 +4890,13 @@ see \fBCommon Options\fP
 .sp
 \fB\-T, \-\-temp\-dir\fP \fIDIR\fP
 .RS 4
-Use this directory to store temporary files
+Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
+then these are replaced with a string that makes the directory name unique.
+.RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
 .RE
 .SS "bcftools stats [\fIOPTIONS\fP] \fIA.vcf.gz\fP [\fIB.vcf.gz\fP]"
 .sp
@@ -4943,6 +5116,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-\-write\-index\fP
+.RS 4
+Automatically index the output file
+.RE
 .SS "Subset options:"
 .sp
 \fB\-a, \-\-trim\-alt\-alleles\fP
@@ -5137,7 +5315,7 @@ important libraries used by bcftools.
 .SS "bcftools [\fI\-\-version\-only\fP]"
 .sp
 Display the full bcftools version number in a machine\-readable format.
-.SH "EXPRESSIONS"
+.SH "FILTERING EXPRESSIONS"
 .sp
 These filtering expressions are accepted by most of the commands.
 .sp
@@ -5919,7 +6097,18 @@ bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
 .if n .RE
 .sp
 Please refer to the documentation of your shell for details.
-.SH "SCRIPTS AND OPTIONS"
+.SH "SCRIPTS"
+.SS "gff2gff"
+.sp
+Attempts to fix a GFF file to be correctly parsed by \fBcsq\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+zcat in.gff.gz | gff2gff | gzip \-c > out.gff.gz
+.fam
+.fi
+.if n .RE
 .SS "plot\-vcfstats [\fIOPTIONS\fP] \fIfile.vchk\fP [...]"
 .sp
 Script for processing output of \fBbcftools stats\fP. It can merge
@@ -6013,8 +6202,10 @@ Please report any bugs you encounter on the github website: \c
 .sp
 Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
-and further developing bcftools.  Many other people contributed to the program
+BGZF library. Petr Danecek is maintaining and further developing bcftools, together
+with the rest of the \c
+.URL "https://www.sanger.ac.uk/tool/samtools\-bcftools\-htslib" "samtools team" "."
+Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.
 .SH "RESOURCES"

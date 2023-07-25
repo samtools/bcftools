@@ -127,6 +127,8 @@ typedef struct
     int allow_undef_tags;
     int genes_mode;             // --gene-list +FILE, one of GENES_* mode, prioritize or restrict
     int print_header;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -208,8 +210,8 @@ static const char *usage_text(void)
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
-        "   -g, --gene-list [+]FILE         Consider only genes listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
-        "       --gene-list-fields LIST     Use these fields when matching genes from the -g list [SYMBOL,Gene,gene]\n"
+        "   -g, --gene-list [+]FILE         Consider only features listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
+        "       --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene]\n"
         "   -H, --print-header              Print header\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
@@ -220,8 +222,8 @@ static const char *usage_text(void)
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
         "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
-        "   -x, --drop-sites                Drop sites with none of the consequences matching the severity specified by -s.\n"
-        "                                      This switch is intended for use with VCF/BCF output (i.e. -f not given).\n"
+        "   -x, --drop-sites                Drop sites without consequences (the default with -f)\n"
+        "   -X, --keep-sites                Do not drop sites without consequences (the default without -f)\n"
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR              Include sites and samples for which the expression is true\n"
@@ -234,6 +236,7 @@ static const char *usage_text(void)
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # List available fields of the INFO/CSQ annotation\n"
@@ -546,6 +549,7 @@ static void parse_format_str(args_t *args)
 // The program was requested to extract one or more columns via -c. It can contain names,  0-based indexes or ranges of indexes
 static void parse_column_str(args_t *args)
 {
+    if ( args->nannot ) return; // already called from parse_filter_str
     int i,j;
     int *column = NULL;
     int *types  = NULL;
@@ -693,7 +697,6 @@ static void parse_column_str(args_t *args)
 // as if the user passed them via the -c option.
 static void parse_filter_str(args_t *args)
 {
-    int max_unpack = args->convert ? convert_max_unpack(args->convert) : 0;
     args->filter = filter_parse(args->hdr_out, args->filter_str);
     if ( !args->filter ) error(NULL);     // this type of error would have been reported
     int ret = filter_status(args->filter);
@@ -706,9 +709,7 @@ static void parse_filter_str(args_t *args)
         const char **tags = filter_list_undef_tags(args->filter, &ntags);
         kstring_t str;
         str.s = args->column_str;
-        str.l = str.m = strlen(str.s);
-        destroy_annot(args);
-        destroy_column2type(args);
+        str.l = str.m = str.s ? strlen(str.s) : 0;
         for (i=0; i<ntags; i++)
         {
             if ( khash_str2int_get(args->field2idx,tags[i],&j)!=0 )
@@ -721,11 +722,10 @@ static void parse_filter_str(args_t *args)
         filter_destroy(args->filter);
         args->filter = filter_init(args->hdr_out, args->filter_str);
     }
-    max_unpack |= filter_max_unpack(args->filter);
-    if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
-    args->sr->max_unpack = max_unpack;
-    if ( args->convert && (max_unpack & BCF_UN_FMT) )
-        convert_set_option(args->convert, subset_samples, &args->smpl_pass);
+    int ntags, i;
+    const char **tags = filter_list_used_tags(args->filter, &ntags);
+    for (i=0; i<ntags; i++)
+        if ( !strncmp("INFO/",tags[i],5) && !strcmp(tags[i]+5,args->vep_tag) ) args->raw_vep_request = 1;
 }
 static void init_data(args_t *args)
 {
@@ -864,6 +864,7 @@ static void init_data(args_t *args)
     free(tmp);
 
     if ( args->format_str ) parse_format_str(args);    // Text output, e.g. bcftools +split-vep -f '%Consequence\n'
+    if ( args->filter_str ) parse_filter_str(args);
     if ( args->column_str ) parse_column_str(args);    // The --columns option was given, update the header
     if ( args->format_str )
     {
@@ -871,9 +872,17 @@ static void init_data(args_t *args)
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
         if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
+        convert_set_option(args->convert, force_newline, 1);
     }
-    if ( args->filter_str ) parse_filter_str(args);
     if ( args->genes_fname ) init_gene_list(args);
+
+    int max_unpack = BCF_UN_SHR;
+    if ( args->convert ) max_unpack |= convert_max_unpack(args->convert);
+    if ( args->filter ) max_unpack |= filter_max_unpack(args->filter);
+    if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
+    args->sr->max_unpack = max_unpack;
+    if ( args->convert && (max_unpack & BCF_UN_FMT) )
+        convert_set_option(args->convert, subset_samples, &args->smpl_pass);
 
     free(str.s);
 }
@@ -903,7 +912,19 @@ static void destroy_data(args_t *args)
     free(args->csq_str);
     if ( args->filter ) filter_destroy(args->filter);
     if ( args->convert ) convert_destroy(args->convert);
-    if ( args->fh_vcf && hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
+    if ( args->fh_vcf )
+    {
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->fh_vcf)<0 )
+            {
+                if ( hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
+        if ( hts_close(args->fh_vcf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
+    }
     if ( args->fh_bgzf && bgzf_close(args->fh_bgzf)!=0 ) error("Error: close failed .. %s\n",args->output_fname);
     free(args);
 }
@@ -1096,7 +1117,7 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
     {
         if ( args->nannot )
         {
-            if ( !updated || all_missing ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
+            if ( args->drop_sites && (!updated || all_missing) ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
         }
         else
         {
@@ -1301,6 +1322,7 @@ int run(int argc, char **argv)
     static struct option loptions[] =
     {
         {"drop-sites",no_argument,0,'x'},
+        {"keep-sites",no_argument,0,'X'},
         {"all-fields",no_argument,0,'A'},
         {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
@@ -1325,11 +1347,12 @@ int run(int argc, char **argv)
         {"targets-overlap",required_argument,NULL,4},
         {"no-version",no_argument,NULL,2},
         {"allow-undef-tags",no_argument,0,'u'},
+        {"write-index",no_argument,NULL,6},
         {NULL,0,NULL,0}
     };
-    int c;
+    int c, drop_sites = -1;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xuHg:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1341,7 +1364,8 @@ int run(int argc, char **argv)
                 else args->all_fields_delim = optarg;
                 break;
             case 'H': args->print_header = 1; break;
-            case 'x': args->drop_sites = 1; break;
+            case 'x': drop_sites = 1; break;
+            case 'X': drop_sites = 0; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
             case 'g': args->genes_fname = optarg; break;
@@ -1390,12 +1414,14 @@ int run(int argc, char **argv)
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
             case  5 : args->gene_fields_str = optarg; break;
+            case  6 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
         }
     }
-    if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
+    if ( drop_sites==-1 ) drop_sites = args->format_str ? 1 : 0;
+    args->drop_sites = drop_sites;
     if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
@@ -1440,6 +1466,7 @@ int run(int argc, char **argv)
             args->fh_vcf = hts_open(args->output_fname ? args->output_fname : "-", wmode);
             if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
+            if ( args->write_index && init_index(args->fh_vcf,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
         }
         while ( bcf_sr_next_line(args->sr) )
             process_record(args, bcf_sr_get_line(args->sr,0));

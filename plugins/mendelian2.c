@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2022 Genome Research Ltd.
+   Copyright (c) 2015-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -114,6 +114,8 @@ typedef struct _args_t
     int ngt_arr;
     stats_t stats;              // common per-site and per-sample stats
     int nref_only, nmany_als;   // per-site stats
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -140,6 +142,7 @@ static const char *usage_text(void)
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "\n"
         "Options:\n"
         "   -m, --mode c|[adeEgmMS]         Output mode, the default is `-m c`. Multiple modes can be combined in VCF/BCF\n"
@@ -476,6 +479,7 @@ static void init_data(args_t *args)
         args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        if ( args->write_index && init_index(args->out_fh,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
     }
 }
 
@@ -488,7 +492,19 @@ static void destroy_data(args_t *args)
     free(args->trio);
     free(args->gt_arr);
     free(args->rule);
-    if ( args->out_fh && hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    if ( args->out_fh )
+    {
+        if ( args->write_index )
+        {
+            if ( bcf_idx_save(args->out_fh)<0 )
+            {
+                if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+                error("Error: cannot write to index %s\n", args->index_fn);
+            }
+            free(args->index_fn);
+        }
+        if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    }
     bcf_hdr_destroy(args->hdr_out);
     bcf_sr_destroy(args->sr);
     free(args);
@@ -765,13 +781,9 @@ int run(int argc, char **argv)
 
     static struct option loptions[] =
     {
-        {"trio",1,0,'t'},
-        {"trio-file",1,0,'T'},
-        {"ped",1,0,'p'},
-        {"delete",0,0,'d'},
-        {"list",1,0,'l'},
+        {"pfm",1,0,'p'},
+        {"ped",1,0,'P'},
         {"mode",1,0,'m'},
-        {"count",0,0,'c'},
         {"rules",1,0,1},
         {"rules-file",1,0,2},
         {"output",required_argument,NULL,'o'},
@@ -784,11 +796,12 @@ int run(int argc, char **argv)
         {"targets-overlap",required_argument,NULL,15},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
+        {"write-index",no_argument,NULL,3},
         {0,0,0,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?ht:T:p:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -843,6 +856,7 @@ int run(int argc, char **argv)
             case 'p': args->pfm = optarg; break;
             case  1 : args->rules_str = optarg; break;
             case  2 : args->rules_fname = optarg; break;
+            case  3 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s",usage_text()); break;

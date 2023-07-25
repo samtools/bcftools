@@ -1,0 +1,4 @@
+7	ensembl_havana	gene	100	29201	.	+	.	ID=gene:ENSG00000146648;Name=EGFR;biotype=protein_coding;description=epidermal growth factor receptor [Source:HGNC Symbol%3BAcc:3236];gene_id=ENSG00000146648;logic_name=ensembl_havana_gene;version=11
+7	ensembl_havana	mRNA	100	29201	.	+	.	ID=transcript:ENST00000455089;Parent=gene:ENSG00000146648;Name=EGFR-004;biotype=protein_coding;havana_transcript=OTTHUMT00000343056;havana_version=1;tag=basic;transcript_id=ENST00000455089;version=1
+7	havana	gene	5875	15059	.	-	.	ID=gene:ENSG00000224057;Name=EGFR-AS1;biotype=antisense;description=EGFR antisense RNA 1 [Source:HGNC Symbol%3BAcc:40207];gene_id=ENSG00000224057;logic_name=havana;version=1
+7	havana	transcript	5875	15059	.	-	.	ID=transcript:ENST00000442411;Parent=gene:ENSG00000224057;Name=EGFR-AS1-001;biotype=antisense;havana_transcript=OTTHUMT00000343091;havana_version=1;tag=basic;transcript_id=ENST00000442411;version=1

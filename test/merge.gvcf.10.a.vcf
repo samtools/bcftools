@@ -1,6 +1,11 @@
 ##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=248956422>
 ##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-chr1	1	.	A	<*>	.	.	END=2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a
+chr1	1	.	A	<*>	.	.	END=2	GT	0/0
+chr2	1	.	A	<*>	.	.	END=2	GT	0/0
+chr2	3	.	G	C,<*>	.	.	.	GT	0/1
+chr2	4	.	T	<*>	.	.	END=6	GT	0/0

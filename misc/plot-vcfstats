@@ -64,9 +64,13 @@ if ( $$opts{make_plots} )
         plot_indel_distribution($opts,$id);
         plot_indel_vaf_distribution($opts,$id);
         plot_substitutions($opts,$id);
+        plot_vaf($opts,$id,'snv');
+        plot_vaf($opts,$id,'indel');
         plot_per_sample_stats($opts,$id);
         plot_DP($opts,$id);
         plot_hwe($opts,$id);
+        plot_vaf25_by_sample($opts,$id,'snv');
+        plot_vaf25_by_sample($opts,$id,'indel');
     }
     plot($opts);
 }
@@ -244,6 +248,11 @@ sub parse_params
                 id=>'HWE',
                 header=>'HWE',
                 exp=>"# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile",
+            },
+            {
+                id=>'VAF',
+                header=>'VAF',
+                exp=>"# VAF\t[2]id\t[3]sample\t[4]SNV VAF distribution\t[5]indel VAF distribution",
             },
         ],
         SN_keys=>[
@@ -750,7 +759,7 @@ sub init_plots
         plot_hethom_by_sample = 1
         plot_snps_by_sample = 1
         plot_indels_by_sample = 1
-        plot_singletons_by_sample = 1 
+        plot_singletons_by_sample = 1
         plot_depth_by_sample = 1
         plot_SNP_count_by_af = 1
         plot_Indel_count_by_af = 1
@@ -767,6 +776,10 @@ sub init_plots
         plot_tstv_by_qual = 1
         plot_tstv_by_usr = 1
         plot_substitutions = 1
+        plot_vaf_snv = 1
+        plot_vaf_indel = 1
+        plot_vaf25_snv = 1
+        plot_vaf25_indel = 1
 
 
         # Set to 1 to use sample names for xticks instead of numeric sequential IDs
@@ -1166,7 +1179,7 @@ sub plot_tstv_by_AF
     my $img  = "tstv_by_af.$id";
     my $vals = rebin_values(\@vals,8,0);
 
-    
+
     open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
     print $tfh "# [1]Allele frequency\t[2]Number of sites\t[3]ts/tv\n";
     for (my $i=0; $i<@$vals; $i++)
@@ -1554,7 +1567,7 @@ sub plot_counts_by_AF_col
                     id = int(row[0])
                     if id not in dat: dat[id] = []
                     dat[id].append([float(row[1]),float(row[2])])
-            
+
             if plot_${title}_count_by_af:
                 fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
                 ax1 = fig.add_subplot(111)
@@ -1792,15 +1805,33 @@ sub plot_substitutions
 
             if plot_substitutions:
                 fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-                cm  = mpl.cm.get_cmap('autumn')
+                ts = [ 'A>G','G>A','C>T','T>C' ]
+                nts = 0
+                ntv = 0
+                for x in dat:
+                    if x[1] in ts: nts += 1
+                    else: ntv += 1
                 n = 12
-                col = []
-                for i in list(range(n)): col.append(cm(1.*i/n))
+                col  = list(range(n))
+                ecol = list(range(n))
+                for i in range(n):
+                    col[i]  = '#ffce84'
+                    ecol[i] = '#f5c781'
+                    col[1]  = col[5]  = col[6]  = col[10]  = '#ff9900'
+                    ecol[1] = ecol[5] = ecol[6] = ecol[10] = '#ef8f00'
                 ax1 = fig.add_subplot(111)
-                ax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col)
+                ax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col, edgecolor=ecol)
                 ax1.set_ylabel('Count')
                 ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-                ax1.set_xlim(-0.5,n+0.5)
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                ax1.get_xaxis().tick_bottom()
+                ax1.get_yaxis().tick_left()
+                ax1.spines['bottom'].set_color('grey')
+                ax1.spines['left'].set_color('grey')
+                mpl.rcParams['text.color'] = '555555'
+                ax1.patch.set_visible(False)
+                ax1.set_xlim(-0.5,n-0.5)
                 plt.xticks([row[0] for row in dat],[row[1] for row in dat],rotation=45)
                 plt.title('$$opts{title}{$id}')
                 plt.savefig('$img.png')
@@ -1809,6 +1840,126 @@ sub plot_substitutions
 
         ";
 }
+
+sub plot_vaf
+{
+    my ($opts,$id,$type) = @_;
+
+    my @vals = get_values($opts,$id,'VAF');
+    if ( !@vals ) { return; }
+
+    my @sum = ();
+    for my $row (@vals)
+    {
+        my @cnt = split(/,/,$type eq 'snv' ? $$row[1] : $$row[2]);
+        for (my $i=0; $i<@cnt; $i++)
+        {
+            $sum[$i] += $cnt[$i];
+        }
+    }
+
+    my $fh  = $$opts{plt_fh};
+    my $img = "vaf.$type.$id";
+
+    tprint $fh, "
+            dat = [
+        ";
+    for (my $i=0; $i<@sum; $i++) { tprint $fh, "\t[".1.0*$i/(scalar @sum).",$sum[$i]],\n"; }
+    tprint $fh, "]\n";
+    tprint $fh, "
+
+            if plot_vaf_$type:
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                wd = 0.7        # fraction of dx distance
+                min_dx = None
+                for i in range(len(dat)-1):
+                    if min_dx==None or min_dx > abs(dat[i+1][0]-dat[i][0]): min_dx = abs(dat[i+1][0]-dat[i][0])
+                if min_dx==None: min_dx = 1
+                wd = min_dx*wd
+                ax1.bar([x[0] for x in dat],[x[1] for x in dat],wd) #,**plt_args)
+
+                ax1.set_ylabel('Count')
+                ax1.set_xlabel('Variant Allele Frequency')
+                ax1.ticklabel_format(style='sci', scilimits=(-2,2), axis='y')
+
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                ax1.get_xaxis().tick_bottom()
+                ax1.get_yaxis().tick_left()
+                ax1.spines['bottom'].set_color('grey')
+                ax1.spines['left'].set_color('grey')
+                mpl.rcParams['text.color'] = '555555'
+                ax1.patch.set_visible(False)
+
+                plt.subplots_adjust(right=0.95,bottom=0.15)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
+        ";
+}
+
+sub plot_vaf25_by_sample
+{
+    my ($opts,$id,$type) = @_;
+
+    my @vals = get_values($opts,$id,'VAF');
+    if ( !@vals ) { return; }
+
+    my @vaf = ();
+    for my $row (@vals)
+    {
+        my @cnt = split(/,/,$type eq 'snv' ? $$row[1] : $$row[2]);
+        my $sum = 0;
+        my $sum25 = 0;
+        for (my $i=0; $i<@cnt; $i++)
+        {
+            if ( 1.0*$i/(scalar @cnt) < 0.25 ) { $sum25 += $cnt[$i] }
+            $sum += $cnt[$i];
+        }
+        push @vaf, $sum ? $sum25/$sum : 0;
+    }
+
+    my $fh  = $$opts{plt_fh};
+    my $img = "vaf25.$type.$id";
+
+    tprint $fh, "
+            dat = [
+        ";
+    for (my $i=0; $i<@vaf; $i++) { tprint $fh, "\t[$i,$vaf[$i]],\n"; }
+    tprint $fh, "]\n";
+    tprint $fh, "
+
+            if plot_vaf25_$type:
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('nVAF<0.25')
+                ax1.set_ylim(-0.1,1.1)
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                ax1.get_xaxis().tick_bottom()
+                ax1.get_yaxis().tick_left()
+                ax1.spines['bottom'].set_color('grey')
+                ax1.spines['left'].set_color('grey')
+                mpl.rcParams['text.color'] = '555555'
+                ax1.patch.set_visible(False)
+
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
+        ";
+}
+
 
 sub singletons
 {
@@ -2118,6 +2269,8 @@ sub create_pdf
     }
 
     tprint $tex, fmt_slide3v($opts, "tstv_by_sample", 'Ts/Tv by sample');
+    tprint $tex, fmt_slide3v($opts, "vaf25.snv", 'Fraction of SNVs with VAF$<$25\% by sample');
+    tprint $tex, fmt_slide3v($opts, "vaf25.indel", 'Fraction of indels with VAF$<$25\% by sample');
     tprint $tex, fmt_slide3v($opts, "hets_by_sample", 'Hets vs non-ref Homs by sample');
     tprint $tex, fmt_slide3v($opts, "singletons_by_sample", 'Singletons by sample {\normalsize(hets and homs)}');
     tprint $tex, fmt_slide3v($opts, "dp_by_sample", 'Average depth by sample');
@@ -2193,6 +2346,8 @@ sub create_pdf
     tprint $tex, fmt_slide3h($opts, "depth", 'Depth distribution');
     tprint $tex, fmt_slide3h($opts, "hwe", 'Number of HETs by AF');
     tprint $tex, fmt_slide3h($opts, "substitutions", 'Substitution types');
+    tprint $tex, fmt_slide3h($opts, "vaf.snv", 'SNV Variant Allele Frequency');
+    tprint $tex, fmt_slide3h($opts, "vaf.indel", 'Indel Variant Allele Frequency');
     #tprint $tex, fmt_slide3h($opts, "irc_by_af", 'Indel Repeat Consistency by AF');
     #tprint $tex, fmt_slide3h($opts, "irc_by_rlen", 'Indel Consistency by Repeat Type');
 
@@ -2203,7 +2358,7 @@ sub create_pdf
     my $cmd = "$engine $tex_file >$$opts{logfile} 2>&1";
     print STDERR "Creating PDF: $cmd\n" unless !$$opts{verbose};
     system($cmd);
-    if ( $? ) { error("The command exited with non-zero status, please consult the output of $engine: $$opts{dir}$$opts{logfile}\n\n"); }
+    if ( $? ) { error("The command exited with non-zero status, please consult the output of $engine: $$opts{dir}/$$opts{logfile}\n\n"); }
     print STDERR "Finished: $$opts{dir}/$pdf_file\n" unless !$$opts{verbose};
 }
 

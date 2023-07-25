@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2017-2021 Genome Research Ltd.
+/*
+    Copyright (C) 2017-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,6 +52,8 @@ typedef struct
     htsFile *out_fh;
     bcf_hdr_t *hdr;
     bcf_srs_t *sr;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -62,7 +64,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Remove overlapping variants.\n"
         "\n"
@@ -80,6 +82,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "\n";
 }
 
@@ -100,6 +103,7 @@ static void init_data(args_t *args)
     args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     args->vcfbuf = vcfbuf_init(args->hdr, 0);
     if ( args->rmdup )
@@ -114,6 +118,15 @@ static void destroy_data(args_t *args)
 {
     if ( args->filter )
         filter_destroy(args->filter);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->out_fh)<0 )
+        {
+            if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
     if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     vcfbuf_destroy(args->vcfbuf);
     bcf_sr_destroy(args->sr);
@@ -168,13 +181,14 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"verbose",no_argument,NULL,'v'},
+        {"write-index",no_argument,NULL,1},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpd",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'd': args->rmdup = 1; break;
             case 'p': args->print_overlaps = 1; break;
@@ -186,9 +200,9 @@ int run(int argc, char **argv)
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target_is_file = 1; // fall-through
-            case 't': args->target = optarg; break; 
+            case 't': args->target = optarg; break;
             case 'R': args->region_is_file = 1; // fall-through
-            case 'r': args->region = optarg; break; 
+            case 'r': args->region = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                       switch (optarg[0]) {
@@ -208,6 +222,7 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
+            case  1 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -223,7 +238,7 @@ int run(int argc, char **argv)
     else args->fname = argv[optind];
 
     init_data(args);
-    
+
     while ( bcf_sr_next_line(args->sr) ) process(args);
     flush(args,1);
 

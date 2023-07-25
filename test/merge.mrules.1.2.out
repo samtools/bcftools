@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://hs38DH.fa
+##contig=<ID=chr1>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Minimum per-sample depth in this gVCF block">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SampleA	SampleB
+chr1	1769963	.	A	<NON_REF>	.	.	END=1769967	GT:PL	0/0:0,3,45	./.:.
+chr1	1769968	.	T	<NON_REF>	.	.	.	GT:PL	0/0:0,3,45	0/0:0,18,270
+chr1	1769969	.	CAAAACAAAAACA	CAAAACA,<NON_REF>,C	.	.	.	GT:AD:PL	1/1:0,9,0,0:405,27,0,405,27,405,405,405,405,405	3/3:0,0,0,4:181,181,181,181,181,181,12,181,12,0
+chr1	1769976	.	A	<NON_REF>	.	.	.	GT:PL	0/0:0,0,0	./.:.
+chr1	1769982	.	A	<NON_REF>	.	.	.	GT:PL	./.:.	0/0:0,0,0
+chr1	1769983	.	C	T,A	.	.	.	GT:AD:PL	1/1:0,9,.:405,27,0,.,.,.	2/2:0,.,4:181,.,.,12,.,0
+chr1	1769990	.	CAAAACAAAAACA	CAAAACA,<NON_REF>,C	.	.	.	GT:AD:PL	1:0,9,0,0:405,27,0,0	3:0,0,0,4:181,0,0,12
+chr1	1769991	.	C	T,A	.	.	.	GT:AD:PL	1:0,9,.:405,0,.	2:0,.,4:181,.,0

@@ -52,7 +52,7 @@ commands can thus be  combined  with  Unix pipes.
 This manual page was last updated *{date}* and refers to bcftools git version *{version}*.
 
 === BCF1
-The BCF1 format output by versions of samtools \<= 0.1.19 is *not*
+The obsolete BCF1 format output by versions of samtools \<= 0.1.19 is *not*
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions \<= 0.1.19 to convert to VCF, which can then be read by
@@ -69,6 +69,10 @@ done with 'bcftools view'. Users are now required to choose between the old
 samtools calling model ('-c/--consensus-caller') and the new multiallelic
 calling model ('-m/--multiallelic-caller'). The multiallelic calling model
 is recommended for most tasks.
+
+
+=== FILTERING EXPRESSIONS
+See *<<expressions,EXPRESSIONS>>*
 
 
 LIST OF COMMANDS
@@ -105,6 +109,7 @@ LIST OF SCRIPTS
 ---------------
 Some helper scripts are bundled with the bcftools code.
 
+- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,csq>>*
 - *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
 
 
@@ -297,6 +302,9 @@ Such a file can be easily created from a VCF using:
 *--threads* 'INT'::
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
+
+*--write-index*::
+    Automatically index the output files. Can be used only for compressed BCF and VCF output.
 
 
 [[annotate]]
@@ -501,6 +509,9 @@ Add or remove annotations.
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
+*--write-index*::
+    Automatically index the output file
+
 *Examples:*
 ----
     # Remove three fields
@@ -603,6 +614,9 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== Input/output options:
 
@@ -878,6 +892,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*--write-index*::
+    Automatically index the output file
+
 
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'
@@ -902,14 +919,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
+*-H, --haplotype* N|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'NpIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
 
-        '1';;
-            the first allele, regardless of phasing
-
-        '2';;
-            the second allele, regardless of phasing
+        'N';;
+            N={1,2,3,...}, the allele index within the genotype, regardless of phasing
 
         'R';;
             the REF allele (in heterozygous genotypes)
@@ -926,10 +940,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
         'SR, SA';;
             the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
 
-        '1pIu, 2pIu';;
-            first/second allele for phased genotypes and IUPAC code for unphased genotypes
+        'NpIu';;
+            N={1,2,3,...}, the allele index within genotype for phased genotypes and IUPAC code for unphased genotypes.
+            For example, '1pIu' or '2pIu'
 
-    This option requires *-s*, unless exactly one sample is present in the VCF
+Note that the *-H, --haplotype* option requires the *-s, --samples* option, unless exactly one sample is present in the VCF
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
@@ -937,18 +952,18 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes determined from FORMAT/GT fields. By default all
-    samples are used and can be subset with `-s, --samples` and `-S, --samples-file`. Use `-s -` to ignore
+    samples are used and can be subset with *-s, --samples* and *-S, --samples-file*. Use *-s -* to ignore
     samples and use only the REF and ALT columns.  NOTE: prior to version 1.17 the IUPAC codes were determined solely
     from REF,ALT columns and sample genotypes were not considered.
 
 *--mark-del* 'CHAR'::
-    instead of removing sequence, insert CHAR for deletions
+    instead of removing sequence, insert character CHAR for deletions
 
-*--mark-ins* 'uc'|'lc'::
-    highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+*--mark-ins* 'uc'|'lc'|'CHAR'::
+    highlight inserted sequence in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 
 *--mark-snv* 'uc'|'lc'::
-    highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+    highlight substitutions in uppercase (uc), lowercase (lc), or a provided character CHAR, leaving the rest of the sequence as is
 
 *-m, --mask* 'FILE'::
     BED file or TAB file with regions to be replaced with N (the default) or as specified by
@@ -966,10 +981,10 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     write output to a file
 
 *-s, --samples* 'LIST'::
-    apply variants of the listed samples. See also the option `-I, --iupac-codes`
+    apply variants of the listed samples. See also the option *-I, --iupac-codes*
 
 *-S, --samples-file* 'FILE'::
-    apply variants of the samples listed in the file. See also the option `-I, --iupac-codes`
+    apply variants of the samples listed in the file. See also the option *-I, --iupac-codes*
 
 *Examples:*
 ----
@@ -982,6 +997,14 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
     # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html
 ----
+
+*Notes:*::
+    Masking options are applied in the following order
+    1. mask regions with *--mask-with* character if *--mask* is given. All overlapping VCF variants are ignored
+    2. replace sequence not mentioned in the VCF with the requested character if *--absent* is given
+    3. finally apply *--mark-del*, *--mark-ins*, *--mark-snv* masks
+
+
 
 
 [[convert]]
@@ -1020,6 +1043,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== VCF output options:
 
@@ -1210,13 +1236,13 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-c, --columns* 'list'::
     comma-separated list of fields in the input file. In the current
-    version, the fields CHROM, POS, ID, and AA are expected and
-    can appear in arbitrary order, columns which should be ignored in the input
+    version, the fields CHROM, POS, ID, and AA or REF, ALT are expected and
+    can appear in arbitrary order. Columns which should be ignored in the input
     file can be indicated by "-".
     The AA field lists alleles on the forward reference strand,
     for example "CC" or "CT" for diploid genotypes or "C"
     for haploid genotypes (sex chromosomes). Insertions and deletions
-    are not supported yet, missing data can be indicated with "--".
+    are supported only with REF and ALT but not with AA. Missing data can be indicated with "--" or ".".
 
 *-f, --fasta-ref* 'file'::
     reference sequence in fasta format. Must be indexed with samtools faidx
@@ -1230,7 +1256,10 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *Example:*
 ----
 # Convert 23andme results into VCF
-bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz
+bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -o out.vcf.gz
+
+# Convert tab-delimited file into a sites-only VCF (no genotypes), in this example first column to be ignored
+bcftools convert -c -,CHROM,POS,REF,ALT -f ref.fa --tsv2vcf calls.txt -o out.bcf
 ----
 
 
@@ -1277,6 +1306,10 @@ output VCF and are ignored for the prediction analysis.
     aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
     written.
 
+*--dump-gff* 'FILE'::
+    dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,
+    shows how is the input GFF viewed by the program.
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -1290,12 +1323,24 @@ output VCF and are ignored for the prediction analysis.
 
 *-g, --gff-annot* 'FILE'::
     GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    The script *<<gff2gff,gff2gff>>* can help with conversion from non-standard GFF formats.
     An example of a minimal working GFF file:
 ----
     # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
     # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
+    #
+    # Empty and commented lines are skipped, the following GFF columns are required
+    #   1.  chromosome
+    #   2.  IGNORED
+    #   3.  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
+    #   4.  start of the feature (1-based)
+    #   5.  end of the feature (1-based)
+    #   6.  IGNORED
+    #   7.  strand (+ or -)
+    #   8.  phase (0, 1, 2 or .)
+    #   9.  semicolon-separated attributes (see below)
     #
     # Attributes required for
     #   gene lines:
@@ -1391,6 +1436,14 @@ output VCF and are ignored for the prediction analysis.
 
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
+
+*--unify-chr-names* '0'|'1'::
+    Automatically detect and unify chromosome naming conventions in the GFF, fasta
+    and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
+    that of the input VCF. The default is to attempt the automatic translation.
+
+*--write-index*::
+    Automatically index the output file
 
 *Examples:*
 ----
@@ -1559,6 +1612,9 @@ And similarly here, the second is filtered:
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*--write-index*::
+    Automatically index the output file
+
 
 
 [[gtcheck]]
@@ -1567,6 +1623,10 @@ Checks sample identity. The program can operate in two modes. If the *-g*
 option is given, the identity of samples from 'query.vcf.gz'
 is checked against the samples in the *-g* file.
 Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
+
+Note that the interpretation of the discordance score depends on the options provided (specifically *-e* and
+*-u*) and on the available annotations (FORMAT/PL vs FORMAT/GT).
+The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.
 
 *--distinctive-sites* 'NUM[,MEM[,DIR]]'::
     Find sites that can distinguish between at least NUM sample pairs. If the number is smaller or equal to 1,
@@ -1581,11 +1641,14 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
     represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
-    non-zero integer can be provided). See also the *-u, --use* option below. If set to 0,
-    the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
-    Note that the values with and without *-e* are not comparable, only values generated
-    with *-e 0* correspond to mismatching genotypes.
-    If performance is an issue, set to 0 for faster run but less accurate results.
+    non-zero integer can be provided).
+    {nbsp} +
+    {nbsp} +
+    If *-e* is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+    but only in the GT-vs-GT matching mode. See the *-u, --use* option below for additional notes and caveats.
+    {nbsp} +
+    {nbsp} +
+    If performance is an issue, set *-e 0* for faster run times but less accurate results.
 
 *-g, --genotypes* 'FILE'::
     VCF/BCF file with reference genotypes to compare against
@@ -1640,8 +1703,13 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 
 *-u, --use* 'TAG1'[,'TAG2']::
     specifies which tag to use in the query file ('TAG1') and the *-g* ('TAG2') file.
-    By default, the PL tag is used in the query file and GT in the *-g* file when
-    available.
+    By default, the PL tag is used in the query file and, when available, the GT tags in the
+    *-g* file.
+    {nbsp} +
+    {nbsp} +
+    Note that when the requested tag is not available, the program will attempt to use
+    the other tag. The output includes the number of sites that were matched by the four
+    possible mode (for example GT-vs-GT or GT-vs-PL).
 
 *Examples:*
 ----
@@ -1815,6 +1883,9 @@ in the other files.
     list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
+*--write-index*::
+    Automatically index the output file. This is done automatically with the *-p* option.
+
 ==== Examples:
 
 Create intersection and complements of two sets saving the output in dir/*
@@ -1889,7 +1960,8 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     file 'FILE' is not given and the dash ('-') is given, unknown reference
     bases generated at gVCF block splits will be substituted with N's.
     The *--gvcf* option uses the following default INFO rules:
-    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
+    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max* and the following missing
+    rules: *-M PL:max,AD:0*.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
@@ -1925,6 +1997,15 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 -m id          ..  merge by ID
 ----
 
+*-M, --missing-rules* '-'|'TAG:METHOD'[,...]::
+    Rules for merging vector tags at multiallelic sites. When input files have different alternate
+    alleles, vector fields pertaining to unobserved alleles are set to missing ('.') by default.
+    The 'METHOD' is one of '.' (the default, use missing values), 'NUMBER' (use a constant value, e.g. 0),
+    'max' (the maximum value observed for other alleles in the sample). When *--gvcf* option is set,
+    the rule *-M PL:max,AD:0* is implied. This can be overriden with providing *-M -* or *-M PL:.,AD:.*.
+    Note that if the unobserved allele is explicitly present as '<*>' or '<NON_REF>', then its corresponding
+    value will be used regardless of *-M* settings.
+
 *--no-index*::
     the option allows to merge files without indexing them first. In order for this
     option to work, the user must ensure that the input files have chromosomes in
@@ -1951,6 +2032,8 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*--write-index*::
+    Automatically index the output file
 
 [[mpileup]]
 === bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
@@ -2199,6 +2282,9 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
+*--write-index*::
+    Automatically index the output file
+
 ==== Options for SNP/INDEL genotype likelihood computation
 
 *-X, --config* 'STR'::
@@ -2365,6 +2451,11 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     try to proceed with *-m-* even if malformed tags with incorrect number of fields
     are encountered, discarding such tags. (Experimental, use at your own risk.)
 
+*-g, --gff-annot* 'FILE'::
+    when a GFF file is provided, follow HGVS 3'rule and right-align variants in transcripts on the forward
+    strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
+    description of the supported GFF3 file format see *<<csq,bcftools csq>>*.
+
 *--keep-sum* 'TAG'[,...]::
     keep vector sum constant when splitting multiallelic sites. Only AD tag
     is currently supported. See also https://github.com/samtools/bcftools/issues/360
@@ -2428,6 +2519,8 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
 
+*--write-index*::
+    Automatically index the output file
 
 [[plugin]]
 
@@ -2484,6 +2577,9 @@ the usage examples that each plugin comes with.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 ==== Plugin options:
 
@@ -3103,7 +3199,11 @@ Transition probabilities:
     see *<<common_options,Common Options>>*
 
 *-T, --temp-dir* 'DIR'::
-    Use this directory to store temporary files
+    Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
+    then these are replaced with a string that makes the directory name unique.
+
+*--write-index*::
+    Automatically index the output file
 
 
 
@@ -3251,6 +3351,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*--write-index*::
+    Automatically index the output file
 
 
 ==== Subset options:
@@ -3403,8 +3506,8 @@ Display the full bcftools version number in a machine-readable format.
 
 
 [[expressions]]
-EXPRESSIONS
------------
+FILTERING EXPRESSIONS
+---------------------
 
 These filtering expressions are accepted by most of the commands.
 
@@ -3662,8 +3765,17 @@ that the whole expression is passed to the program as intended:
 Please refer to the documentation of your shell for details.
 
 
-SCRIPTS AND OPTIONS
--------------------
+SCRIPTS
+-------
+
+[[gff2gff]]
+=== gff2gff
+Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
+
+--
+    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+--
+
 
 [[plot-vcfstats]]
 === plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
@@ -3729,8 +3841,9 @@ AUTHORS
 -------
 Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
-and further developing bcftools.  Many other people contributed to the program
+BGZF library. Petr Danecek is maintaining and further developing bcftools, together
+with the rest of the https://www.sanger.ac.uk/tool/samtools-bcftools-htslib[samtools team].
+Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.
 

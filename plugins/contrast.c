@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2018-2021 Genome Research Ltd.
+   Copyright (c) 2018-2023 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -69,6 +69,8 @@ typedef struct
     int ncontrol_gts, mcontrol_gts, ntotal, nskipped, ntested, ncase_al, ncase_gt;
     kstring_t case_als_smpl, case_gts_smpl;
     int max_AC, nals[4];    // nals: number of control-ref, control-alt, case-ref and case-alt alleles in the region
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -81,7 +83,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Runs a basic association test, per-site or in a region, and checks for novel alleles and\n"
         "       genotypes in two groups of samples. Adds the following INFO annotations:\n"
@@ -108,6 +110,7 @@ static const char *usage_text(void)
         "   -t, --targets REG                Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "       --write-index                Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   # Test if any of the samples a,b is different from the samples c,d,e\n"
@@ -233,6 +236,7 @@ static void init_data(args_t *args)
     args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    if ( args->write_index && init_index(args->out_fh,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
     if ( args->max_AC_str )
     {
@@ -251,6 +255,15 @@ static void init_data(args_t *args)
 static void destroy_data(args_t *args)
 {
     bcf_hdr_destroy(args->hdr_out);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->out_fh)<0 )
+        {
+            if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
     if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     free(args->case_als_smpl.s);
     free(args->case_gts_smpl.s);
@@ -314,7 +327,7 @@ static int process_record(args_t *args, bcf1_t *rec)
         for (j=0; j<ngts; j++)
         {
             if ( ptr[j]==bcf_int32_vector_end ) break;
-            if ( bcf_gt_is_missing(ptr[j]) ) continue; 
+            if ( bcf_gt_is_missing(ptr[j]) ) continue;
             int ial = bcf_gt_allele(ptr[j]);
             if ( ial > 31 )
             {
@@ -353,7 +366,7 @@ static int process_record(args_t *args, bcf1_t *rec)
         for (j=0; j<ngts; j++)
         {
             if ( ptr[j]==bcf_int32_vector_end ) break;
-            if ( bcf_gt_is_missing(ptr[j]) ) continue; 
+            if ( bcf_gt_is_missing(ptr[j]) ) continue;
             int ial = bcf_gt_allele(ptr[j]);
             if ( ial > 31 )
             {
@@ -365,7 +378,7 @@ static int process_record(args_t *args, bcf1_t *rec)
                 args->nskipped++;
                 return -1;
             }
-            if ( !(control_als & (1<<ial)) ) case_al = 1; 
+            if ( !(control_als & (1<<ial)) ) case_al = 1;
             gt |= 1<<ial;
             if ( ial ) nals[3]++;
             else nals[2]++;
@@ -430,12 +443,12 @@ static int process_record(args_t *args, bcf1_t *rec)
     if ( args->annots & PRINT_NASSOC )
         bcf_update_info_int32(args->hdr_out, rec, "NASSOC", nals, 4);
 
-    if ( args->case_als_smpl.l ) 
+    if ( args->case_als_smpl.l )
     {
         bcf_update_info_string(args->hdr_out, rec, "NOVELAL", args->case_als_smpl.s);
         args->ncase_al++;
     }
-    if ( args->case_gts_smpl.l ) 
+    if ( args->case_gts_smpl.l )
     {
         bcf_update_info_string(args->hdr_out, rec, "NOVELGT", args->case_gts_smpl.s);
         args->ncase_gt++;
@@ -472,13 +485,14 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,4},
+        {"write-index",no_argument,NULL,5},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  1 : args->force_samples = 1; break;
             case 'f': args->max_AC_str = optarg; break;
@@ -522,6 +536,7 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
+            case  5 : args->write_index = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

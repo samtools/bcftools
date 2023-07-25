@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=17,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+17	3188	.	C	T	.	.	type=ENST00000571540:7936284-C-T;EXP=missense&NMD_transcript|CNTROB|ENST00000571540|NMD|+|201P>201L|3188C>T

@@ -1,3 +1,121 @@
+## Release 1.18 (25th July 2023)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Support auto indexing during writing BCF and VCF.gz via new `--write-index` option
+
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - The `-m, --mark-sites` option can be now used to mark all sites without the
+      need to provide the `-a` file (#1861)
+
+    - Fix a bug where the `-m` function did not respect the `--min-overlap` option (#1869)
+
+    - Fix a bug when update of INFO/END results in assertion error (#1957)
+
+* bcftools concat
+
+    - New option `--drop-genotypes`
+
+* bcftools consensus
+
+    - Support higher-ploidy genotypes with `-H, --haplotype` (#1892)
+
+    - Allow `--mark-ins` and `--mark-snv` with a character, similarly to `--mark-del`
+
+* bcftools convert
+
+    - Support for conversion from tab-delimited files (CHROM,POS,REF,ALT) to sites-only VCFs
+
+* bcftools csq
+
+    - New `--unify-chr-names` option to automatically unify different chromosome
+      naming conventions in the input GFF, fasta and VCF files (e.g. "chrX" vs "X")
+
+    - More versatility in parsing various flavors of GFF
+
+    - A new `--dump-gff` option to help with debugging and investigating the internals
+      of hGFF parsing
+
+    - When printing consequences in nonsense mediated decay transcripts, include 'NMD_transcript'
+      in the consequence part of the annotation. This is to make filtering easier and analogous to
+      VEP annotations. For example the consequence annotation
+            3_prime_utr|PCGF3|ENST00000430644|NMD
+      is newly printed as
+            3_prime_utr&NMD_transcript|PCGF3|ENST00000430644|NMD
+
+* bcftools gtcheck
+
+    - Add stats for the number of sites matched in the GT-vs-GT, GT-vs-PL, etc modes. This
+      information is important for interpretation of the discordance score, as only the
+      GT-vs-GT matching can be interpreted as the number of mismatching genotypes.
+
+* bcftools +mendelian2
+
+    - Fix in command line argument parsing, the `-p` and `-P` options were not
+      functioning (#1906)
+
+* bcftools merge
+
+    - New `-M, --missing-rules` option to control the behavior of merging of vector tags
+      to prevent mixtures of known and missing values in tags when desired
+
+    - Use values pertaining to the unknown allele (<*> or <NON_REF>) when available
+      to prevent mixtures of known and missing values (#1888)
+
+    - Revamped line matching code to fix problems in gVCF merging where split gVCF blocks
+      would not update genotypes (#1891, #1164).
+
+* bcftool mpileup
+
+    - Fix a bug in --indels-v2.0 which caused an endless loop when CIGAR operator 'H' or 'P'
+      was encountered
+
+* bcftools norm
+
+    - The `-m, --multiallelics +` mode now preserves phasing (#1893)
+
+    - Symbolic <DEL.*> alleles are now normalized too (#1919)
+
+    - New `-g, --gff-annot` option to right-align indels in forward transcripts to follow
+      HGVS 3'rule (#1929)
+
+* bcftools query
+
+    - Force newline character in formatting expression when not given explicitly
+
+    - Fix `-H` header output in formatting expressions containing newlines
+
+* bcftools reheader
+
+    - Make `-f, --fai` aware of long contigs not representable by 32-bit integer (#1959)
+
+* bcftools +split-vep
+
+    - Prevent a segfault when `-i/-e` use a VEP subfield not included in `-f` or `-c` (#1877)
+
+    - New `-X, --keep-sites` option complementing the existing `-x, --drop-sites` options
+
+    - Force newline character in formatting expression when not given explicitly
+
+    - Fix a subtle ambiguity: identical rows must be returned when `-s` is applied regardless
+      of `-f` containing the `-a` VEP tag itself or not.
+
+* bcftools stats
+
+    - Collect new VAF (variant allele frequency) statistics from FORMAT/AD field
+
+    - When counting transitions/transversions, consider also alternate het genotypes
+
+* plot-vcfstats
+
+    - Add three new VAF plots
+
+
 ## Release 1.17 (21st February 2023)
 
 

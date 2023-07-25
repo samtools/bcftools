@@ -1,0 +1,14 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr21,length=45090682>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FILTER=<ID=HET1,Description="Heterozygous in the first haplotype">
+##FILTER=<ID=HET2,Description="Heterozygous in the second haplotype">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="SVTYPE">
+##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="SVLEN">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate in reference for SV">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	syndip
+chr21	8914240	.	gttccattccattccattcaattccattccattgcattccattccattccattcca	G	30	HET2	SVTYPE=DEL;SVLEN=55;END=8914295	GT:AD	0|.:3,1
+chr21	8914680	.	tattccattccattcc	TATTCCATTCCATTCCATTCCATTCCATTCCATTCCATTCCATTCTAGTTGATTCCATTCCATTCCATCCCGTTCCATTCCATTCCGTTACTTTCTATTCCATTCCATTCCATTCC	30	HET2	SVTYPE=INS;SVLEN=100;END=8914681	GT:AD	0|.:1,1
+chr21	8914690	.	c	CATTCCATTCCATTCCATTCCATTCTAGTTGATTCCATTCCATTCCATCCCGTTCCATTCCATTCCGTTACTTTCT	30	HET2	SVTYPE=INS;SVLEN=75;END=8914691	GT:AD	0|.:2,1

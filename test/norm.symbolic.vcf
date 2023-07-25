@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=20,length=2147483647>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+20	24	.	ACA	A	.	.	.
+20	24	.	A	<DEL>	.	.	END=26;SVTYPE=DEL
+20	98	.	AAAA	A	.	.	.
+20	98	.	A	<DEL>	.	.	END=101;SVTYPE=DEL

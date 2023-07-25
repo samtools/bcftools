@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2017-2021 Genome Research Ltd.
+/*
+    Copyright (C) 2017-2023 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -69,6 +69,8 @@ typedef struct
     htsFile *out_fh;
     bcf_hdr_t *hdr;
     bcf_srs_t *sr;
+    char *index_fn;
+    int write_index;
 }
 args_t;
 
@@ -79,7 +81,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Prune sites by missingness or linkage disequilibrium.\n"
         "\n"
@@ -103,6 +105,7 @@ static const char *usage_text(void)
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "   -w, --window INT[bp|kb|Mb]      The window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
+        "       --write-index               Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
         "   bcftools +prune -m 0.6 -w 1000 input.bcf -Ob -o output.bcf\n"
@@ -183,6 +186,7 @@ static void init_data(args_t *args)
         }
     }
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
     args->ld_filter_id = -1;
     if ( args->ld_filter && strcmp(".",args->ld_filter) )
         args->ld_filter_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->ld_filter);
@@ -211,6 +215,15 @@ static void destroy_data(args_t *args)
 {
     if ( args->filter )
         filter_destroy(args->filter);
+    if ( args->write_index )
+    {
+        if ( bcf_idx_save(args->out_fh)<0 )
+        {
+            if ( hts_close(args->out_fh)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+            error("Error: cannot write to index %s\n", args->index_fn);
+        }
+        free(args->index_fn);
+    }
     if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     vcfbuf_destroy(args->vcfbuf);
     bcf_sr_destroy(args->sr);
@@ -303,20 +316,22 @@ int run(int argc, char **argv)
         {"nsites-per-win",required_argument,NULL,'n'},
         {"nsites-per-win-mode",required_argument,NULL,'N'},
         {"window",required_argument,NULL,'w'},
+        {"write-index",no_argument,NULL,4},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:N:w:k",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  1 : args->rand_missing = 1; break;
             case  2 : args->af_tag = optarg; break;
-            case  3 : 
+            case  3 :
                 args->rseed = strtol(optarg,&tmp,10);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --random-seed %s\n", optarg);
                 break;
+            case  4 : args->write_index = 1; break;
             case 'k': args->keep_sites = 1; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
@@ -324,7 +339,7 @@ int run(int argc, char **argv)
             case 'i':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'a': 
+            case 'a':
                 {
                     int n, i;
                     char **tag = hts_readlist(optarg,0,&n);
@@ -352,9 +367,9 @@ int run(int argc, char **argv)
                     free(tag);
                     args->ld_mask |= LD_ANNOTATE;
                 }
-                break; 
+                break;
             case 'f': args->ld_filter = optarg; break;
-            case 'n': 
+            case 'n':
                 args->nsites = strtod(optarg,&tmp);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --nsites-per-win %s\n", optarg);
                 break;
@@ -364,7 +379,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"rand") ) args->nsites_mode = optarg;
                 else error("The mode \"%s\" is not recognised\n",optarg);
                 break;
-            case 'm': 
+            case 'm':
                 if ( !strncasecmp("R2=",optarg,3) )
                 {
                     args->ld_max_set[VCFBUF_LD_IDX_R2] = 1;
@@ -388,7 +403,7 @@ int run(int argc, char **argv)
                 if ( !tmp || *tmp ) error("Could not parse: --max %s\n", optarg);
                 args->ld_mask |= LD_SET_MAX;
                 break;
-            case 'w': 
+            case 'w':
                 args->ld_win = strtod(optarg,&tmp);
                 if ( !*tmp ) break;
                 if ( tmp==optarg ) error("Could not parse: --window %s\n", optarg);
@@ -398,9 +413,9 @@ int run(int argc, char **argv)
                 else error("Could not parse: --window %s\n", optarg);
                 break;
             case 'T': args->target_is_file = 1; // fall-through
-            case 't': args->target = optarg; break; 
+            case 't': args->target = optarg; break;
             case 'R': args->region_is_file = 1; // fall-through
-            case 'r': args->region = optarg; break; 
+            case 'r': args->region = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                       switch (optarg[0]) {
@@ -439,7 +454,7 @@ int run(int argc, char **argv)
     else args->fname = argv[optind];
 
     init_data(args);
-    
+
     while ( bcf_sr_next_line(args->sr) ) process(args);
     flush(args,1);
 

@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##reference=dummy.fa
+##contig=<ID=1,length=1254>
+##FORMAT=<ID=GT,Type=String,Number=1,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+1	1	.	T	A	.	.	.	GT	0|1

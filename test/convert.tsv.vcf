@@ -1,0 +1,31 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=150>
+##contig=<ID=2,length=77>
+##contig=<ID=Y,length=40>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2	.	A	.	.	.	.
+1	10	.	A	G	.	.	.
+1	14	.	A	G	.	.	.
+1	24	.	T	C	.	.	.
+1	44	.	C	G	.	.	.
+1	53	.	G	.	.	.	.
+1	60	.	G	.	.	.	.
+1	62	.	C	.	.	.	.
+1	75	.	A	.	.	.	.
+1	80	.	G	.	.	.	.
+1	89	.	T	.	.	.	.
+1	99	.	C	.	.	.	.
+1	102	.	G	.	.	.	.
+1	112	.	T	.	.	.	.
+2	5	.	C	.	.	.	.
+2	11	.	C	T	.	.	.
+2	16	.	C	.	.	.	.
+2	20	.	G	.	.	.	.
+2	33	.	C	T	.	.	.
+2	39	.	A	.	.	.	.
+2	44	.	C	.	.	.	.
+2	48	.	C	.	.	.	.
+2	55	.	A	.	.	.	.
+2	59	.	C	T	.	.	.
