@@ -3,17 +3,17 @@
    Copyright (c) 2016-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -37,13 +37,13 @@
             dist_insert(dist, i);
 
         // Number of bins used
-        int n = dist_n(dist);
+        int n = dist_nbins(dist);
 
         // Now print the distribution
         uint32_t beg, end;
         for (i=0; i<n; i++)
         {
-            // Raw count in the bin. The boundaries beg,end are optional, 
+            // Raw count in the bin. The boundaries beg,end are optional,
             // and can be used to plot correctly the density
             uint64_t cnt = dist_get(dist, i, &beg, &end);
             if ( !cnt ) continue;
@@ -73,12 +73,12 @@ void dist_destroy(dist_t *dist);
 /*
     dist_nbins() - get the number of bins
  */
-int dist_nbins(dist_t *dist);
+uint32_t dist_nbins(dist_t *dist);
 
 /*
     dist_nvalues() - get the total number of values inserted
  */
-int dist_nvalues(dist_t *dist);
+uint64_t dist_nvalues(dist_t *dist);
 
 /*
     dist_insert()   - insert new value
@@ -88,7 +88,7 @@ uint32_t dist_insert(dist_t *dist, uint32_t value);
 uint32_t dist_insert_n(dist_t *dist, uint32_t value, uint32_t cnt);
 
 /*
-   dist_get() 
+   dist_get()
    @idx:        from the interval [0,dist_n-1]
    @beg,end:    [beg,end)
  */

@@ -44,6 +44,8 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 #include "extsort.h"
 #include "filter.h"
+#include "dist.h"
+#include "estimate_ci.h"
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -69,9 +71,10 @@ typedef struct
     int32_t *qry_arr,*gt_arr, nqry_arr,ngt_arr;
     uint8_t *qry_dsg, *gt_dsg;
     pair_t *pairs;
-    double *hwe_lprob, *bayes_lprob, dsg2lprob[8][3], pl2prob[256];
+    dist_t *hwe_lprob_dist;
+    double *hwe_lprob, dsg2lprob[8][3], pl2prob[256];
     double min_inter_err, max_intra_err;
-    int all_sites, hom_only, ntop, cross_check, calc_hwe_lprob, calc_bayes_lprob, sort_by_hwe, dry_run, use_PLs;
+    int all_sites, hom_only, ntop, cross_check, calc_hwe_lprob, sort_by_hwe, dry_run, use_PLs;
     FILE *fp;
     unsigned int nskip_no_match, nskip_not_ba, nskip_mono, nskip_no_data, nskip_dip_GT, nskip_dip_PL;
     unsigned int nskip_filter;
@@ -418,12 +421,7 @@ static void init_data(args_t *args)
         // prob of the observed sequence of matches given site AFs and HWE
         args->hwe_lprob = (double*) calloc(args->npairs,sizeof(*args->hwe_lprob));
         if ( !args->hwe_lprob ) error("Error: failed to allocate %.1f Mb. Run with --no-HWE-prob to save some memory.\n", args->npairs*sizeof(*args->hwe_lprob)/1e6);
-    }
-    if ( args->calc_bayes_lprob )
-    {
-        // Bayes probability which combines likelihoods of genotype matches and random matches with unrelated samples
-        args->bayes_lprob = (double*) calloc(args->npairs,sizeof(*args->bayes_lprob));
-        if ( !args->bayes_lprob ) error("Error: failed to allocate %.1f Mb. Run with --no-bayes-prob to save some memory.\n", args->npairs*sizeof(*args->bayes_lprob)/1e6);
+        args->hwe_lprob_dist = dist_init(5);
     }
 
     if ( args->distinctive_sites ) diff_sites_init(args);
@@ -444,7 +442,7 @@ static void destroy_data(args_t *args)
     fclose(args->fp);
     if ( args->distinctive_sites ) diff_sites_destroy(args);
     free(args->hwe_lprob);
-    free(args->bayes_lprob);
+    dist_destroy(args->hwe_lprob_dist);
     free(args->cwd);
     free(args->qry_arr);
     if ( args->gt_hdr ) free(args->gt_arr);
@@ -782,15 +780,11 @@ assert(0);
 
                 if ( args->calc_hwe_lprob )
                 {
-                    int match = args->qry_dsg[i] & args->gt_dsg[j];
-                    args->hwe_lprob[idx] += hwe_lprob[match];
-                }
-                if ( args->calc_bayes_lprob )
-                {
                     double sprob = exp(smpl_prob) / args->ngt_smpl;
-                    double hprob = qry_hprob * ( 1 - 1./args->ngt_smpl);
-                    args->bayes_lprob[idx] += -log(sprob / (sprob + hprob));
-
+                    double hprob = qry_hprob * hwe_prob[args->gt_dsg[i]] * ( 1 - 1./args->ngt_smpl);
+                    double lprob = -log(sprob / (sprob + hprob));
+                    args->hwe_lprob[idx] += lprob;
+                    dist_insert(args->hwe_lprob_dist,lprob*1000);   // multipled by 1000 to preserve granularity in low bins
                 }
                 args->ncnt[idx]++;
                 idx++;
@@ -869,9 +863,35 @@ static void report(args_t *args)
     fprintf(args->fp,"#     - query sample\n");
     fprintf(args->fp,"#     - genotyped sample\n");
     fprintf(args->fp,"#     - discordance (either an abstract score or number of mismatches, see -E/-u in the man page for details; smaller value = better match)\n");
-xxx    fprintf(args->fp,"#     - negative log of Bayes probability (includes HWE reasoning, rare genotypes matches are more informative, bigger value = better match)\n");
+    fprintf(args->fp,"#     - negative log of Bayes probability (includes HWE reasoning, rare genotypes matches are more informative, bigger value = better match)\n");
     fprintf(args->fp,"#     - number of sites compared (bigger = more informative)\n");
     fprintf(args->fp,"#DC\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]-log P(HWE)\t[6]Number of sites compared\n");
+
+int i,j,n = dist_nbins(args->hwe_lprob_dist);
+double *val   = (double*) malloc(sizeof(*val)*n);
+uint64_t *cnt = (uint64_t*) malloc(sizeof(*cnt)*n);
+uint32_t beg, end;
+for (i=0,j=0; i<n; i++)
+{
+    cnt[j] = dist_get(args->hwe_lprob_dist, i, &beg, &end);
+    if ( !cnt[j] ) continue;
+    val[j] = beg/1000.;
+    j++;
+}
+eci_t *eci = eci_init(val,cnt,j);
+eci_destroy(eci);
+
+// int i,n = dist_nbins(args->hwe_lprob_dist);
+// uint64_t nvals = dist_nvalues(args->hwe_lprob_dist);
+// fprintf(stderr,"XX\t%"PRIu64"\n",nvals);
+// uint32_t beg, end;
+// for (i=0; i<n; i++)
+// {
+//     uint64_t cnt = dist_get(args->hwe_lprob_dist, i, &beg, &end);
+//     if ( !cnt ) continue;
+//     fprintf(stderr,"XX\t%u\t%f\t%f\t%"PRIu64"\t%f\n", beg,beg/1000., end/1000., cnt, (double)cnt/(end-beg));
+// }
+
 
     int trim = args->ntop;
     if ( !args->pairs )
