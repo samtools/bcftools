@@ -137,23 +137,7 @@
 #ifndef GFF_H__
 #define GFF_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <getopt.h>
-#include <math.h>
-#include <inttypes.h>
-#include <htslib/hts.h>
-#include <htslib/khash.h>
-#include <htslib/khash_str2int.h>
-#include <htslib/kseq.h>
-#include <htslib/faidx.h>
-#include <htslib/bgzf.h>
-#include <errno.h>
-#include <unistd.h>
-#include <ctype.h>
-#include "bcftools.h"
-#include "regidx.h"
+#include <stdint.h>
 
 #ifndef __FUNCTION__
 #  define __FUNCTION__ __func__

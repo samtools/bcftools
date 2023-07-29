@@ -289,7 +289,7 @@ vcfbuf.o: vcfbuf.c $(htslib_vcf_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcf
 abuf.o: abuf.c $(htslib_vcf_h) $(bcftools_h) rbuf.h abuf.h
 extsort.o: extsort.c $(bcftools_h) extsort.h kheap.h
 smpl_ilist.o: smpl_ilist.c $(bcftools_h) $(smpl_ilist_h)
-gff.o: gff.c gff.h regidx.h
+gff.o: gff.c $(htslib_hts_h) $(htslib_khash_h)  $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(bcftools_h) gff.h regidx.h
 csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_h) $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) regidx.h kheap.h $(smpl_ilist_h) rbuf.h
 
 # test programs
