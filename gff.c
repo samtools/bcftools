@@ -23,6 +23,20 @@
    THE SOFTWARE.
 */
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <inttypes.h>
+#include <string.h>
+#include <htslib/hts.h>
+#include <htslib/khash.h>
+#include <htslib/khash_str2int.h>
+#include <htslib/kseq.h>
+#include <htslib/bgzf.h>
+#include <errno.h>
+#include "bcftools.h"
+#include "regidx.h"
 #include "gff.h"
 
 /*
