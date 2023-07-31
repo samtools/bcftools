@@ -1637,7 +1637,11 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--dry-run*::
     Stop after first record to estimate required time.
 
-*-e, --error-probability* 'INT'::
+*-e, --exclude* ['qry'|'gt']:'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true, in query file ('qry') or *-g* genotype file ('gt'). For
+    valid expressions see *<<expressions,EXPRESSIONS>>*
+
+*-E, --error-probability* 'INT'::
     Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
     represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
@@ -1656,6 +1660,10 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *-H, --homs-only*::
     Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
 
+*-i, --include* ['qry'|'gt']:'EXPRESSION'::
+    include sites for which 'EXPRESSION' is true, in query file ('qry') or *-g* genotype file ('gt'). For
+    valid expressions see *<<expressions,EXPRESSIONS>>*.
+
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
     to sort by HWE probability rather than the number of discordant sites. Note
@@ -1664,6 +1672,12 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--no-HWE-prob*::
     Disable calculation of HWE probability to reduce memory requirements with
     comparisons between very large number of sample pairs.
+
+*-o, --output 'FILE'*::
+    Output file name, see also *<<common_options,Common Options>>*
+
+*-O, --output-type* 't'|'z'
+    Output plain text 't' or compressed 'x' file
 
 *-p, --pairs* 'LIST'::
     A comma-separated list of sample pairs to compare. When the *-g* option is given, the first
@@ -1684,11 +1698,11 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--regions-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* ['qry'|'gt']:'LIST':
+*-s, --samples* ['qry'|'gt']:'LIST'::
     List of query samples or *-g* samples. If neither *-s* nor *-S* are given, all possible sample
     pair combinations are compared
 
-*-S, --samples-file* ['qry'|'gt']:'FILE'
+*-S, --samples-file* ['qry'|'gt']:'FILE'::
     File with the query or *-g* samples to compare.  If neither *-s* nor *-S* are given, all possible sample
     pair combinations are compared
 

@@ -39,6 +39,7 @@ THE SOFTWARE.  */
 #include <htslib/vcfutils.h>
 #include <htslib/kbitset.h>
 #include <htslib/hts_os.h>
+#include <htslib/bgzf.h>
 #include <inttypes.h>
 #include <sys/time.h>
 #include "bcftools.h"
@@ -62,10 +63,12 @@ typedef struct
     bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
     bcf_hdr_t *gt_hdr, *qry_hdr; // VCF with genotypes to compare against and the query VCF
     char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname, *pair_samples;
-    int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file;
-    int regions_overlap, targets_overlap;
+    char *output_fname;
+    int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file, output_type;
+    int regions_overlap, targets_overlap, clevel;
     int qry_use_GT,gt_use_GT, nqry_smpl,ngt_smpl, *qry_smpl,*gt_smpl;
     int nused[2][2];
+    double ngt_freq;
     double *diff_lprob, *qry_prob, *gt_prob;
     uint32_t *ndiff_lprob,*ncnt,ncmp, npairs;
     int32_t *qry_arr,*gt_arr, nqry_arr,ngt_arr;
@@ -75,9 +78,10 @@ typedef struct
     double *hwe_lprob, dsg2lprob[8][3], pl2prob[256];
     double min_inter_err, max_intra_err;
     int all_sites, hom_only, ntop, cross_check, calc_hwe_lprob, sort_by_hwe, dry_run, use_PLs;
-    FILE *fp;
+    BGZF *out_fh;
     unsigned int nskip_no_match, nskip_not_ba, nskip_mono, nskip_no_data, nskip_dip_GT, nskip_dip_PL;
     unsigned int nskip_filter;
+    kstring_t kstr;
 
     // for --distinctive-sites
     double distinctive_sites;
@@ -107,15 +111,17 @@ static void set_cwd(args_t *args)
     }
     assert(buf);
 }
-static void print_header(args_t *args, FILE *fp)
+static void print_header(args_t *args)
 {
-    fprintf(fp, "# This file was produced by bcftools (%s+htslib-%s), the command line was:\n", bcftools_version(), hts_version());
-    fprintf(fp, "# \t bcftools %s ", args->argv[0]);
+    args->kstr.l = 0;
+    ksprintf(&args->kstr, "# This file was produced by bcftools (%s+htslib-%s), the command line was:\n", bcftools_version(), hts_version());
+    ksprintf(&args->kstr, "# \t bcftools %s ", args->argv[0]);
     int i;
     for (i=1; i<args->argc; i++)
-        fprintf(fp, " %s",args->argv[i]);
-    fprintf(fp, "\n# and the working directory was:\n");
-    fprintf(fp, "# \t %s\n#\n", args->cwd);
+        ksprintf(&args->kstr, " %s",args->argv[i]);
+    ksprintf(&args->kstr, "\n# and the working directory was:\n");
+    ksprintf(&args->kstr, "# \t %s\n#\n", args->cwd);
+    if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
 }
 
 static int cmp_int(const void *_a, const void *_b)
@@ -380,6 +386,12 @@ static void init_data(args_t *args)
         args->cross_check = 1;
     }
 
+    // The prior probability of sample match, assuming among the samples there is one and only one identical
+    if ( args->gt_hdr )
+        args->ngt_freq = (double)1/bcf_hdr_nsamples(args->gt_hdr);
+    else
+        args->ngt_freq = (double)1/bcf_hdr_nsamples(args->qry_hdr);
+
     // The data arrays
     if ( !args->npairs ) args->npairs = args->cross_check ? args->nqry_smpl*(args->nqry_smpl+1)/2 : args->ngt_smpl*args->nqry_smpl;
     if ( !args->pair_samples )
@@ -426,12 +438,16 @@ static void init_data(args_t *args)
 
     if ( args->distinctive_sites ) diff_sites_init(args);
 
-    args->fp = stdout;
-    print_header(args, args->fp);
+    args->out_fh = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+    if ( args->out_fh == NULL )
+        error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname ? args->output_fname : "standard output", strerror(errno));
+
+    print_header(args);
 }
 
 static void destroy_data(args_t *args)
 {
+    free(args->kstr.s);
     if ( args->gt_filter ) filter_destroy(args->gt_filter);
     if ( args->qry_filter ) filter_destroy(args->qry_filter);
     if ( args->gt_dsg!=args->qry_dsg ) free(args->gt_dsg);
@@ -439,7 +455,7 @@ static void destroy_data(args_t *args)
     if ( args->gt_prob!=args->qry_prob ) free(args->gt_prob);
     free(args->qry_prob);
     free(args->es_max_mem);
-    fclose(args->fp);
+    if ( bgzf_close(args->out_fh)!=0 )  error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
     if ( args->distinctive_sites ) diff_sites_destroy(args);
     free(args->hwe_lprob);
     dist_destroy(args->hwe_lprob_dist);
@@ -594,8 +610,9 @@ static void process_line(args_t *args)
     args->ncmp++;
     args->nused[qry_use_GT][gt_use_GT]++;
 
-    double hwe_lprob[8], hwe_prob[8];
-double hwe_dsg[8];
+    // todo: precompute and tabelate log,exp?
+    //  double hwe_lprob[8];
+    double hwe_prob[8];
     if ( args->calc_hwe_lprob )
     {
         int ac[2];
@@ -635,14 +652,13 @@ double hwe_dsg[8];
             {
                 if ( ((1<<k)&i) && hwe_prob[i] > hwe[k] ) hwe_prob[i] = hwe[k];
             }
-            hwe_lprob[i] = -log(hwe_prob[i]);
+            //hwe_lprob[i] = -log(hwe_prob[i]);
         }
     }
 
     // The sample pairs were given explicitly via -p/-P options
     if ( args->pairs )
     {
-assert(0);
         if ( !args->use_PLs )
         {
             int ndiff_lprob = 0;
@@ -668,10 +684,16 @@ assert(0);
                     args->ndiff_lprob[i]++;
                     if ( args->kbs_diff ) { ndiff_lprob++; kbs_insert(args->kbs_diff, i); }
                 }
-                else if ( args->calc_hwe_lprob ) args->hwe_lprob[i] += hwe_dsg[match];
+                if ( args->calc_hwe_lprob )
+                {
+                    double sprob = (double)(match ? 1 : 1e-10) * args->ngt_freq;
+                    double hprob = hwe_prob[qry_dsg] * hwe_prob[gt_dsg] * (1 - args->ngt_freq);
+                    double lprob = -log(sprob / (sprob + hprob));
+                    args->hwe_lprob[i] += lprob;
+                    dist_insert(args->hwe_lprob_dist,lprob*1000);   // multipled by 1000 to preserve granularity in low bins
+                }
                 args->ncnt[i]++;
             }
-
             if ( ndiff_lprob ) diff_sites_push(args, ndiff_lprob, qry_rec->rid, qry_rec->pos);
         }
         else    // use_PLs set
@@ -679,30 +701,31 @@ assert(0);
             for (i=0; i<args->npairs; i++)
             {
                 int32_t *ptr;
-                double qry_prob[3], gt_prob[3];
+                double qry_lprob[3], gt_lprob[3];
                 uint8_t qry_dsg, gt_dsg;
 
                 ptr = args->gt_arr + args->pairs[i].igt*ngt1;
-                gt_dsg = gt_use_GT ? gt_to_lprob(args,ptr,gt_prob) : pl_to_lprob(args,ptr,gt_prob);
+                gt_dsg = gt_use_GT ? gt_to_lprob(args,ptr,gt_lprob) : pl_to_lprob(args,ptr,gt_lprob);
                 if ( !gt_dsg ) continue;                        // missing value
                 if ( args->hom_only && !(gt_dsg&5) ) continue;  // not a hom
 
                 ptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-                qry_dsg = qry_use_GT ? gt_to_lprob(args,ptr,qry_prob) : pl_to_lprob(args,ptr,qry_prob);
+                qry_dsg = qry_use_GT ? gt_to_lprob(args,ptr,qry_lprob) : pl_to_lprob(args,ptr,qry_lprob);
                 if ( !qry_dsg ) continue;                       // missing value
 
                 // Find the most likely matching genotype, i.e. min_i(qryPL_i+gtPL_i)
-                double min = qry_prob[0] + gt_prob[0];
-                qry_prob[1] += gt_prob[1];
-                if ( min > qry_prob[1] ) min = qry_prob[1];
-                qry_prob[2] += gt_prob[2];
-                if ( min > qry_prob[2] ) min = qry_prob[2];
-                args->diff_lprob[i] += min;
+                double smpl_lprob = qry_lprob[0] + gt_lprob[0];
+                if ( smpl_lprob > qry_lprob[1] + gt_lprob[1] ) smpl_lprob = qry_lprob[1] + gt_lprob[1];
+                if ( smpl_lprob > qry_lprob[2] + gt_lprob[2] ) smpl_lprob = qry_lprob[2] + gt_lprob[2];
+                args->diff_lprob[i] += smpl_lprob;
 
                 if ( args->calc_hwe_lprob )
                 {
-                    int match = qry_dsg & gt_dsg;
-                    args->hwe_lprob[i] += hwe_dsg[match];
+                    double sprob = exp(smpl_lprob) * args->ngt_freq;
+                    double hprob = hwe_prob[qry_dsg] * hwe_prob[gt_dsg] * ( 1 - args->ngt_freq);
+                    double lprob = -log(sprob / (sprob + hprob));
+                    args->hwe_lprob[i] += lprob;
+                    dist_insert(args->hwe_lprob_dist,lprob*1000);   // multipled by 1000 to preserve granularity in low bins
                 }
                 args->ncnt[i]++;
             }
@@ -713,7 +736,6 @@ assert(0);
     int idx=0;
     if ( !args->use_PLs )
     {
-assert(0);
         for (i=0; i<args->nqry_smpl; i++)
         {
             int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
@@ -734,12 +756,20 @@ assert(0);
         {
             int ngt = args->cross_check ? i : args->ngt_smpl;       // two files or a sub-diagonal cross-check mode?
             if ( !args->qry_dsg[i] ) { idx += ngt; continue; }      // missing value
+            double qry_hprob = hwe_prob[args->qry_dsg[i]];
             for (j=0; j<ngt; j++)
             {
                 if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
                 int match = args->qry_dsg[i] & args->gt_dsg[j];
                 if ( !match ) args->ndiff_lprob[idx]++;
-                else if ( args->calc_hwe_lprob ) args->hwe_lprob[idx] += hwe_dsg[match];
+                if ( args->calc_hwe_lprob )
+                {
+                    double sprob = (double)(match ? 1 : 1e-10) * args->ngt_freq;
+                    double hprob = qry_hprob * hwe_prob[args->gt_dsg[j]] * ( 1 - args->ngt_freq);
+                    double lprob = -log(sprob / (sprob + hprob));
+                    args->hwe_lprob[idx] += lprob;
+                    dist_insert(args->hwe_lprob_dist,lprob*1000);   // multipled by 1000 to preserve granularity in low bins
+                }
                 args->ncnt[idx]++;
                 idx++;
             }
@@ -773,15 +803,15 @@ assert(0);
             {
                 if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
 
-                double smpl_prob = args->qry_prob[i*3] + args->gt_prob[j*3];
-                if ( smpl_prob > args->qry_prob[i*3+1] + args->gt_prob[j*3+1] ) smpl_prob = args->qry_prob[i*3+1] + args->gt_prob[j*3+1];
-                if ( smpl_prob > args->qry_prob[i*3+2] + args->gt_prob[j*3+2] ) smpl_prob = args->qry_prob[i*3+2] + args->gt_prob[j*3+2];
-                args->diff_lprob[idx] += smpl_prob;
+                double smpl_lprob = args->qry_prob[i*3] + args->gt_prob[j*3];
+                if ( smpl_lprob > args->qry_prob[i*3+1] + args->gt_prob[j*3+1] ) smpl_lprob = args->qry_prob[i*3+1] + args->gt_prob[j*3+1];
+                if ( smpl_lprob > args->qry_prob[i*3+2] + args->gt_prob[j*3+2] ) smpl_lprob = args->qry_prob[i*3+2] + args->gt_prob[j*3+2];
+                args->diff_lprob[idx] += smpl_lprob;
 
                 if ( args->calc_hwe_lprob )
                 {
-                    double sprob = exp(smpl_prob) / args->ngt_smpl;
-                    double hprob = qry_hprob * hwe_prob[args->gt_dsg[i]] * ( 1 - 1./args->ngt_smpl);
+                    double sprob = exp(smpl_lprob) * args->ngt_freq;
+                    double hprob = qry_hprob * hwe_prob[args->gt_dsg[j]] * ( 1 - args->ngt_freq);
                     double lprob = -log(sprob / (sprob + hprob));
                     args->hwe_lprob[idx] += lprob;
                     dist_insert(args->hwe_lprob_dist,lprob*1000);   // multipled by 1000 to preserve granularity in low bins
@@ -812,12 +842,14 @@ static void report_distinctive_sites(args_t *args)
 {
     extsort_sort(args->es);
 
-    fprintf(args->fp,"# DS, distinctive sites:\n");
-    fprintf(args->fp,"#     - chromosome\n");
-    fprintf(args->fp,"#     - position\n");
-    fprintf(args->fp,"#     - cumulative number of pairs distinguished by this block\n");
-    fprintf(args->fp,"#     - block id\n");
-    fprintf(args->fp,"#DS\t[2]Chromosome\t[3]Position\t[4]Cumulative number of distinct pairs\t[5]Block id\n");
+    args->kstr.l = 0;
+    ksprintf(&args->kstr,"# DS, distinctive sites:\n");
+    ksprintf(&args->kstr,"#     - chromosome\n");
+    ksprintf(&args->kstr,"#     - position\n");
+    ksprintf(&args->kstr,"#     - cumulative number of pairs distinguished by this block\n");
+    ksprintf(&args->kstr,"#     - block id\n");
+    ksprintf(&args->kstr,"#DS\t[2]Chromosome\t[3]Position\t[4]Cumulative number of distinct pairs\t[5]Block id\n");
+    if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
 
     kbitset_t *kbs_blk = kbs_init(args->npairs);
     kbitset_iter_t itr;
@@ -837,7 +869,9 @@ static void report_distinctive_sites(args_t *args)
         if ( ndiff_lprob_dbg!=ndiff_lprob ) error("Corrupted data, fixme: %d vs %d\n",ndiff_lprob_dbg,ndiff_lprob);
         if ( !ndiff_lprob_new ) continue;     // no new pair distinguished by this site
         ndiff_lprob_tot += ndiff_lprob_new;
-        fprintf(args->fp,"DS\t%s\t%d\t%d\t%d\n",bcf_hdr_id2name(args->qry_hdr,rid),pos+1,ndiff_lprob_tot,iblock);
+        args->kstr.l = 0;
+        ksprintf(&args->kstr,"DS\t%s\t%d\t%d\t%d\n",bcf_hdr_id2name(args->qry_hdr,rid),pos+1,ndiff_lprob_tot,iblock);
+        if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
         if ( ndiff_lprob_tot < ndiff_lprob_min ) continue;   // fewer than the requested number of pairs can be distinguished at this point
         iblock++;
         ndiff_lprob_tot = 0;
@@ -845,53 +879,71 @@ static void report_distinctive_sites(args_t *args)
     }
     kbs_destroy(kbs_blk);
 }
+
+#define EVAL_HWE_CI(idx) \
+    double hwe_lprob = 0, ci_min = 0, ci_max = 0; \
+    if ( args->calc_hwe_lprob ) \
+    { \
+        int nmissing = args->ncmp - args->ncnt[idx]; \
+        if ( nmissing ) eci_calc(eci,nmissing,&ci_min,&ci_max); \
+        ci_min = (args->hwe_lprob[idx] + ci_min) / args->ncmp; \
+        ci_max = (args->hwe_lprob[idx] + ci_max) / args->ncmp; \
+        hwe_lprob = args->ncnt[idx] ? args->hwe_lprob[idx] / args->ncnt[idx] : args->hwe_lprob[idx]; \
+    }
+
 static void report(args_t *args)
 {
-    fprintf(args->fp,"INFO\tsites-compared\t%u\n",args->ncmp);
-    fprintf(args->fp,"INFO\tsites-skipped-no-match\t%u\n",args->nskip_no_match);
-    fprintf(args->fp,"INFO\tsites-skipped-multiallelic\t%u\n",args->nskip_not_ba);
-    fprintf(args->fp,"INFO\tsites-skipped-monoallelic\t%u\n",args->nskip_mono);
-    fprintf(args->fp,"INFO\tsites-skipped-no-data\t%u\n",args->nskip_no_data);
-    fprintf(args->fp,"INFO\tsites-skipped-GT-not-diploid\t%u\n",args->nskip_dip_GT);
-    fprintf(args->fp,"INFO\tsites-skipped-PL-not-diploid\t%u\n",args->nskip_dip_PL);
-    fprintf(args->fp,"INFO\tsites-skipped-filtering-expression\t%u\n",args->nskip_filter);
-    fprintf(args->fp,"INFO\tsites-used-PL-vs-PL\t%u\n",args->nused[0][0]);
-    fprintf(args->fp,"INFO\tsites-used-PL-vs-GT\t%u\n",args->nused[0][1]);
-    fprintf(args->fp,"INFO\tsites-used-GT-vs-PL\t%u\n",args->nused[1][0]);
-    fprintf(args->fp,"INFO\tsites-used-GT-vs-GT\t%u\n",args->nused[1][1]);
-    fprintf(args->fp,"# DC, discordance:\n");
-    fprintf(args->fp,"#     - query sample\n");
-    fprintf(args->fp,"#     - genotyped sample\n");
-    fprintf(args->fp,"#     - discordance (either an abstract score or number of mismatches, see -E/-u in the man page for details; smaller value = better match)\n");
-    fprintf(args->fp,"#     - negative log of Bayes probability (includes HWE reasoning, rare genotypes matches are more informative, bigger value = better match)\n");
-    fprintf(args->fp,"#     - number of sites compared (bigger = more informative)\n");
-    fprintf(args->fp,"#DC\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]-log P(HWE)\t[6]Number of sites compared\n");
+    args->kstr.l = 0;
+    ksprintf(&args->kstr,"INFO\tsites-compared\t%u\n",args->ncmp);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-no-match\t%u\n",args->nskip_no_match);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-multiallelic\t%u\n",args->nskip_not_ba);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-monoallelic\t%u\n",args->nskip_mono);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-no-data\t%u\n",args->nskip_no_data);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-GT-not-diploid\t%u\n",args->nskip_dip_GT);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-PL-not-diploid\t%u\n",args->nskip_dip_PL);
+    ksprintf(&args->kstr,"INFO\tsites-skipped-filtering-expression\t%u\n",args->nskip_filter);
+    ksprintf(&args->kstr,"INFO\tsites-used-PL-vs-PL\t%u\n",args->nused[0][0]);
+    ksprintf(&args->kstr,"INFO\tsites-used-PL-vs-GT\t%u\n",args->nused[0][1]);
+    ksprintf(&args->kstr,"INFO\tsites-used-GT-vs-PL\t%u\n",args->nused[1][0]);
+    ksprintf(&args->kstr,"INFO\tsites-used-GT-vs-GT\t%u\n",args->nused[1][1]);
+    ksprintf(&args->kstr,"# DI, Discordance:\n");
+    ksprintf(&args->kstr,"#     - Query sample\n");
+    ksprintf(&args->kstr,"#     - Genotyped sample\n");
+    ksprintf(&args->kstr,"#     - Number of sites compared for this pair of samples (bigger = more informative)\n");
+    ksprintf(&args->kstr,"#     - Discordance, given either as an abstract score or number of mismatches, see the options -E/-u\n"
+                         "#       in man page for details. Note that samples with high missingness have fewer sites compared,\n"
+                         "#       which results in lower overall discordance. Therefore it is advisable to use the average score\n"
+                         "#       per site rather than the absolute value, i.e. divide by the number of sites compared\n"
+                         "#       (smaller value = better match)\n");
+    ksprintf(&args->kstr,"#     - Negative log of Bayesian HWE probability of samples being identical. Combines evidence from\n"
+                         "#       discordance and alternate allele frequency, taking into account the fact that it is unlikely\n"
+                         "#       to observe a rare genotype in two unrelated samples (bigger value = better match)\n"
+                         "#     - Lower bound of confidence interval as estimated from the number of missing data points relative\n"
+                         "#       to the number of sites available across all samples\n"
+                         "#     - Higher bound of confidence interval\n");
+    ksprintf(&args->kstr,"#DI\t[2]Query Sample\t[3]Genotyped Sample\t[4]Number of sites compared\t[5]Discordance\t[6]-log P(HWE)\t[7]CI_low\t[8]CI_high\n");
+    if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
 
-int i,j,n = dist_nbins(args->hwe_lprob_dist);
-double *val   = (double*) malloc(sizeof(*val)*n);
-uint64_t *cnt = (uint64_t*) malloc(sizeof(*cnt)*n);
-uint32_t beg, end;
-for (i=0,j=0; i<n; i++)
-{
-    cnt[j] = dist_get(args->hwe_lprob_dist, i, &beg, &end);
-    if ( !cnt[j] ) continue;
-    val[j] = beg/1000.;
-    j++;
-}
-eci_t *eci = eci_init(val,cnt,j);
-eci_destroy(eci);
 
-// int i,n = dist_nbins(args->hwe_lprob_dist);
-// uint64_t nvals = dist_nvalues(args->hwe_lprob_dist);
-// fprintf(stderr,"XX\t%"PRIu64"\n",nvals);
-// uint32_t beg, end;
-// for (i=0; i<n; i++)
-// {
-//     uint64_t cnt = dist_get(args->hwe_lprob_dist, i, &beg, &end);
-//     if ( !cnt ) continue;
-//     fprintf(stderr,"XX\t%u\t%f\t%f\t%"PRIu64"\t%f\n", beg,beg/1000., end/1000., cnt, (double)cnt/(end-beg));
-// }
-
+    // confidence intervals are calculated only with HWE probability
+    eci_t *eci = NULL;
+    if ( args->calc_hwe_lprob )
+    {
+        int i,j,n = dist_nbins(args->hwe_lprob_dist);
+        double *val   = (double*) malloc(sizeof(*val)*n);
+        uint64_t *cnt = (uint64_t*) malloc(sizeof(*cnt)*n);
+        uint32_t beg, end;
+        for (i=0,j=0; i<n; i++)
+        {
+            cnt[j] = dist_get(args->hwe_lprob_dist, i, &beg, &end);
+            if ( !cnt[j] ) continue;
+            val[j] = beg/1000.;
+            j++;
+        }
+        eci = eci_init(val,cnt,j);
+        free(val);
+        free(cnt);
+    }
 
     int trim = args->ntop;
     if ( !args->pairs )
@@ -905,26 +957,29 @@ eci_destroy(eci);
         int i;
         for (i=0; i<args->npairs; i++)
         {
+            args->kstr.l = 0;
             int iqry = args->pairs[i].iqry;
             int igt  = args->pairs[i].igt;
+            EVAL_HWE_CI(i);
             if ( args->ndiff_lprob )
             {
-                fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%u\t%e\t%e\t%e\n",
                         args->qry_hdr->samples[iqry],
                         args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                        args->ncnt[i],
                         args->ndiff_lprob[i],
-                        args->calc_hwe_lprob ? args->hwe_lprob[i] : 0,
-                        args->ncnt[i]);
+                        hwe_lprob,ci_min,ci_max);
             }
             else
             {
-                fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
-                        args->qry_hdr->samples[iqry],
-                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                        args->diff_lprob[i],
-                        args->calc_hwe_lprob ? args->hwe_lprob[i] : 0,
-                        args->ncnt[i]);
+                ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%e\t%e\t%e\t%e\n",
+                         args->qry_hdr->samples[iqry],
+                         args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                         args->ncnt[i],
+                         args->diff_lprob[i],
+                         hwe_lprob,ci_min,ci_max);
             }
+            if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
         }
     }
     else if ( !trim )
@@ -936,25 +991,28 @@ eci_destroy(eci);
             int ngt  = args->cross_check ? i : args->ngt_smpl;
             for (j=0; j<ngt; j++)
             {
+                args->kstr.l = 0;
                 int igt = args->gt_smpl ? args->gt_smpl[j] : j;
+                EVAL_HWE_CI(idx);
                 if ( args->ndiff_lprob )
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                            args->ndiff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%u\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->ndiff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
                 else
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                            args->diff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%e\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->diff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
+                if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
                 idx++;
             }
         }
@@ -982,26 +1040,29 @@ eci_destroy(eci);
             int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
             for (j=0; j<args->ntop; j++)
             {
+                args->kstr.l = 0;
                 int idx = arr[j].idx;
                 int igt = args->gt_smpl ? args->gt_smpl[arr[j].ism] : arr[j].ism;
+                EVAL_HWE_CI(idx);
                 if ( args->ndiff_lprob )
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                            args->ndiff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%u\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->ndiff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
                 else
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                            args->diff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%e\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->diff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
+                if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }
         }
         free(arr);
@@ -1045,30 +1106,34 @@ eci_destroy(eci);
             for (j=0; j<args->ntop; j++)
             {
                 if ( i <= arr[j].ism ) continue;
+                args->kstr.l = 0;
                 int idx = arr[j].idx;
                 int igt = args->qry_smpl ? args->qry_smpl[arr[j].ism] : arr[j].ism;
+                EVAL_HWE_CI(idx);
                 if ( args->ndiff_lprob )
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->qry_hdr->samples[igt],
-                            args->ndiff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%u\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->ndiff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
                 else
                 {
-                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
-                            args->qry_hdr->samples[iqry],
-                            args->qry_hdr->samples[igt],
-                            args->diff_lprob[idx],
-                            args->calc_hwe_lprob ? args->hwe_lprob[idx] : 0,
-                            args->ncnt[idx]);
+                    ksprintf(&args->kstr,"DI\t%s\t%s\t%u\t%e\t%e\t%e\t%e\n",
+                             args->qry_hdr->samples[iqry],
+                             args->qry_hdr->samples[igt],
+                             args->ncnt[idx],
+                             args->diff_lprob[idx],
+                             hwe_lprob,ci_min,ci_max);
                 }
+                if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }
         }
         free(arr);
     }
+    if ( eci ) eci_destroy(eci);
 }
 
 static int is_input_okay(args_t *args, int nmatch)
@@ -1142,6 +1207,8 @@ static void usage(void)
     fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample (sorted by average score), 0 for unlimited.\n");
     fprintf(stderr, "                                           Use negative value to sort by HWE probability rather than by discordance [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
+    fprintf(stderr, "    -o, --output FILE                  Write output to a file [standard output]\n");
+    fprintf(stderr, "    -O, --output-type t|z              t: plain tab-delimited text output, z: compressed [t]\n");
     fprintf(stderr, "    -p, --pairs LIST                   Comma-separated sample pairs to compare (qry,gt[,qry,gt..] with -g or qry,qry[,qry,qry..] w/o)\n");
     fprintf(stderr, "    -P, --pairs-file FILE              File with tab-delimited sample pairs to compare (qry,gt with -g or qry,qry w/o)\n");
     fprintf(stderr, "    -r, --regions REGION               Restrict to comma-separated list of regions\n");
@@ -1177,6 +1244,8 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->use_PLs = 40;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
+    args->output_fname = "-";
+    hts_srand48(0);
 
     // external sort for --distinctive-sites
 #ifdef _WIN32
@@ -1198,6 +1267,8 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"error-probability",1,0,'E'},  // note this used to be 'e', but can easily auto-detect to assure backward compatibility
         {"exclude",required_argument,0,'e'},
         {"include",required_argument,0,'i'},
+        {"output",required_argument,0,'o'},
+        {"output-type",required_argument,NULL,'O'},
         {"use",1,0,'u'},
         {"cluster",1,0,'c'},
         {"GTs-only",1,0,'G'},
@@ -1224,8 +1295,25 @@ int main_vcfgtcheck(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:e:i:E:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:e:i:E:o:O:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'o': args->output_fname = optarg; break;
+            case 'O':
+                      switch (optarg[0]) {
+                          case 't': args->output_type = FT_TAB_TEXT; break;
+                          case 'z': args->output_type = FT_VCF_GZ; break;
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --output-type %s\n", optarg+1);
+                      }
+                      break;
             case 'e':
                 if ( !strncasecmp("gt:",optarg,3) )
                 {
@@ -1253,7 +1341,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                     }
                     else
                     {
-                        fprintf(stderr,"[warning] auto-detected the old format --error-probability option, please switch from -e to -E future.\n");
+                        fprintf(stderr,"[warning] auto-detected the old format --error-probability option, please switch from -e to -E.\n");
                     }
                 }
                 break;
@@ -1405,7 +1493,9 @@ int main_vcfgtcheck(int argc, char *argv[])
             gettimeofday(&t1, NULL);
             double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec);
             fprintf(stderr,"INFO:\tTime required to process one record .. %f seconds\n",delta/1e6);
-            fprintf(args->fp,"INFO\tTime required to process one record .. %f seconds\n",delta/1e6);
+            args->kstr.l = 0;
+            ksprintf(&args->kstr,"INFO\tTime required to process one record .. %f seconds\n",delta/1e6);
+            if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             if ( args->dry_run ) break;
         }
     }

@@ -43,6 +43,7 @@ typedef struct eci_t_ eci_t;
     @n:     array size
  */
 eci_t *eci_init(double *val, uint64_t *cnt, uint32_t n);
+int eci_calc(eci_t *eci, uint32_t nmissing, double *ci_min, double *ci_max);
 void eci_destroy(eci_t *eci);
 
 #endif
