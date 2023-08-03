@@ -1709,29 +1709,18 @@ static void force_newline_(convert_t *convert)
     }
     if ( has_newline ) return;
 
-    // A newline is not present, force it. But where to add it?
-    // Consider
-    //      -f'%CHROM[ %SAMPLE]\n'
-    // vs
-    //      -f'[%CHROM %SAMPLE\n]'
-    for (i=0; i<convert->nfmt; i++)
-        if ( !convert->fmt[i].is_gt_field && convert->fmt[i].key ) break;
+    // A newline is not present, force it. But where to add it? Always at the end.
+    //
+    // Briefly, in 1.18, we considered the following automatic behavior, which for
+    // per-site output it would add it at the end of the expression and for per-sample
+    // output it would add it inside the square brackets:
+    //           -f'%CHROM[ %SAMPLE]\n'
+    //           -f'[%CHROM %SAMPLE\n]'
+    //
+    // However, this is an annoyance for users, as it is not entirely clear what
+    // will happen unless one understands the internals well (#1969)
 
-    if ( i < convert->nfmt )
-        register_tag(convert, "\n", 0, T_SEP);  // the first case
-    else
-    {
-        // the second case
-        i = convert->nfmt - 1;
-        if ( !convert->fmt[i].key )
-        {
-            convert->fmt[i].key = strdup("\n");
-            convert->fmt[i].is_gt_field = 1;
-            register_tag(convert, NULL, 0, T_SEP);
-        }
-        else
-            register_tag(convert, "\n", 1, T_SEP);
-    }
+    register_tag(convert, "\n", 0, T_SEP);
 }
 
 int convert_set_option(convert_t *convert, enum convert_option opt, ...)

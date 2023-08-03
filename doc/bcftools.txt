@@ -2904,6 +2904,13 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-l, --list-samples*::
     list sample names and exit
 
+*-N, --disable-automatic-newline*::
+    disable automatic addition of a missing newline character at the end of the formatting
+    expression. By default, the program checks if the expression contains a newline
+    and appends it if not, to prevent formatting the entire output into a single
+    line by mistake. Note that versions prior to 1.18 had no automatic check and newline
+    had to be included explicitly.
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 

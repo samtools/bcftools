@@ -1,7 +1,25 @@
 ## Release a.b
 
-## Release 1.18 (25th July 2023)
 
+Changes affecting specific commands:
+
+* bcftools query
+
+    - Add new `-N, --disable-automatic-newline` option for pre-1.18 query formatting behavior
+      when newline would not be added when missing
+
+    - Make the automatic addition of the newline character in a more predictable way and,
+      when missing, always put it at the end of the expression. In version 1.18 it could
+      be added at the end of the expression (for per-site expressions) or inside the square
+      brackets (for per-sample expressions). The new behavior is:
+
+        - if the formatting expression contains a newline character, do nothing
+        - if there is no newline character and -N, --disable-automatic-newline is given, do nothing
+        - if there is no newline character and -N is not given, insert newline at the end of the expression
+
+      See #1969 for details
+
+## Release 1.18 (25th July 2023)
 
 Changes affecting the whole of bcftools, or multiple commands:
 
