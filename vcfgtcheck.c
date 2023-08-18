@@ -1071,10 +1071,10 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2        Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "    -u, --use TAG1[,TAG2]              Which tag to use in the query file (TAG1) and the -g file (TAG2) [PL,GT]\n");
     fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "   # Check discordance of all samples from B against all sample in A\n");
+    fprintf(stderr, "   # Check discordance of all samples from B against all samples in A\n");
     fprintf(stderr, "   bcftools gtcheck -g A.bcf B.bcf\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "   # Limit comparisons to the fiven list of samples\n");
+    fprintf(stderr, "   # Limit comparisons to the given list of samples\n");
     fprintf(stderr, "   bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "   # Compare only two pairs a1,b1 and a1,b2\n");

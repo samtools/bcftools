@@ -1709,14 +1709,14 @@ The discordance score can be interpreted as the number of mismatching genotypes 
     {nbsp} +
     Note that when the requested tag is not available, the program will attempt to use
     the other tag. The output includes the number of sites that were matched by the four
-    possible mode (for example GT-vs-GT or GT-vs-PL).
+    possible modes (for example GT-vs-GT or GT-vs-PL).
 
 *Examples:*
 ----
-   # Check discordance of all samples from B against all sample in A
+   # Check discordance of all samples from B against all samples in A
    bcftools gtcheck -g A.bcf B.bcf
 
-   # Limit comparisons to the fiven list of samples
+   # Limit comparisons to the given list of samples
    bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf
 
    # Compare only two pairs a1,b1 and a1,b2
