@@ -109,6 +109,8 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.2.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" && CLNREVSTAT="_conflicting_interpretations"']);
+run_test(\&test_vcf_query,$opts,in=>'query.string.2',out=>'query.string.2.1.out',args=>q[-f '%CHROM\\t%POS\\t%INFO/STR\\n' -i'INFO/STR=@{PATH}/query.string.2.1.txt']);
+run_test(\&test_vcf_query,$opts,in=>'query.string.2',out=>'query.string.2.2.out',args=>q[-f '%CHROM\\t%POS[\\t%STR]\\n' -i'FMT/STR=@{PATH}/query.string.2.2.txt']);
 run_test(\&test_vcf_query,$opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 run_test(\&test_vcf_query,$opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 run_test(\&test_vcf_query,$opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);

@@ -1,5 +1,14 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Filtering expressions can be given a file with list of strings to match, this
+  was previously possible only for the ID column. For example
+
+    ID=@file            .. selects lines with ID present in the file
+    INFO/TAG=@file.txt  .. selects lines where TAG has a string value listed in the file
+    INFO/TAG!=@file.txt .. TAG must not have a string value listed in the file
+
 
 Changes affecting specific commands:
 
@@ -18,6 +27,8 @@ Changes affecting specific commands:
         - if there is no newline character and -N is not given, insert newline at the end of the expression
 
       See #1969 for details
+
+
 
 ## Release 1.18 (25th July 2023)
 

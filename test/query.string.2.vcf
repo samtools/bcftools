@@ -1,0 +1,9 @@
+##fileformat=VCFv4.3
+##reference=GRCh37
+##contig=<ID=1,length=249250621,assembly=hg19>
+##INFO=<ID=STR,Number=.,Type=String,Description="">
+##FORMAT=<ID=STR,Number=.,Type=String,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2
+1	865568	.	G	A	.	.	STR=AA,BB	STR	P,Q	Q,R
+1	865628	.	G	A	.	.	STR=BB,CC	STR	R,S	S,T
+1	865716	.	G	A	.	.	STR=CC,DD	STR	T,U	U,V

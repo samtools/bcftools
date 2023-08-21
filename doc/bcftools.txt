@@ -3520,8 +3520,7 @@ These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
-* numerical constants, string constants, file names (this is currently
-  supported only to filter by the ID column)
+* numerical constants, string constants, file names (indicated by the prefix '@')
 
         1, 1.0, 1e-4
         "String"
@@ -3748,9 +3747,11 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
 
-    ID=@file       .. selects lines with ID present in the file
+    ID=@file               .. selects lines with ID present in the file
 
-    ID!=@~/file    .. skip lines with ID present in the ~/file
+    ID!=@~/file            .. skip lines with ID present in the ~/file
+
+    INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file
 
     MAF[0]<0.05    .. select rare variants at 5% cutoff
 
