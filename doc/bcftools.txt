@@ -3512,6 +3512,64 @@ important libraries used by bcftools.
 Display the full bcftools version number in a machine-readable format.
 
 
+SCRIPTS
+-------
+
+[[gff2gff]]
+=== gff2gff
+Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
+
+--
+    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+--
+
+
+[[plot-vcfstats]]
+=== plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
+Script for processing output of *<<stats,bcftools stats>>*. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.
+
+*-m, --merge*::
+    Merge vcfstats files to STDOUT, skip plotting.
+
+*-p, --prefix* 'DIR'::
+    The output directory. This directory will be created if it does not exist.
+
+*-P, --no-PDF*::
+    Skip the PDF creation step.
+
+*-r, --rasterize*::
+    Rasterize PDF images for faster rendering. This is the default and the opposite of *-v, --vectors*.
+
+*-s, --sample-names*::
+    Use sample names for xticks rather than numeric IDs.
+
+*-t, --title* 'STRING'::
+    Identify files by these titles in plots. The option can be given multiple
+    times, for each ID in the *<<stats,bcftools stats>>* output. If not
+    present, the script will use abbreviated source file names for the titles.
+
+*-v, --vectors*::
+    Generate vector graphics for PDF images, the opposite of *-r, --rasterize*.
+
+*-T, --main-title* 'STRING'::
+    Main title for the PDF.
+
+*Example:*
+--
+    # Generate the stats
+    bcftools stats -s - > file.vchk
+
+    # Plot the stats
+    plot-vcfstats -p outdir file.vchk
+
+    # The final looks can be customized by editing the generated
+    # 'outdir/plot.py' script and re-running manually
+    cd outdir && python plot.py && pdflatex summary.tex
+--
+
+
 [[expressions]]
 FILTERING EXPRESSIONS
 ---------------------
@@ -3603,7 +3661,7 @@ ref-ref hom, alt-alt hom, ref-alt het, alt-alt het, haploid ref, haploid alt
         GT="R"
         GT="A"
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap, see *<<terminology,TERMINOLOGY>>*). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 
@@ -3773,62 +3831,25 @@ that the whole expression is passed to the program as intended:
 Please refer to the documentation of your shell for details.
 
 
-SCRIPTS
--------
-
-[[gff2gff]]
-=== gff2gff
-Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
-
+[[terminology]]
+TERMINOLOGY
+-----------
+The program and the documentation uses the following terminology, multiple terms can be used
+interchangeably for the same VCF record type
 --
-    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+    REF   ALT
+    ---------
+    C     .         .. reference allele / non-variant site / ref-only site
+    C     T         .. SNP or SNV (single-nucleotide polymorphism or variant), used interchangeably
+    CC    TT        .. MNP (multi-nucleotide polymorphism)
+    CAAA  C         .. indel, deletion (regardless of length)
+    C     CAAA      .. indel, insertion (regardless of length)
+    C     <*>       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
+    C     <NON_REF> .. synonymous to <*>
+    C     *         .. overlapping deletion
+    C     <INS>     .. symbolic allele, known also as 'other [than above]'
 --
 
-
-[[plot-vcfstats]]
-=== plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
-Script for processing output of *<<stats,bcftools stats>>*. It can merge
-results from multiple outputs (useful when running the stats for each
-chromosome separately), plots graphs and creates a PDF presentation.
-
-*-m, --merge*::
-    Merge vcfstats files to STDOUT, skip plotting.
-
-*-p, --prefix* 'DIR'::
-    The output directory. This directory will be created if it does not exist.
-
-*-P, --no-PDF*::
-    Skip the PDF creation step.
-
-*-r, --rasterize*::
-    Rasterize PDF images for faster rendering. This is the default and the opposite of *-v, --vectors*.
-
-*-s, --sample-names*::
-    Use sample names for xticks rather than numeric IDs.
-
-*-t, --title* 'STRING'::
-    Identify files by these titles in plots. The option can be given multiple
-    times, for each ID in the *<<stats,bcftools stats>>* output. If not
-    present, the script will use abbreviated source file names for the titles.
-
-*-v, --vectors*::
-    Generate vector graphics for PDF images, the opposite of *-r, --rasterize*.
-
-*-T, --main-title* 'STRING'::
-    Main title for the PDF.
-
-*Example:*
---
-    # Generate the stats
-    bcftools stats -s - > file.vchk
-
-    # Plot the stats
-    plot-vcfstats -p outdir file.vchk
-
-    # The final looks can be customized by editing the generated
-    # 'outdir/plot.py' script and re-running manually
-    cd outdir && python plot.py && pdflatex summary.tex
---
 
 PERFORMANCE
 -----------

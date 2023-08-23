@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.16">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-07-25</strong> and refers to bcftools git version <strong>1.18</strong>.</p>
+<p>This manual page was last updated <strong>2023-08-23 15:48 CEST</strong> and refers to bcftools git version <strong>1.18-8-g23dcc5a+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -3862,6 +3862,14 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <dd>
 <p>list sample names and exit</p>
 </dd>
+<dt class="hdlist1"><strong>-N, --disable-automatic-newline</strong></dt>
+<dd>
+<p>disable automatic addition of a missing newline character at the end of the formatting
+expression. By default, the program checks if the expression contains a newline
+and appends it if not, to prevent formatting the entire output into a single
+line by mistake. Note that versions prior to 1.18 had no automatic check and newline
+had to be included explicitly.</p>
+</dd>
 <dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -4680,6 +4688,98 @@ important libraries used by bcftools.</p>
 </div>
 </div>
 <div class="sect1">
+<h2 id="_scripts">SCRIPTS</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="gff2gff">gff2gff</h3>
+<div class="paragraph">
+<p>Attempts to fix a GFF file to be correctly parsed by <strong><a href="#csq">csq</a></strong>.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>zcat in.gff.gz | gff2gff | gzip -c &gt; out.gff.gz</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Script for processing output of <strong><a href="#stats">bcftools stats</a></strong>. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-m, --merge</strong></dt>
+<dd>
+<p>Merge vcfstats files to STDOUT, skip plotting.</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --prefix</strong> <em>DIR</em></dt>
+<dd>
+<p>The output directory. This directory will be created if it does not exist.</p>
+</dd>
+<dt class="hdlist1"><strong>-P, --no-PDF</strong></dt>
+<dd>
+<p>Skip the PDF creation step.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --rasterize</strong></dt>
+<dd>
+<p>Rasterize PDF images for faster rendering. This is the default and the opposite of <strong>-v, --vectors</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --sample-names</strong></dt>
+<dd>
+<p>Use sample names for xticks rather than numeric IDs.</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --title</strong> <em>STRING</em></dt>
+<dd>
+<p>Identify files by these titles in plots. The option can be given multiple
+times, for each ID in the <strong><a href="#stats">bcftools stats</a></strong> output. If not
+present, the script will use abbreviated source file names for the titles.</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --vectors</strong></dt>
+<dd>
+<p>Generate vector graphics for PDF images, the opposite of <strong>-r, --rasterize</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-T, --main-title</strong> <em>STRING</em></dt>
+<dd>
+<p>Main title for the PDF.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>Example:</strong></p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre># Generate the stats
+bcftools stats -s - &gt; file.vchk</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># Plot the stats
+plot-vcfstats -p outdir file.vchk</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># The final looks can be customized by editing the generated
+# 'outdir/plot.py' script and re-running manually
+cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="expressions">FILTERING EXPRESSIONS</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -4689,8 +4789,7 @@ important libraries used by bcftools.</p>
 <div class="title">Valid expressions may contain:</div>
 <ul>
 <li>
-<p>numerical constants, string constants, file names (this is currently
-supported only to filter by the ID column)</p>
+<p>numerical constants, string constants, file names (indicated by the prefix <em>@</em>)</p>
 <div class="literalblock">
 <div class="content">
 <pre>1, 1.0, 1e-4
@@ -4824,7 +4923,7 @@ GT="A"</pre>
 </div>
 </li>
 <li>
-<p>TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
+<p>TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap, see <strong><a href="#terminology">TERMINOLOGY</a></strong>). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare</p>
 <div class="literalblock">
@@ -5072,12 +5171,17 @@ compute the resulting vector C:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>ID=@file       .. selects lines with ID present in the file</pre>
+<pre>ID=@file               .. selects lines with ID present in the file</pre>
 </div>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>ID!=@~/file    .. skip lines with ID present in the ~/file</pre>
+<pre>ID!=@~/file            .. skip lines with ID present in the ~/file</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file</pre>
 </div>
 </div>
 <div class="literalblock">
@@ -5116,91 +5220,27 @@ that the whole expression is passed to the program as intended:</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_scripts">SCRIPTS</h2>
+<h2 id="terminology">TERMINOLOGY</h2>
 <div class="sectionbody">
-<div class="sect2">
-<h3 id="gff2gff">gff2gff</h3>
 <div class="paragraph">
-<p>Attempts to fix a GFF file to be correctly parsed by <strong><a href="#csq">csq</a></strong>.</p>
+<p>The program and the documentation uses the following terminology, multiple terms can be used
+interchangeably for the same VCF record type</p>
 </div>
 <div class="openblock">
 <div class="content">
 <div class="literalblock">
 <div class="content">
-<pre>zcat in.gff.gz | gff2gff | gzip -c &gt; out.gff.gz</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
-<div class="paragraph">
-<p>Script for processing output of <strong><a href="#stats">bcftools stats</a></strong>. It can merge
-results from multiple outputs (useful when running the stats for each
-chromosome separately), plots graphs and creates a PDF presentation.</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><strong>-m, --merge</strong></dt>
-<dd>
-<p>Merge vcfstats files to STDOUT, skip plotting.</p>
-</dd>
-<dt class="hdlist1"><strong>-p, --prefix</strong> <em>DIR</em></dt>
-<dd>
-<p>The output directory. This directory will be created if it does not exist.</p>
-</dd>
-<dt class="hdlist1"><strong>-P, --no-PDF</strong></dt>
-<dd>
-<p>Skip the PDF creation step.</p>
-</dd>
-<dt class="hdlist1"><strong>-r, --rasterize</strong></dt>
-<dd>
-<p>Rasterize PDF images for faster rendering. This is the default and the opposite of <strong>-v, --vectors</strong>.</p>
-</dd>
-<dt class="hdlist1"><strong>-s, --sample-names</strong></dt>
-<dd>
-<p>Use sample names for xticks rather than numeric IDs.</p>
-</dd>
-<dt class="hdlist1"><strong>-t, --title</strong> <em>STRING</em></dt>
-<dd>
-<p>Identify files by these titles in plots. The option can be given multiple
-times, for each ID in the <strong><a href="#stats">bcftools stats</a></strong> output. If not
-present, the script will use abbreviated source file names for the titles.</p>
-</dd>
-<dt class="hdlist1"><strong>-v, --vectors</strong></dt>
-<dd>
-<p>Generate vector graphics for PDF images, the opposite of <strong>-r, --rasterize</strong>.</p>
-</dd>
-<dt class="hdlist1"><strong>-T, --main-title</strong> <em>STRING</em></dt>
-<dd>
-<p>Main title for the PDF.</p>
-</dd>
-</dl>
-</div>
-<div class="paragraph">
-<p><strong>Example:</strong></p>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="literalblock">
-<div class="content">
-<pre># Generate the stats
-bcftools stats -s - &gt; file.vchk</pre>
-</div>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre># Plot the stats
-plot-vcfstats -p outdir file.vchk</pre>
-</div>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre># The final looks can be customized by editing the generated
-# 'outdir/plot.py' script and re-running manually
-cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre>
-</div>
+<pre>REF   ALT
+---------
+C     .         .. reference allele / non-variant site / ref-only site
+C     T         .. SNP or SNV (single-nucleotide polymorphism or variant), used interchangeably
+CC    TT        .. MNP (multi-nucleotide polymorphism)
+CAAA  C         .. indel, deletion (regardless of length)
+C     CAAA      .. indel, insertion (regardless of length)
+C     &lt;*&gt;       .. gVCF block, the allele &lt;*&gt; is a placeholder for alternate allele possibly missed because of low coverage
+C     &lt;NON_REF&gt; .. synonymous to &lt;*&gt;
+C     *         .. overlapping deletion
+C     &lt;INS&gt;     .. symbolic allele, known also as 'other [than above]'</pre>
 </div>
 </div>
 </div>
@@ -5277,7 +5317,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-25 09:17:14 +0100
+Last updated 2023-08-23 15:48:11 +0200
 </div>
 </div>
 </body>
