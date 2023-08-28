@@ -598,7 +598,10 @@ int main_vcfisec(int argc, char *argv[])
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'p': args->prefix = optarg; break;
-            case 'w': args->write_files = optarg; break;
+            case 'w':
+                if ( args->write_files ) error("The option -w accepts a list of indices and can be given only once\n");
+                args->write_files = optarg;
+                break;
             case 'i': add_filter(args, optarg, FLT_INCLUDE); break;
             case 'e': add_filter(args, optarg, FLT_EXCLUDE); break;
             case 'n':

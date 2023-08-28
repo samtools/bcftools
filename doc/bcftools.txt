@@ -1880,7 +1880,7 @@ in the other files.
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
-    list of input files to output given as 1-based indices. With *-p* and no
+    comma-separated list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
 *--write-index*::
