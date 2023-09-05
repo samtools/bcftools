@@ -2894,6 +2894,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
+*-F, --print-filtered* 'STR'::
+    by default, samples failing *-i/-e* filtering expressions are suppressed from output
+    when FORMAT fields are queried (for example '%CHROM %POS [ %GT]').  With *-F*, such
+    fields will be still printed but instead of their actual value, 'STR' will be used.
+
 *-H, --print-header*::
     print header
 

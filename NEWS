@@ -33,6 +33,10 @@ Changes affecting specific commands:
 
       See #1969 for details
 
+    - Add new `-F, --print-filtered` option to output a default string for samples that would otherwise
+      be filtered by `-i/-e` expressions.
+
+    - Include sample name in the output header with `-H` whenever it makes sense (#1992)
 
 
 ## Release 1.18 (25th July 2023)
