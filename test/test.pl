@@ -540,6 +540,7 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annota
 run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.4.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl2');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',out=>'annotate.33.out',args=>'-m XXX');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate34',tab=>'annots34',out=>'annotate34.out',args=>q[-c CHROM,FROM,TO,INFO/END -H '##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate in reference for SV">']);
+run_test(\&test_vcf_annotate,$opts,in=>'annots-mark',bed=>'annots-mark',out=>'annots-mark.1.out',args=>q[-c CHROM,FROM,TO -m TAG]);
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');
@@ -1681,6 +1682,13 @@ sub test_vcf_annotate
     {
         bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
         $annot_fname = "-a $$opts{tmp}/$args{tab}.tab.gz";
+        $in_fname = "$$opts{path}/$args{in}.vcf";
+        $hdr = (-e "$$opts{path}/$args{in}.hdr" && !($args{args}=~/-H/) && !($args{args}=~/--header-line\s/)) ? "-h $$opts{path}/$args{in}.hdr" : '';
+    }
+    elsif ( exists($args{bed}) )
+    {
+        bgzip_tabix($opts,file=>$args{bed},suffix=>'bed',args=>'-p bed');
+        $annot_fname = "-a $$opts{tmp}/$args{bed}.bed.gz";
         $in_fname = "$$opts{path}/$args{in}.vcf";
         $hdr = (-e "$$opts{path}/$args{in}.hdr" && !($args{args}=~/-H/) && !($args{args}=~/--header-line\s/)) ? "-h $$opts{path}/$args{in}.hdr" : '';
     }

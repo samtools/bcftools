@@ -3111,6 +3111,12 @@ static void annotate(args_t *args, bcf1_t *line)
                 if ( args->min_overlap_vcf && args->min_overlap_vcf > (float)isec/len_vcf ) continue;
 
                 parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
+
+                // If a plain BED file is provided and we are asked to just mark overlapping sites, there are
+                // no additional columns. Not sure if there can be any side effects for ill-formatted BED files
+                // with variable number of columns
+                if ( !args->ncols && args->mark_sites ) has_overlap = 1;
+
                 for (j=0; j<args->ncols; j++)
                 {
                     if ( args->cols[j].done==1 ) continue;

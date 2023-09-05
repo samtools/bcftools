@@ -12,6 +12,11 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - Fix `bcftools annotate --mark-sites`, VCF sites overlapping regions in a BED file
+      were not annotated (#1989)
+
 * bcftools query
 
     - Add new `-N, --disable-automatic-newline` option for pre-1.18 query formatting behavior
