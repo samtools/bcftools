@@ -3346,7 +3346,7 @@ void merge_vcf(args_t *args)
     }
     else if ( args->write_index && init_index(args->out_fh,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
 
-    if ( args->collapse==COLLAPSE_NONE ) args->vcmp = vcmp_init();
+    args->vcmp = vcmp_init();
     args->maux = maux_init(args);
     args->out_line = bcf_init1();
     args->tmph = kh_init(strdict);
