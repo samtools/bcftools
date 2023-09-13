@@ -100,7 +100,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, njoined, ntotal, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -1822,6 +1822,7 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         else if ( type==BCF_HT_INT || type==BCF_HT_REAL ) merge_format_numeric(args, lines, nlines, fmt, dst);
         else merge_format_string(args, lines, nlines, fmt, dst);
     }
+    args->njoined++;
 }
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
@@ -2249,7 +2250,7 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/realigned/skipped:\t%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/split/joined/realigned/skipped:\t%d/%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
