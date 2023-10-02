@@ -9,6 +9,10 @@ Changes affecting the whole of bcftools, or multiple commands:
     INFO/TAG=@file.txt  .. selects lines where TAG has a string value listed in the file
     INFO/TAG!=@file.txt .. TAG must not have a string value listed in the file
 
+  Allow to query REF,ALT columns directly, for example
+
+    -e 'REF="N"'
+
 
 Changes affecting specific commands:
 
