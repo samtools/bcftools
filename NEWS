@@ -27,6 +27,7 @@ Changes affecting specific commands:
 
         Lines   total/split/joined/realigned/skipped:	6/0/3/0/0
 
+    - Allow combining -m and -a with --old-rec-tag (#2020)
 
 * bcftools query
 

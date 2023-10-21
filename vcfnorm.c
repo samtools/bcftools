@@ -2021,7 +2021,7 @@ static void init_data(args_t *args)
     else
         args->keep_sum_ad = -1;
 
-    args->out_hdr = bcf_hdr_dup(args->hdr);
+    args->out_hdr = args->hdr;
     if ( args->old_rec_tag )
         bcf_hdr_printf(args->out_hdr,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX\">",args->old_rec_tag);
 
@@ -2043,7 +2043,10 @@ static void init_data(args_t *args)
         args->abuf = abuf_init(args->hdr, SPLIT);
         abuf_set_opt(args->abuf, bcf_hdr_t*, BCF_HDR, args->out_hdr);
         if ( args->old_rec_tag )
+        {
             abuf_set_opt(args->abuf, const char*, INFO_TAG, args->old_rec_tag);
+            if ( bcf_hdr_sync(args->out_hdr)!=0 ) error("bcf_hdr_sync failed\n");
+        }
         abuf_set_opt(args->abuf, int, STAR_ALLELE, args->use_star_allele);
     }
     if ( args->gff_fname )
@@ -2055,6 +2058,7 @@ static void init_data(args_t *args)
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);
     }
+    args->out_hdr = bcf_hdr_dup(args->out_hdr);
 }
 
 static void destroy_data(args_t *args)
@@ -2287,7 +2291,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
-    fprintf(stderr, "        --threads INT               Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "        --write-index               Automatically index the output files [off]\n");
     fprintf(stderr, "\n");

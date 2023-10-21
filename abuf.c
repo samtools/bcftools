@@ -411,12 +411,12 @@ static void _split_table_set_info(abuf_t *buf, bcf_info_t *info, merge_rule_t mo
             buf->tmp2  = dst.s;
             ret = bcf_update_info(buf->out_hdr, out, tag, buf->tmp2, dst.l, type);
         }
-        if ( ret!=0 ) error("An error occurred while updating INFO/%s\n",tag);
+        if ( ret!=0 ) error("An error occurred while updating INFO/%s (errcode=%d)\n",tag,ret);
     }
 }
 static void _split_table_set_history(abuf_t *buf)
 {
-    int i,j;
+    int i,j,ret;
     bcf1_t *rec = buf->split.rec;
     buf->tmps.l = 0;
     ksprintf(&buf->tmps,"%s|%"PRIhts_pos"|%s|",bcf_seqname(buf->hdr,rec),rec->pos+1,rec->d.allele[0]);
@@ -441,8 +441,8 @@ static void _split_table_set_history(abuf_t *buf)
             kputc(',',&buf->tmps);
         }
         buf->tmps.s[--buf->tmps.l] = 0;
-        if ( (bcf_update_info_string(buf->out_hdr, out, buf->split.info_tag, buf->tmps.s))!=0 )
-            error("An error occurred while updating INFO/%s\n",buf->split.info_tag);
+        if ( (ret=bcf_update_info_string(buf->out_hdr, out, buf->split.info_tag, buf->tmps.s))!=0 )
+            error("An error occurred while updating INFO/%s (errcode=%d)\n",buf->split.info_tag,ret);
     }
 }
 static void _split_table_set_gt(abuf_t *buf)
@@ -668,7 +668,7 @@ static void _split_table_set_format(abuf_t *buf, bcf_fmt_t *fmt, merge_rule_t mo
             #undef BRANCH
             ret = bcf_update_format(buf->out_hdr, out, tag, buf->tmp2, 3*(1+star_allele)*nsmpl, type);
         }
-        if ( ret!=0 ) error("An error occurred while updating FORMAT/%s\n",tag);
+        if ( ret!=0 ) error("An error occurred while updating FORMAT/%s (errcode=%d)\n",tag,ret);
     }
 }
 static inline int _is_acgtn(char *seq)

@@ -274,6 +274,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a');
 run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
 run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>'--atomize --old-rec-tag OLD_REC -m -any');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'--atomize --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --old-rec-tag OLD_REC');
@@ -651,6 +652,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.9',out=>'trio-dnm/trio-d
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.10',out=>'trio-dnm/trio-dnm.10.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother --with-pAD | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.11',out=>'trio-dnm/trio-dnm.11.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.11',out=>'trio-dnm/trio-dnm.11.2.out',cmd=>'+trio-dnm2',args=>"-p 1X:proband,father,mother --strictly-novel | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
+run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.12',out=>'trio-dnm/trio-dnm.12.1.out',cmd=>'+trio-dnm2',args=>"-p 1X:proband,father,mother --strictly-novel | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);
@@ -1434,8 +1436,11 @@ sub test_vcf_norm
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     my $params = '';
-    $args{args} =~ s/{PATH}/$$opts{path}/g;
-    if ( exists($args{args}) ) { $params .= " $args{args}"; }
+    if ( exists($args{args}) )
+    {
+        $args{args} =~ s/{PATH}/$$opts{path}/g;
+        $params .= " $args{args}";
+    }
     if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm --no-version $params $$opts{tmp}/$args{in}.vcf.gz",exp_fix=>1);
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -Ob $params $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools view | grep -v ^##bcftools_",exp_fix=>1);
