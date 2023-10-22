@@ -21,6 +21,10 @@ Changes affecting specific commands:
     - Fix `bcftools annotate --mark-sites`, VCF sites overlapping regions in a BED file
       were not annotated (#1989)
 
+* bcftools call and mpileup
+
+    - Output MIN_DP rather than MinDP in gVCF mode
+
 * bcftools norm
 
     - Add the number of joined lines to the summary output, for example

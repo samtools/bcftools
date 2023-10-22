@@ -437,6 +437,11 @@ static void info_rules_init(args_t *args)
             if ( str.l ) kputc(',',&str);
             kputs("QS:sum",&str);
         }
+        if ( args->do_gvcf && bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "MIN_DP")) )
+        {
+            if ( str.l ) kputc(',',&str);
+            kputs("MIN_DP:min",&str);
+        }
         if ( args->do_gvcf && bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "MinDP")) )
         {
             if ( str.l ) kputc(',',&str);
@@ -3414,7 +3419,7 @@ static void usage(void)
     fprintf(stderr, "    -0  --missing-to-ref              Assume genotypes at missing sites are 0/0\n");
     fprintf(stderr, "    -f, --apply-filters LIST          Require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --filter-logic x|+            Remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
-    fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max -M PL:max,AD:0\n");
+    fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,MIN_DP:min,I16:sum,IDV:max,IMF:max -M PL:max,AD:0\n");
     fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
     fprintf(stderr, "    -L, --local-alleles INT           EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");

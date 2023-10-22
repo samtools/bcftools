@@ -40,7 +40,7 @@ struct _gvcf_t
 void gvcf_update_header(gvcf_t *gvcf, bcf_hdr_t *hdr)
 {
     bcf_hdr_append(hdr,"##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
-    bcf_hdr_append(hdr,"##INFO=<ID=MinDP,Number=1,Type=Integer,Description=\"Minimum per-sample depth in this gVCF block\">");
+    bcf_hdr_append(hdr,"##INFO=<ID=MIN_DP,Number=1,Type=Integer,Description=\"Minimum per-sample depth in this gVCF block\">");
 }
 
 gvcf_t *gvcf_init(const char *dp_ranges)
@@ -148,7 +148,7 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
         bcf_update_alleles_str(hdr, gvcf->line, gvcf->als.s);
         if ( gvcf->start+1 < gvcf->end )    // create gVCF record only if it spans at least two sites
             bcf_update_info_int32(hdr, gvcf->line, "END", &gvcf->end, 1);
-        bcf_update_info_int32(hdr, gvcf->line, "MinDP", &gvcf->min_dp, 1);
+        bcf_update_info_int32(hdr, gvcf->line, "MIN_DP", &gvcf->min_dp, 1);
         if ( gvcf->nqsum>0 )
             bcf_update_info_float(hdr, gvcf->line, "QS", gvcf->qsum, gvcf->nqsum);
         if ( gvcf->ngts )
@@ -220,7 +220,7 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
     }
 
     if ( is_ref && min_dp )
-        bcf_update_info_int32(hdr, rec, "MinDP", &min_dp, 1);
+        bcf_update_info_int32(hdr, rec, "MIN_DP", &min_dp, 1);
 
     return rec;
 }
