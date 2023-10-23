@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-08-23 15:48 CEST</strong> and refers to bcftools git version <strong>1.18-8-g23dcc5a+</strong>.</p>
+<p>This manual page was last updated <strong>2023-10-23 09:31 CEST</strong> and refers to bcftools git version <strong>1.18-19-g6374c6a+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -829,6 +829,10 @@ below), unlisted regions have ploidy 2. The default ploidy definition is</p>
 <dd>
 <p>output all alternate alleles present in the alignments even if they do not
 appear in any of the genotypes</p>
+</dd>
+<dt class="hdlist1"><strong>-</strong>*<strong>, --keep-unseen-allele</strong></dt>
+<dd>
+<p>keep the unobserved allele &lt;*&gt; or &lt;NON_REF&gt;, useful mainly for gVCF output</p>
 </dd>
 <dt class="hdlist1"><strong>-f, --format-fields</strong> <em>list</em></dt>
 <dd>
@@ -2487,7 +2491,7 @@ output, their names are controlled via <strong>-p</strong> instead.</p>
 </dd>
 <dt class="hdlist1"><strong>-w, --write</strong> <em>LIST</em></dt>
 <dd>
-<p>list of input files to output given as 1-based indices. With <strong>-p</strong> and no
+<p>comma-separated list of input files to output given as 1-based indices. With <strong>-p</strong> and no
 <strong>-w</strong>, all files are written.</p>
 </dd>
 <dt class="hdlist1"><strong>--write-index</strong></dt>
@@ -3848,6 +3852,12 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <dt class="hdlist1"><strong>-f, --format</strong> <em>FORMAT</em></dt>
 <dd>
 <p>learn by example, see below</p>
+</dd>
+<dt class="hdlist1"><strong>-F, --print-filtered</strong> <em>STR</em></dt>
+<dd>
+<p>by default, samples failing <strong>-i/-e</strong> filtering expressions are suppressed from output
+when FORMAT fields are queried (for example <em>%CHROM %POS [ %GT]</em>).  With <strong>-F</strong>, such
+fields will be still printed but instead of their actual value, <em>STR</em> will be used.</p>
 </dd>
 <dt class="hdlist1"><strong>-H, --print-header</strong></dt>
 <dd>
@@ -5317,7 +5327,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-08-23 15:48:11 +0200
+Last updated 2023-10-23 09:31:31 +0200
 </div>
 </div>
 </body>

@@ -624,6 +624,9 @@ demand. The original calling model can be invoked with the *-c* option.
     output all alternate alleles present in the alignments even if they do not
     appear in any of the genotypes
 
+*-***, --keep-unseen-allele*::
+    keep the unobserved allele <*> or <NON_REF>, useful mainly for gVCF output
+
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given

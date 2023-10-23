@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16
-.\"      Date: 2023-08-23
+.\"      Date: 2023-10-23
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-08-23" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-10-23" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-08\-23 15:48 CEST\fP and refers to bcftools git version \fB1.18\-8\-g23dcc5a+\fP.
+This manual page was last updated \fB2023\-10\-23 09:31 CEST\fP and refers to bcftools git version \fB1.18\-19\-g6374c6a+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -1052,6 +1052,11 @@ Automatically index the output file
 .RS 4
 output all alternate alleles present in the alignments even if they do not
 appear in any of the genotypes
+.RE
+.sp
+\fB\-\fP*\fB, \-\-keep\-unseen\-allele\fP
+.RS 4
+keep the unobserved allele <*> or <NON_REF>, useful mainly for gVCF output
 .RE
 .sp
 \fB\-f, \-\-format\-fields\fP \fIlist\fP
@@ -2796,7 +2801,7 @@ see \fBCommon Options\fP
 .sp
 \fB\-w, \-\-write\fP \fILIST\fP
 .RS 4
-list of input files to output given as 1\-based indices. With \fB\-p\fP and no
+comma\-separated list of input files to output given as 1\-based indices. With \fB\-p\fP and no
 \fB\-w\fP, all files are written.
 .RE
 .sp
@@ -4426,6 +4431,13 @@ continue even when some samples requested via \fB\-s/\-S\fP do not exist
 \fB\-f, \-\-format\fP \fIFORMAT\fP
 .RS 4
 learn by example, see below
+.RE
+.sp
+\fB\-F, \-\-print\-filtered\fP \fISTR\fP
+.RS 4
+by default, samples failing \fB\-i/\-e\fP filtering expressions are suppressed from output
+when FORMAT fields are queried (for example \fI%CHROM %POS [ %GT]\fP).  With \fB\-F\fP, such
+fields will be still printed but instead of their actual value, \fISTR\fP will be used.
 .RE
 .sp
 \fB\-H, \-\-print\-header\fP

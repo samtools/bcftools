@@ -21,7 +21,14 @@ Changes affecting specific commands:
     - Fix `bcftools annotate --mark-sites`, VCF sites overlapping regions in a BED file
       were not annotated (#1989)
 
-* bcftools call and mpileup
+* bcftools call
+
+    - Output MIN_DP rather than MinDP in gVCF mode
+
+    - New `-*, --keep-unseen-allele` option to output the unobserved allele <*>,
+      intended for gVCF.
+
+* bcftools mpileup
 
     - Output MIN_DP rather than MinDP in gVCF mode
 

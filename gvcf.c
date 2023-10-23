@@ -98,7 +98,6 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
     // encountered, or other conditions not met (block broken by a non-ref or DP too low).
     int needs_flush = can_collapse ? 0 : 1;
 
-
     // Can the record be included in a gVCF block? That is, is this a ref-only site?
     if ( rec && can_collapse )
     {
