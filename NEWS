@@ -40,6 +40,10 @@ Changes affecting specific commands:
 
     - Allow combining -m and -a with --old-rec-tag (#2020)
 
+    - Symbolic <DEL> alleles caused norm to expand REF to the full length of the deletion.
+      This was not intended and problematic for long deletions, the REF allele should list
+      one base only (#2029)
+
 * bcftools query
 
     - Add new `-N, --disable-automatic-newline` option for pre-1.18 query formatting behavior
