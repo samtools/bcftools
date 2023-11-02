@@ -25,8 +25,8 @@ if none of the previous is available (``--AF-dflt``).
 
 Finally, a genetic map can be provided (``--genetic-map``) so that the model
 can account for recombination hotspots. If not available, a constant
-recombination rate per-base can be given (``--rec-rate``). 
-Note that also both options can be given. In that case, the ``--rec-rate`` parameter 
+recombination rate per-base can be given (``--rec-rate``).
+Note that also both options can be given. In that case, the ``--rec-rate`` parameter
 will be interpreted differently by the program - as a fold increase of transition probabilities. This
 allows the model to become more sensitive yet still account for recombination hotspots.
 Of course, also the range of the values given to ``--rec-rate`` must be different in both cases:
@@ -45,7 +45,7 @@ and there is just one sample so it cannot be estimated on the fly. Hence we use
 a default AF value 0.4.
 
 ----
-bcftools roh -G30 --AF-dflt 0.4 file.vcf 
+bcftools roh -G30 --AF-dflt 0.4 file.vcf
 ----
 
 Please check this link:roh-calling/usage-example.tgz[usage example] for details
@@ -63,7 +63,7 @@ In this figure, the blue line shows heterozygosity plotted as dosage and the RoH
 
 In the second example we use the allele frequencies from the
 link:http://www.internationalgenome.org[1000 Genomes Project]
-and the genetic map distributed with 
+and the genetic map distributed with
 link:https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference[Impute2]
 (link:https://mathgen.stats.ox.ac.uk/impute/1000GP_Phase3.tgz[1000GP_Phase3.tgz]).
 Because these files are big and require some (although easy) pre-processing, a packaged version
@@ -77,7 +77,7 @@ bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h AFs.tab.gz.hdr -a AFs.tab.gz in.
 
 In case a different version is needed, the following commands show how the pre-packaged
 link:ftp://ngs.sanger.ac.uk/production/samtools/genetic-map.tgz[genetic map] and
-link:ftp://ngs.sanger.ac.uk/production/samtools/1000GP-AFs.tgz[allele frequencies] were created:
+link:ftp://ngs.sanger.ac.uk/production/samtools/1000GP-AFs.v2023-11-02.tgz[allele frequencies] were created:
 
 ----
 # Get the genetic map
@@ -87,7 +87,7 @@ mv 1000GP_Phase3 genetic-map
 rm -f 1000GP_Phase3.tgz
 
 # Get alleles frequencies from the 1000 Genomes Project
-curl -Lo AFs.vcf.gz http://goo.gl/z1NHN7
+curl -Lo AFs.vcf.gz https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5c.20130502.sites.vcf.gz
 bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%AF\n' AFs.vcf.gz | bgzip -c > AFs.tab.gz
 tabix -s1 -b2 -e2 AFs.tab.gz
 echo '##INFO=<ID=AF1KG,Number=1,Type=Float,Description="Allele Frequency">' > AFs.tab.gz.hdr
@@ -98,10 +98,10 @@ rm -f AFs.vcf.gz
 === Example 3
 
 Sometimes multiple samples need to be analyzed and compared. There is the convenience
-script link:https://github.com/samtools/bcftools/blob/develop/misc/run-roh.pl[run-roh.pl] 
+script link:https://github.com/samtools/bcftools/blob/develop/misc/run-roh.pl[run-roh.pl]
 which takes multiple VCF/BCF files and locates regions private to one sample or shared across multiple samples.
 On input it expects a directory with .vcf, .vcf.gz or .bcf files, a file with allele frequencies
-and a genetic map (optional).  The calls can be then plotted or visualized interactively using 
+and a genetic map (optional).  The calls can be then plotted or visualized interactively using
 the link:https://github.com/samtools/bcftools/blob/develop/misc/plot-roh.py[plot-roh.py] script
 
 ----
@@ -110,7 +110,7 @@ plot-roh.py -i output-dir
 ----
 
 An example of the output is shown below. In the first window, all chromosomes from three samples
-are shown. Each dot corresponds to one marker with either the alternate homozygous genotype (top) or the 
+are shown. Each dot corresponds to one marker with either the alternate homozygous genotype (top) or the
 heterozygous genotype (bottom). The grey and red rectangles highlight regions predicted by ``bcftools roh``
 as homozygous - they should contain few heterozygous genotypes. The grey rectangles highlight homozygous
 regions private to one sample, while the red rectangles show homozygous regions shared across multiple samples.
@@ -125,16 +125,16 @@ In the second window is chromosome 17, zoomed-in using the button with the magni
 
 
 //   === Visualization
-//   
-//   The command does not produce any plots. The graph above was created with matplotlib, the raw input data 
+//
+//   The command does not produce any plots. The graph above was created with matplotlib, the raw input data
 //   were obtained using the following commands
-//   
+//
 //   ----
 //   bcftools query -f'%POS\t[%GT]\n' test.vcf.gz | awk '$2~/^[01\/]+$/ && $2~/1/' | sed 's,/,\t,' | awk '{print $1,$2+$3}' > dosage.txt
-//   
+//
 //   bcftools roh -G30 --AF-dflt 0.4 test.vcf.gz | grep -v ^ROH | cut -f4,5 > roh.txt
 //   ----
-//   
+//
 //   The dosage data were smoothed using a moving average filter prior to plotting.
 
 
