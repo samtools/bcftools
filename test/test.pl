@@ -361,6 +361,9 @@ run_test(\&test_vcf_view,$opts,in=>'view-a',out=>'view-a.1.out',args=>q[-H -a]);
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt');
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt.gz');
 run_test(\&test_vcf_head,$opts,in=>'mpileup.2.vcf',in_nheaders=>22);
+run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.1.out',args=>'-s0');
+run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.2.out',args=>'-s1');
+run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.3.out',args=>'-s2 -h2');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mg0');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.3.out',args=>'-mv -S {PATH}/mpileup.3.samples');
@@ -1515,6 +1518,13 @@ sub test_vcf_head
              cmd => "$$opts{bin}/bcftools head -n 5 $infile");
     test_cmd($opts, %args, gen_head_output(5, 5, "fiveboth", $infile),
              cmd => "$$opts{bin}/bcftools head -h 5 -n 5 < $infile");
+}
+sub test_vcf_head2
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts,$args{in});
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools head $args{args} $$opts{tmp}/$args{in}.vcf.gz");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools head $args{args}");
 }
 sub test_vcf_call
 {

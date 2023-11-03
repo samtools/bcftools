@@ -1795,6 +1795,12 @@ present, but it never adds version or command line information itself.
     Also display the first 'INT' variant records.
     By default, no variant records are displayed.
 
+*-s, --samples* 'INT'::
+    Display the first 'INT' variant records including the last #CHROM header line with samples.
+    Running with *-s 0* alone outputs the #CHROM header line only. Note that
+    the list of samples, with each sample per line, can be obtained with `bcftools query` using
+    the option *-l, --list-samples*.
+
 
 [[index]]
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'

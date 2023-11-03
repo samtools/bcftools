@@ -28,6 +28,10 @@ Changes affecting specific commands:
     - New `-*, --keep-unseen-allele` option to output the unobserved allele <*>,
       intended for gVCF.
 
+* bcftools head
+
+    - New `-s, --samples` option to include the #CHROM header line with samples.
+
 * bcftools gtcheck
 
     - Add output options `-o, --output` and `-O, --output-type`
