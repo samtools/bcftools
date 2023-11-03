@@ -1640,24 +1640,37 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--dry-run*::
     Stop after first record to estimate required time.
 
-*-e, --error-probability* 'INT'::
+*-e, --exclude* ['qry'|'gt']:'EXPRESSION'::
+    Exclude sites from query file ('qry:') or genotype file ('gt:') for which 'EXPRESSION' is true.
+    For valid expressions see *<<expressions,EXPRESSIONS>>*.
+
+*-E, --error-probability* 'INT'::
     Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
     represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
     non-zero integer can be provided).
     {nbsp} +
     {nbsp} +
-    If *-e* is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+    If *-E* is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
     but only in the GT-vs-GT matching mode. See the *-u, --use* option below for additional notes and caveats.
     {nbsp} +
     {nbsp} +
-    If performance is an issue, set *-e 0* for faster run times but less accurate results.
+    If performance is an issue, set *-E 0* for faster run times but less accurate results.
+    {nbsp} +
+    {nbsp} +
+    Note that in previous versions of bcftools (<=1.18), this option used to be a smaller case *-e*. It
+    changed to make room for the filtering option *-e, --exclude* to stay consistent across other
+    commands.
 
 *-g, --genotypes* 'FILE'::
     VCF/BCF file with reference genotypes to compare against
 
 *-H, --homs-only*::
     Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
+
+*-i, --include* ['qry'|'gt']:'EXPRESSION'::
+    Include sites from query file ('qry:') or genotype file ('gt:') for which 'EXPRESSION' is true.
+    For valid expressions see *<<expressions,EXPRESSIONS>>*.
 
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
@@ -1667,6 +1680,12 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--no-HWE-prob*::
     Disable calculation of HWE probability to reduce memory requirements with
     comparisons between very large number of sample pairs.
+
+*-o, --output* 'FILE'::
+    Write to 'FILE' rather than to standard output, where it is written by default.
+
+*-O, --output-type* 't'|'z'::
+    Write a plain ('t') or compressed ('z') text tab-delimited output.
 
 *-p, --pairs* 'LIST'::
     A comma-separated list of sample pairs to compare. When the *-g* option is given, the first

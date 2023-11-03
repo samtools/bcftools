@@ -28,6 +28,25 @@ Changes affecting specific commands:
     - New `-*, --keep-unseen-allele` option to output the unobserved allele <*>,
       intended for gVCF.
 
+* bcftools gtcheck
+
+    - Add output options `-o, --output` and `-O, --output-type`
+
+    - Add filtering options `-i, --include` and `-e, --exclude`
+
+    - Rename the short option `-e, --error-probability` from lower case to upper
+      case `-E, --error-probability`
+
+    - Changes to the output format, replace the DC section with DCv2:
+
+        - adds a new column for the number of matching genotypes
+
+        - fixes in HWE score calculation plus output average HWE score rather
+          than absolute HWE score
+
+        - better description of fields
+
+
 * bcftools mpileup
 
     - Output MIN_DP rather than MinDP in gVCF mode
