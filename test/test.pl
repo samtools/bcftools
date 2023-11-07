@@ -921,6 +921,7 @@ run_test(\&test_gtcheck,$opts,in=>'gtcheck.ntop',gts=>'gtcheck.ntop.gts',out=>'g
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.ntop',gts=>'gtcheck.ntop.gts',out=>'gtcheck.ntop.2.out',args=>q[--n-matches 2]);
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.5',gts=>'gtcheck.5.gts',out=>'gtcheck.5.1.out',args=>q[],grep=>'grep -v Time');
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.6',out=>'gtcheck.6.1.out',args=>q[-p A,B,B,C]);
+run_test(\&test_gtcheck,$opts,in=>'gtcheck.3',out=>'gtcheck.3.1.out',args=>q[-t 11:33 -p A,D,A,E,D,E -u GT -e 10]);
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};

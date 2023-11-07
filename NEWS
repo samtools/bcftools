@@ -45,6 +45,11 @@ Changes affecting specific commands:
 
         - adds a new column for the number of matching genotypes
 
+        - The --error-probability is newly interpreted as the probability of erroneous
+          allele rather than genotype. In other words, the calculation of the discordance
+          score now considers the probability of genotyping error to be different
+          for HOM and HET genotypes, i.e. P(0/1|dsg=0) > P(1/1|dsg=0).
+
         - fixes in HWE score calculation plus output average HWE score rather
           than absolute HWE score
 

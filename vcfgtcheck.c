@@ -395,21 +395,33 @@ static void init_data(args_t *args)
         args->qry_prob = (double*) malloc(3*args->nqry_smpl*sizeof(*args->qry_prob));
         args->gt_prob  = args->cross_check ? args->qry_prob : (double*) malloc(3*args->ngt_smpl*sizeof(*args->gt_prob));
 
+        // Convert genotypes to genotype likelihoods given by -E, the probability of reading one allele incorrectly. In this
+        // simple model we have:
+        //     - probability of reading an allele incorrectly, eg. 0 as 1 or 1 as 0
+        //         P(0|1) = P(1|0) = e
+        //     - probability of genotype G={00,01,11} being correct given observed dosage {0,1,2} and the
+        //       genotyping error probability e:
+        //          P(00|0) = 1       P(00|1) = e       P(00|2) = e^2
+        //          P(01|0) = e       P(01|1) = 1       P(01|2) = e
+        //          P(11|0) = e^2     P(11|1) = e       P(11|2) = 1
+        //
         // dsg2prob: the first index is bitmask of 8 possible dsg combinations (only 1<<0,1<<2,1<<3 are set, accessing
-        // anything else indicated an error, this is just to reuse gt_to_dsg()); the second index are the corresponding
+        // anything else indicated an error, this is just to reuse gt_to_dsg(); the second index are the corresponding
         // probabilities of 0/0, 0/1, and 1/1 genotypes
+        //
         for (i=0; i<8; i++)
             for (j=0; j<3; j++)
                 args->dsg2prob[i][j] = HUGE_VAL;
-        args->dsg2prob[1][0] = -log(1-pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[1][1] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[1][2] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[2][0] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[2][1] = -log(1-pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[2][2] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[4][0] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[4][1] = -log(0.5*pow(10,-0.1*args->use_PLs));
-        args->dsg2prob[4][2] = -log(1-pow(10,-0.1*args->use_PLs));
+        double eprob = pow(10,-0.1*args->use_PLs);      // convert from phred score to probability
+        args->dsg2prob[1][0] = 0;               // P(00|0) = 1
+        args->dsg2prob[1][1] = -log(eprob);     // P(01|0) = e
+        args->dsg2prob[1][2] = -2*log(eprob);   // P(11|0) = e^2
+        args->dsg2prob[2][0] = -log(eprob);     // P(00|1) = e
+        args->dsg2prob[2][1] = 0;               // P(01|1) = 1
+        args->dsg2prob[2][2] = -log(eprob);     // P(11|1) = e
+        args->dsg2prob[4][0] = -2*log(eprob);   // P(00|2) = e^2
+        args->dsg2prob[4][1] = -log(eprob);     // P(01|2) = e
+        args->dsg2prob[4][2] = 0;               // P(11|2) = 1
 
         // lookup table to avoid exponentiation
         for (i=0; i<256; i++) args->pl2prob[i] = pow(10,-0.1*i);
