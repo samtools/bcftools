@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16
-.\"      Date: 2023-10-23
+.\"      Date: 2023-11-09
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-10-23" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-11-09" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-10\-23 09:31 CEST\fP and refers to bcftools git version \fB1.18\-19\-g6374c6a+\fP.
+This manual page was last updated \fB2023\-11\-09 17:03 GMT\fP and refers to bcftools git version \fB1.18\-24\-g39a81be+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -2500,7 +2500,13 @@ in\-memory sorting and DIR is the temporary directory for external sorting. This
 Stop after first record to estimate required time.
 .RE
 .sp
-\fB\-e, \-\-error\-probability\fP \fIINT\fP
+\fB\-e, \-\-exclude\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+.RS 4
+Exclude sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
+For valid expressions see \fBEXPRESSIONS\fP.
+.RE
+.sp
+\fB\-E, \-\-error\-probability\fP \fIINT\fP
 .RS 4
 Interpret genotypes and genotype likelihoods probabilistically. The value of \fIINT\fP
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
@@ -2510,13 +2516,20 @@ non\-zero integer can be provided).
 .br
 \~
 .br
-If \fB\-e\fP is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+If \fB\-E\fP is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
 but only in the GT\-vs\-GT matching mode. See the \fB\-u, \-\-use\fP option below for additional notes and caveats.
 \~
 .br
 \~
 .br
-If performance is an issue, set \fB\-e 0\fP for faster run times but less accurate results.
+If performance is an issue, set \fB\-E 0\fP for faster run times but less accurate results.
+\~
+.br
+\~
+.br
+Note that in previous versions of bcftools (\(lA1.18), this option used to be a smaller case \fB\-e\fP. It
+changed to make room for the filtering option \fB\-e, \-\-exclude\fP to stay consistent across other
+commands.
 .RE
 .sp
 \fB\-g, \-\-genotypes\fP \fIFILE\fP
@@ -2527,6 +2540,12 @@ VCF/BCF file with reference genotypes to compare against
 \fB\-H, \-\-homs\-only\fP
 .RS 4
 Homozygous genotypes only, useful with low coverage data (requires \fB\-g, \-\-genotypes\fP)
+.RE
+.sp
+\fB\-i, \-\-include\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+.RS 4
+Include sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
+For valid expressions see \fBEXPRESSIONS\fP.
 .RE
 .sp
 \fB\-\-n\-matches\fP \fIINT\fP
@@ -2540,6 +2559,16 @@ that average score is used to determine the top matches, not absolute values.
 .RS 4
 Disable calculation of HWE probability to reduce memory requirements with
 comparisons between very large number of sample pairs.
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+Write to \fIFILE\fP rather than to standard output, where it is written by default.
+.RE
+.sp
+\fB\-O, \-\-output\-type\fP \fIt\fP|\fIz\fP
+.RS 4
+Write a plain (\fIt\fP) or compressed (\fIz\fP) text tab\-delimited output.
 .RE
 .sp
 \fB\-p, \-\-pairs\fP \fILIST\fP
@@ -2646,6 +2675,14 @@ By default, all header lines are displayed.
 .RS 4
 Also display the first \fIINT\fP variant records.
 By default, no variant records are displayed.
+.RE
+.sp
+\fB\-s, \-\-samples\fP \fIINT\fP
+.RS 4
+Display the first \fIINT\fP variant records including the last #CHROM header line with samples.
+Running with \fB\-s 0\fP alone outputs the #CHROM header line only. Note that
+the list of samples, with each sample per line, can be obtained with \f(CRbcftools query\fP using
+the option \fB\-l, \-\-list\-samples\fP.
 .RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
@@ -2950,9 +2987,11 @@ maximum number of alternate alleles that can be included in the PL tag. The defa
 is 0 which disables the feature and outputs values for all alternate alleles.
 .RE
 .sp
-\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP
+\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP[,\fI*\fP]
 .RS 4
-The option controls what types of multiallelic records can be created:
+The option controls what types of multiallelic records can be created. If single asterisk
+\fI\fB\fP is appended, the unobserved allele \fI<\fP>\fP or \fI<NON_REF>\fP will be removed at variant sites;
+if two asterisks \fI**\fP are appended, the unobserved allele will be removed all sites.
 .RE
 .sp
 .if n .RS 4
@@ -2962,6 +3001,8 @@ The option controls what types of multiallelic records can be created:
 \-m snps        ..  allow multiallelic SNP records
 \-m indels      ..  allow multiallelic indel records
 \-m both        ..  both SNP and indel records can be multiallelic
+\-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
+\-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
 \-m all         ..  SNP records can be merged with indel records
 \-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
 \-m id          ..  merge by ID
@@ -5143,6 +5184,12 @@ see \fBCommon Options\fP
 Automatically index the output file
 .RE
 .SS "Subset options:"
+.sp
+\fB\-A, \-\-trim\-unseen\-alleles\fP
+.RS 4
+remove the unseen allele \fI<*>\fP or \fI<NON_REF>\fP at variant sites when the option is given once (\-A) or
+at all sites when the options is given twice (\fI\-AA\fP).
+.RE
 .sp
 \fB\-a, \-\-trim\-alt\-alleles\fP
 .RS 4

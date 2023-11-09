@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-10-23 09:31 CEST</strong> and refers to bcftools git version <strong>1.18-19-g6374c6a+</strong>.</p>
+<p>This manual page was last updated <strong>2023-11-09 17:03 GMT</strong> and refers to bcftools git version <strong>1.18-24-g39a81be+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -2200,7 +2200,12 @@ in-memory sorting and DIR is the temporary directory for external sorting. This 
 <dd>
 <p>Stop after first record to estimate required time.</p>
 </dd>
-<dt class="hdlist1"><strong>-e, --error-probability</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-e, --exclude</strong> [<em>qry</em>|<em>gt</em>]:'EXPRESSION'</dt>
+<dd>
+<p>Exclude sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
+For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-E, --error-probability</strong> <em>INT</em></dt>
 <dd>
 <p>Interpret genotypes and genotype likelihoods probabilistically. The value of <em>INT</em>
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
@@ -2208,11 +2213,16 @@ Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that 
 non-zero integer can be provided).
 &#160;<br>
 &#160;<br>
-If <strong>-e</strong> is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+If <strong>-E</strong> is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
 but only in the GT-vs-GT matching mode. See the <strong>-u, --use</strong> option below for additional notes and caveats.
 &#160;<br>
 &#160;<br>
-If performance is an issue, set <strong>-e 0</strong> for faster run times but less accurate results.</p>
+If performance is an issue, set <strong>-E 0</strong> for faster run times but less accurate results.
+&#160;<br>
+&#160;<br>
+Note that in previous versions of bcftools (&#8656;1.18), this option used to be a smaller case <strong>-e</strong>. It
+changed to make room for the filtering option <strong>-e, --exclude</strong> to stay consistent across other
+commands.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --genotypes</strong> <em>FILE</em></dt>
 <dd>
@@ -2221,6 +2231,11 @@ If performance is an issue, set <strong>-e 0</strong> for faster run times but l
 <dt class="hdlist1"><strong>-H, --homs-only</strong></dt>
 <dd>
 <p>Homozygous genotypes only, useful with low coverage data (requires <strong>-g, --genotypes</strong>)</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> [<em>qry</em>|<em>gt</em>]:'EXPRESSION'</dt>
+<dd>
+<p>Include sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
+For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>--n-matches</strong> <em>INT</em></dt>
 <dd>
@@ -2232,6 +2247,14 @@ that average score is used to determine the top matches, not absolute values.</p
 <dd>
 <p>Disable calculation of HWE probability to reduce memory requirements with
 comparisons between very large number of sample pairs.</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>Write to <em>FILE</em> rather than to standard output, where it is written by default.</p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>t</em>|<em>z</em></dt>
+<dd>
+<p>Write a plain (<em>t</em>) or compressed (<em>z</em>) text tab-delimited output.</p>
 </dd>
 <dt class="hdlist1"><strong>-p, --pairs</strong> <em>LIST</em></dt>
 <dd>
@@ -2338,6 +2361,13 @@ By default, all header lines are displayed.</p>
 <dd>
 <p>Also display the first <em>INT</em> variant records.
 By default, no variant records are displayed.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>INT</em></dt>
+<dd>
+<p>Display the first <em>INT</em> variant records including the last #CHROM header line with samples.
+Running with <strong>-s 0</strong> alone outputs the #CHROM header line only. Note that
+the list of samples, with each sample per line, can be obtained with <code>bcftools query</code> using
+the option <strong>-l, --list-samples</strong>.</p>
 </dd>
 </dl>
 </div>
@@ -2629,9 +2659,11 @@ alternate alleles relevant (local) for the current sample. The number <em>INT</e
 maximum number of alternate alleles that can be included in the PL tag. The default value
 is 0 which disables the feature and outputs values for all alternate alleles.</p>
 </dd>
-<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>snp-ins-del</em>|<em>all</em>|<em>none</em>|<em>id</em></dt>
+<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>snp-ins-del</em>|<em>all</em>|<em>none</em>|<em>id</em>[,<em>*</em>]</dt>
 <dd>
-<p>The option controls what types of multiallelic records can be created:</p>
+<p>The option controls what types of multiallelic records can be created. If single asterisk
+<em><strong></em> is appended, the unobserved allele <em>&lt;</strong>&gt;</em> or <em>&lt;NON_REF&gt;</em> will be removed at variant sites;
+if two asterisks <em>**</em> are appended, the unobserved allele will be removed all sites.</p>
 </dd>
 </dl>
 </div>
@@ -2641,6 +2673,8 @@ is 0 which disables the feature and outputs values for all alternate alleles.</p
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
 -m both        ..  both SNP and indel records can be multiallelic
+-m both,*      ..  same as above but remove &lt;*&gt; (or &lt;NON_REF&gt;) from variant sites
+-m both,**     ..  same as above but remove &lt;*&gt; (or &lt;NON_REF&gt;) at all sites
 -m all         ..  SNP records can be merged with indel records
 -m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
 -m id          ..  merge by ID</pre>
@@ -4506,6 +4540,11 @@ best compression.</p>
 <h4 id="_subset_options">Subset options:</h4>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>-A, --trim-unseen-alleles</strong></dt>
+<dd>
+<p>remove the unseen allele <em>&lt;*&gt;</em> or <em>&lt;NON_REF&gt;</em> at variant sites when the option is given once (-A) or
+at all sites when the options is given twice (<em>-AA</em>).</p>
+</dd>
 <dt class="hdlist1"><strong>-a, --trim-alt-alleles</strong></dt>
 <dd>
 <p>remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
@@ -5327,7 +5366,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-10-23 09:31:31 +0200
+Last updated 2023-11-09 16:40:20 UTC
 </div>
 </div>
 </body>

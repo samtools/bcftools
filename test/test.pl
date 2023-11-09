@@ -76,6 +76,8 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.3.a','merge.3.b'],out=>'merge.3.out'
 run_test(\&test_vcf_merge,$opts,in=>['merge.4.a','merge.4.b'],out=>'merge.4.out',args=>'--force-samples -m id');
 run_test(\&test_vcf_merge,$opts,in=>['gvcf.merge.1','gvcf.merge.2','gvcf.merge.3'],out=>'gvcf.merge.1.out',args=>'--gvcf -');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.2.a','merge.gvcf.2.b','merge.gvcf.2.c'],out=>'merge.gvcf.2.out',args=>'--gvcf -',types=>['vcf']);
+run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.2.a','merge.gvcf.2.b','merge.gvcf.2.c'],out=>'merge.gvcf.2.1.out',args=>'--gvcf - -m both,*',types=>['vcf']);
+run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.2.a','merge.gvcf.2.b','merge.gvcf.2.c'],out=>'merge.gvcf.2.2.out',args=>'--gvcf - -m both,**',types=>['vcf']);
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.3.a','merge.gvcf.3.b'],out=>'merge.gvcf.3.out',args=>'--gvcf - -i SRC:join',types=>['vcf']);
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.4.a','merge.gvcf.4.b'],out=>'merge.gvcf.4.out',args=>'--gvcf -');
 run_test(\&test_vcf_merge,$opts,in=>['merge.5.a','merge.5.b'],out=>'merge.5.out');
@@ -292,6 +294,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic',fai=>'norm.symbolic',out=>'no
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic.2',fai=>'norm.symbolic',out=>'norm.symbolic.2.out',args=>'--old-rec-tag ORI');
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.1.out',args=>'--old-rec-tag ORI');
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.2.out',args=>'--old-rec-tag ORI -g {PATH}/norm.right-align.gff');
+run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.1.out',args=>'-HA');
+run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.2.out',args=>'-HAA');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1:1-2');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1:1,1:2');

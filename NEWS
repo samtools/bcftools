@@ -55,6 +55,10 @@ Changes affecting specific commands:
 
         - better description of fields
 
+* bcftools merge
+
+    - Add `-m` modifiers to suppress the output of the unseen allele <*> or <NON_REF>
+      at variant sites (e.g. `-m both,*`) or all sites (e.g. `-m both,**`)
 
 * bcftools mpileup
 
@@ -92,6 +96,11 @@ Changes affecting specific commands:
       be filtered by `-i/-e` expressions.
 
     - Include sample name in the output header with `-H` whenever it makes sense (#1992)
+
+* bcftools view
+
+    - Add new `-A, --trim-unseen-allele` option to remove the unseen allele <*> or <NON_REF>
+      at variant sites (`-A`) or all sites (`-AA`)
 
 
 ## Release 1.18 (25th July 2023)

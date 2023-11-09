@@ -2013,13 +2013,17 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
 
-*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'::
-    The option controls what types of multiallelic records can be created:
+*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'[,'*']::
+    The option controls what types of multiallelic records can be created. If single asterisk
+    '*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
+    if two asterisks '**' are appended, the unobserved allele will be removed all sites.
 ----
 -m none        ..  no new multiallelics, output multiple records instead
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
 -m both        ..  both SNP and indel records can be multiallelic
+-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
+-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
 -m all         ..  SNP records can be merged with indel records
 -m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
 -m id          ..  merge by ID
@@ -3397,6 +3401,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Subset options:
+*-A, --trim-unseen-alleles*::
+    remove the unseen allele '<*>' or '<NON_REF>' at variant sites when the option is given once (-A) or
+    at all sites when the options is given twice ('-AA').
+
 *-a, --trim-alt-alleles*::
     remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
     remains after trimming, the record itself is not removed but ALT is set to ".".

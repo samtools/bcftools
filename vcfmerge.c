@@ -34,6 +34,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/faidx.h>
+#include <htslib/kbitset.h>
 #include <math.h>
 #include <ctype.h>
 #include <time.h>
@@ -192,6 +193,7 @@ typedef struct
     int keep_AC_AN;
     char *index_fn;
     int write_index;
+    int trim_star_allele;   // 0=don't trim; 1=trim at variant sites; 2=trim at all sites
 }
 args_t;
 
@@ -2587,9 +2589,19 @@ void gvcf_write_block(args_t *args, int start, int end)
     }
     else
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
+
+    int iunseen;
+    if ( args->trim_star_allele && (out->n_allele > 2 || args->trim_star_allele > 1) && (iunseen=get_unseen_allele(out)) && iunseen>0 )
+    {
+        // the unobserved star allele should be trimmed, either it is variant site or trimming of all sites was requested
+        kbitset_t *rm_set = kbs_init(out->n_allele);
+        kbs_insert(rm_set, iunseen);
+        if ( bcf_remove_allele_set(args->out_hdr,out,rm_set) )
+            error("[%s] Error: failed to trim the unobserved allele at %s:%"PRIhts_pos"\n",__func__,bcf_seqname(args->out_hdr,out),out->pos+1);
+        kbs_destroy(rm_set);
+    }
     if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
-
 
     // Inactivate blocks which do not extend beyond END and find new gvcf_min
     min = INT_MAX;
@@ -3220,6 +3232,16 @@ void merge_line(args_t *args)
     if ( args->do_gvcf )
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
     merge_format(args, out);
+    int iunseen;
+    if ( args->trim_star_allele && (out->n_allele > 2 || args->trim_star_allele > 1) && (iunseen=get_unseen_allele(out)) && iunseen>0 )
+    {
+        // the unobserved star allele should be trimmed, either it is variant site or trimming of all sites was requested
+        kbitset_t *rm_set = kbs_init(out->n_allele);
+        kbs_insert(rm_set, iunseen);
+        if ( bcf_remove_allele_set(args->out_hdr,out,rm_set) )
+            error("[%s] Error: failed to trim the unobserved allele at %s:%"PRIhts_pos"\n",__func__,bcf_seqname(args->out_hdr,out),out->pos+1);
+        kbs_destroy(rm_set);
+    }
     if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 }
@@ -3422,8 +3444,8 @@ static void usage(void)
     fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,MIN_DP:min,I16:sum,IDV:max,IMF:max -M PL:max,AD:0\n");
     fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
-    fprintf(stderr, "    -L, --local-alleles INT           EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
-    fprintf(stderr, "    -m, --merge STRING                Allow multiallelic records for <snps|indels|both|snp-ins-del|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "    -L, --local-alleles INT           If more than INT alt alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
+    fprintf(stderr, "    -m, --merge STRING[*|**]          Allow multiallelic records for snps,indels,both,snp-ins-del,all,none,id,*,**; see man page for details [both]\n");
     fprintf(stderr, "    -M, --missing-rules TAG:METHOD    Rules for replacing missing values in numeric vectors (.,0,max) when unknown allele <*> is not present [.]\n");
     fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
@@ -3432,7 +3454,7 @@ static void usage(void)
     fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
-    fprintf(stderr, "        --threads INT                 Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --threads INT                 Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "        --write-index                 Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -3525,17 +3547,23 @@ int main_vcfmerge(int argc, char *argv[])
                 }
                 break;
             case 'm':
+            {
+                int len = strlen(optarg);
+                if ( optarg[len-1]=='*' ) { args->trim_star_allele++; len--; }
+                if ( optarg[len-1]=='*' ) { args->trim_star_allele++; len--; }
+                if ( optarg[len-1]==',' ) len--;
                 args->collapse = COLLAPSE_NONE;
-                if ( !strcmp(optarg,"snps") ) args->collapse |= COLLAPSE_SNPS;
-                else if ( !strcmp(optarg,"indels") ) args->collapse |= COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"both") ) args->collapse |= COLLAPSE_BOTH;
-                else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"all") ) args->collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"none") ) args->collapse = COLLAPSE_NONE;
-                else if ( !strcmp(optarg,"snp-ins-del") ) args->collapse = COLLAPSE_SNP_INS_DEL|COLLAPSE_SNPS;
-                else if ( !strcmp(optarg,"id") ) { args->collapse = COLLAPSE_NONE; args->merge_by_id = 1; }
+                if ( !strncmp(optarg,"snp-ins-del",len) ) args->collapse = COLLAPSE_SNP_INS_DEL|COLLAPSE_SNPS;
+                else if ( !strncmp(optarg,"snps",len) ) args->collapse |= COLLAPSE_SNPS;
+                else if ( !strncmp(optarg,"indels",len) ) args->collapse |= COLLAPSE_INDELS;
+                else if ( !strncmp(optarg,"id",len) ) { args->collapse = COLLAPSE_NONE; args->merge_by_id = 1; }
+                else if ( !strncmp(optarg,"any",len) ) args->collapse |= COLLAPSE_ANY;
+                else if ( !strncmp(optarg,"all",len) ) args->collapse |= COLLAPSE_ANY;
+                else if ( !strncmp(optarg,"both",len) ) args->collapse |= COLLAPSE_BOTH;
+                else if ( !strncmp(optarg,"none",len) ) args->collapse = COLLAPSE_NONE;
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;
+            }
             case 'f': args->files->apply_filters = optarg; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
