@@ -40,9 +40,10 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o vcfhead.o HMM.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
-           mpileup.o bam2bcf.o bam2bcf_indel.o bam2bcf_iaux.o read_consensus.o bam_sample.o \
+           mpileup.o bam2bcf.o bam2bcf_indel.o bam2bcf_iaux.o bam2bcf_edlib.o \
+	   read_consensus.o bam_sample.o \
            vcfsort.o cols.o extsort.o dist.o abuf.o \
-           ccall.o em.o prob1.o kmin.o str_finder.o gff.o
+           ccall.o em.o prob1.o kmin.o str_finder.o gff.o edlib.o
 PLUGIN_OBJS = vcfplugin.o
 
 prefix      = /usr/local
@@ -234,6 +235,7 @@ vcfbuf_h = vcfbuf.h $(htslib_vcf_h)
 abuf_h = abuf.h $(htslib_vcf_h)
 dbuf_h = dbuf.h $(htslib_vcf_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
+edlib.h = edlib.h
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 cigar_state_h = cigar_state.h $(htslib_hts_h) $(htslib_sam_h)
 read_consensus_h = read_consensus.h $(htslib_hts_h) $(htslib_sam_h)
@@ -285,6 +287,7 @@ mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(hts
 bam2bcf.o: bam2bcf.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(bam2bcf_h) mw.h
 bam2bcf_indel.o: bam2bcf_indel.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(htslib_ksort_h) $(str_finder_h)
 bam2bcf_iaux.o: bam2bcf_iaux.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bcftools_h) $(bam2bcf_h) $(htslib_ksort_h) $(read_consensus_h) $(cigar_state_h)
+bam2bcf_edlib.o: bam2bcf_edlib.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bcftools_h) $(bam2bcf_h) $(htslib_ksort_h) $(read_consensus_h) $(cigar_state_h) $(edlib.h)
 read_consensus.o: read_consensus.c $(read_consensus_h) $(cigar_state_h) $(bcftools_h) kheap.h
 bam_sample.o: bam_sample.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(khash_str2str_h) $(bam_sample_h) $(bcftools_h)
 version.o: version.h version.c
