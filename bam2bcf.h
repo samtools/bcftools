@@ -123,7 +123,7 @@ typedef struct __bcf_callaux_t {
     int max_bases;
     int indel_types[4];     // indel lengths
     int indel_win_size, indels_v20, edlib;
-    int maxins, indelreg;
+    int maxins, indelreg, poly_mqual;
     int read_len;
     char *inscns;
     uint16_t *bases;        // 5bit: unused, 6:quality, 1:is_rev, 4:2-bit base or indel allele (index to bcf_callaux_t.indel_types)
