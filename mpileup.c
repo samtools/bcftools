@@ -73,7 +73,7 @@ typedef struct {
     int rflag_skip_any_unset, rflag_skip_all_unset, rflag_skip_any_set, rflag_skip_all_set, output_type;
     int openQ, extQ, tandemQ, min_support, indel_win_size; // for indels
     double min_frac; // for indels
-    double indel_bias;
+    double indel_bias, poly_mqual;
     double del_bias; // compensate for diff deletion vs insertion error rates
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads, clevel;
@@ -876,6 +876,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->ambig_reads = conf->ambig_reads;
     conf->bca->indel_win_size = conf->indel_win_size;
     conf->bca->edlib = conf->edlib;
+    conf->bca->poly_mqual = conf->poly_mqual;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
     conf->bc.n  = nsmpl;
@@ -1280,7 +1281,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
     fprintf(fp,
         "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n"
-        "      --edlib             New EXPERIMENTAL indel calling model with edlib\n");
+        "      --edlib             New EXPERIMENTAL indel calling model with edlib\n"
+        "      --poly-mqual        (Edlib mode) Use minimum quality within homopolymers\n");
     fprintf(fp,"\n");
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
@@ -1290,15 +1292,15 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
         "    ont-sup or ont-sup-1.20:\n"
         "                     -B -Q1 --max-BQ 99 -F0.20 -o15 -e1  -h80  --delta-BQ 60 \\\n"
-        "                     --del-bias 0.4\n"
+        "                     --del-bias 0.4 --poly-mqual\n"
         "    pacbio-ccs-1.18:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 \\\n"
         "                      -M99999 --indel-size 110\n"
         "    pacbio-ccs or pacbio-ccs-1.20:\n"
         "                 -B -Q5 --max-BQ 50 -F0.10 -o25 -e1  -h300 --delta-BQ 10 \\\n"
-        "                     --del-bias 0.4\n"
+        "                     --del-bias 0.4 --poly-mqual\n"
         "    ultima or ultima-1.20:\n"
         "                 -B -Q4 --max-BQ 40 -F0.15 -o20 -e15 -h250 --delta-BQ 99 \\\n"
-        "                     --del-bias 0.3\n"
+        "                     --del-bias 0.3 --poly-mqual\n"
         "\n"
         "Notes: Assuming diploid individuals.\n"
         "\n"
@@ -1342,6 +1344,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 80;
+    mplp.poly_mqual = 0;
     mplp.clevel = -1;
     mplp.del_bias = 0; // even insertion and deletion likelhoods.
     hts_srand48(0);
@@ -1417,6 +1420,7 @@ int main_mpileup(int argc, char *argv[])
         {"ar", required_argument, NULL, 14},
         {"write-index",no_argument,NULL,21},
         {"del-bias", required_argument, NULL, 23},
+        {"poly-mqual", no_argument, NULL, 24},
         {NULL, 0, NULL, 0}
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
@@ -1542,6 +1546,7 @@ int main_mpileup(int argc, char *argv[])
         case  21: mplp.write_index = 1; break;
         case  22: mplp.edlib = 1; break;
         case  23: mplp.del_bias = atof(optarg); break;
+        case  24: mplp.poly_mqual = 1; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
@@ -1577,6 +1582,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.4;
+                mplp.poly_mqual = 1;
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "With old ONT data may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
@@ -1596,6 +1602,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag &= ~MPLP_REALN;
                 mplp.max_read_len = 9999999;
                 mplp.del_bias = 0.4;
+                mplp.poly_mqual = 1;
             } else if (strcasecmp(optarg, "ultima") == 0 ||
                        strcasecmp(optarg, "ultima-1.20") == 0) {
                 mplp.min_frac = 0.15;
@@ -1607,6 +1614,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.tandemQ = 250;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.3;
+                mplp.poly_mqual = 1;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;

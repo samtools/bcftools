@@ -1289,21 +1289,31 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run, str_len1);
             }
 
-            if (1) {
+            // Skew SeqQ and IndelQ based on a portion of the minimum quality
+            // found within a homopolymer.  This is useful where the quality
+            // values are a bit mutable and move around in such data, but less
+            // so on clocked sequencing technologies.
+            //
+            // Enabling this causes lots of GT errors on Illumina.
+            // However on PacBio it's key to removal of false positives.
+            // ONT and UG seem somewhere inbetween.
+            if (bca->poly_mqual) {
                 int qpos = p->qpos, l;
                 uint8_t *seq = bam_get_seq(p->b);
                 uint8_t *qual = bam_get_qual(p->b);
                 int min_q = qual[qpos];
-//                // scan left
-//                char base = bam_seqi(seq, qpos);
-//                for (l = qpos; l >= 0; l--) {
-//                    if (bam_seqi(seq, l) != base)
-//                        break;
-//                    if (min_q > qual[l])
-//                        min_q = qual[l];
-//                }
 
-                // scan right (including site of indel)
+                // scan homopolymer left
+                char baseL = bam_seqi(seq, qpos+1 < p->b->core.l_qseq
+                                      ? qpos+1 : qpos);
+                for (l = qpos; l >= 0; l--) {
+                    if (bam_seqi(seq, l) != baseL)
+                        break;
+                    if (min_q > qual[l])
+                        min_q = qual[l];
+                }
+
+                // scan homo-polymer right (including site of indel)
                 char base = bam_seqi(seq, qpos+1);
                 for (l = qpos+1; l < p->b->core.l_qseq; l++) {
                     if (min_q > qual[l])
@@ -1312,12 +1322,13 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                         break;
                 }
 
-                // seqQ mod needed for PacBio.
-
                 // We reduce -h so homopolymers get reduced likelihood of being
                 // called, but then optionally increase or decrease from there
                 // based on base quality.  Hence lack of low quality bases in
                 // homopolymer will rescue the score back again, reducing FNs.
+
+                // The score factors here may also be machine specific, but for
+                // now these work well (tuned on PB HiFi).
                 seqQ   += MIN(qavg/20,  min_q - qavg/10);
                 indelQ += MIN(qavg/20,  min_q - qavg/5);
 
