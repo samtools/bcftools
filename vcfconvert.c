@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <stdint.h>
 #include <inttypes.h>
 #include <htslib/faidx.h>
 #include <htslib/vcf.h>
@@ -38,6 +39,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kseq.h>
+#include <htslib/hts_endian.h>
 #include "bcftools.h"
 #include "filter.h"
 #include "convert.h"
@@ -209,7 +211,10 @@ static int _set_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     {
         long end = strtol(se+1,&ss,10);
         if ( ss==se+1 ) return -1;
-        bcf_update_info_int32(args->header, rec, "END", &end, 1);
+        if (end < 1 || end > INT32_MAX)
+            return -1;
+        int32_t e = end; // bcf_update_info_int32 needs an int32_t pointer
+        bcf_update_info_int32(args->header, rec, "END", &e, 1);
     }
 
     rec->rid = rid;
