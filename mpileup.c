@@ -1282,25 +1282,26 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
         "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n"
         "      --edlib             New EXPERIMENTAL indel calling model with edlib\n"
+        "      --no-edlib          Disable edlib mode, to use after a -X profile\n"
         "      --poly-mqual        (Edlib mode) Use minimum quality within homopolymers\n");
     fprintf(fp,"\n");
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
         "    1.12:        -Q13 -h100 -m1 -F0.002\n"
         "    illumina-1.18: --indel-size 110\n"
-        "    illumina or illumina-1.20:    [ default values ]\n"
+        "    illumina or illumina-1.20:    --edlib\n"
         "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
         "    ont-sup or ont-sup-1.20:\n"
         "                     -B -Q1 --max-BQ 99 -F0.20 -o15 -e1  -h80  --delta-BQ 60 \\\n"
-        "                     --del-bias 0.4 --poly-mqual\n"
+        "                     --del-bias 0.4 --poly-mqual --edlib\n"
         "    pacbio-ccs-1.18:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 \\\n"
         "                      -M99999 --indel-size 110\n"
         "    pacbio-ccs or pacbio-ccs-1.20:\n"
         "                 -B -Q5 --max-BQ 50 -F0.10 -o25 -e1  -h300 --delta-BQ 10 \\\n"
-        "                     --del-bias 0.4 --poly-mqual\n"
+        "                     --del-bias 0.4 --poly-mqual --edlib\n"
         "    ultima or ultima-1.20:\n"
         "                 -B -Q4 --max-BQ 40 -F0.15 -o20 -e15 -h250 --delta-BQ 99 \\\n"
-        "                     --del-bias 0.3 --poly-mqual\n"
+        "                     --del-bias 0.3 --poly-mqual --edlib\n"
         "\n"
         "Notes: Assuming diploid individuals.\n"
         "\n"
@@ -1406,6 +1407,7 @@ int main_mpileup(int argc, char *argv[])
         {"indel-size", required_argument, NULL, 15},
         {"indels-2.0", no_argument, NULL, 20},
         {"edlib", no_argument, NULL, 22},
+        {"no-edlib", no_argument, NULL, 25},
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
@@ -1545,6 +1547,7 @@ int main_mpileup(int argc, char *argv[])
         case  20: mplp.indels_v20 = 1; break;
         case  21: mplp.write_index = 1; break;
         case  22: mplp.edlib = 1; break;
+        case  25: mplp.edlib = 0; break;
         case  23: mplp.del_bias = atof(optarg); break;
         case  24: mplp.poly_mqual = 1; break;
         case 'A': use_orphan = 1; break;
@@ -1583,6 +1586,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.4;
                 mplp.poly_mqual = 1;
+                mplp.edlib = 1;
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "With old ONT data may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
@@ -1603,6 +1607,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.max_read_len = 9999999;
                 mplp.del_bias = 0.4;
                 mplp.poly_mqual = 1;
+                mplp.edlib = 1;
             } else if (strcasecmp(optarg, "ultima") == 0 ||
                        strcasecmp(optarg, "ultima-1.20") == 0) {
                 mplp.min_frac = 0.15;
@@ -1615,6 +1620,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.3;
                 mplp.poly_mqual = 1;
+                mplp.edlib = 1;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;
@@ -1629,6 +1635,7 @@ int main_mpileup(int argc, char *argv[])
             } else if (strcasecmp(optarg, "illumina") == 0 ||
                        strcasecmp(optarg, "illumina-1.20") == 0) {
                 mplp.flag |= MPLP_REALN_PARTIAL;
+                mplp.edlib = 1;
             } else {
                 fprintf(stderr, "Unknown configuration name '%s'\n"
                         "Please choose from 1.12, illumina, pacbio-ccs or ont\n",
