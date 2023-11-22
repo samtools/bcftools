@@ -242,8 +242,8 @@ main.o: main.c $(htslib_hts_h) config.h version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h) $(convert_h) $(smpl_ilist_h) regidx.h $(htslib_khash_h) $(dbuf_h)
 vcfplugin.o: vcfplugin.c config.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h)
 vcfcall.o: vcfcall.c $(htslib_vcf_h) $(htslib_kfunc_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h) $(gvcf_h) regidx.h $(vcfbuf_h)
-vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_thread_pool_h) $(bcftools_h)
-vcfconvert.o: vcfconvert.c $(htslib_faidx_h) $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kseq_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
+vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_thread_pool_h) $(htslib_hts_endian_h) $(bcftools_h)
+vcfconvert.o: vcfconvert.c $(htslib_faidx_h) $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kseq_h) $(htslib_hts_endian_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
 vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h regidx.h
 vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kbitset_h) $(htslib_hts_os_h) $(htslib_bgzf_h) $(bcftools_h) extsort.h filter.h
 vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h) $(htslib_bgzf_h) $(bcftools_h)
@@ -261,10 +261,10 @@ vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfu
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(htslib_thread_pool_h) $(htslib_faidx_h) $(htslib_khash_str2int_h) $(bcftools_h) $(khash_str2str_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
 ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
-convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) $(htslib_khash_str2int_h) $(bcftools_h) $(variantkey_h) $(convert_h) $(filter_h)
+convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) $(htslib_khash_str2int_h) $(htslib_hts_endian_h) $(bcftools_h) $(variantkey_h) $(convert_h) $(filter_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
-filter.o: filter.c $(htslib_khash_str2int_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) config.h $(filter_h) $(bcftools_h)
+filter.o: filter.c $(htslib_khash_str2int_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) $(htslib_hts_endian_h) config.h $(filter_h) $(bcftools_h)
 	$(CC) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(PERL_CFLAGS) -c -o $@ $<
 gvcf.o: gvcf.c $(gvcf_h) $(bcftools_h)
 kmin.o: kmin.c kmin.h

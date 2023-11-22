@@ -29,6 +29,7 @@ THE SOFTWARE.  */
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
+#include <stdint.h>
 #include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
@@ -36,6 +37,7 @@ THE SOFTWARE.  */
 #include <htslib/bgzf.h>
 #include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/thread_pool.h>
+#include <htslib/hts_endian.h>
 #include <sys/time.h>
 #include "bcftools.h"
 
@@ -887,19 +889,20 @@ static void naive_concat(args_t *args)
         int nskip;
         if ( type.format==bcf )
         {
-            uint8_t magic[5];
-            if ( bgzf_read(fp, magic, 5) != 5 ) error("\nFailed to read the BCF header in %s\n", args->fnames[i]);
+            const size_t magic_len = 5 + 4; // "Magic" string + header length
+            uint8_t magic[magic_len];
+            if ( bgzf_read(fp, magic, magic_len) != magic_len ) error("\nFailed to read the BCF header in %s\n", args->fnames[i]);
+            // First five bytes are the "Magic" string
             if (strncmp((char*)magic, "BCF\2\2", 5) != 0) error("\nInvalid BCF magic string in %s\n", args->fnames[i]);
-
-            if ( bgzf_read(fp, &tmp.l, 4) != 4 ) error("\nFailed to read the BCF header in %s\n", args->fnames[i]);
+            // Next four are the header length (little-endian)
+            tmp.l = le_to_u32(magic + 5);
             hts_expand(char,tmp.l,tmp.m,tmp.s);
             if ( bgzf_read(fp, tmp.s, tmp.l) != tmp.l ) error("\nFailed to read the BCF header in %s\n", args->fnames[i]);
 
             // write only the first header
             if ( i==0 )
             {
-                if ( bgzf_write(bgzf_out, "BCF\2\2", 5) !=5 ) error("\nFailed to write %d bytes to %s\n", 5,args->output_fname);
-                if ( bgzf_write(bgzf_out, &tmp.l, 4) !=4 ) error("\nFailed to write %d bytes to %s\n", 4,args->output_fname);
+                if ( bgzf_write(bgzf_out, magic, magic_len) != magic_len ) error("\nFailed to write %zu bytes to %s\n", magic_len,args->output_fname);
                 if ( bgzf_write(bgzf_out, tmp.s, tmp.l) != tmp.l) error("\nFailed to write %"PRId64" bytes to %s\n", (uint64_t)tmp.l,args->output_fname);
             }
             nskip = fp->block_offset;

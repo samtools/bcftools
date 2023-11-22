@@ -29,6 +29,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <math.h>
 #include <sys/types.h>
+#include <stdint.h>
 #include <inttypes.h>
 #ifndef _WIN32
 #include <pwd.h>
@@ -38,6 +39,7 @@ THE SOFTWARE.  */
 #include <htslib/hts_defs.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kfunc.h>
+#include <htslib/hts_endian.h>
 #include "config.h"
 #include "filter.h"
 #include "bcftools.h"
@@ -753,22 +755,25 @@ static int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
     }
 
     if ( ivec<0 ) ivec = 0;
+    if ( ivec>=info->len) return 0;
 
-    #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
-        type_t *p = (type_t *) info->vptr; \
-        for (j=0; j<ivec && j<info->len; j++) \
+    #define BRANCH(type_t, convert, is_missing, is_vector_end, out_type_t) { \
+        uint8_t *p = info->vptr; \
+        for (j=0; j<ivec; j++) \
         { \
+            type_t val = convert(&p[j * sizeof(type_t)]); \
             if ( is_vector_end ) return 0; \
         } \
+        type_t val = convert(&p[ivec * sizeof(type_t)]); \
         if ( is_missing ) return 0; \
-        *((out_type_t*)value) = p[j]; \
+        *((out_type_t*)value) = val; \
         return 1; \
     }
     switch (info->type) {
-        case BCF_BT_INT8:  BRANCH(int8_t,  p[j]==bcf_int8_missing,  p[j]==bcf_int8_vector_end,  int64_t); break;
-        case BCF_BT_INT16: BRANCH(int16_t, p[j]==bcf_int16_missing, p[j]==bcf_int16_vector_end, int64_t); break;
-        case BCF_BT_INT32: BRANCH(int32_t, p[j]==bcf_int32_missing, p[j]==bcf_int32_vector_end, int64_t); break;
-        case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(p[j]), bcf_float_is_vector_end(p[j]), double); break;
+        case BCF_BT_INT8:  BRANCH(int8_t,  le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  int64_t); break;
+        case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, int64_t); break;
+        case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, int64_t); break;
+        case BCF_BT_FLOAT: BRANCH(float,   le_to_float, bcf_float_is_missing(val), bcf_float_is_vector_end(val), double); break;
         default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
     }
     #undef BRANCH
@@ -1162,23 +1167,23 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
         tok->str_value.s = (char*)realloc(tok->str_value.s, tok->str_value.m);
     }
 
-#define BRANCH_INT(type_t,vector_end) \
+#define BRANCH_INT(type_t, convert, vector_end) \
     { \
         for (i=0; i<line->n_sample; i++) \
         { \
-            type_t *ptr = (type_t*) (fmt->p + i*fmt->size); \
-            int is_het = 0, has_ref = 0, missing = 0; \
+            uint8_t *ptr = fmt->p + i*fmt->size; \
+            int is_het = 0, has_ref = 0, missing = 0, jal = 0; \
             for (j=0; j<fmt->n; j++) \
             { \
-                if ( ptr[j]==vector_end ) break; /* smaller ploidy */ \
-                if ( bcf_gt_is_missing(ptr[j]) ) { missing=1; break; } /* missing allele */ \
-                int ial = ptr[j]; \
+                type_t ial = convert(&ptr[j * sizeof(type_t)]); \
+                if ( ial==vector_end ) break; /* smaller ploidy */ \
+                if ( bcf_gt_is_missing(ial) ) { missing=1; break; } /* missing allele */ \
                 if ( bcf_gt_allele(ial)==0 ) has_ref = 1; \
                 if ( j>0 ) \
                 { \
-                    int jal = ptr[j-1]; \
                     if ( bcf_gt_allele(ial)!=bcf_gt_allele(jal) ) is_het = 1; \
                 } \
+                jal = ial; \
             } \
             char *dst = &tok->str_value.s[nvals1*i]; \
             if ( type==4 ) \
@@ -1216,9 +1221,9 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
         } \
     }
     switch (fmt->type) {
-        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
-        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
-        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  le_to_i8,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, le_to_i16, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, le_to_i32, bcf_int32_vector_end); break;
         default: error("The GT type is not lineognised: %d at %s:%"PRId64"\n",fmt->type, bcf_seqname(flt->hdr,line),(int64_t) line->pos+1); break;
     }
 #undef BRANCH_INT
@@ -1342,21 +1347,22 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
     }
 
     int j,nmissing = 0;
-    #define BRANCH(type_t, is_vector_end) { \
+    #define BRANCH(type_t, convert, is_vector_end) { \
         for (i=0; i<line->n_sample; i++) \
         { \
-            type_t *ptr = (type_t *) (fmt->p + i*fmt->size); \
+            uint8_t *ptr = fmt->p + i*fmt->size; \
             for (j=0; j<fmt->n; j++) \
             { \
-                if ( ptr[j]==is_vector_end ) break; \
-                if ( ptr[j]==bcf_gt_missing ) { nmissing++; break; } \
+                type_t val = convert(&ptr[j * sizeof(type_t)]); \
+                if ( val==is_vector_end ) break; \
+                if ( val==bcf_gt_missing ) { nmissing++; break; } \
             } \
         } \
     }
     switch (fmt->type) {
-        case BCF_BT_INT8:  BRANCH(int8_t,  bcf_int8_vector_end); break;
-        case BCF_BT_INT16: BRANCH(int16_t, bcf_int16_vector_end); break;
-        case BCF_BT_INT32: BRANCH(int32_t, bcf_int32_vector_end); break;
+        case BCF_BT_INT8:  BRANCH(int8_t,  le_to_i8,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, bcf_int32_vector_end); break;
         default: fprintf(stderr,"todo: type %d\n", fmt->type); exit(1); break;
     }
     #undef BRANCH
