@@ -808,7 +808,6 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
                             -1, // k; use small positive for faster alignment
                             EDLIB_MODE_HW, // mode
                             EDLIB_TASK_LOC, // task
-                            //EDLIB_TASK_PATH, // for manual alignment scoring
                             NULL, // additionalEqualities
                             0); // additionalEqualitiesLength
     EdlibAlignResult r = 
@@ -819,108 +818,6 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
         edlibFreeAlignResult(r);
         return INT_MAX;
     }
-
-    int score;
-//    score = m*r.editDistance; // Illumina: ie  -0*(glen - l_query)
-
-#if 0
-    // Alignment based score, scaled by average sequence quality
-    int i, indel=0;
-    for (i = score = 0; i < r.alignmentLength; i++) {
-        switch(r.alignment[i]) {
-        case 0:           indel=0; break;  // match
-        case 3: score++;  indel=0; break;  // mismatch
-        case 1: case 2:                    // indel
-            score+=indel?4:2;
-            indel=1;
-            break;
-        }
-    }
-    score *= m/2;
-#elif 0
-    // Alignment based score, using per-base sequence quality
-    int i, indel=0, qpos = 0;
-    for (i = score = 0; i < r.alignmentLength; i++) {
-        switch(r.alignment[i]) {
-        case 0:                    indel=0; qpos++; break;  // match
-        case 3: score+=qq[qpos]/2; indel=0; qpos++; break;  // mismatch
-        case 1:                                             // ins
-        case 2:                                             // del
-            score+=(indel?2:1)*qq[qpos];
-            indel=1;
-            qpos += r.alignment[i]==2;
-            break;
-        }
-    }
-#elif 0
-    // BEST for PB
-    //
-    // Alignment based score, using per-base sequence quality.
-    // Eg params for PacBio CCS.
-    // This is *marginally* better than the naive t_len-l_query below, but it's
-    // 34% slower mpileup for CCS.  Perhaps not worth the trade off?
-    int i;
-    double fscore = 0;
-    for (i = score = 0; i < r.alignmentLength; i++) {
-        switch(r.alignment[i]) {
-        case 0:              break;  // match
-//        case 3: fscore+=0.5; break;  // mismatch
-//        case 1: fscore+=1.0; break;  // ins; higher qual
-//        case 2: fscore+=0.6; break;  // del; more often an error
-        case 3: score+= 5; break;  // mismatch
-        case 1: score+=10; break;  // ins; higher qual
-        case 2: score+= 6; break;  // del; more often an error
-        }
-    }
-    score *= m/10;
-//    score = m*fscore;
-#elif 0
-    // As above, but accounting for minimum quality in STR region instead.
-    // BAD
-    int i;
-    double fscore = 0;
-    for (i = score = 0; i < r.alignmentLength; i++) {
-        switch(r.alignment[i]) {
-        case 0:                      break;  // match
-        case 3: fscore++;            break;  // mismatch
-        case 1: fscore+=m2min/m;     break;  // ins; higher qual
-        case 2: fscore+=0.6*m2min/m; break;  // del; more often an error
-        }
-    }
-    score = fscore*m;
-#elif 0
-    // As above, but factoring in quality.
-    // BAD
-    int i, qpos = 0;
-    double fscore = 0;
-    for (i = score = 0; i < r.alignmentLength; i++) {
-        switch(r.alignment[i]) {
-        case 0:            qpos++;  break;  // match
-        case 3: fscore+=qq[qpos++]; break;  // mismatch
-        case 1: fscore+=qq[qpos++]; break;  // ins; higher qual
-        //case 2: fscore+=0.6*m;      break;  // del; more often an error
-        case 2: fscore+=.6*qq[qpos];break;  // del; more often an error
-        }
-    }
-    score = fscore;
-#endif
-
-
-//    int nins = 0, ndel = 0, nmis = 0;
-//    for (i = score = 0; i < r.alignmentLength; i++) {
-//        switch (r.alignment[i]) {
-//        case 1: nins++; break;
-//        case 2: ndel++; break;
-//        case 3: nmis++; break;
-//        }
-//    }
-//    assert((*r.endLocations - *r.startLocations + 1) - l_query == ndel-nins);
-//
-//    Then score = f(nins,ndel,nmis).
-//    Could also track nis_o,nins_e,ndel_o,ndel_e for open/extend.
-
-#if 1
-    int t_len = *r.endLocations - *r.startLocations + 1;
 
     // Aligned target length minus query length is an indication of the number
     // of insertions and/or deletions.
@@ -945,39 +842,8 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
     // Given editDistance is +1 for every mismatch, insertion and deletion,
     // provided the t_len-l_query multiplier < 1 then this is always +ve.
 
-    score = m*(r.editDistance - del_bias*(t_len - l_query));
-#endif
-
-#if 0
-    // DEBUG: dump out the sequence alignment
-    {
-        char rseq[1024], *rcp = rseq, qseq[1024], *qcp = qseq;
-
-        int i, rpos = 0, qpos = 0;
-        for (i = 0; i < r.alignmentLength; i++) {
-            switch(r.alignment[i]) {
-            case 0: // match
-            case 3: // mismath
-                *rcp++ = "ACGTN"[ref[rpos++]];
-                *qcp++ = "ACGTN"[query[qpos++]];
-                break;
-            case 1: // ins
-                *rcp++ = '-';
-                *qcp++ = "ACGTN"[query[qpos++]];
-                break;
-            case 2: // del
-                *rcp++ = "ACGTN"[ref[rpos++]];
-                *qcp++ = '-';
-                break;
-            }
-        }
-        *rcp = 0;
-        *qcp = 0;
-        fprintf(stderr, "Ref   %s\n", rseq);
-        fprintf(stderr, "Seq   %s\n", qseq);
-        fprintf(stderr, "Score %d  t-l %d\n", score, t_len - l_query);
-    }
-#endif
+    int t_len = *r.endLocations - *r.startLocations + 1;
+    int score = m*(r.editDistance - del_bias*(t_len - l_query));
 
     edlibFreeAlignResult(r);
     return score;
@@ -1135,9 +1001,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     //m = MIN(30, (m2+m2min)/2); // best so far
     m = MIN(30, m2min);
 
-#if 1
-    // edlib
-
+    // Alternatives to experiment on.
     //double mm = (m+m2)/2;
     //double mm = m2min;
     double mm = m;
@@ -1151,36 +1015,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                            query, qend - qbeg, mm, del_bias);
     else
         sc1 = INT_MAX; // skip
-#endif
-
-#if 0
-    // BAQ
-
-    int SC1, SC2;
-    probaln_par_t apf = { 1e-4, 1e-2, 10 };
-    if (long_read) {
-        apf.d = 1e-3;
-        apf.e = 1e-1;
-    }
-
-    if (band > (qend-qbeg)/2-3)
-        band = (qend-qbeg)/2-3;
-    apf.bw = band + 3; // or abs(l_ref - l_query), so we want to keep similar
-
-    SC2 = probaln_glocal(ref2 + tbeg - left, tend2 - tbeg,
-                         query, qend - qbeg, qq, &apf, 0, 0);
-
-    if (tend1 != tend2 ||
-        memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
-               tend1 - tbeg) != 0)
-        SC1 = probaln_glocal(ref1 + tbeg - left, tend1 - tbeg,
-                             query, qend - qbeg, qq, &apf, 0, 0);
-    else
-        SC1 = INT_MAX; // skip
-
-    sc1 = SC1;
-    sc2 = SC2;
-#endif
 
     // Find the best of the two alignments
     if (sc1 < 0 && sc2 < 0) {
@@ -1198,16 +1032,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
             sc2 = sc1;
     }
 
-#if 0
-    // Old indel-tweak-jkb1:bam2bcf_indel.c code
-    l = (int)((100. * sc2 / (qend - qbeg) + .499) * bca->indel_bias);
-    *score = sc2<<8 | MIN(255, l);
-    l  =  (*score&0xff)*.8 + iscore*2;
-    *score = (*score & ~0xff) | MIN(255, l);
-    free(qq);
-    return 0;
-#endif
-
     // Sc is overall alignment score, in top 24 bits (SeqQ). It's based
     // purely on the scores for the whole alignment.
     // We also have a separate indel score in bottom 8 bits (IndelQ).
@@ -1222,10 +1046,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     l = .5*(100. * sc2 / (qend - qbeg) + .499);
     l += iscore*(qavg/(m2min+1.0) + qavg/m2);
 
-    *score = (sc2<<8) | (int)MIN(255, l * bca->indel_bias/10);
-
-    // NOTE: indel_bias now seems to have a very minimal impact on scoring.
-    // Why is this so?
+    *score = (sc2<<8) | (int)MIN(255, l * bca->indel_bias);
 
     free(qq);
 
@@ -1462,18 +1283,14 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
         goto err;
 
 
-    // calculate left and right boundary
-#if 0
-    left = pos > bca->indel_win_size ? pos - bca->indel_win_size : 0;
-    right = pos + bca->indel_win_size;
-#else
+    // calculate left and right boundary, based on type size for a bit more
+    // speed.
     int max_indel = 20*MAX(ABS(types[0]), ABS(types[n_types-1]))
                   + bca->indel_win_size/4;
     if (max_indel > bca->indel_win_size)
         max_indel = bca->indel_win_size;
     left = pos > max_indel ? pos - max_indel : 0;
     right = pos + max_indel;
-#endif
 
     int del_size = types[0]<0 ? -types[0] : 0;
     right += del_size;
@@ -1736,7 +1553,7 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // do realignment; this is the bottleneck.
                 //
                 // Note low score = good, high score = bad.
-                if (tend > tbeg) {
+                if (tend1 > tbeg && tend2 > tbeg) {
                     //fprintf(stderr, "Num %d\n", i);
                     if (bcf_cgp_align_score(p, bca, types[t], band,
                                             (uint8_t *)tcons[0] + left2-left,
