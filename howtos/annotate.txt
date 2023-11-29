@@ -17,12 +17,20 @@ Remove all INFO fields and all FORMAT fields except for GT and PL
 bcftools annotate -x INFO,^FORMAT/GT,FORMAT/PL file.vcf
 ----
 
+.**Rename annotations**
+
+----
+# rename INFO tag `OldName` to `NewName`
+bcftools annotate -c INFO/NewName:=INFO/OldName file.vcf
+
+# rename FILTER `OldName` to `NewName`
+bcftools annotate -c FILTER/NewName:=FILTER/OldName file.vcf
+----
 
 
 .**Transfer annotations from one VCF file to another**
 
 Populate the columns ID, QUAL and the INFO/TAG annotation
-
 ----
 # do not replace TAG if already present
 bcftools annotate -a src.bcf -c ID,QUAL,+TAG dst.bcf
@@ -32,9 +40,13 @@ bcftools annotate -a src.bcf -c ID,QUAL,TAG dst.bcf
 ----
 
 Carry over all INFO and FORMAT annotations except FORMAT/GT
-
 ----
 bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf
+----
+
+Carry over FILTER column
+----
+bcftools annotate -a src.bcf -c FILTER dst.bcf
 ----
 
 
@@ -65,7 +77,7 @@ bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 
 
 
-.**Overwriting / not overwriting existing tags and the handling of missing values**
+.**Overwriting versus not overwriting existing tags and the handling of missing values**
 
 Modifiers that control what to do with missing values:
 [cols="2,10",width=70%]
@@ -87,6 +99,31 @@ Modifiers that control what to do with missing values:
 |===
 
 
+
+[[transfer_filter_to_info]]
+.**Transfer FILTER values into an INFO tag**
+
+----
+# transfer FILTER column to INFO tag NewTag; notice that the -a option is not present, therefore
+# B.bcf/FILTER is the source annotation
+bcftools annotate -c INFO/NewTag:=FILTER B.bcf
+
+# transfer FILTER column from A.bcf to INFO/NewTag in B.bcf; notice that the -a option is present,
+# therefore A.bcf/FILTER is the source annotation
+bcftools annotate -c INFO/NewTag:=FILTER -a A.bcf B.bcf
+
+# transfer B.bcf/FILTER column to INFO tag NewTag; notice that although the -a option is present,
+# the notation "./FILTER" tells the program to transfer the annotation locally and make B.bcf/FILTER
+# the source annotation
+bcftools annotate -c INFO/NewTag:=./FILTER -a A.bcf B.bcf
+
+# transfer B.bcf/FILTER column to INFO/NewTag, then A.bcf/FILTER to B.bcf/FILTER
+bcftools annotate -c INFO/NewTag:=./FILTER,FILTER -a A.bcf B.bcf
+
+# transfer A.bcf/FILTER to B.bcf/FILTER, then the new B.bcf/FILTER value to INFO/NewTag; notice
+# that due to the order of operation, FILTER and INFO/NewTag will be identical
+bcftools annotate -c FILTER,INFO/NewTag:=./FILTER -a A.bcf B.bcf
+----
 
 
 .**Transfer annotation from INFO column to FORMAT**
