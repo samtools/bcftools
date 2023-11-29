@@ -518,6 +518,12 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate18.1',tab=>'annotate18.1',out=>'
 run_test(\&test_vcf_annotate,$opts,in=>'annotate18.2',tab=>'annotate18.2',out=>'annotate18.2.out',args=>'-c CHROM,BEG,END,A,B,C,D,E -l A:sum,B:avg,C:min,D:max,E:append');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.1.out',args=>'-c INFO/ID:=ID,INFO/INFO_ID:=INFO/ID,ID,=ID:=INFO/ID');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.2.out',args=>'-c FILTER,INFO/FILTER:=FILTER,INFO/INFO_FILTER:=INFO/FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.3.out',args=>'-c INFO/FILTER:=FILTER,INFO/INFO_FILTER:=INFO/FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',                      out=>'annotate19.4.out',args=>'-c INFO/FILTER:=FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.5.out',args=>'-c INFO/FILTER:=FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.4.out',args=>'-c INFO/FILTER:=./FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.6.out',args=>'-c INFO/FILTER:=./FILTER,FILTER');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotate19.7.out',args=>'-c FILTER,INFO/FILTER:=./FILTER');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.1.out',args=>'-c  FMT/GT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.2.out',args=>'-c +FMT/GT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.3.out',args=>'-c -FMT/GT');

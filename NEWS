@@ -21,6 +21,10 @@ Changes affecting specific commands:
     - Fix `bcftools annotate --mark-sites`, VCF sites overlapping regions in a BED file
       were not annotated (#1989)
 
+    - Add flexibility to FILTER column transfers and allow transfers within the same file,
+      across files, and in combination. For examples see
+        http://samtools.github.io/bcftools/howtos/annotate.html#transfer_filter_to_info
+
 * bcftools call
 
     - Output MIN_DP rather than MinDP in gVCF mode

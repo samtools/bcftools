@@ -170,6 +170,7 @@ typedef struct _args_t
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
     int columns_is_file, has_append_mode, pair_logic;
     dbuf_t *header_lines;
+    bcf1_t *current_rec;    // current record for local setters
 }
 args_t;
 
@@ -517,8 +518,35 @@ static int vcf_getter_id2str(args_t *args, bcf1_t *rec, annot_col_t *col, void *
     *mptr = len+1;
     return len;
 }
+static int vcf_getter_filter2str_local(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
+{
+    rec = args->current_rec;
+    if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
+
+    kstring_t str;
+    str.s = *((char**)ptr);
+    str.m = *mptr;
+    str.l = 0;
+
+    int i;
+    if ( rec->d.n_flt )
+    {
+        for (i=0; i<rec->d.n_flt; i++)
+        {
+            if (i) kputc(';', &str);
+            kputs(bcf_hdr_int2id(args->hdr_out,BCF_DT_ID,rec->d.flt[i]), &str);
+        }
+    }
+    else kputc('.', &str);
+
+    *((char**)ptr) = str.s;
+    *mptr = str.m;
+    return str.l;
+}
 static int vcf_getter_filter2str(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
 {
+    if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
+
     kstring_t str;
     str.s = *((char**)ptr);
     str.m = *mptr;
@@ -2290,10 +2318,30 @@ static void init_columns(args_t *args)
             if ( bcf_hdr_id2type(args->tgts_hdr,BCF_HL_INFO,hdr_id)!=BCF_HT_STR )
                 error("Only Type=String tags can be used to annotate the ID column\n");
         }
-        else if ( (ptr=strstr(str.s,":=")) && !args->targets_fname )
+        else if ( (ptr=strstr(str.s,":=")) && (!args->targets_fname || !strncasecmp(ptr+2,"./",2)) )
         {
             *ptr = 0;
-            rename_annots_push(args,ptr+2,str.s);
+            if ( !strncasecmp(str.s,"INFO/",5) && (!strcasecmp(ptr+2,"FILTER") || !strcasecmp(ptr+2,"./FILTER")) )
+            {
+                // -a not present and transferring filter, needs to be a local transfer
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                memset(col,0,sizeof(*col));
+                col->icol = icol;
+                col->replace = replace;
+                col->setter = vcf_setter_info_str;
+                col->getter = vcf_getter_filter2str_local;
+                col->hdr_key_src = strdup(ptr+2);
+                col->hdr_key_dst = strdup(str.s+5);
+                tmp.l = 0;
+                ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred FILTER column\">",col->hdr_key_dst);
+                bcf_hdr_append(args->hdr_out, tmp.s);
+                if (bcf_hdr_sync(args->hdr_out) < 0) error_errno("[%s] Failed to update header", __func__);
+                int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, col->hdr_key_dst);
+                col->number = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
+            }
+            else
+                rename_annots_push(args,ptr+2,str.s);
             *ptr = ':';
         }
         else if ( !strcasecmp("FILTER",str.s) )
@@ -2487,6 +2535,13 @@ static void init_columns(args_t *args)
                           "       (the annotation type is modified to \"Number=.\" and allele ordering is disregarded)\n");
                 fprintf(stderr,"Warning: the =INFO/TAG feature modifies the annotation to \"Number=.\" and disregards allele ordering\n");
             }
+
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            memset(col,0,sizeof(*col));
+            col->icol = icol;
+            col->replace = replace;
+
             int explicit_src_info = 0;
             int explicit_dst_info = 0;
             char *key_dst;
@@ -2517,15 +2572,14 @@ static void init_columns(args_t *args)
                     key_src[-2] = ':';
                     error("Did you mean \"FMT/%s\" rather than \"%s\"?\n",str.s,str.s);
                 }
+                else if ( !strcasecmp("FILTER",key_src) && args->tgts_is_vcf )
+                {
+                    col->getter = vcf_getter_filter2str;
+                }
             }
             else
                 key_src = key_dst;
 
-            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
-            annot_col_t *col = &args->cols[args->ncols-1];
-            memset(col,0,sizeof(*col));
-            col->icol = icol;
-            col->replace = replace;
             col->hdr_key_src = strdup(key_src);
             col->hdr_key_dst = strdup(key_dst);
 
@@ -2723,6 +2777,7 @@ static void rename_chrs(args_t *args, char *fname)
 // Dirty: this relies on bcf_hdr_sync NOT being called
 static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
 {
+fprintf(stderr,"rename_annots_core ori=[%s] new=[%s]\n",ori_tag,new_tag);
     int type;
     if ( !strncasecmp("info/",ori_tag,5) ) type = BCF_HL_INFO, ori_tag += 5;
     else if ( !strncasecmp("format/",ori_tag,7) ) type = BCF_HL_FMT, ori_tag += 7;
@@ -2782,7 +2837,7 @@ static void rename_annots(args_t *args)
         while ( *ptr && isspace(*ptr) ) ptr++;
         if ( !*ptr ) { *rmme = ' '; error("Could not parse: %s\n", args->rename_annots_map[i]); }
         if ( rename_annots_core(args, args->rename_annots_map[i], ptr) < 0 )
-            error("Could not parse \"%s %s\", expected INFO, FORMAT, or FILTER prefix\n",args->rename_annots_map[i],ptr);
+            error("Cannot rename \"%s\" to \"%s\"\n",args->rename_annots_map[i],ptr);
     }
 }
 static void rename_annots_push(args_t *args, char *src, char *dst)
@@ -3084,6 +3139,8 @@ static int strstr_match(char *a, char *b)
 }
 static void annotate(args_t *args, bcf1_t *line)
 {
+    args->current_rec = line;
+
     int i, j;
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
@@ -3284,6 +3341,15 @@ static void annotate(args_t *args, bcf1_t *line)
             }
 
             has_overlap = 1;
+        }
+    }
+    else if ( args->ncols )
+    {
+        for (j=0; j<args->ncols; j++)
+        {
+            if ( !args->cols[j].setter ) continue;
+            if ( args->cols[j].setter(args,line,&args->cols[j],NULL) )
+                error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
     }
     if ( args->set_ids )

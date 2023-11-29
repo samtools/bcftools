@@ -542,7 +542,7 @@ Add or remove annotations.
     # that INFO/END is already present in the VCF header.
     bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 ----
 
 
