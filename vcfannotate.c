@@ -2762,7 +2762,6 @@ static void rename_chrs(args_t *args, char *fname)
 // Dirty: this relies on bcf_hdr_sync NOT being called
 static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
 {
-fprintf(stderr,"rename_annots_core ori=[%s] new=[%s]\n",ori_tag,new_tag);
     int type;
     if ( !strncasecmp("info/",ori_tag,5) ) type = BCF_HL_INFO, ori_tag += 5;
     else if ( !strncasecmp("format/",ori_tag,7) ) type = BCF_HL_FMT, ori_tag += 7;
