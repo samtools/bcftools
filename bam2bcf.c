@@ -382,6 +382,10 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             // Note baseQ changes some output fields such as I16, but has no
             // significant affect on "call".
             baseQ  = p->aux>>8&0xff;
+
+            // Can we reuse baseQ as indelQ1 instead of indelQ?
+            // So we can distinguish between likelihood of any indel vs
+            // likelihood of this specific indel?
         }
         else
         {

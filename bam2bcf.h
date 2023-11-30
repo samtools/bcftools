@@ -131,6 +131,7 @@ typedef struct __bcf_callaux_t {
     void *rghash;
     float indel_bias;  // adjusts indel score threshold; lower => call more.
     float del_bias;    // (-.9 < x < .9) error profile; >0 => more del, <0 => more ins
+    float vs_ref;      // 0 to 1.  0: score vs next-best. 1: score vs ref
     int32_t *ref_nm, *alt_nm;   // pointers to bcf_call_t.{ref_nm,alt_nm}
     unsigned int nnm[2];        // number of nm observations
     float nm[2];                // cumulative count of mismatches in ref and alt reads

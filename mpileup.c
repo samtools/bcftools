@@ -75,6 +75,7 @@ typedef struct {
     double min_frac; // for indels
     double indel_bias, poly_mqual;
     double del_bias; // compensate for diff deletion vs insertion error rates
+    double vs_ref;
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads, clevel;
     faidx_t *fai;
@@ -877,6 +878,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->indel_win_size = conf->indel_win_size;
     conf->bca->edlib = conf->edlib;
     conf->bca->poly_mqual = conf->poly_mqual;
+    conf->bca->vs_ref = conf->vs_ref;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
     conf->bc.n  = nsmpl;
@@ -1278,6 +1280,9 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
         "      --del-bias FLOAT    Relative likelihood of insertion to deletion [%.2f]\n", mplp->del_bias);
     fprintf(fp,
+        "      --score-vs-ref FLOAT\n"
+        "                          Ratio of score vs ref (1) or 2nd-best allele (0) [%.2f]\n", mplp->vs_ref);
+    fprintf(fp,
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
     fprintf(fp,
         "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n"
@@ -1300,7 +1305,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "                 -B -Q5 --max-BQ 50 -F0.10 -o25 -e1  -h300 --delta-BQ 10 \\\n"
         "                     --del-bias 0.4 --poly-mqual --edlib\n"
         "    ultima or ultima-1.20:\n"
-        "                 -B -Q4 --max-BQ 40 -F0.15 -o20 -e15 -h250 --delta-BQ 99 \\\n"
+        "                 -B --max-BQ 30 -F0.15 -o20 -e15 -h250 --delta-BQ 10 \\\n"
         "                     --del-bias 0.3 --poly-mqual --edlib\n"
         "\n"
         "Notes: Assuming diploid individuals.\n"
@@ -1331,6 +1336,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
     mplp.min_frac = 0.05; mplp.indel_bias = 1.0; mplp.min_support = 2;
+    mplp.vs_ref = 0;
     mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_REALN_PARTIAL
               | MPLP_SMART_OVERLAPS;
     mplp.argc = argc; mplp.argv = argv;
@@ -1423,6 +1429,8 @@ int main_mpileup(int argc, char *argv[])
         {"write-index",no_argument,NULL,21},
         {"del-bias", required_argument, NULL, 23},
         {"poly-mqual", no_argument, NULL, 24},
+        {"no-poly-mqual", no_argument, NULL, 26},
+        {"score-vs-ref",required_argument, NULL, 27},
         {NULL, 0, NULL, 0}
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
@@ -1533,6 +1541,11 @@ int main_mpileup(int argc, char *argv[])
             else
                 mplp.indel_bias = 1/atof(optarg);
             break;
+        case 27:
+            mplp.vs_ref = atof(optarg);
+            //if (mplp.vs_ref < 0) mplp.vs_ref = 0;
+            if (mplp.vs_ref > 1) mplp.vs_ref = 1;
+            break;
         case  15: {
                 char *tmp;
                 mplp.indel_win_size = strtol(optarg,&tmp,10);
@@ -1550,6 +1563,7 @@ int main_mpileup(int argc, char *argv[])
         case  25: mplp.edlib = 0; break;
         case  23: mplp.del_bias = atof(optarg); break;
         case  24: mplp.poly_mqual = 1; break;
+        case  26: mplp.poly_mqual = 0; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
@@ -1585,8 +1599,10 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.4;
+                mplp.indel_bias = 1.2;
                 mplp.poly_mqual = 1;
                 mplp.edlib = 1;
+                mplp.vs_ref = 0.7;
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "With old ONT data may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
@@ -1611,16 +1627,17 @@ int main_mpileup(int argc, char *argv[])
             } else if (strcasecmp(optarg, "ultima") == 0 ||
                        strcasecmp(optarg, "ultima-1.20") == 0) {
                 mplp.min_frac = 0.15;
-                mplp.min_baseQ = 3;
-                mplp.max_baseQ = 40;
-                mplp.delta_baseQ = 99;
+                mplp.min_baseQ = 1;
+                mplp.max_baseQ = 30;
+                mplp.delta_baseQ = 10;
                 mplp.openQ = 20;
-                mplp.extQ = 15;
+                mplp.extQ = 10;
                 mplp.tandemQ = 250;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.del_bias = 0.3;
                 mplp.poly_mqual = 1;
                 mplp.edlib = 1;
+                mplp.vs_ref = 0.3;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;
@@ -1634,8 +1651,16 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag |= MPLP_REALN_PARTIAL;
             } else if (strcasecmp(optarg, "illumina") == 0 ||
                        strcasecmp(optarg, "illumina-1.20") == 0) {
-                mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.edlib = 1;
+                mplp.indel_win_size = 110;
+                mplp.flag |= MPLP_REALN_PARTIAL;
+            } else if (strcasecmp(optarg, "bgi") == 0 ||
+                       strcasecmp(optarg, "bgi-1.20") == 0) {
+                // Largely as per Illumina
+                mplp.edlib = 1;
+                mplp.indel_win_size = 110;
+                mplp.indel_bias = 0.9;
+                mplp.flag |= MPLP_REALN_PARTIAL;
             } else {
                 fprintf(stderr, "Unknown configuration name '%s'\n"
                         "Please choose from 1.12, illumina, pacbio-ccs or ont\n",

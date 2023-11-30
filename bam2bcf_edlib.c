@@ -1069,6 +1069,8 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
     // FIXME: n_types has a maximum; no need to alloc - use a #define?
     int sc[MAX_TYPES], sumq[MAX_TYPES], s, i, j, t, K, n_alt, tmp;
     memset(sumq, 0, n_types * sizeof(int));
+    int sum_indelQ1[100] = {0}; // n
+    int sum_indelQ2[100] = {0}; // n
 
     // Confusing variable naming and bit usage.
     //
@@ -1085,7 +1087,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             //    sct is short for score.
             //    sc is score + t(type)
             // Why aren't these variable names reversed?
-            int *sct = &score[K*n_types], seqQ, indelQ;
+            int *sct = &score[K*n_types], seqQ, indelQ1=0, indelQ2=0, indelQ=0;
             for (t = 0; t < n_types; ++t) sc[t] = sct[t]<<6 | t;
             for (t = 1; t < n_types; ++t) // insertion sort
                 for (j = t; j > 0 && sc[j] < sc[j-1]; --j)
@@ -1100,15 +1102,153 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if ((sc[0]&0x3f) == ref_type) {
                 // sc >> 14 is the total score.  It's been shifted by 8
                 // from normalised score and 6 from type.
-                indelQ = (sc[1]>>14) - (sc[0]>>14);
                 // &0x3f is type number
+
+                // Best call is REF.  Compare vs best indel
+                indelQ = (sc[1]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[1]&0x3f], l_run, str_len1);
             } else {
-                for (t = 0; t < n_types; ++t) // look for the reference type
-                    if ((sc[t]&0x3f) == ref_type) break;
-                indelQ = (sc[t]>>14) - (sc[0]>>14);
+#if 0
+                // Simplest code in edlib10f outputs
+                indelQ = (sc[1]>>14) - (sc[0]>>14);
+#endif
+
+// Maybe just an option of x*indelQ1 + (1-x)*indelQ2 so we can adjust
+// based on indel vs genotype accuracy, per instrument / dataset?
+
+
+#if 1
+// Orig code; indelQ1
+// Good on HG002.GRCh38.PacBio_CCS_15Kb.bam
+                // look for the reference type
+                for (t = 0; t < n_types; ++t) {
+                    if ((sc[t]&0x3f) == ref_type)
+                        break;
+                }
+                indelQ = indelQ1 = (sc[t]>>14) - (sc[0]>>14);
+//                fprintf(stderr, "IndelQ = %d: %d-%d",
+//                        indelQ, (sc[t]>>14), (sc[0]>>14));
+#endif
+
+#if 1
+// 10e; indelQ
+
+                // Revised code in edlib10e outputs
+                // Good on most other data sets, including the 53x CCS SequelII data.
+
+                // Best call is non-ref, compare vs next best non-ref,
+                // or ref if it's just 2 choices (most common case).
+                for (t = 1; t < n_types; t++)
+                    if ((sc[t]&0x3f) == ref_type)
+                        continue;
+                    else break;
+                if (t == n_types)
+                    t--; // it's ref, but it'll do as next best.
+                indelQ2 = (sc[t]>>14) - (sc[0]>>14);
+//                fprintf(stderr, "\tNEW %d: %d-%d\n",
+//                        indelQ, (sc[t]>>14), (sc[0]>>14));
+#endif
+
+#if 0
+                // Best call is non-ref, get the ref score and (if different)
+                // the next best non-ref.  Average the two and then compare vs
+                // this call.  It means we assign ADs better, but don't
+                // overly lose variants either when we have many choices.
+                int ref_t = -1, next_t = -1;
+                for (t = 1; t < n_types; t++) {
+                    if ((sc[t]&0x3f) == ref_type) {
+                        ref_t = t;
+                    } else {
+                        if (next_t <= 0)
+                            next_t = t;
+                    }
+                }
+                if (next_t < 0)
+                    next_t = ref_t;
+                assert(MIN(ref_t, next_t) == 1);
+
+                // Could also try avg(ref,1) too rather than avg(ref,next)?
+                // Tried - no better
+
+                indelQ = (((sc[ref_t]>>14)+(sc[next_t]>>14))>>1) - (sc[0]>>14);
+#endif
+
+#if 0
+                int ref_t = -1, next_t = -1;
+                for (t = 1; t < n_types; t++) {
+                    if ((sc[t]&0x3f) == ref_type) {
+                        ref_t = t;
+                    } else {
+                        if (next_t <= 0)
+                            next_t = t;
+                    }
+                }
+                if (next_t < 0)
+                    next_t = ref_t;
+                assert(MIN(ref_t, next_t) == 1);
+
+                if (ref_t <= next_t)
+                    indelQ = (sc[ref_t]>>14) - (sc[0]>>14);
+                else
+                    //indelQ = (sc[next_t]>>14) - (sc[0]>>14);
+                    indelQ = (((sc[ref_t]>>14)+(sc[next_t]>>14))>>1) - (sc[0]>>14);
+#endif
+
+#if 0
+                // Best call is non-ref, get the ref score and (if different)
+                // the next best non-ref.  Average the two and then compare vs
+                // this call.  It means we assign ADs better, but don't
+                // overly lose variants either when we have many choices.
+                int ref_t = -1, next_t = -1;
+                for (t = 1; t < n_types; t++) {
+                    if ((sc[t]&0x3f) == ref_type) {
+                        ref_t = t;
+                    } else {
+                        if (next_t <= 0)
+                            next_t = t;
+                    }
+                }
+                if (next_t < 0)
+                    next_t = ref_t;
+                assert(MIN(ref_t, next_t) == 1);
+
+                indelQ = (sc[next_t]>>14) - (sc[0]>>14);
+                indelQ += (sc[ref_t]>>14) > (sc[next_t]>>14);
+//                indelQ >>= (sc[ref_t]>>14) > (sc[next_t]>>14); // VBAD
+#endif
+
+                // Maybe boost seqQ if ref_t != next_t and sc[ref_t]-sc[0] is high
+                // while sc[next_t]-sc[0] is not?  So we're saying the indel is good
+                // but this allele is not?  Not sure how we explore that.
+                // It's the difference between making an indel-exists call vs making
+                // a call on this specific genotype.
+
+                // ORIG
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run, str_len1);
+
+                // TO TEST
+                //seqQ   += MAX(0, (indelQ1 - indelQ)/4);
+                //indelQ += MAX(0, (indelQ1 - indelQ2)/4);
+
+                indelQ = bca->vs_ref*indelQ1 + (1-bca->vs_ref)*indelQ2;
+
+#if 0
+                // If ref_t scores higher than next_t then we have more
+                // than 1 ALT allele.  This requires a slightly higher
+                // threshold of confidence to call it as it's more likely
+                // down to sequencing error.
+                if (ref_t >= 2)
+                    seqQ *= pow(0.9, ref_t - 1);
+#endif
             }
+
+            // So we lower qual in some, but raise the average to keep FN/FP
+            // ratios up.
+            indelQ /= bca->indel_bias;
+            indelQ1 /= bca->indel_bias;
+
+            // Or maybe just *2 if bca->poly_mqual and be done with it?
+            // Or perhaps adjust the MIN(qavg/20, ...) to MIN(qavg/10) ?
 
             // Skew SeqQ and IndelQ based on a portion of the minimum quality
             // found within a homopolymer.  This is useful where the quality
@@ -1123,6 +1263,8 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 uint8_t *seq = bam_get_seq(p->b);
                 uint8_t *qual = bam_get_qual(p->b);
                 int min_q = qual[qpos];
+                int nbase = 0;
+                int sumq  = 0;
 
                 // scan homopolymer left
                 char baseL = bam_seqi(seq, qpos+1 < p->b->core.l_qseq
@@ -1141,7 +1283,18 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                         min_q = qual[l];
                     if (bam_seqi(seq, l) != base)
                         break;
+                    nbase++;
+                    sumq += qual[l];
                 }
+
+//                if (nbase) {
+//                    sumq = sumq / (double)nbase;
+//                    if (min_q < sumq / 4)
+//                        min_q = sumq / 4;
+//                }
+
+//                if (min_q < 10)
+//                    min_q = 10;
 
                 // We reduce -h so homopolymers get reduced likelihood of being
                 // called, but then optionally increase or decrease from there
@@ -1152,33 +1305,64 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 // now these work well (tuned on PB HiFi).
                 seqQ   += MIN(qavg/20,  min_q - qavg/10);
                 indelQ += MIN(qavg/20,  min_q - qavg/5);
+                indelQ1+= MIN(qavg/20,  min_q - qavg/5);
 
                 if (seqQ   < 0) seqQ   = 0;
                 if (indelQ < 0) indelQ = 0;
+                if (indelQ1< 0) indelQ1= 0;
             }
 
             // This is the length-normalised score from bcf_cgp_align_score
             tmp = sc[0]>>6 & 0xff;
 
             // reduce indelQ
-            // high score = bad, low score = good.
+            // high score = bad, low score = good; flip for indelQ
             // low normalised scores leave indelQ unmodified
             // high normalised scores set indelQ to 0
             // inbetween scores have a linear scale from indelQ to 0
             indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
+            indelQ1= tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ1+ .499);
 
             // Doesn't really help accuracy, but permits -h to take
             // affect still.
             if (indelQ > seqQ) indelQ = seqQ;
             if (indelQ > 255) indelQ = 255;
+            if (indelQ1> 255) indelQ1= 255;
             if (seqQ > 255) seqQ = 255;
 
-            // use 22 bits in total
+            // Use 22 bits in total.
+            // 0-7   IndelQ
+            // 8-15  SeqQ
+            // 16-22 Score-per-base
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ;
             sumq[sc[0]&0x3f] += indelQ;
+
+            // Experiment in p->aux vs sumq.
+            // One gives likelihood of an indel being here, while the other
+            // is likelihood of a specific genotype?  But which is which?
+
+            sum_indelQ1[s] += indelQ1;
+            sum_indelQ2[s] += indelQ;
         }
+
+//        double m = (double)sum_indelQ1[s] / sum_indelQ2[s];
+//        if (m > 1) {
+//            m = sqrt(m);
+//            fprintf(stderr, "Sum %d %d  m=%f\n", sum_indelQ1, sum_indelQ, m);
+//            for (i = 0; i < n_plp[s]; ++i) {
+//                bam_pileup1_t *p = plp[s] + i;
+//                int indelQ = p->aux & 0xff;
+//                indelQ *= m;
+//                if (indelQ > 255)
+//                    indelQ = 255;
+//                p->aux = (p->aux & ~0xff) | indelQ;
+//            }
+//        }
     }
-    // determine bca->indel_types[] and bca->inscns
+
+    // Determine bca->indel_types[] and bca->inscns.
+    // Sumq[0] is always reference.
+    // Sumq[1] is best non-ref (and maybe better than ref)
     bca->maxins = max_ins;
     bca->inscns = (char*) realloc(bca->inscns, bca->maxins * 4);
     if (bca->maxins && !bca->inscns)
@@ -1190,20 +1374,27 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             tmp = sumq[j], sumq[j] = sumq[j-1], sumq[j-1] = tmp;
     for (t = 0; t < n_types; ++t) // look for the reference type
         if ((sumq[t]&0x3f) == ref_type) break;
+
     if (t) { // then move the reference type to the first
         tmp = sumq[t];
         for (; t > 0; --t) sumq[t] = sumq[t-1];
         sumq[0] = tmp;
     }
+
     for (t = 0; t < 4; ++t) bca->indel_types[t] = B2B_INDEL_NULL;
     for (t = 0; t < 4 && t < n_types; ++t) {
         bca->indel_types[t] = types[sumq[t]&0x3f];
-        if (bca->maxins)
+        if (bca->maxins) // potentially an insertion
             memcpy(&bca->inscns[t * bca->maxins],
                    &inscns[(sumq[t]&0x3f) * max_ins], bca->maxins);
     }
-    // update p->aux
+
+    // Update p->aux.
+    // If per-alignment type isn't found, then indelQ/seqQ is 0,
+    // otherwise unchanged.
     for (s = n_alt = 0; s < n; ++s) {
+//        double m = sqrt((double)sum_indelQ1[s] / sum_indelQ2[s]);
+//        if (m < 1) m = 1;
         for (i = 0; i < n_plp[s]; ++i) {
             bam_pileup1_t *p = plp[s] + i;
             int x = types[p->aux>>16&0x3f];
@@ -1211,6 +1402,15 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 if (x == bca->indel_types[j]) break;
             p->aux = j<<16 | (j == 4? 0 : (p->aux&0xffff));
             if ((p->aux>>16&0x3f) > 0) ++n_alt;
+
+// Poor
+//            // We recorded indelQ based on this allele, but
+//            // scale now by quality of any non-ref allele.
+//            // This reduces FN while keeping GT accurate (maybe!)
+//            int indelQ = (p->aux & 0xff) * m;
+//            if (indelQ > 255) indelQ = 255;
+//            p->aux = (p->aux & ~0xff) | indelQ;
+
             //fprintf(stderr, "X pos=%d read=%d:%d name=%s call=%d type=%d seqQ=%d indelQ=%d\n", pos, s, i, bam_get_qname(p->b), (p->aux>>16)&0x3f, bca->indel_types[(p->aux>>16)&0x3f], (p->aux>>8)&0xff, p->aux&0xff);
         }
     }
