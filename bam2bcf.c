@@ -1197,10 +1197,26 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     if ( bc->ori_ref < 0 )
     {
         bcf_update_info_flag(hdr, rec, "INDEL", NULL, 1);
+        uint32_t idv = bca->max_support;
+        if ( fmt_flag&B2B_INFO_IMF ) {
+            float max_frac;
+            if (bc->ADF && bc->ADR) {
+                int max_ad = 0, tot_ad = bc->ADF[0] + bc->ADR[0];
+                for (int k = 1; k < rec->n_allele; k++) {
+                    if (max_ad < bc->ADF[k] + bc->ADR[k])
+                        max_ad = bc->ADF[k] + bc->ADR[k];
+                    tot_ad += bc->ADF[k] + bc->ADR[k];
+                }
+                max_frac = (double)(max_ad) / bc->ori_depth;
+                //max_frac = (double)(max_ad) / tot_ad;
+                idv = max_ad;
+            } else {
+                max_frac = bca->max_frac;
+            }
+            bcf_update_info_float(hdr, rec, "IMF", &max_frac, 1);
+        }
         if ( fmt_flag&B2B_INFO_IDV )
-            bcf_update_info_int32(hdr, rec, "IDV", &bca->max_support, 1);
-        if ( fmt_flag&B2B_INFO_IMF )
-            bcf_update_info_float(hdr, rec, "IMF", &bca->max_frac, 1);
+            bcf_update_info_int32(hdr, rec, "IDV", &idv, 1);
     }
     bcf_update_info_int32(hdr, rec, "DP", &bc->ori_depth, 1);
     if ( fmt_flag&B2B_INFO_ADF )
