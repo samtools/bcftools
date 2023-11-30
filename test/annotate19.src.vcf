@@ -6,4 +6,4 @@
 ##INFO=<ID=QUAL,Number=1,Type=Float,Description="Test">
 ##FILTER=<ID=filter_filter,Description="Test">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	3000001	id_id	C	T	11	filter_filter	FILTER=info_filter;ID=info_id;QUAL=99
+1	3000001	id_id1;id_id2	C	T	11	filter_filter	FILTER=info_filter;ID=info_id;QUAL=99

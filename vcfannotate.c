@@ -511,20 +511,21 @@ static int vcf_getter_info_str2str(args_t *args, bcf1_t *rec, annot_col_t *col, 
 static int vcf_getter_id2str(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
 {
     char *str = *((char**)ptr);
-    int len = strlen(rec->d.id);
+    int i, len = strlen(rec->d.id);
     if ( len >= *mptr ) str = realloc(str, len+1);
-    strcpy(str, rec->d.id);
+    for (i=0; i<len; i++)
+        str[i] = rec->d.id[i]==';' ? ',' : rec->d.id[i];
+    str[len] = 0;
     *((char**)ptr) = str;
     *mptr = len+1;
     return len;
 }
-static int vcf_getter_filter2str_local(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
+inline static int vcf_getter_filter2str_core(bcf_hdr_t *hdr, bcf1_t *rec, char **ptr, int *mptr)
 {
-    rec = args->current_rec;
     if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
 
     kstring_t str;
-    str.s = *((char**)ptr);
+    str.s = *ptr;
     str.m = *mptr;
     str.l = 0;
 
@@ -533,39 +534,23 @@ static int vcf_getter_filter2str_local(args_t *args, bcf1_t *rec, annot_col_t *c
     {
         for (i=0; i<rec->d.n_flt; i++)
         {
-            if (i) kputc(';', &str);
-            kputs(bcf_hdr_int2id(args->hdr_out,BCF_DT_ID,rec->d.flt[i]), &str);
+            if (i) kputc(',', &str);
+            kputs(bcf_hdr_int2id(hdr,BCF_DT_ID,rec->d.flt[i]), &str);
         }
     }
     else kputc('.', &str);
 
-    *((char**)ptr) = str.s;
+    *ptr  = str.s;
     *mptr = str.m;
     return str.l;
 }
+static int vcf_getter_filter2str_local(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
+{
+    return vcf_getter_filter2str_core(args->hdr_out, args->current_rec, (char**)ptr, mptr);
+}
 static int vcf_getter_filter2str(args_t *args, bcf1_t *rec, annot_col_t *col, void **ptr, int *mptr)
 {
-    if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
-
-    kstring_t str;
-    str.s = *((char**)ptr);
-    str.m = *mptr;
-    str.l = 0;
-
-    int i;
-    if ( rec->d.n_flt )
-    {
-        for (i=0; i<rec->d.n_flt; i++)
-        {
-            if (i) kputc(';', &str);
-            kputs(bcf_hdr_int2id(args->tgts_hdr,BCF_DT_ID,rec->d.flt[i]), &str);
-        }
-    }
-    else kputc('.', &str);
-
-    *((char**)ptr) = str.s;
-    *mptr = str.m;
-    return str.l;
+    return vcf_getter_filter2str_core(args->tgts_hdr, rec, (char**)ptr, mptr);
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
