@@ -101,6 +101,14 @@ Changes affecting specific commands:
 
     - Include sample name in the output header with `-H` whenever it makes sense (#1992)
 
+* bcftools +spit-vep
+
+    - Fix on the fly filtering involving numeric subfields, e.g. `-i 'MAX_AF<0.001'` (#2039)
+
+    - Interpret default column type names (--columns-types) as entire strings, rather than
+      substrings to avoid unexpected spurious matches (i.e. internally add ^ and $ to all
+      field names)
+
 * bcftools view
 
     - Add new `-A, --trim-unseen-allele` option to remove the unseen allele <*> or <NON_REF>
