@@ -123,6 +123,7 @@ typedef struct __bcf_callaux_t {
     int max_bases;
     int indel_types[4];     // indel lengths
     int indel_win_size, indels_v20, edlib;
+    int seqQ_offset; // edlib mode, seqQ=MIN(seqQ, offset - MIN(20,depth)*5);
     int maxins, indelreg, poly_mqual;
     int read_len;
     char *inscns;

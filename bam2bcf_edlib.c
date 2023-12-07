@@ -1,7 +1,7 @@
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2012-2014,2016-2017, 2021-2023 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016-2017, 2021-2024 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
             Petr Danecek <pd3@sanger.ac.uk>
@@ -25,7 +25,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
+// Show consensus
 //#define CONS_DEBUG
+
+// Show alignments to consensus
+//#define ALIGN_DEBUG
 
 #include <assert.h>
 #include <ctype.h>
@@ -472,7 +476,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     // Expand cons_base to include depth from ref_base/ref_ins
     // Caveat: except at pos itself, where true ref is used if type != 0
 
-    // Note this harms PB-CCS test at chr1:10171880.
+#if 1 // TEST 1
     // We could retest this heuristic further maybe.
     for (i = 0; i < right-left; i++) {
         // Total observed depth
@@ -503,6 +507,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
         if (rfract < 1.01 / (r+1e-10))
             rfract = 1.01 / (r+1e-10); // low depth compensation
+//        if (rfract > 0.2)
+//            rfract = 0.2;
 
         // TODO: consider limiting rfract so we never drown out the
         // signal.  We want to use the remaining data only to correct
@@ -535,6 +541,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 goto err;
         }
     }
+#endif
 
     //--------------------------------------------------
     // Allocate consensus buffer, to worst case length
@@ -807,7 +814,11 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
                             //ABS(type)+ABS(l_ref-l_query)+10,
                             -1, // k; use small positive for faster alignment
                             EDLIB_MODE_HW, // mode
-                            EDLIB_TASK_LOC, // task
+#ifdef ALIGN_DEBUG
+                            EDLIB_TASK_PATH,
+#else
+                            EDLIB_TASK_LOC,
+#endif
                             NULL, // additionalEqualities
                             0); // additionalEqualitiesLength
     EdlibAlignResult r = 
@@ -818,6 +829,50 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
         edlibFreeAlignResult(r);
         return INT_MAX;
     }
+
+#ifdef ALIGN_DEBUG
+    // NB: Needs linking against the C++ libedlib.a as our cut-down C
+    // implementation misses the alignment generation code.
+    {
+        int i, j = 0, pt = r.startLocations[0], pq = 0;
+        char line1[80];
+        char line2[80];
+        char line3[80];
+        for (i = 0; i < r.alignmentLength && pt < r.endLocations[0]; i++) {
+            int n;
+            switch (n = r.alignment[i]) {
+            case 0: // match
+            case 3: // mismatch
+                line1[j] = "ACGTN"[ref[pt++]];
+                line2[j] = "ACGTN"[query[pq++]];
+                line3[j] = " x"[n==3];
+                break;
+            case 2: // insertion to ref
+                line1[j] = "ACGTN"[ref[pt++]];
+                line2[j] = '-';
+                line3[j] = '-';
+                break;
+            case 1: // insertion to query
+                line1[j] = '-';
+                line2[j] = "ACGTN"[query[pq++]];
+                line3[j] = '+';
+                break;
+            }
+
+            if (++j == sizeof(line1)) {
+                fprintf(stderr, "%.*s\n", j, line1);
+                fprintf(stderr, "%.*s\n", j, line2);
+                fprintf(stderr, "%.*s\n", j, line3);
+                j = 0;
+            }
+        }
+        if (j) {
+            fprintf(stderr, "%.*s\n", j, line1);
+            fprintf(stderr, "%.*s\n", j, line2);
+            fprintf(stderr, "%.*s\n", j, line3);
+        }
+    }
+#endif
 
     // Aligned target length minus query length is an indication of the number
     // of insertions and/or deletions.
@@ -891,7 +946,7 @@ int edlib_glocal(uint8_t *ref, int l_ref, uint8_t *query, int l_query,
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int type, int band,
                                uint8_t *ref1, uint8_t *ref2, uint8_t *query,
-                               int r_start, int r_end, int long_read,
+                               int r_start, int r_end,
                                int tbeg, int tend1, int tend2,
                                int left, int right,
                                int qbeg, int qend,
@@ -900,8 +955,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int *str_len1_p, int *str_len2_p) {
     int atype = abs(type);
     int l, sc1, sc2;
-    const uint8_t *qual = bam_get_qual(p->b), *bq = NULL;
-    uint8_t *qq;
 
     // Trim poly_Ns at ends of ref.
     // This helps to keep len(ref) and len(query) similar, to reduce
@@ -927,84 +980,14 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
         tend2 -= l-atype;
     }
 
-    // Get segment of quality, either ZQ tag or if absent QUAL.
-    if (!(qq = (uint8_t*) calloc(qend - qbeg, 1)))
-        return -1;
-    //bq = (uint8_t*)bam_aux_get(p->b, "ZQ");
-    //if (bq) ++bq; // skip type
-    double m = 0;
-    for (l = qbeg; l < qend; ++l) {
-        int qval = bq? qual[l] + (bq[l] - 64) : qual[l];
-        if (qval > 30)
-            qval = 30;
-        if (qval < 7)
-            qval = 7;
-        qq[l - qbeg] = qval;
-        m += qval;
-    }
-    m /= (qend - qbeg); // avg qual
-
-    // Identify STRs in ref covering the indel up to
-    // (or close to) the end of the sequence.
-    // Those having an indel and right at the sequence
-    // end do not confirm the total length of indel
-    // size.  Specifically a *lack* of indel at the
-    // end, where we know indels occur in other
-    // sequences, is a possible reference bias.
-    //
-    // This is emphasised further if the sequence ends with
-    // soft clipping.
-    // FIXME: need to make this work on IUPAC?
-    rep_ele *reps, *elt, *tmp;
-    uint8_t *seg = ref2 + tbeg - left;
-    int seg_len = tend2 - tbeg;
-    reps = find_STR((char *)seg, seg_len, 0);
-    int iscore = 0;
-    double m2 = 0;
-    int mn = 0, m2min = INT_MAX;
-    int str_len1 = *str_len1_p, str_len2 = *str_len2_p;
-    DL_FOREACH_SAFE(reps, elt, tmp) {
-        if (elt->start <= qpos && elt->end >= qpos) {
-            iscore += (elt->end-elt->start) / elt->rep_len;  // c
-            if (str_len1 < elt->end-elt->start)
-                str_len1 = elt->end-elt->start;
-            if (str_len2 < (elt->end-elt->start) / elt->rep_len)
-                str_len2 = (elt->end-elt->start) / elt->rep_len;
-            for (l = MAX(qbeg, elt->start);
-                 l < MIN(qend, elt->end);
-                 l++, mn++) {
-                m2 += qq[l-qbeg];
-                if (m2min > qq[l-qbeg])
-                    m2min = qq[l-qbeg];
-            }
-            if (elt->start+tbeg <= r_start ||
-                elt->end+tbeg   >= r_end)
-                iscore += 2*(elt->end-elt->start);
-        }
-
-        DL_DELETE(reps, elt);
-        free(elt);
-    }
-    *str_len1_p = str_len1;
-    *str_len2_p = str_len2;
-    if (mn)
-        m2 /= mn;
-    else
-        m2 = m2min = qavg;
-
     // The bottom 8 bits are length-normalised score while
     // the top bits are unnormalised.
     //
     // Try original cons and new cons and pick best.
     // This doesn't reduce FN much (infact maybe adds very slightly),
     // but it does reduce GT errors and is a slight reduction to FP.
-    //m = MIN(30, (m2+m2min)/2); // best so far
-    m = MIN(30, m2min);
 
-    // Alternatives to experiment on.
-    //double mm = (m+m2)/2;
-    //double mm = m2min;
-    double mm = m;
+    double mm = 30; // a const average qual for now. Could tune
     sc2 = edlib_glocal(ref2 + tbeg - left, tend2 - tbeg,
                        query, qend - qbeg, mm, del_bias);
 
@@ -1019,7 +1002,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // Find the best of the two alignments
     if (sc1 < 0 && sc2 < 0) {
         *score = 0xffffff;
-        free(qq);
         return 0;
     }
     if (sc1 < 0) {
@@ -1044,11 +1026,8 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // complexity / quality.
 
     l = .5*(100. * sc2 / (qend - qbeg) + .499);
-    l += iscore*(qavg/(m2min+1.0) + qavg/m2);
 
-    *score = (sc2<<8) | (int)MIN(255, l * bca->indel_bias);
-
-    free(qq);
+    *score = (sc2<<8) | (int)MIN(255, l * bca->indel_bias * .5);
 
     return 0;
 }
@@ -1093,6 +1072,13 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 for (j = t; j > 0 && sc[j] < sc[j-1]; --j)
                     tmp = sc[j], sc[j] = sc[j-1], sc[j-1] = tmp;
 
+#ifdef ALIGN_DEBUG
+            fprintf(stderr, "READ %s\tscores ", bam_get_qname(p->b));
+            for (t = 0; t < n_types; ++t) {
+                fprintf(stderr, "%+2d/%-3d ", types[sc[t]&0x3f], sc[t]>>14);
+            }
+#endif
+
             /* errmod_cal() assumes that if the call is wrong, the
              * likelihoods of other events are equal. This is about
              * right for substitutions, but is not desired for
@@ -1108,18 +1094,6 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 indelQ = (sc[1]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[1]&0x3f], l_run, str_len1);
             } else {
-#if 0
-                // Simplest code in edlib10f outputs
-                indelQ = (sc[1]>>14) - (sc[0]>>14);
-#endif
-
-// Maybe just an option of x*indelQ1 + (1-x)*indelQ2 so we can adjust
-// based on indel vs genotype accuracy, per instrument / dataset?
-
-
-#if 1
-// Orig code; indelQ1
-// Good on HG002.GRCh38.PacBio_CCS_15Kb.bam
                 // look for the reference type
                 for (t = 0; t < n_types; ++t) {
                     if ((sc[t]&0x3f) == ref_type)
@@ -1128,13 +1102,6 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 indelQ = indelQ1 = (sc[t]>>14) - (sc[0]>>14);
 //                fprintf(stderr, "IndelQ = %d: %d-%d",
 //                        indelQ, (sc[t]>>14), (sc[0]>>14));
-#endif
-
-#if 1
-// 10e; indelQ
-
-                // Revised code in edlib10e outputs
-                // Good on most other data sets, including the 53x CCS SequelII data.
 
                 // Best call is non-ref, compare vs next best non-ref,
                 // or ref if it's just 2 choices (most common case).
@@ -1145,107 +1112,18 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 if (t == n_types)
                     t--; // it's ref, but it'll do as next best.
                 indelQ2 = (sc[t]>>14) - (sc[0]>>14);
-//                fprintf(stderr, "\tNEW %d: %d-%d\n",
-//                        indelQ, (sc[t]>>14), (sc[0]>>14));
-#endif
-
-#if 0
-                // Best call is non-ref, get the ref score and (if different)
-                // the next best non-ref.  Average the two and then compare vs
-                // this call.  It means we assign ADs better, but don't
-                // overly lose variants either when we have many choices.
-                int ref_t = -1, next_t = -1;
-                for (t = 1; t < n_types; t++) {
-                    if ((sc[t]&0x3f) == ref_type) {
-                        ref_t = t;
-                    } else {
-                        if (next_t <= 0)
-                            next_t = t;
-                    }
-                }
-                if (next_t < 0)
-                    next_t = ref_t;
-                assert(MIN(ref_t, next_t) == 1);
-
-                // Could also try avg(ref,1) too rather than avg(ref,next)?
-                // Tried - no better
-
-                indelQ = (((sc[ref_t]>>14)+(sc[next_t]>>14))>>1) - (sc[0]>>14);
-#endif
-
-#if 0
-                int ref_t = -1, next_t = -1;
-                for (t = 1; t < n_types; t++) {
-                    if ((sc[t]&0x3f) == ref_type) {
-                        ref_t = t;
-                    } else {
-                        if (next_t <= 0)
-                            next_t = t;
-                    }
-                }
-                if (next_t < 0)
-                    next_t = ref_t;
-                assert(MIN(ref_t, next_t) == 1);
-
-                if (ref_t <= next_t)
-                    indelQ = (sc[ref_t]>>14) - (sc[0]>>14);
-                else
-                    //indelQ = (sc[next_t]>>14) - (sc[0]>>14);
-                    indelQ = (((sc[ref_t]>>14)+(sc[next_t]>>14))>>1) - (sc[0]>>14);
-#endif
-
-#if 0
-                // Best call is non-ref, get the ref score and (if different)
-                // the next best non-ref.  Average the two and then compare vs
-                // this call.  It means we assign ADs better, but don't
-                // overly lose variants either when we have many choices.
-                int ref_t = -1, next_t = -1;
-                for (t = 1; t < n_types; t++) {
-                    if ((sc[t]&0x3f) == ref_type) {
-                        ref_t = t;
-                    } else {
-                        if (next_t <= 0)
-                            next_t = t;
-                    }
-                }
-                if (next_t < 0)
-                    next_t = ref_t;
-                assert(MIN(ref_t, next_t) == 1);
-
-                indelQ = (sc[next_t]>>14) - (sc[0]>>14);
-                indelQ += (sc[ref_t]>>14) > (sc[next_t]>>14);
-//                indelQ >>= (sc[ref_t]>>14) > (sc[next_t]>>14); // VBAD
-#endif
-
-                // Maybe boost seqQ if ref_t != next_t and sc[ref_t]-sc[0] is high
-                // while sc[next_t]-sc[0] is not?  So we're saying the indel is good
-                // but this allele is not?  Not sure how we explore that.
-                // It's the difference between making an indel-exists call vs making
-                // a call on this specific genotype.
-
-                // ORIG
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run, str_len1);
 
-                // TO TEST
-                //seqQ   += MAX(0, (indelQ1 - indelQ)/4);
-                //indelQ += MAX(0, (indelQ1 - indelQ2)/4);
-
+#if 1 // TEST 3
                 indelQ = bca->vs_ref*indelQ1 + (1-bca->vs_ref)*indelQ2;
-
-#if 0
-                // If ref_t scores higher than next_t then we have more
-                // than 1 ALT allele.  This requires a slightly higher
-                // threshold of confidence to call it as it's more likely
-                // down to sequencing error.
-                if (ref_t >= 2)
-                    seqQ *= pow(0.9, ref_t - 1);
 #endif
             }
 
             // So we lower qual in some, but raise the average to keep FN/FP
             // ratios up.
-            indelQ /= bca->indel_bias;
-            indelQ1 /= bca->indel_bias;
+            // Is this key diff for PacBio old vs new HiFi?
+            indelQ  /= bca->indel_bias*0.5;
+            indelQ1 /= bca->indel_bias*0.5;
 
             // Or maybe just *2 if bca->poly_mqual and be done with it?
             // Or perhaps adjust the MIN(qavg/20, ...) to MIN(qavg/10) ?
@@ -1258,13 +1136,11 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             // Enabling this causes lots of GT errors on Illumina.
             // However on PacBio it's key to removal of false positives.
             // ONT and UG seem somewhere inbetween.
-            if (bca->poly_mqual) {
+            if (bca->poly_mqual) { // TEST 4
                 int qpos = p->qpos, l;
                 uint8_t *seq = bam_get_seq(p->b);
                 uint8_t *qual = bam_get_qual(p->b);
                 int min_q = qual[qpos];
-                int nbase = 0;
-                int sumq  = 0;
 
                 // scan homopolymer left
                 char baseL = bam_seqi(seq, qpos+1 < p->b->core.l_qseq
@@ -1283,18 +1159,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                         min_q = qual[l];
                     if (bam_seqi(seq, l) != base)
                         break;
-                    nbase++;
-                    sumq += qual[l];
                 }
-
-//                if (nbase) {
-//                    sumq = sumq / (double)nbase;
-//                    if (min_q < sumq / 4)
-//                        min_q = sumq / 4;
-//                }
-
-//                if (min_q < 10)
-//                    min_q = 10;
 
                 // We reduce -h so homopolymers get reduced likelihood of being
                 // called, but then optionally increase or decrease from there
@@ -1320,8 +1185,15 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             // low normalised scores leave indelQ unmodified
             // high normalised scores set indelQ to 0
             // inbetween scores have a linear scale from indelQ to 0
-            indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
-            indelQ1= tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ1+ .499);
+// Altering the MAGIC value below (originally 111, but chosen for unknown
+// reasons) is comparable to altering --indel-bias.
+#define TMP_MAGIC 255.0
+
+            indelQ = tmp > TMP_MAGIC? 0 : (int)((1. - tmp/TMP_MAGIC) * indelQ + .499);
+            indelQ1= tmp > TMP_MAGIC? 0 : (int)((1. - tmp/TMP_MAGIC) * indelQ1+ .499);
+
+            indelQ  = MIN(indelQ,  255);
+            indelQ1 = MIN(indelQ1, 255);
 
             // Doesn't really help accuracy, but permits -h to take
             // affect still.
@@ -1337,6 +1209,10 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ;
             sumq[sc[0]&0x3f] += indelQ;
 
+#ifdef ALIGN_DEBUG
+            fprintf(stderr, "\t%d\t%d\n", indelQ, seqQ);
+#endif
+
             // Experiment in p->aux vs sumq.
             // One gives likelihood of an indel being here, while the other
             // is likelihood of a specific genotype?  But which is which?
@@ -1344,20 +1220,6 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             sum_indelQ1[s] += indelQ1;
             sum_indelQ2[s] += indelQ;
         }
-
-//        double m = (double)sum_indelQ1[s] / sum_indelQ2[s];
-//        if (m > 1) {
-//            m = sqrt(m);
-//            fprintf(stderr, "Sum %d %d  m=%f\n", sum_indelQ1, sum_indelQ, m);
-//            for (i = 0; i < n_plp[s]; ++i) {
-//                bam_pileup1_t *p = plp[s] + i;
-//                int indelQ = p->aux & 0xff;
-//                indelQ *= m;
-//                if (indelQ > 255)
-//                    indelQ = 255;
-//                p->aux = (p->aux & ~0xff) | indelQ;
-//            }
-//        }
     }
 
     // Determine bca->indel_types[] and bca->inscns.
@@ -1384,6 +1246,9 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
     for (t = 0; t < 4; ++t) bca->indel_types[t] = B2B_INDEL_NULL;
     for (t = 0; t < 4 && t < n_types; ++t) {
         bca->indel_types[t] = types[sumq[t]&0x3f];
+#ifdef ALIGN_DEBUG
+        fprintf(stderr, "TYPE %+2d %d\n", types[t], sumq[t]>>6);
+#endif
         if (bca->maxins) // potentially an insertion
             memcpy(&bca->inscns[t * bca->maxins],
                    &inscns[(sumq[t]&0x3f) * max_ins], bca->maxins);
@@ -1393,8 +1258,6 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
     // If per-alignment type isn't found, then indelQ/seqQ is 0,
     // otherwise unchanged.
     for (s = n_alt = 0; s < n; ++s) {
-//        double m = sqrt((double)sum_indelQ1[s] / sum_indelQ2[s]);
-//        if (m < 1) m = 1;
         for (i = 0; i < n_plp[s]; ++i) {
             bam_pileup1_t *p = plp[s] + i;
             int x = types[p->aux>>16&0x3f];
@@ -1402,16 +1265,11 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 if (x == bca->indel_types[j]) break;
             p->aux = j<<16 | (j == 4? 0 : (p->aux&0xffff));
             if ((p->aux>>16&0x3f) > 0) ++n_alt;
-
-// Poor
-//            // We recorded indelQ based on this allele, but
-//            // scale now by quality of any non-ref allele.
-//            // This reduces FN while keeping GT accurate (maybe!)
-//            int indelQ = (p->aux & 0xff) * m;
-//            if (indelQ > 255) indelQ = 255;
-//            p->aux = (p->aux & ~0xff) | indelQ;
-
-            //fprintf(stderr, "X pos=%d read=%d:%d name=%s call=%d type=%d seqQ=%d indelQ=%d\n", pos, s, i, bam_get_qname(p->b), (p->aux>>16)&0x3f, bca->indel_types[(p->aux>>16)&0x3f], (p->aux>>8)&0xff, p->aux&0xff);
+#ifdef ALIGN_DEBUG
+            fprintf(stderr, "FIN %s\t%d\t%d\t%d\n",
+                    bam_get_qname(p->b), (p->aux>>16)&0x3f,
+                    bca->indel_types[(p->aux>>16)&0x3f], p->aux&0xff);
+#endif
         }
     }
 
@@ -1474,7 +1332,6 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
         }
     }
     qavg = (qsum+1) / (qcount+1);
-    //qavg = (qavg + qmax)/2; // bias avg toward maximum observed.
 
     // find out how many types of indels are present
     types = bcf_cgp_find_types(n, n_plp, plp, pos, bca, ref,
@@ -1693,7 +1550,9 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     min_win_size += tot_str;
                 }
                 min_win_size += 10;
-                if (p->b->core.l_qseq > 1000) { // ||1 for 7f-long
+
+// TEST 8
+                if (p->b->core.l_qseq > 1000) {
                     // long read data needs less context.  It also tends to
                     // have many more candidate indels to investigate so
                     // speed here matters more.
@@ -1709,8 +1568,9 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // of STRs with the end of the query alignment.
                 int r_start = p->b->core.pos;
                 int r_end = bam_cigar2rlen(p->b->core.n_cigar,
-                                           bam_get_cigar(p->b))
-                            -1 + r_start;
+                                           bam_get_cigar(p->b));
+                r_end += -1 + r_start;
+
 
                 // Map left2/right2 genomic coordinates to qbeg/qend
                 // query coordinates.  The query may not span the
@@ -1729,10 +1589,6 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // write the query sequence
                 for (l = qbeg; l < qend; ++l)
                     query[l - qbeg] = seq_nt16_int[bam_seqi(seq, l)];
-
-                // A fudge for now.  Consider checking SAM header for
-                // RG platform field.
-                int long_read = p->b->core.l_qseq > 1000;
 
                 // tbeg and tend are the genomic locations equivalent
                 // to qbeg and qend on the sequence.
@@ -1759,7 +1615,7 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                             (uint8_t *)tcons[0] + left2-left,
                                             (uint8_t *)tcons[1] + left2-left,
                                             (uint8_t *)query,
-                                            r_start, r_end, long_read,
+                                            r_start, r_end,
                                             tbeg, tend1, tend2,
                                             left2, left + tcon_len[0],
                                             qbeg, qend, pos,qpos, -biggest_del,
@@ -1768,6 +1624,13 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                             &str_len1, &str_len2) < 0) {
                         goto err;
                     }
+#ifdef ALIGN_DEBUG
+                    fprintf(stderr, "type %d %x / %x\t%s\n",
+                            types[t],
+                            score[K*n_types + t] >> 8,
+                            score[K*n_types + t] & 0xff,
+                            bam_get_qname(p->b));
+#endif
                 } else {
                     // place holder large cost for reads that cover the
                     // region entirely within a deletion (thus tend < tbeg).

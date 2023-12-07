@@ -1,7 +1,7 @@
 /*  bam2bcf.c -- variant calling.
 
     Copyright (C) 2010-2012 Broad Institute.
-    Copyright (C) 2012-2022 Genome Research Ltd.
+    Copyright (C) 2012-2024 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -249,6 +249,10 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
 {
     int i, n, ref4, is_indel, ori_depth = 0;
 
+#ifdef GLF_DEBUG
+    fprintf(stderr, "Call GLFGEN\n");
+#endif
+
     // clean from previous run
     r->ori_depth = 0;
     r->mq0 = 0;
@@ -351,6 +355,10 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 }
             }
 
+#ifdef GLF_DEBUG
+            fprintf(stderr, "GLF %s\t%d\t%d\n", bam_get_qname(p->b),
+                    bca->indel_types[b], q);
+#endif
             if (q < bca->min_baseQ)
             {
                 if (!p->indel && b < 4) // not an indel read
@@ -363,29 +371,50 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 continue;
             }
 
-            // FIXME: CHECK if this is still needed with edlib mode
-            // It's a slight variant on the one above guarded by --indels-2.0
+#ifndef MIN
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#endif
+
+#if 1 // TEST 6
             if (bca->edlib) {
-                if (indel_in_sample && p->indel == 0 && (q < _n/2 || _n > 20)) {
-                    // high quality indel calls without p->indel set aren't
-                    // particularly indicative of being a good REF match either,
-                    // at least not in low coverage.  So require solid coverage
-                    // before we start utilising such quals.
-                    if (b != 0)
-                        b = 5;
-                    q = (int)bam_get_qual(p->b)[p->qpos];
-                    seqQ = (3*seqQ + 2*q)/8;
+                // Deeper data should rely more heavily on counts of data
+                // than quality, as quality can be unreliable and prone to
+                // miscalculations through BAQ, STR analysis, etc.
+                // So we put a cap on how good seqQ can be.
+                //
+                // Is it simply the equivalent of increasing -F filter?
+                // Not quite, as the latter removes many real variants upfront.
+                // This calls them and then post-adjusts quality, potentially
+                // dropping it later or changing genotype. So we still get
+                // calls, but lower qual.
+                seqQ = MIN(seqQ, bca->seqQ_offset-(MIN(20,_n)*5));
+
+                if (indel_in_sample && p->indel == 0 && b != 0) {
+                    // This read doesn't contain an indel in CIGAR, but it
+                    // is assigned to an indel now (b != 0),  These are
+                    // reads we've corrected with realignment, but they're
+                    // also enriched for FPs so at high depth we reduce their
+                    // confidence and let the depth do the talking.  If it's
+                    // real and deep, then we don't need every read aligning.
+                    // We also reduce base quality too to reflect the
+                    // chance of our realignment being incorrect.
+
+                    seqQ = MIN(seqQ, seqQ/2 + 5); // q2p5
+
+                    // Finally reduce indel quality.
+                    // This is a blend of indelQ and base QUAL.
+                    q = MIN((int)bam_get_qual(p->b)[p->qpos]/4+10, q/4+1);
                 }
-                if (_n > 20 && seqQ > 40) seqQ = 40;
             }
+#endif
 
             // Note baseQ changes some output fields such as I16, but has no
             // significant affect on "call".
             baseQ  = p->aux>>8&0xff;
-
-            // Can we reuse baseQ as indelQ1 instead of indelQ?
-            // So we can distinguish between likelihood of any indel vs
-            // likelihood of this specific indel?
         }
         else
         {
@@ -419,6 +448,11 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         }
         mapQ  = p->b->core.qual < 255? p->b->core.qual : DEF_MAPQ; // special case for mapQ==255
         if ( !mapQ ) r->mq0++;
+#ifdef GLF_DEBUG
+        fprintf(stderr, "GLF2 %s\t%d\t%d\t%d,%d\n",
+                bam_get_qname(p->b), b, q,
+                seqQ, mapQ);
+#endif
         if (q > seqQ) q = seqQ;
         mapQ = mapQ < bca->capQ? mapQ : bca->capQ;
         if (q > mapQ) q = mapQ;
@@ -1202,25 +1236,29 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     {
         bcf_update_info_flag(hdr, rec, "INDEL", NULL, 1);
         uint32_t idv = bca->max_support;
-        if ( fmt_flag&B2B_INFO_IMF ) {
+        if ( fmt_flag&B2B_INFO_IMF) {
             float max_frac;
-            if (bc->ADF && bc->ADR) {
-                int max_ad = 0, tot_ad = bc->ADF[0] + bc->ADR[0];
+            // Recompute IDV and IMF based on alignment results for more
+            // accurate counts, but only when in new "--indels-cns" mode.
+            if (bc->ADF && bc->ADR && bca->edlib) {
+                int max_ad = 0;
                 for (int k = 1; k < rec->n_allele; k++) {
                     if (max_ad < bc->ADF[k] + bc->ADR[k])
                         max_ad = bc->ADF[k] + bc->ADR[k];
-                    tot_ad += bc->ADF[k] + bc->ADR[k];
                 }
                 max_frac = (double)(max_ad) / bc->ori_depth;
-                //max_frac = (double)(max_ad) / tot_ad;
                 idv = max_ad;
             } else {
                 max_frac = bca->max_frac;
             }
+            // Copied here to maintain order for consistency of "make check"
+            if ( fmt_flag&B2B_INFO_IDV )
+                bcf_update_info_int32(hdr, rec, "IDV", &idv, 1);
             bcf_update_info_float(hdr, rec, "IMF", &max_frac, 1);
+        } else {
+            if ( fmt_flag&B2B_INFO_IDV )
+                bcf_update_info_int32(hdr, rec, "IDV", &idv, 1);
         }
-        if ( fmt_flag&B2B_INFO_IDV )
-            bcf_update_info_int32(hdr, rec, "IDV", &idv, 1);
     }
     bcf_update_info_int32(hdr, rec, "DP", &bc->ori_depth, 1);
     if ( fmt_flag&B2B_INFO_ADF )

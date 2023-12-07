@@ -899,6 +899,7 @@ run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileu
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1.out',ref=>'indel-AD.1.fa',args=>q[-a AD]);
+run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1cns.out',ref=>'indel-AD.1.fa',args=>q[-a AD --indels-cns]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.2.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.3.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.4.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD0]);
