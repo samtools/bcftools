@@ -567,8 +567,12 @@ static void init_tprob_mprob_chrXX(args_t *args, int fi, int mi, int ci, double 
 
     *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
 
-    if ( fa!=fb )                   // father cannot be heterozygous in X
-        *mprob = 0, *tprob = 0;
+    if ( fa!=fb )
+    {
+        // this must be a genotype error, father cannot be heterozygous in X; don't flag it as a DNM unless
+        // also autosomal inheritance fails
+        init_tprob_mprob(args,fi,mi,ci,tprob,mprob,denovo_allele);
+    }
     else if ( (ca==fa && (cb==ma||cb==mb)) || (cb==fa && (ca==ma||ca==mb)) )
     {
         if ( ma==mb ) *tprob = 1;

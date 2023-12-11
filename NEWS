@@ -109,6 +109,11 @@ Changes affecting specific commands:
       substrings to avoid unexpected spurious matches (i.e. internally add ^ and $ to all
       field names)
 
+* bcftools +trio-dnm2
+
+    - Do not flag paternal genotyping errors as de novo mutations. Specifically, when father's
+      chrX genotype is 0/1 and mother's 0/0, 0/1 in the child will not be marked as DNM.
+
 * bcftools view
 
     - Add new `-A, --trim-unseen-allele` option to remove the unseen allele <*> or <NON_REF>
