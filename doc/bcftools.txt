@@ -542,7 +542,7 @@ Add or remove annotations.
     # that INFO/END is already present in the VCF header.
     bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 ----
 
 
@@ -623,6 +623,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-A, --keep-alts*::
     output all alternate alleles present in the alignments even if they do not
     appear in any of the genotypes
+
+*-***, --keep-unseen-allele*::
+    keep the unobserved allele <*> or <NON_REF>, useful mainly for gVCF output
 
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
@@ -1637,24 +1640,37 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--dry-run*::
     Stop after first record to estimate required time.
 
-*-e, --error-probability* 'INT'::
+*-e, --exclude* ['qry'|'gt']:'EXPRESSION'::
+    Exclude sites from query file ('qry:') or genotype file ('gt:') for which 'EXPRESSION' is true.
+    For valid expressions see *<<expressions,EXPRESSIONS>>*.
+
+*-E, --error-probability* 'INT'::
     Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
     represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
     non-zero integer can be provided).
     {nbsp} +
     {nbsp} +
-    If *-e* is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+    If *-E* is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
     but only in the GT-vs-GT matching mode. See the *-u, --use* option below for additional notes and caveats.
     {nbsp} +
     {nbsp} +
-    If performance is an issue, set *-e 0* for faster run times but less accurate results.
+    If performance is an issue, set *-E 0* for faster run times but less accurate results.
+    {nbsp} +
+    {nbsp} +
+    Note that in previous versions of bcftools (<=1.18), this option used to be a smaller case *-e*. It
+    changed to make room for the filtering option *-e, --exclude* to stay consistent across other
+    commands.
 
 *-g, --genotypes* 'FILE'::
     VCF/BCF file with reference genotypes to compare against
 
 *-H, --homs-only*::
     Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
+
+*-i, --include* ['qry'|'gt']:'EXPRESSION'::
+    Include sites from query file ('qry:') or genotype file ('gt:') for which 'EXPRESSION' is true.
+    For valid expressions see *<<expressions,EXPRESSIONS>>*.
 
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
@@ -1664,6 +1680,12 @@ The discordance score can be interpreted as the number of mismatching genotypes 
 *--no-HWE-prob*::
     Disable calculation of HWE probability to reduce memory requirements with
     comparisons between very large number of sample pairs.
+
+*-o, --output* 'FILE'::
+    Write to 'FILE' rather than to standard output, where it is written by default.
+
+*-O, --output-type* 't'|'z'::
+    Write a plain ('t') or compressed ('z') text tab-delimited output.
 
 *-p, --pairs* 'LIST'::
     A comma-separated list of sample pairs to compare. When the *-g* option is given, the first
@@ -1709,14 +1731,14 @@ The discordance score can be interpreted as the number of mismatching genotypes 
     {nbsp} +
     Note that when the requested tag is not available, the program will attempt to use
     the other tag. The output includes the number of sites that were matched by the four
-    possible mode (for example GT-vs-GT or GT-vs-PL).
+    possible modes (for example GT-vs-GT or GT-vs-PL).
 
 *Examples:*
 ----
-   # Check discordance of all samples from B against all sample in A
+   # Check discordance of all samples from B against all samples in A
    bcftools gtcheck -g A.bcf B.bcf
 
-   # Limit comparisons to the fiven list of samples
+   # Limit comparisons to the given list of samples
    bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf
 
    # Compare only two pairs a1,b1 and a1,b2
@@ -1772,6 +1794,12 @@ present, but it never adds version or command line information itself.
 *-n, --records* 'INT'::
     Also display the first 'INT' variant records.
     By default, no variant records are displayed.
+
+*-s, --samples* 'INT'::
+    Display the first 'INT' variant records including the last #CHROM header line with samples.
+    Running with *-s 0* alone outputs the #CHROM header line only. Note that
+    the list of samples, with each sample per line, can be obtained with `bcftools query` using
+    the option *-l, --list-samples*.
 
 
 [[index]]
@@ -1880,7 +1908,7 @@ in the other files.
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
-    list of input files to output given as 1-based indices. With *-p* and no
+    comma-separated list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
 *--write-index*::
@@ -1985,13 +2013,17 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
 
-*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'::
-    The option controls what types of multiallelic records can be created:
+*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'[,'*']::
+    The option controls what types of multiallelic records can be created. If single asterisk
+    '*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
+    if two asterisks '**' are appended, the unobserved allele will be removed all sites.
 ----
 -m none        ..  no new multiallelics, output multiple records instead
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
 -m both        ..  both SNP and indel records can be multiallelic
+-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
+-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
 -m all         ..  SNP records can be merged with indel records
 -m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
 -m id          ..  merge by ID
@@ -2894,6 +2926,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
+*-F, --print-filtered* 'STR'::
+    by default, samples failing *-i/-e* filtering expressions are suppressed from output
+    when FORMAT fields are queried (for example '%CHROM %POS [ %GT]').  With *-F*, such
+    fields will be still printed but instead of their actual value, 'STR' will be used.
+
 *-H, --print-header*::
     print header
 
@@ -2903,6 +2940,13 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 *-l, --list-samples*::
     list sample names and exit
+
+*-N, --disable-automatic-newline*::
+    disable automatic addition of a missing newline character at the end of the formatting
+    expression. By default, the program checks if the expression contains a newline
+    and appends it if not, to prevent formatting the entire output into a single
+    line by mistake. Note that versions prior to 1.18 had no automatic check and newline
+    had to be included explicitly.
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -3357,6 +3401,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Subset options:
+*-A, --trim-unseen-alleles*::
+    remove the unseen allele '<*>' or '<NON_REF>' at variant sites when the option is given once (-A) or
+    at all sites when the options is given twice ('-AA').
+
 *-a, --trim-alt-alleles*::
     remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
     remains after trimming, the record itself is not removed but ALT is set to ".".
@@ -3505,6 +3553,64 @@ important libraries used by bcftools.
 Display the full bcftools version number in a machine-readable format.
 
 
+SCRIPTS
+-------
+
+[[gff2gff]]
+=== gff2gff
+Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
+
+--
+    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+--
+
+
+[[plot-vcfstats]]
+=== plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
+Script for processing output of *<<stats,bcftools stats>>*. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.
+
+*-m, --merge*::
+    Merge vcfstats files to STDOUT, skip plotting.
+
+*-p, --prefix* 'DIR'::
+    The output directory. This directory will be created if it does not exist.
+
+*-P, --no-PDF*::
+    Skip the PDF creation step.
+
+*-r, --rasterize*::
+    Rasterize PDF images for faster rendering. This is the default and the opposite of *-v, --vectors*.
+
+*-s, --sample-names*::
+    Use sample names for xticks rather than numeric IDs.
+
+*-t, --title* 'STRING'::
+    Identify files by these titles in plots. The option can be given multiple
+    times, for each ID in the *<<stats,bcftools stats>>* output. If not
+    present, the script will use abbreviated source file names for the titles.
+
+*-v, --vectors*::
+    Generate vector graphics for PDF images, the opposite of *-r, --rasterize*.
+
+*-T, --main-title* 'STRING'::
+    Main title for the PDF.
+
+*Example:*
+--
+    # Generate the stats
+    bcftools stats -s - > file.vchk
+
+    # Plot the stats
+    plot-vcfstats -p outdir file.vchk
+
+    # The final looks can be customized by editing the generated
+    # 'outdir/plot.py' script and re-running manually
+    cd outdir && python plot.py && pdflatex summary.tex
+--
+
+
 [[expressions]]
 FILTERING EXPRESSIONS
 ---------------------
@@ -3513,8 +3619,7 @@ These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
-* numerical constants, string constants, file names (this is currently
-  supported only to filter by the ID column)
+* numerical constants, string constants, file names (indicated by the prefix '@')
 
         1, 1.0, 1e-4
         "String"
@@ -3597,7 +3702,7 @@ ref-ref hom, alt-alt hom, ref-alt het, alt-alt het, haploid ref, haploid alt
         GT="R"
         GT="A"
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap, see *<<terminology,TERMINOLOGY>>*). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 
@@ -3741,9 +3846,11 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
 
-    ID=@file       .. selects lines with ID present in the file
+    ID=@file               .. selects lines with ID present in the file
 
-    ID!=@~/file    .. skip lines with ID present in the ~/file
+    ID!=@~/file            .. skip lines with ID present in the ~/file
+
+    INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file
 
     MAF[0]<0.05    .. select rare variants at 5% cutoff
 
@@ -3765,62 +3872,25 @@ that the whole expression is passed to the program as intended:
 Please refer to the documentation of your shell for details.
 
 
-SCRIPTS
--------
-
-[[gff2gff]]
-=== gff2gff
-Attempts to fix a GFF file to be correctly parsed by *<<csq,csq>>*.
-
+[[terminology]]
+TERMINOLOGY
+-----------
+The program and the documentation uses the following terminology, multiple terms can be used
+interchangeably for the same VCF record type
 --
-    zcat in.gff.gz | gff2gff | gzip -c > out.gff.gz
+    REF   ALT
+    ---------
+    C     .         .. reference allele / non-variant site / ref-only site
+    C     T         .. SNP or SNV (single-nucleotide polymorphism or variant), used interchangeably
+    CC    TT        .. MNP (multi-nucleotide polymorphism)
+    CAAA  C         .. indel, deletion (regardless of length)
+    C     CAAA      .. indel, insertion (regardless of length)
+    C     <*>       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
+    C     <NON_REF> .. synonymous to <*>
+    C     *         .. overlapping deletion
+    C     <INS>     .. symbolic allele, known also as 'other [than above]'
 --
 
-
-[[plot-vcfstats]]
-=== plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
-Script for processing output of *<<stats,bcftools stats>>*. It can merge
-results from multiple outputs (useful when running the stats for each
-chromosome separately), plots graphs and creates a PDF presentation.
-
-*-m, --merge*::
-    Merge vcfstats files to STDOUT, skip plotting.
-
-*-p, --prefix* 'DIR'::
-    The output directory. This directory will be created if it does not exist.
-
-*-P, --no-PDF*::
-    Skip the PDF creation step.
-
-*-r, --rasterize*::
-    Rasterize PDF images for faster rendering. This is the default and the opposite of *-v, --vectors*.
-
-*-s, --sample-names*::
-    Use sample names for xticks rather than numeric IDs.
-
-*-t, --title* 'STRING'::
-    Identify files by these titles in plots. The option can be given multiple
-    times, for each ID in the *<<stats,bcftools stats>>* output. If not
-    present, the script will use abbreviated source file names for the titles.
-
-*-v, --vectors*::
-    Generate vector graphics for PDF images, the opposite of *-r, --rasterize*.
-
-*-T, --main-title* 'STRING'::
-    Main title for the PDF.
-
-*Example:*
---
-    # Generate the stats
-    bcftools stats -s - > file.vchk
-
-    # Plot the stats
-    plot-vcfstats -p outdir file.vchk
-
-    # The final looks can be customized by editing the generated
-    # 'outdir/plot.py' script and re-running manually
-    cd outdir && python plot.py && pdflatex summary.tex
---
 
 PERFORMANCE
 -----------

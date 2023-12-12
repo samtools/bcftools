@@ -100,7 +100,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, njoined, ntotal, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -559,6 +559,7 @@ static int realign(args_t *args, bcf1_t *line)
     hts_expand0(kstring_t,line->n_allele,args->ntmp_del,args->tmp_del);
     kstring_t *als = args->tmp_als;
     kstring_t *del = args->tmp_del;
+    int symbolic_alts = 1;
     for (i=0; i<line->n_allele; i++)
     {
         del[i].l = 0;
@@ -576,12 +577,13 @@ static int realign(args_t *args, bcf1_t *line)
                 replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
                 als[0].l = 0;
                 kputs(ref, &als[0]);
-                als[i].l = 0;
-                kputsn(ref,1,&als[i]);
-                kputs(line->d.allele[i],&del[i]);
-                continue;
             }
+            als[i].l = 0;
+            kputsn(als[0].s,1,&als[i]);
+            kputs(line->d.allele[i],&del[i]);
+            continue;
         }
+        if ( i>0 ) symbolic_alts = 0;
         if ( line->d.allele[i][0]=='*' ) return ERR_SPANNING_DELETION;  // spanning deletion
         if ( has_non_acgtn(line->d.allele[i],line->shared.l) )
         {
@@ -610,8 +612,15 @@ static int realign(args_t *args, bcf1_t *line)
     else
         new_pos = realign_right(args, line);
 
-    // Have the alleles changed?
-    als[0].s[ als[0].l ] = 0;  // in order for strcmp to work
+    // Have the alleles changed? Consider <DEL> could have expanded the REF allele. In that
+    // case it must be trimmed, however the new REF length must reflect the entire length.
+    als[0].s[ als[0].l ] = 0;   // for strcmp to work
+    int new_reflen = strlen(als[0].s);
+    if ( symbolic_alts )
+    {
+        als[0].l = 1;
+        als[0].s[ als[0].l ] = 0;
+    }
     if ( new_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
     set_old_rec_tag(args, line, line, 0);
@@ -629,7 +638,6 @@ static int realign(args_t *args, bcf1_t *line)
     args->nchanged++;
 
     // Update INFO/END if necessary
-    int new_reflen = strlen(line->d.allele[0]);
     if ( (new_pos!=line->pos || reflen!=new_reflen) && bcf_get_info_int32(args->hdr, line, "END", &args->int32_arr, &args->nint32_arr)==1 )
     {
         // bcf_update_alleles_str() messed up rlen because line->pos changed. This will be fixed by bcf_update_info_int32()
@@ -1822,6 +1830,7 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         else if ( type==BCF_HT_INT || type==BCF_HT_REAL ) merge_format_numeric(args, lines, nlines, fmt, dst);
         else merge_format_string(args, lines, nlines, fmt, dst);
     }
+    args->njoined++;
 }
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
@@ -2020,7 +2029,7 @@ static void init_data(args_t *args)
     else
         args->keep_sum_ad = -1;
 
-    args->out_hdr = bcf_hdr_dup(args->hdr);
+    args->out_hdr = args->hdr;
     if ( args->old_rec_tag )
         bcf_hdr_printf(args->out_hdr,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX\">",args->old_rec_tag);
 
@@ -2042,7 +2051,10 @@ static void init_data(args_t *args)
         args->abuf = abuf_init(args->hdr, SPLIT);
         abuf_set_opt(args->abuf, bcf_hdr_t*, BCF_HDR, args->out_hdr);
         if ( args->old_rec_tag )
+        {
             abuf_set_opt(args->abuf, const char*, INFO_TAG, args->old_rec_tag);
+            if ( bcf_hdr_sync(args->out_hdr)!=0 ) error("bcf_hdr_sync failed\n");
+        }
         abuf_set_opt(args->abuf, int, STAR_ALLELE, args->use_star_allele);
     }
     if ( args->gff_fname )
@@ -2054,6 +2066,7 @@ static void init_data(args_t *args)
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);
     }
+    args->out_hdr = bcf_hdr_dup(args->out_hdr);
 }
 
 static void destroy_data(args_t *args)
@@ -2249,7 +2262,7 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/realigned/skipped:\t%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/split/joined/realigned/skipped:\t%d/%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
@@ -2286,7 +2299,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
-    fprintf(stderr, "        --threads INT               Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "        --write-index               Automatically index the output files [off]\n");
     fprintf(stderr, "\n");

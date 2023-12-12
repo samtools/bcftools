@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-07-25</strong> and refers to bcftools git version <strong>1.18</strong>.</p>
+<p>This manual page was last updated <strong>2023-12-12</strong> and refers to bcftools git version <strong>1.19</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -720,7 +720,7 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
     # that INFO/END is already present in the VCF header.
     bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html</pre>
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html</pre>
 </div>
 </div>
 </div>
@@ -829,6 +829,10 @@ below), unlisted regions have ploidy 2. The default ploidy definition is</p>
 <dd>
 <p>output all alternate alleles present in the alignments even if they do not
 appear in any of the genotypes</p>
+</dd>
+<dt class="hdlist1"><strong>-</strong>*<strong>, --keep-unseen-allele</strong></dt>
+<dd>
+<p>keep the unobserved allele &lt;*&gt; or &lt;NON_REF&gt;, useful mainly for gVCF output</p>
 </dd>
 <dt class="hdlist1"><strong>-f, --format-fields</strong> <em>list</em></dt>
 <dd>
@@ -2196,7 +2200,12 @@ in-memory sorting and DIR is the temporary directory for external sorting. This 
 <dd>
 <p>Stop after first record to estimate required time.</p>
 </dd>
-<dt class="hdlist1"><strong>-e, --error-probability</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-e, --exclude</strong> [<em>qry</em>|<em>gt</em>]:'EXPRESSION'</dt>
+<dd>
+<p>Exclude sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
+For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-E, --error-probability</strong> <em>INT</em></dt>
 <dd>
 <p>Interpret genotypes and genotype likelihoods probabilistically. The value of <em>INT</em>
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
@@ -2204,11 +2213,16 @@ Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that 
 non-zero integer can be provided).
 &#160;<br>
 &#160;<br>
-If <strong>-e</strong> is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+If <strong>-E</strong> is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
 but only in the GT-vs-GT matching mode. See the <strong>-u, --use</strong> option below for additional notes and caveats.
 &#160;<br>
 &#160;<br>
-If performance is an issue, set <strong>-e 0</strong> for faster run times but less accurate results.</p>
+If performance is an issue, set <strong>-E 0</strong> for faster run times but less accurate results.
+&#160;<br>
+&#160;<br>
+Note that in previous versions of bcftools (&#8656;1.18), this option used to be a smaller case <strong>-e</strong>. It
+changed to make room for the filtering option <strong>-e, --exclude</strong> to stay consistent across other
+commands.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --genotypes</strong> <em>FILE</em></dt>
 <dd>
@@ -2217,6 +2231,11 @@ If performance is an issue, set <strong>-e 0</strong> for faster run times but l
 <dt class="hdlist1"><strong>-H, --homs-only</strong></dt>
 <dd>
 <p>Homozygous genotypes only, useful with low coverage data (requires <strong>-g, --genotypes</strong>)</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> [<em>qry</em>|<em>gt</em>]:'EXPRESSION'</dt>
+<dd>
+<p>Include sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
+For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>--n-matches</strong> <em>INT</em></dt>
 <dd>
@@ -2228,6 +2247,14 @@ that average score is used to determine the top matches, not absolute values.</p
 <dd>
 <p>Disable calculation of HWE probability to reduce memory requirements with
 comparisons between very large number of sample pairs.</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>Write to <em>FILE</em> rather than to standard output, where it is written by default.</p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>t</em>|<em>z</em></dt>
+<dd>
+<p>Write a plain (<em>t</em>) or compressed (<em>z</em>) text tab-delimited output.</p>
 </dd>
 <dt class="hdlist1"><strong>-p, --pairs</strong> <em>LIST</em></dt>
 <dd>
@@ -2288,7 +2315,7 @@ By default, the PL tag is used in the query file and, when available, the GT tag
 &#160;<br>
 Note that when the requested tag is not available, the program will attempt to use
 the other tag. The output includes the number of sites that were matched by the four
-possible mode (for example GT-vs-GT or GT-vs-PL).</p>
+possible modes (for example GT-vs-GT or GT-vs-PL).</p>
 </dd>
 </dl>
 </div>
@@ -2297,10 +2324,10 @@ possible mode (for example GT-vs-GT or GT-vs-PL).</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>   # Check discordance of all samples from B against all sample in A
+<pre>   # Check discordance of all samples from B against all samples in A
    bcftools gtcheck -g A.bcf B.bcf
 
-   # Limit comparisons to the fiven list of samples
+   # Limit comparisons to the given list of samples
    bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf
 
    # Compare only two pairs a1,b1 and a1,b2
@@ -2334,6 +2361,13 @@ By default, all header lines are displayed.</p>
 <dd>
 <p>Also display the first <em>INT</em> variant records.
 By default, no variant records are displayed.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>INT</em></dt>
+<dd>
+<p>Display the first <em>INT</em> variant records including the last #CHROM header line with samples.
+Running with <strong>-s 0</strong> alone outputs the #CHROM header line only. Note that
+the list of samples, with each sample per line, can be obtained with <code>bcftools query</code> using
+the option <strong>-l, --list-samples</strong>.</p>
 </dd>
 </dl>
 </div>
@@ -2487,7 +2521,7 @@ output, their names are controlled via <strong>-p</strong> instead.</p>
 </dd>
 <dt class="hdlist1"><strong>-w, --write</strong> <em>LIST</em></dt>
 <dd>
-<p>list of input files to output given as 1-based indices. With <strong>-p</strong> and no
+<p>comma-separated list of input files to output given as 1-based indices. With <strong>-p</strong> and no
 <strong>-w</strong>, all files are written.</p>
 </dd>
 <dt class="hdlist1"><strong>--write-index</strong></dt>
@@ -2625,9 +2659,11 @@ alternate alleles relevant (local) for the current sample. The number <em>INT</e
 maximum number of alternate alleles that can be included in the PL tag. The default value
 is 0 which disables the feature and outputs values for all alternate alleles.</p>
 </dd>
-<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>snp-ins-del</em>|<em>all</em>|<em>none</em>|<em>id</em></dt>
+<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>snp-ins-del</em>|<em>all</em>|<em>none</em>|<em>id</em>[,<em>*</em>]</dt>
 <dd>
-<p>The option controls what types of multiallelic records can be created:</p>
+<p>The option controls what types of multiallelic records can be created. If single asterisk
+<em><strong></em> is appended, the unobserved allele <em>&lt;</strong>&gt;</em> or <em>&lt;NON_REF&gt;</em> will be removed at variant sites;
+if two asterisks <em>**</em> are appended, the unobserved allele will be removed all sites.</p>
 </dd>
 </dl>
 </div>
@@ -2637,6 +2673,8 @@ is 0 which disables the feature and outputs values for all alternate alleles.</p
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
 -m both        ..  both SNP and indel records can be multiallelic
+-m both,*      ..  same as above but remove &lt;*&gt; (or &lt;NON_REF&gt;) from variant sites
+-m both,**     ..  same as above but remove &lt;*&gt; (or &lt;NON_REF&gt;) at all sites
 -m all         ..  SNP records can be merged with indel records
 -m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
 -m id          ..  merge by ID</pre>
@@ -3849,6 +3887,12 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <dd>
 <p>learn by example, see below</p>
 </dd>
+<dt class="hdlist1"><strong>-F, --print-filtered</strong> <em>STR</em></dt>
+<dd>
+<p>by default, samples failing <strong>-i/-e</strong> filtering expressions are suppressed from output
+when FORMAT fields are queried (for example <em>%CHROM %POS [ %GT]</em>).  With <strong>-F</strong>, such
+fields will be still printed but instead of their actual value, <em>STR</em> will be used.</p>
+</dd>
 <dt class="hdlist1"><strong>-H, --print-header</strong></dt>
 <dd>
 <p>print header</p>
@@ -3861,6 +3905,14 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <dt class="hdlist1"><strong>-l, --list-samples</strong></dt>
 <dd>
 <p>list sample names and exit</p>
+</dd>
+<dt class="hdlist1"><strong>-N, --disable-automatic-newline</strong></dt>
+<dd>
+<p>disable automatic addition of a missing newline character at the end of the formatting
+expression. By default, the program checks if the expression contains a newline
+and appends it if not, to prevent formatting the entire output into a single
+line by mistake. Note that versions prior to 1.18 had no automatic check and newline
+had to be included explicitly.</p>
 </dd>
 <dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
 <dd>
@@ -4488,6 +4540,11 @@ best compression.</p>
 <h4 id="_subset_options">Subset options:</h4>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>-A, --trim-unseen-alleles</strong></dt>
+<dd>
+<p>remove the unseen allele <em>&lt;*&gt;</em> or <em>&lt;NON_REF&gt;</em> at variant sites when the option is given once (-A) or
+at all sites when the options is given twice (<em>-AA</em>).</p>
+</dd>
 <dt class="hdlist1"><strong>-a, --trim-alt-alleles</strong></dt>
 <dd>
 <p>remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
@@ -4680,6 +4737,98 @@ important libraries used by bcftools.</p>
 </div>
 </div>
 <div class="sect1">
+<h2 id="_scripts">SCRIPTS</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="gff2gff">gff2gff</h3>
+<div class="paragraph">
+<p>Attempts to fix a GFF file to be correctly parsed by <strong><a href="#csq">csq</a></strong>.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>zcat in.gff.gz | gff2gff | gzip -c &gt; out.gff.gz</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Script for processing output of <strong><a href="#stats">bcftools stats</a></strong>. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-m, --merge</strong></dt>
+<dd>
+<p>Merge vcfstats files to STDOUT, skip plotting.</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --prefix</strong> <em>DIR</em></dt>
+<dd>
+<p>The output directory. This directory will be created if it does not exist.</p>
+</dd>
+<dt class="hdlist1"><strong>-P, --no-PDF</strong></dt>
+<dd>
+<p>Skip the PDF creation step.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --rasterize</strong></dt>
+<dd>
+<p>Rasterize PDF images for faster rendering. This is the default and the opposite of <strong>-v, --vectors</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --sample-names</strong></dt>
+<dd>
+<p>Use sample names for xticks rather than numeric IDs.</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --title</strong> <em>STRING</em></dt>
+<dd>
+<p>Identify files by these titles in plots. The option can be given multiple
+times, for each ID in the <strong><a href="#stats">bcftools stats</a></strong> output. If not
+present, the script will use abbreviated source file names for the titles.</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --vectors</strong></dt>
+<dd>
+<p>Generate vector graphics for PDF images, the opposite of <strong>-r, --rasterize</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-T, --main-title</strong> <em>STRING</em></dt>
+<dd>
+<p>Main title for the PDF.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>Example:</strong></p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre># Generate the stats
+bcftools stats -s - &gt; file.vchk</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># Plot the stats
+plot-vcfstats -p outdir file.vchk</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># The final looks can be customized by editing the generated
+# 'outdir/plot.py' script and re-running manually
+cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="expressions">FILTERING EXPRESSIONS</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -4689,8 +4838,7 @@ important libraries used by bcftools.</p>
 <div class="title">Valid expressions may contain:</div>
 <ul>
 <li>
-<p>numerical constants, string constants, file names (this is currently
-supported only to filter by the ID column)</p>
+<p>numerical constants, string constants, file names (indicated by the prefix <em>@</em>)</p>
 <div class="literalblock">
 <div class="content">
 <pre>1, 1.0, 1e-4
@@ -4824,7 +4972,7 @@ GT="A"</pre>
 </div>
 </li>
 <li>
-<p>TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
+<p>TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap, see <strong><a href="#terminology">TERMINOLOGY</a></strong>). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare</p>
 <div class="literalblock">
@@ -5072,12 +5220,17 @@ compute the resulting vector C:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>ID=@file       .. selects lines with ID present in the file</pre>
+<pre>ID=@file               .. selects lines with ID present in the file</pre>
 </div>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>ID!=@~/file    .. skip lines with ID present in the ~/file</pre>
+<pre>ID!=@~/file            .. skip lines with ID present in the ~/file</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file</pre>
 </div>
 </div>
 <div class="literalblock">
@@ -5116,91 +5269,27 @@ that the whole expression is passed to the program as intended:</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_scripts">SCRIPTS</h2>
+<h2 id="terminology">TERMINOLOGY</h2>
 <div class="sectionbody">
-<div class="sect2">
-<h3 id="gff2gff">gff2gff</h3>
 <div class="paragraph">
-<p>Attempts to fix a GFF file to be correctly parsed by <strong><a href="#csq">csq</a></strong>.</p>
+<p>The program and the documentation uses the following terminology, multiple terms can be used
+interchangeably for the same VCF record type</p>
 </div>
 <div class="openblock">
 <div class="content">
 <div class="literalblock">
 <div class="content">
-<pre>zcat in.gff.gz | gff2gff | gzip -c &gt; out.gff.gz</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
-<div class="paragraph">
-<p>Script for processing output of <strong><a href="#stats">bcftools stats</a></strong>. It can merge
-results from multiple outputs (useful when running the stats for each
-chromosome separately), plots graphs and creates a PDF presentation.</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><strong>-m, --merge</strong></dt>
-<dd>
-<p>Merge vcfstats files to STDOUT, skip plotting.</p>
-</dd>
-<dt class="hdlist1"><strong>-p, --prefix</strong> <em>DIR</em></dt>
-<dd>
-<p>The output directory. This directory will be created if it does not exist.</p>
-</dd>
-<dt class="hdlist1"><strong>-P, --no-PDF</strong></dt>
-<dd>
-<p>Skip the PDF creation step.</p>
-</dd>
-<dt class="hdlist1"><strong>-r, --rasterize</strong></dt>
-<dd>
-<p>Rasterize PDF images for faster rendering. This is the default and the opposite of <strong>-v, --vectors</strong>.</p>
-</dd>
-<dt class="hdlist1"><strong>-s, --sample-names</strong></dt>
-<dd>
-<p>Use sample names for xticks rather than numeric IDs.</p>
-</dd>
-<dt class="hdlist1"><strong>-t, --title</strong> <em>STRING</em></dt>
-<dd>
-<p>Identify files by these titles in plots. The option can be given multiple
-times, for each ID in the <strong><a href="#stats">bcftools stats</a></strong> output. If not
-present, the script will use abbreviated source file names for the titles.</p>
-</dd>
-<dt class="hdlist1"><strong>-v, --vectors</strong></dt>
-<dd>
-<p>Generate vector graphics for PDF images, the opposite of <strong>-r, --rasterize</strong>.</p>
-</dd>
-<dt class="hdlist1"><strong>-T, --main-title</strong> <em>STRING</em></dt>
-<dd>
-<p>Main title for the PDF.</p>
-</dd>
-</dl>
-</div>
-<div class="paragraph">
-<p><strong>Example:</strong></p>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="literalblock">
-<div class="content">
-<pre># Generate the stats
-bcftools stats -s - &gt; file.vchk</pre>
-</div>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre># Plot the stats
-plot-vcfstats -p outdir file.vchk</pre>
-</div>
-</div>
-<div class="literalblock">
-<div class="content">
-<pre># The final looks can be customized by editing the generated
-# 'outdir/plot.py' script and re-running manually
-cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre>
-</div>
+<pre>REF   ALT
+---------
+C     .         .. reference allele / non-variant site / ref-only site
+C     T         .. SNP or SNV (single-nucleotide polymorphism or variant), used interchangeably
+CC    TT        .. MNP (multi-nucleotide polymorphism)
+CAAA  C         .. indel, deletion (regardless of length)
+C     CAAA      .. indel, insertion (regardless of length)
+C     &lt;*&gt;       .. gVCF block, the allele &lt;*&gt; is a placeholder for alternate allele possibly missed because of low coverage
+C     &lt;NON_REF&gt; .. synonymous to &lt;*&gt;
+C     *         .. overlapping deletion
+C     &lt;INS&gt;     .. symbolic allele, known also as 'other [than above]'</pre>
 </div>
 </div>
 </div>
@@ -5277,7 +5366,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-25 09:17:14 +0100
+Last updated 2023-12-12 14:02:44 UTC
 </div>
 </div>
 </body>

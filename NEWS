@@ -1,5 +1,127 @@
-## Release 1.18 (25th July 2023)
+## Release 1.19 (12th December 2023)
 
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Filtering expressions can be given a file with list of strings to match, this
+  was previously possible only for the ID column. For example
+
+    ID=@file            .. selects lines with ID present in the file
+    INFO/TAG=@file.txt  .. selects lines where TAG has a string value listed in the file
+    INFO/TAG!=@file.txt .. TAG must not have a string value listed in the file
+
+  Allow to query REF,ALT columns directly, for example
+
+    -e 'REF="N"'
+
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - Fix `bcftools annotate --mark-sites`, VCF sites overlapping regions in a BED file
+      were not annotated (#1989)
+
+    - Add flexibility to FILTER column transfers and allow transfers within the same file,
+      across files, and in combination. For examples see
+        http://samtools.github.io/bcftools/howtos/annotate.html#transfer_filter_to_info
+
+* bcftools call
+
+    - Output MIN_DP rather than MinDP in gVCF mode
+
+    - New `-*, --keep-unseen-allele` option to output the unobserved allele <*>,
+      intended for gVCF.
+
+* bcftools head
+
+    - New `-s, --samples` option to include the #CHROM header line with samples.
+
+* bcftools gtcheck
+
+    - Add output options `-o, --output` and `-O, --output-type`
+
+    - Add filtering options `-i, --include` and `-e, --exclude`
+
+    - Rename the short option `-e, --error-probability` from lower case to upper
+      case `-E, --error-probability`
+
+    - Changes to the output format, replace the DC section with DCv2:
+
+        - adds a new column for the number of matching genotypes
+
+        - The --error-probability is newly interpreted as the probability of erroneous
+          allele rather than genotype. In other words, the calculation of the discordance
+          score now considers the probability of genotyping error to be different
+          for HOM and HET genotypes, i.e. P(0/1|dsg=0) > P(1/1|dsg=0).
+
+        - fixes in HWE score calculation plus output average HWE score rather
+          than absolute HWE score
+
+        - better description of fields
+
+* bcftools merge
+
+    - Add `-m` modifiers to suppress the output of the unseen allele <*> or <NON_REF>
+      at variant sites (e.g. `-m both,*`) or all sites (e.g. `-m both,**`)
+
+* bcftools mpileup
+
+    - Output MIN_DP rather than MinDP in gVCF mode
+
+* bcftools norm
+
+    - Add the number of joined lines to the summary output, for example
+
+        Lines   total/split/joined/realigned/skipped:	6/0/3/0/0
+
+    - Allow combining -m and -a with --old-rec-tag (#2020)
+
+    - Symbolic <DEL> alleles caused norm to expand REF to the full length of the deletion.
+      This was not intended and problematic for long deletions, the REF allele should list
+      one base only (#2029)
+
+* bcftools query
+
+    - Add new `-N, --disable-automatic-newline` option for pre-1.18 query formatting behavior
+      when newline would not be added when missing
+
+    - Make the automatic addition of the newline character in a more predictable way and,
+      when missing, always put it at the end of the expression. In version 1.18 it could
+      be added at the end of the expression (for per-site expressions) or inside the square
+      brackets (for per-sample expressions). The new behavior is:
+
+        - if the formatting expression contains a newline character, do nothing
+        - if there is no newline character and -N, --disable-automatic-newline is given, do nothing
+        - if there is no newline character and -N is not given, insert newline at the end of the expression
+
+      See #1969 for details
+
+    - Add new `-F, --print-filtered` option to output a default string for samples that would otherwise
+      be filtered by `-i/-e` expressions.
+
+    - Include sample name in the output header with `-H` whenever it makes sense (#1992)
+
+* bcftools +spit-vep
+
+    - Fix on the fly filtering involving numeric subfields, e.g. `-i 'MAX_AF<0.001'` (#2039)
+
+    - Interpret default column type names (--columns-types) as entire strings, rather than
+      substrings to avoid unexpected spurious matches (i.e. internally add ^ and $ to all
+      field names)
+
+* bcftools +trio-dnm2
+
+    - Do not flag paternal genotyping errors as de novo mutations. Specifically, when father's
+      chrX genotype is 0/1 and mother's 0/0, 0/1 in the child will not be marked as DNM.
+
+* bcftools view
+
+    - Add new `-A, --trim-unseen-allele` option to remove the unseen allele <*> or <NON_REF>
+      at variant sites (`-A`) or all sites (`-AA`)
+
+
+## Release 1.18 (25th July 2023)
 
 Changes affecting the whole of bcftools, or multiple commands:
 

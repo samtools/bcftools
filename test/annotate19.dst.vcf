@@ -1,5 +1,7 @@
 ##fileformat=VCFv4.1
 ##contig=<ID=1,assembly=b37,length=249250621>
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##FILTER=<ID=ori_filter1,Description="Test">
+##FILTER=<ID=ori_filter2,Description="Test">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	3000001	ori_id	C	T	.	.	.
+1	3000001	ori_id	C	T	.	ori_filter1;ori_filter2	.

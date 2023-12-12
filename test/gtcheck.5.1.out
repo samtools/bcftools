@@ -5,8 +5,9 @@ INFO	sites-skipped-monoallelic	1
 INFO	sites-skipped-no-data	1
 INFO	sites-skipped-GT-not-diploid	1
 INFO	sites-skipped-PL-not-diploid	1
+INFO	sites-skipped-filtering-expression	0
 INFO	sites-used-PL-vs-PL	0
 INFO	sites-used-PL-vs-GT	1
 INFO	sites-used-GT-vs-PL	0
 INFO	sites-used-GT-vs-GT	1
-DC	A	A	3.000150e-04	4.605170e+01	2
+DCv2	A	A	1.000089e-12	0.000000e+00	2	2

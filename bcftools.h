@@ -141,4 +141,16 @@ static inline int bcf_double_test(double d, uint64_t value)
 #define bcf_double_is_missing(x)     bcf_double_test((x),bcf_double_missing)
 #define bcf_double_is_missing_or_vector_end(x)     (bcf_double_test((x),bcf_double_missing) || bcf_double_test((x),bcf_double_vector_end))
 
+static inline int get_unseen_allele(bcf1_t *line)
+{
+    int i;
+    for (i=1; i<line->n_allele; i++)
+    {
+        if ( !strcmp(line->d.allele[i],"<*>") ) return i;
+        if ( !strcmp(line->d.allele[i],"<NON_REF>") ) return i;
+        if ( !strcmp(line->d.allele[i],"<X>") ) return i;
+    }
+    return 0;
+}
+
 #endif

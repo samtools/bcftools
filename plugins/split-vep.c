@@ -60,6 +60,7 @@ typedef struct
 {
     regex_t *regex;
     char *type;
+    int bcf_ht_type;
 }
 col2type_t;
 
@@ -170,7 +171,8 @@ static const char *default_column_types(void)
 {
     return
         "# Default CSQ subfield types, unlisted fields are type String.\n"
-        "# Note the use of regular expressions.\n"
+        "# Note that the name search is done using regular expressions, with\n"
+        "# \"^\" and \"$\" appended automatically\n"
         "cDNA_position              Integer\n"
         "CDS_position               Integer\n"
         "Protein_position           Integer\n"
@@ -179,6 +181,7 @@ static const char *default_column_types(void)
         "TSL                        Integer\n"
         "GENE_PHENO                 Integer\n"
         "HGVS_OFFSET                Integer\n"
+        ".*_POPS                    String\n"   // e.g. MAX_AF_POPS
         "AF                         Float\n"
         ".*_AF                      Float\n"
         "MAX_AF_.*                  Float\n"
@@ -344,32 +347,34 @@ static void init_column2type(args_t *args)
         free(str);
     }
     if ( !type || !ntype ) error("Failed to parse the column types\n");
+    kstring_t tmp = {0,0,0};
     for (i=0; i<ntype; i++)
     {
         if ( type[i][0]=='#' ) continue;
-        char *tmp = strdup(type[i]);
-        char *ptr = tmp;
+        tmp.l = 0;
+        kputc('^',&tmp);
+        char *ptr = type[i];
         while ( *ptr && !isspace(*ptr) ) ptr++;
         if ( !*ptr ) error("Error: failed to parse the column type \"%s\"\n",type[i]);
-        *ptr = 0;
-        ptr++;
+        kputsn(type[i],ptr-type[i],&tmp);
+        kputc('$',&tmp);
         while ( *ptr && isspace(*ptr) ) ptr++;
         if ( !*ptr ) error("Error: failed to parse the column type \"%s\"\n",type[i]);
         args->ncolumn2type++;
         args->column2type = (col2type_t*) realloc(args->column2type,sizeof(*args->column2type)*args->ncolumn2type);
         col2type_t *ct = &args->column2type[args->ncolumn2type-1];
         ct->regex = (regex_t *) malloc(sizeof(regex_t));
-        if ( regcomp(ct->regex, tmp, REG_NOSUB) )
-                error("Error: fail to compile the column type regular expression \"%s\": %s\n", tmp,type[i]);
-        int type_ok = 0;
-        if ( !strcmp(ptr,"Float") ) type_ok = 1;
-        else if ( !strcmp(ptr,"Integer") ) type_ok = 1;
-        else if ( !strcmp(ptr,"Flag") ) type_ok = 1;
-        else if ( !strcmp(ptr,"String") ) type_ok = 1;
-        if ( !type_ok ) error("Error: the column type \"%s\" is not supported: %s\n",ptr,type[i]);
+        if ( regcomp(ct->regex, tmp.s, REG_NOSUB) )
+                error("Error: fail to compile the column type regular expression \"%s\": %s\n", tmp.s,type[i]);
+        ct->bcf_ht_type = -1;
+        if ( !strcmp(ptr,"Float") ) ct->bcf_ht_type = BCF_HT_REAL;
+        else if ( !strcmp(ptr,"Integer") ) ct->bcf_ht_type = BCF_HT_INT;
+        else if ( !strcmp(ptr,"Flag") ) ct->bcf_ht_type = BCF_HT_FLAG;
+        else if ( !strcmp(ptr,"String") ) ct->bcf_ht_type = BCF_HT_STR;
+        if ( ct->bcf_ht_type==-1 ) error("Error: the column type \"%s\" is not supported: %s\n",ptr,type[i]);
         ct->type = strdup(ptr);
-        free(tmp);
     }
+    free(tmp.s);
     if ( !args->ncolumn2type ) error("Failed to parse the column types\n");
     for (i=0; i<ntype; i++) free(type[i]);
     free(type);
@@ -387,15 +392,20 @@ static void destroy_column2type(args_t *args)
     args->ncolumn2type = 0;
     args->column2type = NULL;
 }
-static const char *get_column_type(args_t *args, char *field)
+static const char *get_column_type(args_t *args, char *field, int *type)
 {
     if ( !args->column2type ) init_column2type(args);
     int i;
     for (i=0; i<args->ncolumn2type; i++)
     {
         int match = regexec(args->column2type[i].regex, field, 0,NULL,0) ? 0 : 1;
-        if ( match ) return args->column2type[i].type;
+        if ( match )
+        {
+            *type = args->column2type[i].bcf_ht_type;
+            return args->column2type[i].type;
+        }
     }
+    *type = BCF_HT_STR;
     return "String";
 }
 
@@ -647,7 +657,20 @@ static void parse_column_str(args_t *args)
         ep++;
     }
 
-    // Now add each column to the VCF header and reconstruct the column_str in case it will be needed later
+    // Prune duplicates
+    for (i=0; i<args->nannot; i++)
+    {
+        for (j=0; j<i; j++)
+            if ( !strcmp(args->field[column[i]],args->field[column[j]]) ) break;
+        if ( i==j ) continue;           // unique tag, no action needed
+        args->nannot--;
+        if ( i==args->nannot ) break;   // the last one is to be skipped, we are done
+        memmove(&column[i],&column[i+1],sizeof(*column)*(args->nannot-i));
+        i--;
+    }
+
+    // Now initizalize each annotation, add each column to the VCF header, and reconstruct
+    // the column_str in case it will be needed later
     free(args->column_str);
     kstring_t str = {0,0,0};
     args->annot = (annot_t*)calloc(args->nannot,sizeof(*args->annot));
@@ -664,7 +687,7 @@ static void parse_column_str(args_t *args)
         else if ( ann->type==BCF_HT_INT ) type = "Integer";
         else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
         else if ( ann->type==BCF_HT_STR ) type = "String";
-        else if ( ann->type==-1 ) type = get_column_type(args, args->field[j]);
+        else if ( ann->type==-1 ) type = get_column_type(args, args->field[j], &ann->type);
         ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
         bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
         if ( str.l ) kputc(',',&str);

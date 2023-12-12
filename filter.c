@@ -163,6 +163,8 @@ static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 
 #define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"       // this is only for debugging, not maintained diligently
 
 static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok);
+inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok);
+
 
 // Return negative values if it is a function with variable number of arguments
 static int filters_next_token(char **str, int *len)
@@ -596,6 +598,98 @@ static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1
         error("Only ==, !=, ~, and !~ operators are supported for FILTER\n");
     return;
 }
+static void filters_cmp_string_hash(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *line)
+{
+    if ( btok->hash )
+    {
+        token_t *tmp = atok; atok = btok; btok = tmp;
+    }
+    if ( rtok->tok_type!=TOK_EQ && rtok->tok_type!=TOK_NE )
+        error("Only == and != operators are supported for strings read from a file\n");
+
+    // INFO
+    if ( !btok->nsamples )
+    {
+        // there is only one string value, e.g. STR[1]=@list.txt
+        if ( btok->idx >= 0 )
+        {
+            int ret = khash_str2int_has_key(atok->hash, btok->str_value.s);
+            if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
+            rtok->pass_site = ret;
+            return;
+        }
+
+        // there can be multiple comma-separated string values, e.g. STR=@list.txt or STR[*]=@list.txt
+        int ret = 0;
+        char *ptr = btok->str_value.s;
+        while ( *ptr )
+        {
+            char *eptr = ptr + 1;
+            while ( *eptr && *eptr!=',' ) eptr++;
+            char keep = *eptr;
+            *eptr = 0;
+            ret |= khash_str2int_has_key(atok->hash, ptr);
+            *eptr = keep;
+            if ( !keep ) break;
+            ptr = eptr + 1;
+        }
+        if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
+        rtok->pass_site = ret;
+        return;
+    }
+
+
+    // FORMAT
+    tok_init_samples(atok, btok, rtok);
+    rtok->pass_site = 0;
+    int i;
+
+    // there is only one string value, e.g. FMT/STR[*:1]=@list.txt
+    if ( btok->idx >= 0 )
+    {
+        for (i=0; i<btok->nsamples; i++)
+        {
+            if ( !rtok->usmpl[i] ) continue;
+            char *str = btok->str_value.s + i*btok->nval1;
+            char keep = str[btok->nval1];
+            str[btok->nval1] = 0;
+            int ret = khash_str2int_has_key(atok->hash, str);
+            str[btok->nval1] = keep;
+            if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
+            rtok->pass_samples[i] = ret;
+            rtok->pass_site |= ret;
+        }
+        return;
+    }
+
+    // there can be multiple comma-separated string values, e.g. FMT/STR=@list.txt
+    for (i=0; i<btok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        char *str = btok->str_value.s + i*btok->nval1;
+        char keep = str[btok->nval1];
+        str[btok->nval1] = 0;
+
+        // now str contains the block of per-sample comma-separated strings to loop over
+        int ret = 0;
+        char *ptr = str;
+        while ( *ptr )
+        {
+            char *eptr = ptr + 1;
+            while ( *eptr && *eptr!=',' ) eptr++;
+            char keep0 = *eptr;
+            *eptr = 0;
+            ret |= khash_str2int_has_key(atok->hash, ptr);
+            *eptr = keep0;
+            if ( !keep0 ) break;
+            ptr = eptr + 1;
+        }
+        str[btok->nval1] = keep;
+        if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
+        rtok->pass_samples[i] = ret;
+        rtok->pass_site |= ret;
+    }
+}
 static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *line)
 {
     if ( btok->hash )
@@ -1008,7 +1102,8 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 
     int i, ndim = tok->str_value.m;
     int nstr = bcf_get_format_char(flt->hdr, line, tok->tag, &tok->str_value.s, &ndim);
-    tok->str_value.m = ndim;
+    tok->str_value.m = tok->str_value.l = ndim;
+    kputc(0,&tok->str_value); // append the nul byte
     tok->str_value.l = tok->nvalues = 0;
 
     if ( nstr<0 ) return;
@@ -3486,7 +3581,10 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         {
             int j = out[i+1].tok_type==TOK_VAL ? i+1 : i-1;
             if ( out[j].comparator!=filters_cmp_id )
-                error("Error: could not parse the expression. Note that the \"@file_name\" syntax can be currently used with ID column only.\n");
+            {
+                if ( out[j].comparator ) error("Error: could not parse the expression with \"@file_name\" syntax (possible todo)\n");
+                out[j].comparator = filters_cmp_string_hash;
+            }
         }
         if ( out[i].tok_type==TOK_OR || out[i].tok_type==TOK_OR_VEC )
             out[i].func = vector_logic_or;

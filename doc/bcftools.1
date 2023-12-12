@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2023-07-25
+.\"      Date: 2023-12-12
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-07-25" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-12-12" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-07\-25\fP and refers to bcftools git version \fB1.18\fP.
+This manual page was last updated \fB2023\-12\-12\fP and refers to bcftools git version \fB1.19\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -938,7 +938,7 @@ Automatically index the output file
     # that INFO/END is already present in the VCF header.
     bcftools annotate \-a annots.tab.gz  \-c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 .fam
 .fi
 .if n .RE
@@ -1052,6 +1052,11 @@ Automatically index the output file
 .RS 4
 output all alternate alleles present in the alignments even if they do not
 appear in any of the genotypes
+.RE
+.sp
+\fB\-\fP*\fB, \-\-keep\-unseen\-allele\fP
+.RS 4
+keep the unobserved allele <*> or <NON_REF>, useful mainly for gVCF output
 .RE
 .sp
 \fB\-f, \-\-format\-fields\fP \fIlist\fP
@@ -2495,7 +2500,13 @@ in\-memory sorting and DIR is the temporary directory for external sorting. This
 Stop after first record to estimate required time.
 .RE
 .sp
-\fB\-e, \-\-error\-probability\fP \fIINT\fP
+\fB\-e, \-\-exclude\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+.RS 4
+Exclude sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
+For valid expressions see \fBEXPRESSIONS\fP.
+.RE
+.sp
+\fB\-E, \-\-error\-probability\fP \fIINT\fP
 .RS 4
 Interpret genotypes and genotype likelihoods probabilistically. The value of \fIINT\fP
 represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
@@ -2505,13 +2516,20 @@ non\-zero integer can be provided).
 .br
 \~
 .br
-If \fB\-e\fP is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
+If \fB\-E\fP is set to 0, the discordance score can be interpreted as the number of mismatching genotypes,
 but only in the GT\-vs\-GT matching mode. See the \fB\-u, \-\-use\fP option below for additional notes and caveats.
 \~
 .br
 \~
 .br
-If performance is an issue, set \fB\-e 0\fP for faster run times but less accurate results.
+If performance is an issue, set \fB\-E 0\fP for faster run times but less accurate results.
+\~
+.br
+\~
+.br
+Note that in previous versions of bcftools (\(lA1.18), this option used to be a smaller case \fB\-e\fP. It
+changed to make room for the filtering option \fB\-e, \-\-exclude\fP to stay consistent across other
+commands.
 .RE
 .sp
 \fB\-g, \-\-genotypes\fP \fIFILE\fP
@@ -2522,6 +2540,12 @@ VCF/BCF file with reference genotypes to compare against
 \fB\-H, \-\-homs\-only\fP
 .RS 4
 Homozygous genotypes only, useful with low coverage data (requires \fB\-g, \-\-genotypes\fP)
+.RE
+.sp
+\fB\-i, \-\-include\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+.RS 4
+Include sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
+For valid expressions see \fBEXPRESSIONS\fP.
 .RE
 .sp
 \fB\-\-n\-matches\fP \fIINT\fP
@@ -2535,6 +2559,16 @@ that average score is used to determine the top matches, not absolute values.
 .RS 4
 Disable calculation of HWE probability to reduce memory requirements with
 comparisons between very large number of sample pairs.
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+Write to \fIFILE\fP rather than to standard output, where it is written by default.
+.RE
+.sp
+\fB\-O, \-\-output\-type\fP \fIt\fP|\fIz\fP
+.RS 4
+Write a plain (\fIt\fP) or compressed (\fIz\fP) text tab\-delimited output.
 .RE
 .sp
 \fB\-p, \-\-pairs\fP \fILIST\fP
@@ -2600,7 +2634,7 @@ By default, the PL tag is used in the query file and, when available, the GT tag
 .br
 Note that when the requested tag is not available, the program will attempt to use
 the other tag. The output includes the number of sites that were matched by the four
-possible mode (for example GT\-vs\-GT or GT\-vs\-PL).
+possible modes (for example GT\-vs\-GT or GT\-vs\-PL).
 .RE
 .sp
 \fBExamples:\fP
@@ -2608,10 +2642,10 @@ possible mode (for example GT\-vs\-GT or GT\-vs\-PL).
 .if n .RS 4
 .nf
 .fam C
-   # Check discordance of all samples from B against all sample in A
+   # Check discordance of all samples from B against all samples in A
    bcftools gtcheck \-g A.bcf B.bcf
 
-   # Limit comparisons to the fiven list of samples
+   # Limit comparisons to the given list of samples
    bcftools gtcheck \-s gt:a1,a2,a3 \-s qry:b1,b2 \-g A.bcf B.bcf
 
    # Compare only two pairs a1,b1 and a1,b2
@@ -2641,6 +2675,14 @@ By default, all header lines are displayed.
 .RS 4
 Also display the first \fIINT\fP variant records.
 By default, no variant records are displayed.
+.RE
+.sp
+\fB\-s, \-\-samples\fP \fIINT\fP
+.RS 4
+Display the first \fIINT\fP variant records including the last #CHROM header line with samples.
+Running with \fB\-s 0\fP alone outputs the #CHROM header line only. Note that
+the list of samples, with each sample per line, can be obtained with \f(CRbcftools query\fP using
+the option \fB\-l, \-\-list\-samples\fP.
 .RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
@@ -2796,7 +2838,7 @@ see \fBCommon Options\fP
 .sp
 \fB\-w, \-\-write\fP \fILIST\fP
 .RS 4
-list of input files to output given as 1\-based indices. With \fB\-p\fP and no
+comma\-separated list of input files to output given as 1\-based indices. With \fB\-p\fP and no
 \fB\-w\fP, all files are written.
 .RE
 .sp
@@ -2945,9 +2987,11 @@ maximum number of alternate alleles that can be included in the PL tag. The defa
 is 0 which disables the feature and outputs values for all alternate alleles.
 .RE
 .sp
-\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP
+\fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP[,\fI*\fP]
 .RS 4
-The option controls what types of multiallelic records can be created:
+The option controls what types of multiallelic records can be created. If single asterisk
+\fI\fB\fP is appended, the unobserved allele \fI<\fP>\fP or \fI<NON_REF>\fP will be removed at variant sites;
+if two asterisks \fI**\fP are appended, the unobserved allele will be removed all sites.
 .RE
 .sp
 .if n .RS 4
@@ -2957,6 +3001,8 @@ The option controls what types of multiallelic records can be created:
 \-m snps        ..  allow multiallelic SNP records
 \-m indels      ..  allow multiallelic indel records
 \-m both        ..  both SNP and indel records can be multiallelic
+\-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
+\-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
 \-m all         ..  SNP records can be merged with indel records
 \-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
 \-m id          ..  merge by ID
@@ -4428,6 +4474,13 @@ continue even when some samples requested via \fB\-s/\-S\fP do not exist
 learn by example, see below
 .RE
 .sp
+\fB\-F, \-\-print\-filtered\fP \fISTR\fP
+.RS 4
+by default, samples failing \fB\-i/\-e\fP filtering expressions are suppressed from output
+when FORMAT fields are queried (for example \fI%CHROM %POS [ %GT]\fP).  With \fB\-F\fP, such
+fields will be still printed but instead of their actual value, \fISTR\fP will be used.
+.RE
+.sp
 \fB\-H, \-\-print\-header\fP
 .RS 4
 print header
@@ -4442,6 +4495,15 @@ include only sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fB\-l, \-\-list\-samples\fP
 .RS 4
 list sample names and exit
+.RE
+.sp
+\fB\-N, \-\-disable\-automatic\-newline\fP
+.RS 4
+disable automatic addition of a missing newline character at the end of the formatting
+expression. By default, the program checks if the expression contains a newline
+and appends it if not, to prevent formatting the entire output into a single
+line by mistake. Note that versions prior to 1.18 had no automatic check and newline
+had to be included explicitly.
 .RE
 .sp
 \fB\-o, \-\-output\fP \fIFILE\fP
@@ -5123,6 +5185,12 @@ Automatically index the output file
 .RE
 .SS "Subset options:"
 .sp
+\fB\-A, \-\-trim\-unseen\-alleles\fP
+.RS 4
+remove the unseen allele \fI<*>\fP or \fI<NON_REF>\fP at variant sites when the option is given once (\-A) or
+at all sites when the options is given twice (\fI\-AA\fP).
+.RE
+.sp
 \fB\-a, \-\-trim\-alt\-alleles\fP
 .RS 4
 remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
@@ -5315,6 +5383,95 @@ important libraries used by bcftools.
 .SS "bcftools [\fI\-\-version\-only\fP]"
 .sp
 Display the full bcftools version number in a machine\-readable format.
+.SH "SCRIPTS"
+.SS "gff2gff"
+.sp
+Attempts to fix a GFF file to be correctly parsed by \fBcsq\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+zcat in.gff.gz | gff2gff | gzip \-c > out.gff.gz
+.fam
+.fi
+.if n .RE
+.SS "plot\-vcfstats [\fIOPTIONS\fP] \fIfile.vchk\fP [...]"
+.sp
+Script for processing output of \fBbcftools stats\fP. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.
+.sp
+\fB\-m, \-\-merge\fP
+.RS 4
+Merge vcfstats files to STDOUT, skip plotting.
+.RE
+.sp
+\fB\-p, \-\-prefix\fP \fIDIR\fP
+.RS 4
+The output directory. This directory will be created if it does not exist.
+.RE
+.sp
+\fB\-P, \-\-no\-PDF\fP
+.RS 4
+Skip the PDF creation step.
+.RE
+.sp
+\fB\-r, \-\-rasterize\fP
+.RS 4
+Rasterize PDF images for faster rendering. This is the default and the opposite of \fB\-v, \-\-vectors\fP.
+.RE
+.sp
+\fB\-s, \-\-sample\-names\fP
+.RS 4
+Use sample names for xticks rather than numeric IDs.
+.RE
+.sp
+\fB\-t, \-\-title\fP \fISTRING\fP
+.RS 4
+Identify files by these titles in plots. The option can be given multiple
+times, for each ID in the \fBbcftools stats\fP output. If not
+present, the script will use abbreviated source file names for the titles.
+.RE
+.sp
+\fB\-v, \-\-vectors\fP
+.RS 4
+Generate vector graphics for PDF images, the opposite of \fB\-r, \-\-rasterize\fP.
+.RE
+.sp
+\fB\-T, \-\-main\-title\fP \fISTRING\fP
+.RS 4
+Main title for the PDF.
+.RE
+.sp
+\fBExample:\fP
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Generate the stats
+bcftools stats \-s \- > file.vchk
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Plot the stats
+plot\-vcfstats \-p outdir file.vchk
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# The final looks can be customized by editing the generated
+# \*(Aqoutdir/plot.py\*(Aq script and re\-running manually
+cd outdir && python plot.py && pdflatex summary.tex
+.fam
+.fi
+.if n .RE
 .SH "FILTERING EXPRESSIONS"
 .sp
 These filtering expressions are accepted by most of the commands.
@@ -5330,8 +5487,7 @@ These filtering expressions are accepted by most of the commands.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-numerical constants, string constants, file names (this is currently
-supported only to filter by the ID column)
+numerical constants, string constants, file names (indicated by the prefix \fI@\fP)
 .sp
 .if n .RS 4
 .nf
@@ -5609,7 +5765,7 @@ GT="A"
 .  sp -1
 .  IP \(bu 2.3
 .\}
-TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap, see \fBTERMINOLOGY\fP). Use the regex
 operator "\(rs~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 .sp
@@ -6052,7 +6208,7 @@ AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger
 .if n .RS 4
 .nf
 .fam C
-ID=@file       .. selects lines with ID present in the file
+ID=@file               .. selects lines with ID present in the file
 .fam
 .fi
 .if n .RE
@@ -6060,7 +6216,15 @@ ID=@file       .. selects lines with ID present in the file
 .if n .RS 4
 .nf
 .fam C
-ID!=@~/file    .. skip lines with ID present in the ~/file
+ID!=@~/file            .. skip lines with ID present in the ~/file
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file
 .fam
 .fi
 .if n .RE
@@ -6097,92 +6261,25 @@ bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
 .if n .RE
 .sp
 Please refer to the documentation of your shell for details.
-.SH "SCRIPTS"
-.SS "gff2gff"
+.SH "TERMINOLOGY"
 .sp
-Attempts to fix a GFF file to be correctly parsed by \fBcsq\fP.
-.sp
-.if n .RS 4
-.nf
-.fam C
-zcat in.gff.gz | gff2gff | gzip \-c > out.gff.gz
-.fam
-.fi
-.if n .RE
-.SS "plot\-vcfstats [\fIOPTIONS\fP] \fIfile.vchk\fP [...]"
-.sp
-Script for processing output of \fBbcftools stats\fP. It can merge
-results from multiple outputs (useful when running the stats for each
-chromosome separately), plots graphs and creates a PDF presentation.
-.sp
-\fB\-m, \-\-merge\fP
-.RS 4
-Merge vcfstats files to STDOUT, skip plotting.
-.RE
-.sp
-\fB\-p, \-\-prefix\fP \fIDIR\fP
-.RS 4
-The output directory. This directory will be created if it does not exist.
-.RE
-.sp
-\fB\-P, \-\-no\-PDF\fP
-.RS 4
-Skip the PDF creation step.
-.RE
-.sp
-\fB\-r, \-\-rasterize\fP
-.RS 4
-Rasterize PDF images for faster rendering. This is the default and the opposite of \fB\-v, \-\-vectors\fP.
-.RE
-.sp
-\fB\-s, \-\-sample\-names\fP
-.RS 4
-Use sample names for xticks rather than numeric IDs.
-.RE
-.sp
-\fB\-t, \-\-title\fP \fISTRING\fP
-.RS 4
-Identify files by these titles in plots. The option can be given multiple
-times, for each ID in the \fBbcftools stats\fP output. If not
-present, the script will use abbreviated source file names for the titles.
-.RE
-.sp
-\fB\-v, \-\-vectors\fP
-.RS 4
-Generate vector graphics for PDF images, the opposite of \fB\-r, \-\-rasterize\fP.
-.RE
-.sp
-\fB\-T, \-\-main\-title\fP \fISTRING\fP
-.RS 4
-Main title for the PDF.
-.RE
-.sp
-\fBExample:\fP
+The program and the documentation uses the following terminology, multiple terms can be used
+interchangeably for the same VCF record type
 .sp
 .if n .RS 4
 .nf
 .fam C
-# Generate the stats
-bcftools stats \-s \- > file.vchk
-.fam
-.fi
-.if n .RE
-.sp
-.if n .RS 4
-.nf
-.fam C
-# Plot the stats
-plot\-vcfstats \-p outdir file.vchk
-.fam
-.fi
-.if n .RE
-.sp
-.if n .RS 4
-.nf
-.fam C
-# The final looks can be customized by editing the generated
-# \*(Aqoutdir/plot.py\*(Aq script and re\-running manually
-cd outdir && python plot.py && pdflatex summary.tex
+REF   ALT
+\-\-\-\-\-\-\-\-\-
+C     .         .. reference allele / non\-variant site / ref\-only site
+C     T         .. SNP or SNV (single\-nucleotide polymorphism or variant), used interchangeably
+CC    TT        .. MNP (multi\-nucleotide polymorphism)
+CAAA  C         .. indel, deletion (regardless of length)
+C     CAAA      .. indel, insertion (regardless of length)
+C     <*>       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
+C     <NON_REF> .. synonymous to <*>
+C     *         .. overlapping deletion
+C     <INS>     .. symbolic allele, known also as \*(Aqother [than above]\*(Aq
 .fam
 .fi
 .if n .RE

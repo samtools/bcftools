@@ -910,6 +910,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 Keep all possible alternate alleles at variant sites\n");
+    fprintf(stderr, "   -*, --keep-unseen-allele        Keep the unobserved allele <*> or <NON_REF>\n");
     fprintf(stderr, "   -a, --annotate LIST             Optional tags to output (lowercase allowed); '?' to list available tags\n");
     fprintf(stderr, "   -F, --prior-freqs AN,AC         Use prior allele frequencies, determined from these pre-filled tags\n");
     fprintf(stderr, "   -G, --group-samples FILE|-      Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
@@ -987,6 +988,7 @@ int main_vcfcall(int argc, char *argv[])
         {"targets-file",required_argument,NULL,'T'},
         {"threads",required_argument,NULL,9},
         {"keep-alts",no_argument,NULL,'A'},
+        {"keep-unseen-allele",no_argument,NULL,'*'},
         {"insert-missed",no_argument,NULL,'i'},
         {"skip-Ns",no_argument,NULL,'N'},            // now the new default
         {"keep-masked-refs",no_argument,NULL,'M'},
@@ -1008,7 +1010,7 @@ int main_vcfcall(int argc, char *argv[])
     };
 
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:n:P:f:a:ig:XYF:G:", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:A*NMV:vcmp:C:n:P:f:a:ig:XYF:G:", loptions, NULL)) >= 0)
     {
         switch (c)
         {
@@ -1026,6 +1028,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'M': args.flag &= ~CF_ACGT_ONLY; break;     // keep sites where REF is N
             case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
+            case '*': args.aux.flag |= CALL_KEEP_UNSEEN; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;

@@ -104,9 +104,11 @@ struct _convert_t
     char *undef_info_tag;
     void *used_tags_hash;
     char **used_tags_list;
+    char *print_filtered;
     int nused_tags;
     int allow_undef_tags;
     int force_newline;
+    int header_samples;
     uint8_t **subset_samples;
 };
 
@@ -1550,6 +1552,7 @@ void convert_destroy(convert_t *convert)
         free(convert->used_tags_list);
     }
     khash_str2int_destroy(convert->used_tags_hash);
+    free(convert->print_filtered);
     free(convert->fmt);
     free(convert->undef_info_tag);
     free(convert->dat);
@@ -1562,6 +1565,7 @@ void convert_destroy(convert_t *convert)
 int convert_header(convert_t *convert, kstring_t *str)
 {
     int i, icol = 0, l_ori = str->l;
+    bcf_hdr_t *hdr = convert->header;
 
     // Supress the header output if LINE is present
     for (i=0; i<convert->nfmt; i++)
@@ -1585,6 +1589,7 @@ int convert_header(convert_t *convert, kstring_t *str)
             while ( convert->fmt[j].is_gt_field ) j++;
             for (js=0; js<convert->nsamples; js++)
             {
+                int ks = convert->samples[js];
                 for (k=i; k<j; k++)
                 {
                     if ( convert->fmt[k].type == T_SEP )
@@ -1600,10 +1605,21 @@ int convert_header(convert_t *convert, kstring_t *str)
                             }
                         }
                     }
+                    else if ( convert->header_samples )
+                        ksprintf(str, "[%d]%s:%s", ++icol, hdr->samples[ks], convert->fmt[k].key);
                     else
                         ksprintf(str, "[%d]%s", ++icol, convert->fmt[k].key);
                 }
-                if ( has_fmt_newline ) break;
+                if ( has_fmt_newline )
+                {
+                    if ( !convert->header_samples ) break;
+
+                    // this is unfortunate: the formatting expression breaks the per-sample output into separate lines,
+                    // therefore including a sample name in the header makes no sense anymore
+                    convert->header_samples = 0;
+                    str->l = l_ori;
+                    return convert_header(convert, str);
+                }
             }
             i = j-1;
             continue;
@@ -1653,7 +1669,17 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
             {
                 // Skip samples when filtering was requested
                 int ks = convert->samples[js];
-                if ( convert->subset_samples && *convert->subset_samples && !(*convert->subset_samples)[ks] ) continue;
+                if ( convert->subset_samples && *convert->subset_samples && !(*convert->subset_samples)[ks] )
+                {
+                    if ( !convert->print_filtered ) continue;
+
+                    for (k=i; k<j; k++)
+                        if ( convert->fmt[k].type==T_SEP )
+                            convert->fmt[k].handler(convert, line, &convert->fmt[k], ks, str);
+                        else
+                            kputs(convert->print_filtered, str);
+                    continue;
+                }
 
                 // Here comes a hack designed for TBCSQ. When running on large files,
                 // such as 1000GP, there are too many empty fields in the output and
@@ -1709,29 +1735,18 @@ static void force_newline_(convert_t *convert)
     }
     if ( has_newline ) return;
 
-    // A newline is not present, force it. But where to add it?
-    // Consider
-    //      -f'%CHROM[ %SAMPLE]\n'
-    // vs
-    //      -f'[%CHROM %SAMPLE\n]'
-    for (i=0; i<convert->nfmt; i++)
-        if ( !convert->fmt[i].is_gt_field && convert->fmt[i].key ) break;
+    // A newline is not present, force it. But where to add it? Always at the end.
+    //
+    // Briefly, in 1.18, we considered the following automatic behavior, which for
+    // per-site output it would add it at the end of the expression and for per-sample
+    // output it would add it inside the square brackets:
+    //           -f'%CHROM[ %SAMPLE]\n'
+    //           -f'[%CHROM %SAMPLE\n]'
+    //
+    // However, this is an annoyance for users, as it is not entirely clear what
+    // will happen unless one understands the internals well (#1969)
 
-    if ( i < convert->nfmt )
-        register_tag(convert, "\n", 0, T_SEP);  // the first case
-    else
-    {
-        // the second case
-        i = convert->nfmt - 1;
-        if ( !convert->fmt[i].key )
-        {
-            convert->fmt[i].key = strdup("\n");
-            convert->fmt[i].is_gt_field = 1;
-            register_tag(convert, NULL, 0, T_SEP);
-        }
-        else
-            register_tag(convert, "\n", 1, T_SEP);
-    }
+    register_tag(convert, "\n", 0, T_SEP);
 }
 
 int convert_set_option(convert_t *convert, enum convert_option opt, ...)
@@ -1747,6 +1762,12 @@ int convert_set_option(convert_t *convert, enum convert_option opt, ...)
             break;
         case subset_samples:
             convert->subset_samples = va_arg(args, uint8_t**);
+            break;
+        case header_samples:
+            convert->header_samples = va_arg(args, int);
+            break;
+        case print_filtered:
+            convert->print_filtered = strdup(va_arg(args, char*));
             break;
         case force_newline:
             convert->force_newline = va_arg(args, int);

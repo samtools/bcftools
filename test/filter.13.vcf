@@ -1,0 +1,6 @@
+##fileformat=VCFv4.1
+##reference=file:///seq/references/1000Genomes-NCBI37.fasta
+##contig=<ID=11,length=135006516>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+11	2343543	.	N	.	.	.	.
+11	5464562	.	C	T	9	.	.
