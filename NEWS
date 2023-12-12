@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.19 (12th December 2023)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Filtering expressions can be given a file with list of strings to match, this

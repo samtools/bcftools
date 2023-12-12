@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.16
-.\"      Date: 2023-11-09
+.\" Generator: Asciidoctor 2.0.16.dev
+.\"      Date: 2023-12-12
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-11-09" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2023-12-12" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-11\-09 17:03 GMT\fP and refers to bcftools git version \fB1.18\-24\-g39a81be+\fP.
+This manual page was last updated \fB2023\-12\-12\fP and refers to bcftools git version \fB1.19\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -938,7 +938,7 @@ Automatically index the output file
     # that INFO/END is already present in the VCF header.
     bcftools annotate \-a annots.tab.gz  \-c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 .fam
 .fi
 .if n .RE

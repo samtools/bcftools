@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2023-11-09 17:03 GMT</strong> and refers to bcftools git version <strong>1.18-24-g39a81be+</strong>.</p>
+<p>This manual page was last updated <strong>2023-12-12</strong> and refers to bcftools git version <strong>1.19</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -720,7 +720,7 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
     # that INFO/END is already present in the VCF header.
     bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
-    # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html</pre>
+    # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html</pre>
 </div>
 </div>
 </div>
@@ -5366,7 +5366,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-11-09 16:40:20 UTC
+Last updated 2023-12-12 14:02:44 UTC
 </div>
 </div>
 </body>
