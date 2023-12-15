@@ -1096,7 +1096,7 @@ workflow looks like this:
 .sp
 \fB\-G, \-\-group\-samples\fP \fIFILE\fP|\fI\-\fP
 .RS 4
-by default, all samples are assumed to come from a single population. This option allows one to group samples
+by default, all samples are assumed to come from a single population. This option groups samples
 into populations and apply the HWE assumption within but not across the populations. \fIFILE\fP is a tab\-delimited
 text file with sample names in the first column and group names in the second column. If \fI\-\fP is
 given instead, no HWE assumption is made at all and single\-sample calling is performed. (Note that
@@ -2060,7 +2060,7 @@ reference sequence in fasta format (required)
 .sp
 \fB\-\-force\fP
 .RS 4
-run even if some sanity checks fail. Currently the option allows one to skip
+run even if some sanity checks fail. Currently the option enables skipping
 transcripts in malformatted GFFs with incorrect phase
 .RE
 .sp
@@ -2979,7 +2979,7 @@ Read file names from \fIFILE\fP, one file name per line.
 Sites with many alternate alleles can require extremely large storage space which
 can exceed the 2GB size limit representable by BCF. This is caused
 by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
-and alternate alleles. The \fB\-L, \-\-local\-alleles\fP option allows one to replace such tags
+and alternate alleles. The \fB\-L, \-\-local\-alleles\fP option allows replacement of such tags
 with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
 for that sample. A new FORMAT/LAA tag is added which lists 1\-based indices of the
 alternate alleles relevant (local) for the current sample. The number \fIINT\fP gives the
@@ -3023,7 +3023,7 @@ value will be used regardless of \fB\-M\fP settings.
 .sp
 \fB\-\-no\-index\fP
 .RS 4
-the option allows one to merge files without indexing them first. In order for this
+the option allows the merge of files without indexing them first. In order for this
 option to work, the user must ensure that the input files have chromosomes in
 the same order and consistent with the order of sequences in the VCF header.
 .RE
