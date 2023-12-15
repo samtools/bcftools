@@ -357,7 +357,7 @@ Changes affecting specific commands:
 
 * bcftools norm
 
-    - New --multi-overlaps option allows to set overlapping alleles either to the
+    - New --multi-overlaps option allows one to set overlapping alleles either to the
       ref allele (the current default) or to a missing allele (#1764 and #1802)
 
     - Fixed a bug in `-m -` which does not split missing FORMAT values correctly and
@@ -528,7 +528,7 @@ Changes affecting specific commands:
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
 
-    - Add new option --min-overlap which allows to specify the minimum required
+    - Add new option --min-overlap which allows one to specify the minimum required
       overlap of intersecting regions
 
     - Allow to transfer ALT from VCF with or without replacement using
@@ -588,7 +588,7 @@ Changes affecting specific commands:
 * bcftools query
 
     - Make the `--samples` and `--samples-file` options work also in the `--list-samples`
-      mode. Add a new `--force-samples` option which allows to proceed even when some of
+      mode. Add a new `--force-samples` option which allows one to proceed even when some of
       the requested samples are not present in the VCF (#1631)
 
 * bcftools +setGT
@@ -701,7 +701,7 @@ Changes affecting specific commands:
 
 * bcftools mpileup:
 
-    - new --indel-size option which allows to increase the maximum considered
+    - new --indel-size option which allows one to increase the maximum considered
       indel size considered, large deletions in long read data are otherwise
       lost.
 
@@ -922,7 +922,7 @@ Changes affecting specific commands:
 
     - New `--rename-annots` option to help fix broken VCFs (#1335)
 
-    - New -C option allows to read a long list of options from a file to
+    - New -C option allows one to read a long list of options from a file to
       prevent very long command lines.
 
     - New `append-missing` logic allows annotations to be added for each ALT
@@ -1133,7 +1133,7 @@ Changes affecting specific commands:
 
     - Preserve the case of the genome reference. (#1150)
 
-    - Add new `-a, --absent` option which allows to set positions with no
+    - Add new `-a, --absent` option which allows one to set positions with no
       supporting evidence to "N" (or any other character). (#848; #940)
 
 * bcftools convert:
@@ -1181,7 +1181,7 @@ Changes affecting specific commands:
     - Local alleles merging that produce LAA and LPL when requested, a draft
       implementation of https://github.com/samtools/hts-specs/pull/434 (#1138)
 
-    - New `--no-index` which allows to merge unindexed files. Requires the input
+    - New `--no-index` which allows one to merge unindexed files. Requires the input
       files to have chromosomes in th same order and consistent with the order
       of sequences in the header. (PR #1253; samtools/htslib#1089)
 

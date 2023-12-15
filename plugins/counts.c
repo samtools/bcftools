@@ -40,7 +40,7 @@ const char *about(void)
 }
 
 /*
-    Called once at startup, allows to initialize local variables.
+    Called once at startup, allows one to initialize local variables.
     Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)

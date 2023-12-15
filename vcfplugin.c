@@ -66,7 +66,7 @@ typedef struct _plugin_t plugin_t;
  *      success or non-zero value on error.
  *
  *   int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
- *      - called once at startup, allows to initialize local variables.
+ *      - called once at startup, allows one to initialize local variables.
  *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
  *      errors, 0 otherwise.
  *

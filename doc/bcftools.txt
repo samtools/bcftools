@@ -654,7 +654,7 @@ demand. The original calling model can be invoked with the *-c* option.
 ----
 
 *-G, --group-samples* [TAG:]'FILE'|'-'::
-    by default, all samples are assumed to come from a single population. This option allows to group samples
+    by default, all samples are assumed to come from a single population. This option allows one to group samples
     into populations and apply the HWE assumption within but not across the populations. 'FILE' is a tab-delimited
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
@@ -1321,7 +1321,7 @@ output VCF and are ignored for the prediction analysis.
     reference sequence in fasta format (required)
 
 *--force*::
-    run even if some sanity checks fail. Currently the option allows to skip
+    run even if some sanity checks fail. Currently the option allows one to skip
     transcripts in malformatted GFFs with incorrect phase
 
 *-g, --gff-annot* 'FILE'::
@@ -2006,7 +2006,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     Sites with many alternate alleles can require extremely large storage space which
     can exceed the 2GB size limit representable by BCF. This is caused
     by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
-    and alternate alleles. The *-L, --local-alleles* option allows to replace such tags
+    and alternate alleles. The *-L, --local-alleles* option allows one to replace such tags
     with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
     for that sample. A new FORMAT/LAA tag is added which lists 1-based indices of the
     alternate alleles relevant (local) for the current sample. The number 'INT' gives the
@@ -2034,12 +2034,12 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     alleles, vector fields pertaining to unobserved alleles are set to missing ('.') by default.
     The 'METHOD' is one of '.' (the default, use missing values), 'NUMBER' (use a constant value, e.g. 0),
     'max' (the maximum value observed for other alleles in the sample). When *--gvcf* option is set,
-    the rule *-M PL:max,AD:0* is implied. This can be overriden with providing *-M -* or *-M PL:.,AD:.*.
+    the rule *-M PL:max,AD:0* is implied. This can be overridden with providing *-M -* or *-M PL:.,AD:.*.
     Note that if the unobserved allele is explicitly present as '<*>' or '<NON_REF>', then its corresponding
     value will be used regardless of *-M* settings.
 
 *--no-index*::
-    the option allows to merge files without indexing them first. In order for this
+    the option allows one to merge files without indexing them first. In order for this
     option to work, the user must ensure that the input files have chromosomes in
     the same order and consistent with the order of sequences in the VCF header.
 
