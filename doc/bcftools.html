@@ -870,7 +870,7 @@ workflow looks like this:</p>
 <dl>
 <dt class="hdlist1"><strong>-G, --group-samples</strong> <em class="TAG:">FILE</em>|<em>-</em></dt>
 <dd>
-<p>by default, all samples are assumed to come from a single population. This option allows to group samples
+<p>by default, all samples are assumed to come from a single population. This option allows one to group samples
 into populations and apply the HWE assumption within but not across the populations. <em>FILE</em> is a tab-delimited
 text file with sample names in the first column and group names in the second column. If <em>-</em> is
 given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
@@ -1793,7 +1793,7 @@ shows how is the input GFF viewed by the program.</p>
 </dd>
 <dt class="hdlist1"><strong>--force</strong></dt>
 <dd>
-<p>run even if some sanity checks fail. Currently the option allows to skip
+<p>run even if some sanity checks fail. Currently the option allows one to skip
 transcripts in malformatted GFFs with incorrect phase</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --gff-annot</strong> <em>FILE</em></dt>
@@ -2652,7 +2652,7 @@ not user controllable at the moment.</p>
 <p>Sites with many alternate alleles can require extremely large storage space which
 can exceed the 2GB size limit representable by BCF. This is caused
 by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
-and alternate alleles. The <strong>-L, --local-alleles</strong> option allows to replace such tags
+and alternate alleles. The <strong>-L, --local-alleles</strong> option allows one to replace such tags
 with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
 for that sample. A new FORMAT/LAA tag is added which lists 1-based indices of the
 alternate alleles relevant (local) for the current sample. The number <em>INT</em> gives the
@@ -2688,13 +2688,13 @@ if two asterisks <em>**</em> are appended, the unobserved allele will be removed
 alleles, vector fields pertaining to unobserved alleles are set to missing (<em>.</em>) by default.
 The <em>METHOD</em> is one of <em>.</em> (the default, use missing values), <em>NUMBER</em> (use a constant value, e.g. 0),
 <em>max</em> (the maximum value observed for other alleles in the sample). When <strong>--gvcf</strong> option is set,
-the rule <strong>-M PL:max,AD:0</strong> is implied. This can be overriden with providing <strong>-M -</strong> or <strong>-M PL:.,AD:.</strong>.
+the rule <strong>-M PL:max,AD:0</strong> is implied. This can be overridden with providing <strong>-M -</strong> or <strong>-M PL:.,AD:.</strong>.
 Note that if the unobserved allele is explicitly present as <em>&lt;*&gt;</em> or <em>&lt;NON_REF&gt;</em>, then its corresponding
 value will be used regardless of <strong>-M</strong> settings.</p>
 </dd>
 <dt class="hdlist1"><strong>--no-index</strong></dt>
 <dd>
-<p>the option allows to merge files without indexing them first. In order for this
+<p>the option allows one to merge files without indexing them first. In order for this
 option to work, the user must ensure that the input files have chromosomes in
 the same order and consistent with the order of sequences in the VCF header.</p>
 </dd>
