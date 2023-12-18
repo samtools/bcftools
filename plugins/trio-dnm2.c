@@ -513,9 +513,13 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
     // mprob .. probability of mutation
 
     int is_novel;
-    if ( args->strictly_novel )     // account for LoH sites, see chr1:10000057 in trio-dnm.11.vcf
+    if ( args->strictly_novel )
     {
+        // account for LoH sites, see trio-dnm.11.vcf
+        //  chr1:10000057   child=1/1 father=1/1 mother=0/0 .. LoH region
+        //  chr1:10697377   child=0/1 father=1/1 mother=1/1 .. usually these are indel ambiguities
         is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
+        if ( is_novel && *denovo_allele==0 ) is_novel = 0;
     }
     else
     {

@@ -1,5 +1,17 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools +trio-dnm2
+
+    - Extend --strictly-novel to exclude cases where the non-Mendelian allele
+      is the reference allele. The change is motivated by the observation that
+      this class of variants is enriched for errors (especially for indels),
+      and better corresponds with the option name.
+
+
+
 ## Release 1.19 (12th December 2023)
 
 
