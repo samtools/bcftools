@@ -1598,7 +1598,7 @@ And similarly here, the second is filtered:
 
 *-s, --soft-filter* 'STRING'|'+'::
     annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
-    by the program ("Filter%d").
+    by the program ("Filter%d"). Applies to records that do not meet filter expression.
 
 *-S, --set-GTs* '.'|'0'::
     set genotypes of failed samples to missing value ('.') or reference allele ('0')
