@@ -574,6 +574,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.6.out',cmd=>'+setGT
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.4',out=>'setGT.4.1.out',cmd=>'+setGT --no-version',args=>q[-- -t q -n . -e 'FMT/DP>90']);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.4',out=>'setGT.4.2.out',cmd=>'+setGT --no-version',args=>q[-- -t q -n . -e 'FMT/DP>100']);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.5',out=>'setGT.5.1.out',cmd=>'+setGT --no-version',args=>q[-- -t a -n X]);
+run_test(\&test_vcf_plugin,$opts,in=>'setGT.5',out=>'setGT.5.2.out',cmd=>'+setGT --no-version',args=>q[-- -t a -n c:0/X/X]);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.6',out=>'setGT.6.1.out',cmd=>'+setGT --no-version',args=>q[-- -t ./x -n .]);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.6',out=>'setGT.6.1.out',cmd=>'+setGT --no-version',args=>q[-- -t . -n .]);
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.6',out=>'setGT.6.2.out',cmd=>'+setGT --no-version',args=>q[-- -t r:0.5 -n .]);
