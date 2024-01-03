@@ -2039,7 +2039,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     value will be used regardless of *-M* settings.
 
 *--no-index*::
-    the option allows the merge of files without indexing them first. In order for this
+    the option allows files to be merged without indexing them first. In order for this
     option to work, the user must ensure that the input files have chromosomes in
     the same order and consistent with the order of sequences in the VCF header.
 

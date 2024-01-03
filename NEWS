@@ -340,7 +340,7 @@ Changes affecting specific commands:
 
 * bcftools norm
 
-    - New --multi-overlaps option allows one to set overlapping alleles either to the
+    - New --multi-overlaps option allows setting overlapping alleles either to the
       ref allele (the current default) or to a missing allele (#1764 and #1802)
 
     - Fixed a bug in `-m -` which does not split missing FORMAT values correctly and
@@ -511,7 +511,7 @@ Changes affecting specific commands:
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
 
-    - Add new option --min-overlap which allows specify the minimum required
+    - Add new option --min-overlap to specify the minimum required
       overlap of intersecting regions
 
     - Allow to transfer ALT from VCF with or without replacement using
@@ -905,7 +905,7 @@ Changes affecting specific commands:
 
     - New `--rename-annots` option to help fix broken VCFs (#1335)
 
-    - New -C option allows reading a long list of options from a file to
+    - New -C option allows a long list of options to be read from a file to
       prevent very long command lines.
 
     - New `append-missing` logic allows annotations to be added for each ALT
@@ -1164,7 +1164,7 @@ Changes affecting specific commands:
     - Local alleles merging that produce LAA and LPL when requested, a draft
       implementation of https://github.com/samtools/hts-specs/pull/434 (#1138)
 
-    - New `--no-index` allows the merge of unindexed files. Requires the input
+    - New `--no-index` which allows unindexed files to be merged. Requires the input
       files to have chromosomes in th same order and consistent with the order
       of sequences in the header. (PR #1253; samtools/htslib#1089)
 
