@@ -51,6 +51,8 @@
 #define SELECT_TR_ALL       0
 #define SELECT_TR_WORST     1
 #define SELECT_TR_PRIMARY   2
+#define SELECT_TR_MANE      3
+#define SELECT_TR_PICK      4
 #define SELECT_CSQ_ANY      -1
 
 #define GENES_RESTRICT   0
@@ -98,6 +100,8 @@ typedef struct
     int ncsq_str;       // the length of csq_str allocated by bcf_get_info_string()
     char *csq_str;      // the current bcf_get_info_string() result
     int csq_idx,        // the index of the Consequence field; for the --select CSQ option
+        mane_id,        // the index of the MANE_SELECT field; for the --select TR option
+        pick_id,        // the index of the PICK field; for the --select TR option
         primary_id;     // the index of the CANONICAL field; for the --select TR option
     char *severity,     // the --severity scale option
         *select,        // the --select option
@@ -219,9 +223,11 @@ static const char *usage_text(void)
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
-        "                                     TR, transcript:   worst,primary(*),all        [all]\n"
+        "                                     TR, transcript:   worst,primary(*),mane(**),pick(***),all        [all]\n"
         "                                     CSQ, consequence: any,missense,missense+,etc  [any]\n"
         "                                     (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
+        "                                     (**) MANE transcripts have the field \"MANE_SELECT\" set to \"RefSeq transcript id\"\n"
+        "                                     (***) Pick transcripts have the field \"PICK\" set to \"1\"\n"
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
         "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
@@ -855,6 +861,8 @@ static void init_data(args_t *args)
     if ( !strcasecmp(sel_tr,"all") ) args->select_tr = SELECT_TR_ALL;
     else if ( !strcasecmp(sel_tr,"worst") ) args->select_tr = SELECT_TR_WORST;
     else if ( !strcasecmp(sel_tr,"primary") ) args->select_tr = SELECT_TR_PRIMARY;
+    else if ( !strcasecmp(sel_tr,"mane") ) args->select_tr = SELECT_TR_MANE;
+    else if ( !strcasecmp(sel_tr,"pick") ) args->select_tr = SELECT_TR_PICK;
     else error("Error: the transcript selection key \"%s\" is not recognised.\n", sel_tr);
     if ( !strcasecmp(sel_csq,"any") ) { args->min_severity = args->max_severity = SELECT_CSQ_ANY; }     // to avoid unnecessary lookups
     else
@@ -877,6 +885,24 @@ static void init_data(args_t *args)
         char *tmp = strdup_annot_prefix(args,"CANONICAL");
         if ( khash_str2int_get(args->field2idx,tmp,&args->primary_id)!=0 )
             error("The primary transcript was requested but the field \"CANONICAL\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
+        free(tmp);
+    }
+
+    // The 'MANE_SELECT' column to look up severity, its name is hardwired for now
+    if ( args->select_tr==SELECT_TR_MANE )
+    {
+        char *tmp = strdup_annot_prefix(args,"MANE_SELECT");
+        if ( khash_str2int_get(args->field2idx,tmp,&args->mane_id)!=0 )
+            error("The primary transcript was requested but the field \"MANE_SELECT\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
+        free(tmp);
+    }
+
+    // The 'PICK' column to look up severity, its name is hardwired for now
+    if ( args->select_tr==SELECT_TR_PICK )
+    {
+        char *tmp = strdup_annot_prefix(args,"PICK");
+        if ( khash_str2int_get(args->field2idx,tmp,&args->pick_id)!=0 )
+            error("The primary transcript was requested but the field \"PICK\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
         free(tmp);
     }
 
@@ -1033,6 +1059,36 @@ static int get_primary_transcript(args_t *args, bcf1_t *rec)
     }
     return -1;
 }
+
+static int get_mane_transcript(args_t *args, bcf1_t *rec)
+{
+    char mane_prefix[2] = "";
+    int i;
+    for (i=0; i<args->ncols_csq; i++)
+    {
+        cols_t *cols_csq = args->cols_csq[i];
+        if ( args->mane_id >= cols_csq->n ) {
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->mane_id,cols_csq->n);
+            strncpy(mane_prefix, cols_csq->off[args->mane_id], 2);
+        }
+        if ( !strcmp("NM", mane_prefix) ) return i;
+    }
+    return -1;
+}
+
+static int get_pick_transcript(args_t *args, bcf1_t *rec)
+{
+    int i;
+    for (i=0; i<args->ncols_csq; i++)
+    {
+        cols_t *cols_csq = args->cols_csq[i];
+        if ( args->pick_id >= cols_csq->n )
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->pick_id,cols_csq->n);
+        if ( !strcmp("1",cols_csq->off[args->pick_id]) ) return i;
+    }
+    return -1;
+}
+
 static int get_worst_transcript(args_t *args, bcf1_t *rec)
 {
     int i, max_severity = -1, imax_severity = 0;
@@ -1273,6 +1329,16 @@ static void process_record(args_t *args, bcf1_t *rec)
     else if ( args->select_tr==SELECT_TR_PRIMARY )
     {
         itr_min = itr_max = get_primary_transcript(args, rec);
+        if ( itr_min<0 ) itr_max = itr_min - 1;
+    }
+    else if ( args->select_tr==SELECT_TR_MANE )
+    {
+        itr_min = itr_max = get_mane_transcript(args, rec);
+        if ( itr_min<0 ) itr_max = itr_min - 1;
+    }
+    else if ( args->select_tr==SELECT_TR_PICK )
+    {
+        itr_min = itr_max = get_pick_transcript(args, rec);
         if ( itr_min<0 ) itr_max = itr_min - 1;
     }
     else if ( args->select_tr==SELECT_TR_WORST )
