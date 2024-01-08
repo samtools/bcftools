@@ -1282,6 +1282,9 @@ bitmask. The construction of the bitmask limits the number of consequences
 that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 15, but
 if more are required, see the *--ncsq* option.
 
+Note that the program annotates only records with a functional consequence and
+intergenic regions will pass through unchanged.
+
 The program requires on input a VCF/BCF file, the reference genome in fasta
 format (*--fasta-ref*) and genomic features in the GFF3 format downloadable
 from the Ensembl website (*--gff-annot*), and outputs an annotated VCF/BCF
