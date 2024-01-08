@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2023 Genome Research Ltd.
+   Copyright (c) 2019-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -589,18 +589,20 @@ static void parse_column_str(args_t *args)
             ep = str.s;
             continue;
         }
-        char *tmp = strdup_annot_prefix(args, bp);
+        char *tmp = strdup_annot_prefix(args, bp);  // replace characters disallowed in tag names into underscores
         if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 || khash_str2int_get(args->field2idx, tmp, &idx_beg)==0 )
-            idx_end = idx_beg;
-        else if ( (tp=strrchr(bp,':')) )
         {
+            // either the original or sanitized version of the tag exists
+            idx_end = idx_beg;
+        }
+        else if ( (tp=strrchr(bp,':')) )    // notice this requests the last occurence of ':'
+        {
+            // there is a colon in the original string, expecting type specification
             *tp = 0;
             if ( khash_str2int_get(args->field2idx, bp, &idx_beg)!=0 )
             {
-                *tp = ':';
-                tp = strrchr(tmp,':');
-                *tp = 0;
-                if ( khash_str2int_get(args->field2idx, tmp, &idx_beg)!=0 ) error("No such column: \"%s\"\n", bp);
+                // even removing the part after the last colon does not give a valid tag
+                error("No such column: \"%s\"\n", bp);
             }
             idx_end = idx_beg;
             *tp = ':';
@@ -608,7 +610,7 @@ static void parse_column_str(args_t *args)
             else if ( !strcasecmp(tp+1,"float") || !strcasecmp(tp+1,"real") ) type = BCF_HT_REAL;
             else if ( !strcasecmp(tp+1,"integer") || !strcasecmp(tp+1,"int") ) type = BCF_HT_INT;
             else if ( !strcasecmp(tp+1,"flag") ) type = BCF_HT_FLAG;
-            else error("The type \"%s\" (or column \"%s\"?) not recognised\n", tp+1,bp);
+            else error("The type \"%s\" nor the column \"%s\" recognised\n", tp+1,bp);
         }
         else
         {
@@ -626,7 +628,7 @@ static void parse_column_str(args_t *args)
                     else if ( !strcasecmp(mp+1,"float") || !strcasecmp(mp+1,"real") ) type = BCF_HT_REAL;
                     else if ( !strcasecmp(mp+1,"integer") || !strcasecmp(mp+1,"int") ) type = BCF_HT_INT;
                     else if ( !strcasecmp(mp+1,"flag") ) type = BCF_HT_FLAG;
-                    else error("The type \"%s\" (or column \"%s\"?) not recognised\n", mp+1,bp);
+                    else error("The type \"%s\" nor the column \"%s\" recognised\n", mp+1,bp);
                 }
                 else if ( !strcmp(bp,args->vep_tag) )
                 {
