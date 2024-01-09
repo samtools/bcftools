@@ -678,7 +678,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+s
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.3.out',cmd=>'+split-vep',args=>qq[-s primary:missense+ -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.4.out',cmd=>'+split-vep',args=>qq[-s primary:missense+ -f'%POS\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.5.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%AF\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.6.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%AF\\n' -a BCSQ]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.6.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%INFO/AF\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.6.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%INFO/AF\\n' -a BCSQ]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.3',out=>'split-vep.7.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.3',out=>'split-vep.8.out',cmd=>'+split-vep',args=>qq[-s worst -f'[%POS\\t%SAMPLE\\t%GT\\t%Consequence\\n]' -i'GT="alt"']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.9.out', cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CANONICAL\\t%Consequence\\n']);
@@ -687,6 +689,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.11.out',cmd=>'+
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.2.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d -H]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n' -a BCSQ -A tab -d]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n'         -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.14.out',cmd=>'+split-vep',args=>qq[-c gnomAD_NFE_AF:real,ALLELE_NUM:int | $$opts{bin}/bcftools query -f'%POS\\t%gnomAD_NFE_AF\\t%ALLELE_NUM\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.14.out',cmd=>'+split-vep',args=>qq[-c gnomAD_NFE_AF,ALLELE_NUM          | $$opts{bin}/bcftools query -f'%POS\\t%gnomAD_NFE_AF\\t%ALLELE_NUM\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.5',out=>'split-vep.15.out',cmd=>'+split-vep',args=>qq[-s :synonymous    -c Consequence | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n']);
@@ -696,11 +699,14 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep.6',out=>'split-vep.18.out',cmd=>
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.6',out=>'split-vep.19.out',cmd=>'+split-vep',args=>qq[-c - -s worst | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.7',out=>'split-vep.20.out',cmd=>'+split-vep',args=>qq[--annotation 'ANN' -c IMPACT -i 'INFO/IMPACT[*] ~ "MODIFIER"' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.8',out=>'split-vep.21.out',cmd=>'+split-vep',args=>qq[-a BCSQ -s worst -c Consequence,amino_acid_change,BCSQ | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.8',out=>'split-vep.21.out',cmd=>'+split-vep',args=>qq[        -s worst -c Consequence,amino_acid_change,BCSQ | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.8',out=>'split-vep.22.out',cmd=>'+split-vep',args=>qq[-a BCSQ -s worst -f '%POS\\t%Consequence\\t%amino_acid_change\\t%BCSQ\\n' | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.8',out=>'split-vep.22.out',cmd=>'+split-vep',args=>qq[        -s worst -f '%POS\\t%Consequence\\t%amino_acid_change\\t%BCSQ\\n' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.9',out=>'split-vep.23.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%BCSQ\\n' -d -A tab | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.9',out=>'split-vep.24.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%xPOS %xConsequence\\n' -p x | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%M_CAP_pred %M_CAP_score\\n' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%xM_CAP_pred %xM_CAP_score\\n' -p x | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[       -f '%xM_CAP_pred %xM_CAP_score\\n' -p x | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.1.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.2.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g {PATH}/split-vep.gene-list.txt]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.gene-list',out=>'split-vep.gene-list.2.out',cmd=>'+split-vep',args=>qq[-d -f '%CHROM:%POS %Gene %Consequence\\n' -g {PATH}/split-vep.mixed-list.txt --gene-list-fields Feature,SYMBOL]);

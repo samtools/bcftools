@@ -201,7 +201,7 @@ static const char *usage_text(void)
         "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --annotation STR            INFO annotation to parse [CSQ]\n"
+        "   -a, --annotation STR            INFO annotation to parse, CSQ by default or BCSQ when not present [CSQ]\n"
         "   -A, --all-fields DELIM          Output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
         "                                     filtering expression using the output field delimiter DELIM. This can be\n"
         "                                     \"tab\", \"space\" or an arbitrary string.\n"
@@ -242,8 +242,11 @@ static const char *usage_text(void)
         "       --write-index               Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
-        "   # List available fields of the INFO/CSQ annotation\n"
+        "   # List available fields of the INFO/CSQ or INFO/BCSQ annotation\n"
         "   bcftools +split-vep -l file.vcf.gz\n"
+        "\n"
+        "   # List available fields of INFO/BCSQ when both INFO/CSQ and INFO/BCSQ are present\n"
+        "   bcftools +split-vep -l file.vcf.gz -a BCSQ\n"
         "\n"
         "   # List the default severity scale\n"
         "   bcftools +split-vep -S -\n"
@@ -769,6 +772,17 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
+
+    // Check which one to use: BCSQ or CSQ
+    if ( !args->vep_tag )
+    {
+        int has_CSQ  = bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,"CSQ"));
+        int has_BCSQ = bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,"BCSQ"));
+        if ( has_CSQ && has_BCSQ ) fprintf(stderr,"Warning: both INFO/CSQ and INFO/BCSQ exist, using INFO/CSQ\n");
+        if ( !has_CSQ && !has_BCSQ ) error("Error: Neither INFO/CSQ nor INFO/BCSQ was found in the header\n");
+        if ( has_CSQ ) args->vep_tag = "CSQ";
+        else if ( has_BCSQ ) args->vep_tag = "BCSQ";
+    }
 
     // Parse the header CSQ line, must contain Description with "Format: ..." declaration
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr, BCF_HL_INFO, NULL, args->vep_tag, NULL);
@@ -1339,7 +1353,6 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type  = FT_VCF;
-    args->vep_tag = "CSQ";
     args->record_cmd_line = 1;
     args->regions_overlap = 1;
     args->targets_overlap = 0;

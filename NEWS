@@ -8,6 +8,12 @@ Changes affecting specific commands:
     - Support for custom genotypes based on the allele with higher depth, such
       as `--new-gt c:0/X` custom genotypes (#2065)
 
+* bcftools +split-vep
+
+    - When only one of the tags is present, automatically choose INFO/BCSQ (the default
+      tag name produced by `bcftools csq`) or INFO/CSQ (produced by VEP). When both
+      tags are present, use the default INFO/CSQ.
+
 * bcftools +trio-dnm2
 
     - Extend --strictly-novel to exclude cases where the non-Mendelian allele
