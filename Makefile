@@ -142,7 +142,9 @@ print-version:
 ifdef USE_GPL
     main.o : EXTRA_CPPFLAGS += -DUSE_GPL
     OBJS += polysomy.o peakfit.o
-    GSL_LIBS += -lgsl -lcblas
+    #ifndef GSL_LIBS
+        GSL_LIBS += -lgsl -lcblas
+    #endif
 endif
 
 print-%:
