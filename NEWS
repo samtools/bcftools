@@ -14,6 +14,14 @@ Changes affecting specific commands:
       tag name produced by `bcftools csq`) or INFO/CSQ (produced by VEP). When both
       tags are present, use the default INFO/CSQ.
 
+    - Transcript selection by MANE, PICK, and user-defined transcripts, for example
+
+        --select CANONICAL=YES
+        --select MANE_SELECT!=""
+        --select PolyPhen~probably_damaging
+
+    - Select all matching transcripts via --select, not just one
+
 * bcftools +trio-dnm2
 
     - Extend --strictly-novel to exclude cases where the non-Mendelian allele

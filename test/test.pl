@@ -676,7 +676,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.1.out',cmd=>'+s
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n' -i'Consequence!="."']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-s worst:missense+ -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.3.out',cmd=>'+split-vep',args=>qq[-s primary:missense+ -f'%POS\\t%Consequence\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.3.out',cmd=>'+split-vep',args=>qq[-s CANONICAL=YES:missense+ -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.4.out',cmd=>'+split-vep',args=>qq[-s primary:missense+ -f'%POS\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.4.out',cmd=>'+split-vep',args=>qq[-s CANONICAL=YES:missense+ -f'%POS\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.5.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%AF\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.6.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%AF\\n' -a BCSQ]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.2',out=>'split-vep.6.out',cmd=>'+split-vep',args=>qq[-s worst -f'%POS\\t%INFO/AF\\n']);
@@ -718,6 +720,15 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.26.out',cmd=>'+
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.27.out',cmd=>'+split-vep',args=>qq[-f'%POS\\t%MAX_AF\\n' -i'MAX_AF>0.999' -c MAX_AF,MAX_AF:float,MAX_AF]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.filter',out=>'split-vep.filter.1.out',cmd=>'+split-vep',args=>qq[-s worst -i'CSQ~"nonsense"' -f '%POS %Consequence %Feature %BIOTYPE']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.filter',out=>'split-vep.filter.2.out',cmd=>'+split-vep',args=>qq[-s worst -i'CSQ~"nonsense"' -f '%POS %Consequence %Feature %BIOTYPE %CSQ']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.1.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s primary]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.1.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s CANONICAL=YES]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.2.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s CANONICAL!=YES]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.2.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s CANONICAL=]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.1.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s mane]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.1.out',cmd=>'+split-vep',args=>qq[-f '%POS %CANONICAL %MANE_SELECT %Consequence' -s MANE_SELECT!='']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s mane]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s primary]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s PolyPhen~damaging]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);

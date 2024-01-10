@@ -50,8 +50,13 @@
 
 #define SELECT_TR_ALL       0
 #define SELECT_TR_WORST     1
-#define SELECT_TR_PRIMARY   2
-#define SELECT_CSQ_ANY      -1
+#define SELECT_TR_EXPR      2
+#define SELECT_CSQ_ANY     -1
+
+#define TR_OP_EQ  0   // =
+#define TR_OP_NE  1   // !=
+#define TR_OP_RE  2   // ~
+#define TR_OP_NR  3   // !~
 
 #define GENES_RESTRICT   0
 #define GENES_PRIORITIZE 1
@@ -74,6 +79,17 @@ typedef struct
 }
 annot_t;
 
+// for the use with --select TR
+typedef struct
+{
+    char *field;        // field name to use
+    int idx;            // field index
+    int op;             // one of the TR_OP_* operators
+    regex_t *regex;     // to be used with TR_OP_RE and TR_OP_NR
+    char *value;        // to be used with TR_OP_EQ and TR_OP_NE
+}
+select_tr_t;
+
 typedef struct
 {
     convert_t *convert;
@@ -82,7 +98,8 @@ typedef struct
     int regions_overlap, targets_overlap;
     kstring_t kstr;
     char *filter_str,
-        *vep_tag;       // the --annotation INFO tag to process
+        *vep_tag,       // the --annotation INFO tag to process
+        *vep_format;    // the format of VEP fields, used for error reporting only
     char **argv, *output_fname, *fname, *regions, *targets, *format_str;
     int output_type;
     htsFile *fh_vcf;
@@ -97,8 +114,7 @@ typedef struct
     char **scale;       // severity scale (list)
     int ncsq_str;       // the length of csq_str allocated by bcf_get_info_string()
     char *csq_str;      // the current bcf_get_info_string() result
-    int csq_idx,        // the index of the Consequence field; for the --select CSQ option
-        primary_id;     // the index of the CANONICAL field; for the --select TR option
+    int csq_idx;        // the index of the Consequence field; for the --select CSQ option
     char *severity,     // the --severity scale option
         *select,        // the --select option
         *column_str,    // the --columns option
@@ -116,12 +132,13 @@ typedef struct
     int min_severity, max_severity;     // ignore consequences outside this severity range
     int drop_sites;                     // the -x, --drop-sites option
     int select_tr;                      // one of SELECT_TR_*
+    select_tr_t tr_expr;                // with SELECT_TR_EXPR, see --select <FIELD><OP><VALUE>
     uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
     int duplicate;              // the -d, --duplicate option is set
     char *all_fields_delim;     // the -A, --all-fields option is set
     float *farr;                // helper arrays for bcf_update_* functions
-    int32_t *iarr;
-    int niarr,miarr, nfarr,mfarr;
+    int32_t *iarr, *list_tr;
+    int niarr,miarr, nfarr,mfarr, mlist_tr;
     col2type_t *column2type;
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
@@ -137,7 +154,7 @@ args_t args;
 
 const char *about(void)
 {
-    return "Query structured annotations such as the CSQ created by VEP.\n";
+    return "Query structured annotations such as INFO/CSQ produced by VEP of INFO/BCSQ produced by bctools/csq.\n";
 }
 
 static const char *default_severity(void)
@@ -197,7 +214,7 @@ static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Query structured annotations such INFO/CSQ created by bcftools/csq or VEP. For more\n"
+        "About: Query structured annotations such INFO/BCSQ or CSQ created by bcftools/csq or VEP. For more\n"
         "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
@@ -219,13 +236,20 @@ static const char *usage_text(void)
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
-        "                                     TR, transcript:   worst,primary(*),all        [all]\n"
-        "                                     CSQ, consequence: any,missense,missense+,etc  [any]\n"
-        "                                     (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
+        "                                     TR, transcript:   all,worst,primary,pick,mane,EXPRESSION [all]\n"
+        "                                     CSQ, consequence: any,missense,missense+,etc [any]\n"
+        "                                   Where the transcript EXPRESSION is of the form <FIELD><OPERATOR><VALUE>\n"
+        "                                     FIELD:    field name (e.g. \"CANONICAL\")\n"
+        "                                     OPERATOR: string comparison (=,!=), regex matching (~,!~)\n"
+        "                                     VALUE:    required string value (e.g. \"YES\")\n"
+        "                                   The TR presets are defined as follows\n"
+        "                                     primary:  CANONICAL=YES\n"
+        "                                     pick:     PICK=1\n"
+        "                                     mane:     MANE_SELECT!=\"\"\n"
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
         "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
-        "   -x, --drop-sites                Drop sites without consequences (the default with -f)\n"
+        "   -x, --drop-sites                Drop sites without consequences after -s is applied (the default with -f)\n"
         "   -X, --keep-sites                Do not drop sites without consequences (the default without -f)\n"
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude sites and samples for which the expression is true\n"
@@ -268,8 +292,8 @@ static const char *usage_text(void)
         "   bcftools +split-vep -c gnomAD_AF:Float file.vcf.gz -i'gnomAD_AF<0.001'\n"
         "\n"
         "   # Similar to above, but add the annotation only if the consequence severity is missense\n"
-        "   # or equivalent. In order to drop sites with different consequences completely, we add\n"
-        "   # the -x switch. See the online documentation referenced above for more examples.\n"
+        "   # or equivalent. In order to drop sites with different consequences completely, provide\n"
+        "   # the -x option. See the online documentation referenced above for more examples.\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense    file.vcf.gz\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense -x file.vcf.gz\n"
         "\n"
@@ -755,6 +779,71 @@ static void parse_filter_str(args_t *args)
     for (i=0; i<ntags; i++)
         if ( !strncmp("INFO/",tags[i],5) && !strcmp(tags[i]+5,args->vep_tag) ) args->raw_vep_request = 1;
 }
+
+void init_select_tr_expr(args_t *args, const char *cnst_expr)
+{
+    char *expr = strdup(cnst_expr);
+    char *ptr = expr;
+    while ( *ptr )
+    {
+        if ( *ptr=='=' )
+        {
+            *ptr = 0;
+            args->tr_expr.field = strdup_annot_prefix(args,expr);
+            *ptr = '=';
+            int is_quoted = ( ptr[1]=='"' && ptr[strlen(ptr)-1]=='"' ) ? 1 : 0;
+            args->tr_expr.value = strdup(ptr+1+is_quoted);
+            if ( is_quoted ) args->tr_expr.value[strlen(args->tr_expr.value)-1] = 0;
+            args->tr_expr.op = TR_OP_EQ;
+            break;
+        }
+        else if ( *ptr=='~' )
+        {
+            *ptr = 0;
+            args->tr_expr.field = strdup_annot_prefix(args,expr);
+            *ptr = '~';
+            int is_quoted = ( ptr[1]=='"' && ptr[strlen(ptr)-1]=='"' ) ? 1 : 0;
+            args->tr_expr.value = strdup(ptr+1+is_quoted);
+            if ( is_quoted ) args->tr_expr.value[strlen(args->tr_expr.value)-1] = 0;
+            args->tr_expr.regex = (regex_t *) malloc(sizeof(regex_t));
+            if ( regcomp(args->tr_expr.regex, args->tr_expr.value, REG_NOSUB) )
+                error("Error: fail to compile the regular expression \"%s\"\n", args->tr_expr.value);
+            args->tr_expr.op = TR_OP_RE;
+        }
+        else if ( *ptr=='!' && ptr[1]=='=' )
+        {
+            *ptr = 0;
+            args->tr_expr.field = strdup_annot_prefix(args,expr);
+            *ptr = '!';
+            int is_quoted = ( ptr[2]=='"' && ptr[strlen(ptr)-1]=='"' ) ? 1 : 0;
+            args->tr_expr.value = strdup(ptr+2+is_quoted);
+            if ( is_quoted ) args->tr_expr.value[strlen(args->tr_expr.value)-1] = 0;
+            args->tr_expr.op = TR_OP_NE;
+            break;
+        }
+        else if ( *ptr=='!' && ptr[1]=='~' )
+        {
+            *ptr = 0;
+            args->tr_expr.field = strdup_annot_prefix(args,expr);
+            *ptr = '!';
+            int is_quoted = ( ptr[2]=='"' && ptr[strlen(ptr)-1]=='"' ) ? 1 : 0;
+            args->tr_expr.value = strdup(ptr+2+is_quoted);
+            if ( is_quoted ) args->tr_expr.value[strlen(args->tr_expr.value)-1] = 0;
+            args->tr_expr.regex = (regex_t *) malloc(sizeof(regex_t));
+            if ( regcomp(args->tr_expr.regex, args->tr_expr.value, REG_NOSUB) )
+                error("Error: fail to compile the regular expression \"%s\"\n", args->tr_expr.value);
+            args->tr_expr.op = TR_OP_NR;
+            break;
+        }
+        ptr++;
+    }
+    if ( !args->tr_expr.field ) error("Could not parse the expression: -s %s\n", cnst_expr);
+    if ( khash_str2int_get(args->field2idx,args->tr_expr.field,&args->tr_expr.idx)!=0 )
+        error("The field \"%s\" was requested via \"%s\" but it is not present in INFO/%s: %s\n",args->tr_expr.field,expr,args->vep_tag,args->vep_format);
+    free(expr);
+    args->select_tr = SELECT_TR_EXPR;
+}
+
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -792,7 +881,10 @@ static void init_data(args_t *args)
     char *format = strstr(hrec->vals[ret], "Format: ");
     if ( !format ) error("Expected \"Format: \" substring in the header INFO/%s/Description, found: %s\n", args->vep_tag,hrec->vals[ret]);
     format += 8;
-    char *ep = format;
+    args->vep_format = strdup(format);
+    char *ep = args->vep_format + strlen(args->vep_format) - 1;
+    if ( *ep=='"' )  *ep = 0;
+    ep = format;
     while ( *ep )
     {
         char *bp = ep;
@@ -863,15 +955,21 @@ static void init_data(args_t *args)
         while ( *ep && isspace(*ep) ) ep++;
     }
 
-    // Transcript and/or consequence selection
+    // Transcript and consequence selection
     if ( !args->select ) args->select = "all:any";
     cols_t *cols = cols_split(args->select, NULL, ':');
     char *sel_tr  = cols->off[0][0] ? cols->off[0] : "all";
     char *sel_csq = cols->n==2 && cols->off[1][0] ? cols->off[1] : "any";
+
+    // ... transcript selection
     if ( !strcasecmp(sel_tr,"all") ) args->select_tr = SELECT_TR_ALL;
     else if ( !strcasecmp(sel_tr,"worst") ) args->select_tr = SELECT_TR_WORST;
-    else if ( !strcasecmp(sel_tr,"primary") ) args->select_tr = SELECT_TR_PRIMARY;
-    else error("Error: the transcript selection key \"%s\" is not recognised.\n", sel_tr);
+    else if ( !strcasecmp(sel_tr,"primary") ) init_select_tr_expr(args,"CANONICAL=YES");
+    else if ( !strcasecmp(sel_tr,"pick") ) init_select_tr_expr(args,"PICK=1");
+    else if ( !strcasecmp(sel_tr,"mane") ) init_select_tr_expr(args,"MANE_SELECT!=\"\"");
+    else init_select_tr_expr(args,sel_tr);
+
+    // ... consequence selection
     if ( !strcasecmp(sel_csq,"any") ) { args->min_severity = args->max_severity = SELECT_CSQ_ANY; }     // to avoid unnecessary lookups
     else
     {
@@ -886,15 +984,6 @@ static void init_data(args_t *args)
         else if ( modifier=='-' ) { args->min_severity = 0; args->max_severity = severity; }
     }
     cols_destroy(cols);
-
-    // The 'CANONICAL' column to look up severity, its name is hardwired for now
-    if ( args->select_tr==SELECT_TR_PRIMARY )
-    {
-        char *tmp = strdup_annot_prefix(args,"CANONICAL");
-        if ( khash_str2int_get(args->field2idx,tmp,&args->primary_id)!=0 )
-            error("The primary transcript was requested but the field \"CANONICAL\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
-        free(tmp);
-    }
 
     // The "Consequence" column to determine severity for filtering. The name of this column is hardwired for now, both VEP and bt/csq use the same name
     char *tmp = strdup_annot_prefix(args,"Consequence");
@@ -927,6 +1016,12 @@ static void init_data(args_t *args)
 }
 static void destroy_data(args_t *args)
 {
+    free(args->list_tr);
+    if ( args->tr_expr.regex ) regfree(args->tr_expr.regex);
+    free(args->tr_expr.regex);
+    free(args->tr_expr.field);
+    free(args->tr_expr.value);
+    free(args->vep_format);
     free(args->farr);
     free(args->iarr);
     free(args->kstr.s);
@@ -1037,17 +1132,34 @@ static int csq_severity_pass(args_t *args, char *csq)
     return 1;
 }
 
-static int get_primary_transcript(args_t *args, bcf1_t *rec)
+static int get_matching_transcript(args_t *args, bcf1_t *rec, int *list)
 {
-    int i;
+    int i, n = 0;
     for (i=0; i<args->ncols_csq; i++)
     {
         cols_t *cols_csq = args->cols_csq[i];
-        if ( args->primary_id >= cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->primary_id,cols_csq->n);
-        if ( !strcmp("YES",cols_csq->off[args->primary_id]) ) return i;
+        if ( args->tr_expr.idx >= cols_csq->n )
+            error("Too few columns at %s:%"PRId64" .. %d (field %s) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->tr_expr.idx,args->tr_expr.field,cols_csq->n);
+        if ( args->tr_expr.op==TR_OP_EQ )
+        {
+            if ( !strcmp(args->tr_expr.value,cols_csq->off[args->tr_expr.idx]) ) list[n++] = i;
+        }
+        else if ( args->tr_expr.op==TR_OP_NE )
+        {
+            if ( strcmp(args->tr_expr.value,cols_csq->off[args->tr_expr.idx]) ) list[n++] = i;
+        }
+        else if ( args->tr_expr.op==TR_OP_RE )
+        {
+            int match = regexec(args->tr_expr.regex,cols_csq->off[args->tr_expr.idx], 0,NULL,0) ? 0 : 1;
+            if ( match ) list[n++] = i;
+        }
+        else if ( args->tr_expr.op==TR_OP_NR )
+        {
+            int match = regexec(args->tr_expr.regex,cols_csq->off[args->tr_expr.idx], 0,NULL,0) ? 0 : 1;
+            if ( !match ) list[n++] = i;
+        }
     }
-    return -1;
+    return n;
 }
 static int get_worst_transcript(args_t *args, bcf1_t *rec)
 {
@@ -1283,23 +1395,32 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( args->genes ) restrict_csqs_to_genes(args);
 
     // select transcripts of interest
-    int j, itr_min = 0, itr_max = args->ncols_csq - 1;
+    int nlist_tr = 0;
+    hts_expand(int32_t,args->ncols_csq,args->mlist_tr,args->list_tr);
     if ( !args->ncols_csq )
-        itr_min = itr_max + 1;  // no transcripts left after -g applied
-    else if ( args->select_tr==SELECT_TR_PRIMARY )
+        nlist_tr = 0;           // no transcripts left after -g applied
+    else if ( args->select_tr==SELECT_TR_EXPR )
     {
-        itr_min = itr_max = get_primary_transcript(args, rec);
-        if ( itr_min<0 ) itr_max = itr_min - 1;
+        nlist_tr = get_matching_transcript(args,rec,args->list_tr);
     }
     else if ( args->select_tr==SELECT_TR_WORST )
-        itr_min = itr_max = get_worst_transcript(args, rec);
-
+    {
+        nlist_tr = 1;
+        args->list_tr[0] = get_worst_transcript(args,rec);
+    }
+    else
+    {
+        for (i=0; i<args->ncols_csq; i++) args->list_tr[i] = i;
+        nlist_tr = args->ncols_csq;
+    }
     annot_reset(args->annot, args->nannot);
     int severity_pass = 0;  // consequence severity requested via the -s option (BCF record may be output but not annotated)
     int all_missing   = 1;  // transcripts with all requested annotations missing will be discarded if -f was given
     static int too_few_fields_warned = 0;
-    for (i=itr_min; i<=itr_max; i++)
+    int j,ilist;
+    for (ilist=0; ilist<nlist_tr; ilist++)
     {
+        i = args->list_tr[ilist];
         cols_t *cols_csq = args->cols_csq[i];
         if ( args->csq_idx >= cols_csq->n )
             error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,cols_csq->n);
@@ -1458,8 +1579,6 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
-    if ( drop_sites==-1 ) drop_sites = args->format_str ? 1 : 0;
-    args->drop_sites = drop_sites;
     if ( args->print_header && !args->format_str ) error("Error: the -H header printing is supported only with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
@@ -1481,10 +1600,23 @@ int run(int argc, char **argv)
         if ( !args->format_str && !args->column_str )
         {
             if ( args->min_severity==SELECT_CSQ_ANY && args->max_severity==SELECT_CSQ_ANY )
-                error("Error: none of the -c,-f,-s options was given, why not use \"bcftools view\" instead?\n");
-            else if ( !args->drop_sites )
-                error("Error: when the -s option is used without -x, everything is printed; why not use \"bcftools view\" instead?\n");
+            {
+                if ( args->select_tr!=SELECT_TR_EXPR )
+                    error("Error: none of the -c,-f,-s options was given, why not use \"bcftools view\" instead?\n");
+                if ( drop_sites==-1 )
+                {
+                    // Note that this is just to compensate for a common user confusion and should not really be here:
+                    // the -s option is supposed to select from multiple transcripts, not to decide whether to keep or
+                    // drop a site. However, it is tempting to run `bcftools +split-vep -s mane` and expect on output
+                    // a VCF with sites impating MANE transcripts only.
+                    drop_sites = 1;
+                }
+                else if ( !drop_sites )
+                    error("Error: the option -X has no effect without -c,-f, why not use \"bcftools view\" instead?\n");
+            }
         }
+        if ( drop_sites==-1 ) drop_sites = args->format_str ? 1 : 0;
+        args->drop_sites = drop_sites;
 
         if ( args->format_str )
         {
