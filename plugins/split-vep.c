@@ -190,9 +190,10 @@ static const char *default_column_types(void)
         "# Default CSQ subfield types, unlisted fields are type String.\n"
         "# Note that the name search is done using regular expressions, with\n"
         "# \"^\" and \"$\" appended automatically\n"
-        "cDNA_position              Integer\n"
-        "CDS_position               Integer\n"
-        "Protein_position           Integer\n"
+        // These positions are in fact not integers but strings such as 8586-8599/9231
+        //      "cDNA_position              Integer\n"
+        //      "CDS_position               Integer\n"
+        //      "Protein_position           Integer\n"
         "DISTANCE                   Integer\n"
         "STRAND                     Integer\n"
         "TSL                        Integer\n"
@@ -633,7 +634,7 @@ static void parse_column_str(args_t *args)
             }
             idx_end = idx_beg;
             *tp = ':';
-            if ( !strcasecmp(tp+1,"string") ) type = BCF_HT_STR;
+            if ( !strcasecmp(tp+1,"string") || !strcasecmp(tp+1,"str") ) type = BCF_HT_STR;
             else if ( !strcasecmp(tp+1,"float") || !strcasecmp(tp+1,"real") ) type = BCF_HT_REAL;
             else if ( !strcasecmp(tp+1,"integer") || !strcasecmp(tp+1,"int") ) type = BCF_HT_INT;
             else if ( !strcasecmp(tp+1,"flag") ) type = BCF_HT_FLAG;
@@ -651,7 +652,7 @@ static void parse_column_str(args_t *args)
                 if ( *mp==':' )
                 {
                     idx_end = idx_beg;
-                    if ( !strcasecmp(mp+1,"string") ) type = BCF_HT_STR;
+                    if ( !strcasecmp(mp+1,"string") || !strcasecmp(mp+1,"str") ) type = BCF_HT_STR;
                     else if ( !strcasecmp(mp+1,"float") || !strcasecmp(mp+1,"real") ) type = BCF_HT_REAL;
                     else if ( !strcasecmp(mp+1,"integer") || !strcasecmp(mp+1,"int") ) type = BCF_HT_INT;
                     else if ( !strcasecmp(mp+1,"flag") ) type = BCF_HT_FLAG;
@@ -1187,8 +1188,9 @@ static void annot_append(annot_t *ann, char *value)
     if ( ann->str.l ) kputc(',',&ann->str);
     kputs(value, &ann->str);
 }
-static inline void parse_array_real(char *str, float **arr, int *marr, int *narr)
+static inline void parse_array_real(annot_t *ann, char *str, float **arr, int *marr, int *narr)
 {
+    static int warned_type_err = 0;
     char *bp = str, *ep;
     float *ptr = *arr;
     int i, n = 1, m = *marr;
@@ -1202,6 +1204,12 @@ static inline void parse_array_real(char *str, float **arr, int *marr, int *narr
     while ( *bp )
     {
         ptr[i] = strtod(bp, &ep);
+        if ( !warned_type_err && ((bp==ep && ep[1]!=',') || *ep!=',') )
+        {
+            fprintf(stderr,"Warning: Could not parse, not a numeric list %s=\"%s\", check the -c and --columns-types options.\n"
+                           "         This message is printed only once.\n",ann->tag,str);
+            warned_type_err = 1;
+        }
         if ( bp==ep )
             bcf_float_set_missing(ptr[i]);
         i++;
@@ -1212,8 +1220,9 @@ static inline void parse_array_real(char *str, float **arr, int *marr, int *narr
     *marr = m;
     *arr  = ptr;
 }
-static inline void parse_array_int32(char *str, int **arr, int *marr, int *narr)
+static inline void parse_array_int32(annot_t *ann, char *str, int **arr, int *marr, int *narr)
 {
+    static int warned_type_err = 0;
     char *bp = str, *ep;
     int32_t *ptr = *arr;
     int i, n = 1, m = *marr;
@@ -1227,6 +1236,12 @@ static inline void parse_array_int32(char *str, int **arr, int *marr, int *narr)
     while ( *bp )
     {
         ptr[i] = strtol(bp, &ep, 10);
+        if ( !warned_type_err && ((bp==ep && ep[1]!=',') || *ep!=',') )
+        {
+            fprintf(stderr,"Warning: Could not parse, not a list of integers %s=\"%s\", check the -c and --columns-types options.\n"
+                           "         This message is printed only once.\n",ann->tag,str);
+            warned_type_err = 1;
+        }
         if ( bp==ep )
             ptr[i] = bcf_int32_missing;
         i++;
@@ -1246,12 +1261,12 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
         if ( !ann->str.l ) continue;
         if ( ann->type==BCF_HT_REAL )
         {
-            parse_array_real(ann->str.s,&args->farr,&args->mfarr,&args->nfarr);
+            parse_array_real(ann,ann->str.s,&args->farr,&args->mfarr,&args->nfarr);
             bcf_update_info_float(args->hdr_out,rec,ann->tag,args->farr,args->nfarr);
         }
         else if ( ann->type==BCF_HT_INT )
         {
-            parse_array_int32(ann->str.s,&args->iarr,&args->miarr,&args->niarr);
+            parse_array_int32(ann,ann->str.s,&args->iarr,&args->miarr,&args->niarr);
             bcf_update_info_int32(args->hdr_out,rec,ann->tag,args->iarr,args->niarr);
         }
         else

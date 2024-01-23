@@ -729,6 +729,8 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s mane]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s primary]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.select-tr-expr',out=>'select-tr-expr.3.out',cmd=>'+split-vep',args=>qq[-s PolyPhen~damaging]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.types',out=>'split-vep.types.1.out',cmd=>'+split-vep',args=>qq[-f'%cDNA_position %CDS_position %Protein_position']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.types',out=>'split-vep.types.2.out',cmd=>'+split-vep',args=>qq[-f'%cDNA_position %CDS_position %Protein_position' -c cDNA_position:int,CDS_position:int,Protein_position:int]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
