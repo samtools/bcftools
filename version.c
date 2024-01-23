@@ -1,6 +1,6 @@
 /*  version.c -- report version numbers for plugins.
 
-    Copyright (C) 2014-2023 Genome Research Ltd.
+    Copyright (C) 2014-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -113,7 +113,7 @@ int parse_overlap_option(const char *arg)
 }
 
 // See also samtools/sam_utils.c auto_index()
-int init_index(htsFile *fh, bcf_hdr_t *hdr, char *fname, char **idx_fname)
+int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname)
 {
     int min_shift = 14; // CSI
 
