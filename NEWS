@@ -3,6 +3,16 @@
 
 Changes affecting specific commands:
 
+* bcftools norm
+
+    - Change the order of atomization and multiallelic splitting (when both -a,-m are given)
+      from "atomize first, then split" to "split first, then atomize". This usually results
+      in a simpler VCF representation. The previous behaviour can be achieved by explicitly
+      streaming the output of the --atomize command into the --multiallelics splitting command.
+
+    - Fix Type=String multiallelic splitting for Number=A,R,G tags with incorrect number
+      of values.
+
 * bcftools +setGT
 
     - Support for custom genotypes based on the allele with higher depth, such

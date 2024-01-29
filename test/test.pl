@@ -276,9 +276,11 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a');
 run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
 run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
-run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>'--atomize --old-rec-tag OLD_REC -m -any');
-run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'--atomize --old-rec-tag OLD_REC');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>['-a --old-rec-tag OLD_REC','-m -any --force']);
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>['-m -any --old-rec-tag OLD_REC --force','-a']);
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'-m -any --old-rec-tag OLD_REC --force -a');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.3.out',args=>'--atomize --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.3',out=>'atomize.split.3.1.out',args=>'--atomize --atom-overlaps .');
@@ -294,6 +296,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic',fai=>'norm.symbolic',out=>'no
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic.2',fai=>'norm.symbolic',out=>'norm.symbolic.2.out',args=>'--old-rec-tag ORI');
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.1.out',args=>'--old-rec-tag ORI');
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.2.out',args=>'--old-rec-tag ORI -g {PATH}/norm.right-align.gff');
+run_test(\&test_vcf_norm,$opts,in=>'norm.atom-split-norm',fai=>'norm.atom-split-norm',out=>'norm.atom-split-norm.1.out',args=>'--old-rec-tag ORI -a -m -any');
+run_test(\&test_vcf_norm,$opts,in=>'norm.string-tags',out=>'norm.string-tags.1.out',args=>'-m -any');
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.1.out',args=>'-HA');
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.2.out',args=>'-HAA');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1');
@@ -1471,15 +1475,32 @@ sub test_vcf_norm
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    my $params = '';
-    if ( exists($args{args}) )
+    my $cmd;
+    if ( !exists($args{args}) )
+    {
+        $cmd = "$$opts{bin}/bcftools norm --no-version $$opts{tmp}/$args{in}.vcf.gz";
+        if ( exists($args{fai}) ) { $cmd .= " -f $$opts{path}/$args{fai}.fa"; }
+    }
+    elsif ( ref($args{args}) eq 'ARRAY' )
+    {
+        my @cmd = ();
+        for my $args (@{$args{args}})
+        {
+            $args =~ s/{PATH}/$$opts{path}/g;
+            push @cmd, "$$opts{bin}/bcftools norm --no-version $args";
+        }
+        if ( exists($args{fai}) ) { $cmd[0] .= " -f $$opts{path}/$args{fai}.fa"; }
+        $cmd[0] .= " $$opts{tmp}/$args{in}.vcf.gz";
+        $cmd = join(' | ',@cmd);
+    }
+    else
     {
         $args{args} =~ s/{PATH}/$$opts{path}/g;
-        $params .= " $args{args}";
+        $cmd = "$$opts{bin}/bcftools norm --no-version $args{args} $$opts{tmp}/$args{in}.vcf.gz";
+        if ( exists($args{fai}) ) { $cmd .= " -f $$opts{path}/$args{fai}.fa"; }
     }
-    if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm --no-version $params $$opts{tmp}/$args{in}.vcf.gz",exp_fix=>1);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -Ob $params $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools view | grep -v ^##bcftools_",exp_fix=>1);
+    test_cmd($opts,%args,cmd=>$cmd,exp_fix=>1);
+    test_cmd($opts,%args,cmd=>"$cmd -Ou | $$opts{bin}/bcftools view | grep -v ^##bcftools_",exp_fix=>1);
 }
 sub test_vcf_view
 {

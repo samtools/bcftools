@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///ref.fa
+##contig=<ID=chr1,length=2147483647>
+##INFO=<ID=ORI,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	3	.	GGCGCGGA	G	.	.	ORI=chr1|5|CGCGGAGG|C,G|2
+chr1	5	.	CGCGGAGG	C	.	.	ORI=chr1|5|CGCGGAGG|C,G|1

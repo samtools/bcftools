@@ -1,0 +1,18 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=12,length=135006516>
+##FILTER=<ID=flt,Description="Test FILTER">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FGS,Number=G,Type=String,Description="Test Number=G in FORMAT">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4
+12	111	.	CC	GG,GT	.	.	.	FRS	a,b,c	aa,bb,cc	aaa,bbb,ccc	.
+12	222	.	CC	GG,GT	.	.	.	FAS	b,c	bb,cc	bbb,ccc	.
+12	333	.	CC	GG,GT	.	.	.	FGS	1,2,3	11,22,33	111,222,333	.
+12	444	.	CC	GG,GT	.	.	.	FGS	11,12,22,13,23,33	1111,1122,2222,1133,2233,3333	111111,111222,222222,111333,222333,333333	.
+12	555	.	CC	GG,GT	.	.	XRS=aaa,bb,c	.	.	.	.	.
+12	666	.	CC	GG,GT	.	.	XRS=aaa	.	.	.	.	.
+12	777	.	CC	GG,GT	.	.	XAS=bbb,cc	.	.	.	.	.
+12	888	.	CC	GG,GT	.	.	XAS=bbb	.	.	.	.	.
