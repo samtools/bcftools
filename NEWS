@@ -38,6 +38,12 @@ Changes affecting specific commands:
 
     - Recognize `-c field:str`, not just `-c field:string`, as advertised in the usage page
 
+* bcftools stats
+
+    - When GT is missing but AD is present, the program determines the alternate allele from AD.
+      However, if the AD tag has incorrect number of values, the program would exit with an error
+      printing "Requested allele outside valid range". This is now fixed by taking into account
+      the actual number of ALT alleles.
 
 * bcftools +trio-dnm2
 

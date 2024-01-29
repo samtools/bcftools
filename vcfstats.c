@@ -894,7 +894,7 @@ static inline int get_ad(bcf1_t *line, bcf_fmt_t *ad_fmt_ptr, int ismpl, int *ia
     *ial = 0;
     #define BRANCH_INT(type_t,missing,vector_end) { \
         type_t *ptr = (type_t *) (ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl); \
-        for (iv=1; iv<ad_fmt_ptr->n; iv++) \
+        for (iv=1; iv<ad_fmt_ptr->n && iv<line->n_allele; iv++) \
         { \
             if ( ptr[iv]==vector_end ) break; \
             if ( ptr[iv]==missing ) continue; \
