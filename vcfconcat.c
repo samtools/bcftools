@@ -1107,6 +1107,7 @@ int main_vcfconcat(int argc, char *argv[])
     if ( args->regions_list && !args->allow_overlaps ) error("The -r/-R option is supported only with -a\n");
     if ( args->naive_concat )
     {
+        if ( args->write_index ) error("Error: cannot --write-index in the %s mode\n",args->naive_concat_trust_headers?"--naive-force":"--naive");
         if ( args->allow_overlaps ) error("The option --naive cannot be combined with --allow-overlaps\n");
         if ( args->phased_concat ) error("The option --naive cannot be combined with --ligate\n");
         if ( args->sites_only ) error("The option --naive cannot be combined with --drop-genotypes\n");
