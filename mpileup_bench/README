@@ -1,0 +1,103 @@
+1. First up, there is a get_data.sh script which downloads a bunch of
+files including truth sets, BED files and some BAMs.  These may be
+very large.  Just edit the script accordingly or look at the URLs and
+have a browse around manually.
+
+Once it's run you'll never need to download them again.  You should
+also obtain your own copy of GRCh38 as I couldn't work out which of
+the many ones at GIAB are appropriate.  This didn't seem to matter for
+chr1 or chr20 though and I expect it's mainly the patches which are
+different.
+
+
+2. The two evaluation scripts are run_mpileup_HG002.sh and
+run_mpileup_HG005.sh.  For consistency, rapid turnaround tuning,
+setting of parameters and general code improvement should be done with
+HG002.  Avoid any chromosomes you may wish to evaluate on later.
+
+When finally finished tuning, use another chromosome (eg chr20) of
+HG005 to avoid over-fitting to specific regions or specific samples
+and instrument runs.
+
+I usually name my temp outputs starting in underscore for ease of
+removal, but that's just personal preference.  So _pb here is the
+output from the caller and evaluation.
+
+An example of running a small region for training.
+
+    ./run_mpileup_HG002.sh pb_50x.bam chr1:10000000-20000000 _pb -X pacbio-ccs
+
+For final evaluation.
+
+    BCFTOOLS=bcftools.devel ./run_mpileup_HG005.sh illumina_300x.bam chr20:20000000-21000000 _i_dev -L999 -X illumina
+    ./run_mpileup_HG005.sh illumina_300x.bam chr20:20000000-21000000 _i_new -L999 -X illumina
+
+Note: we cannot be quite so pure for all instrument types as HG002 is
+by far the most widely studied sample and some data sets are only
+available on that sample.
+
+
+3. After running the mpileup scripts and getting a bunch of output
+directories you can plot them in gnuplot.
+
+    set ylabel "FNr"
+    set yrange [0:10]
+    set title "PacBio 50x indels"
+    
+    set xlabel "FPr"
+    a=8;b=10;t="ALL";plot "<grep ".t." _i_dev/plot" using a:b with linespoints title "dev" lw 2 ps .6, "<grep ".t." _i_new/plot" using a:b with linespoints title "indels-cns" lw 2 ps .6
+    
+    set xlabel "GTr"
+    a=9;b=10; ... plot as above
+
+
+4. Finally if we've produced both current and new sets of calls, we
+will have two directories of output each containing their own .isec
+directories with the intersection of their results and the truth set.
+
+- 0000.vcf will be false negatives; variants only found in truth set
+- 0001.vcf will be false positives; variants only found in our calls
+- 000[23].vcf will be true variants, truth & our call versions
+
+Note these will have been decomposed already into separate alleles, so
+GT 1/2 will be two entries, one of which may be true and one which may
+be false (positive or negative).  This makes counting easier so the
+final numbers reflect the genotype as well as the position.
+
+(Only variant evaluation tools may operate differently.)
+
+Obviously there will be many common mistakes between both old and new
+outputs.  False positives that we're always going to call as they're
+simply down to misalignments or contamination, and false negatives
+we'll never call as the data is plain absent.  However we can
+data-mine our false positives and false negatives to find problems
+that we fixed and new problems that we called.  For example to
+identify changes in the false positives we could do this:
+
+    # Bgzip the VCFs as bcftools isec annoyingly can't read plain VCF
+    d=_old/bcftools.isec
+    (cd $d;
+     bgzip < 0003.vcf > 0003.vcf.gz; tabix -f 0003.vcf.gz;
+     bgzip < 0000.vcf > 0000.vcf.gz; tabix -f 0000.vcf.gz;
+     bgzip < 0001.vcf > 0001.vcf.gz;tabix -f 0001.vcf.gz)
+
+    d=_new/bcftools.isec
+    (cd $d;
+     bgzip < 0003.vcf > 0003.vcf.gz; tabix -f 0003.vcf.gz;
+     bgzip < 0000.vcf > 0000.vcf.gz; tabix -f 0000.vcf.gz;
+     bgzip < 0001.vcf > 0001.vcf.gz;tabix -f 0001.vcf.gz)
+
+    # Produce a new isec output
+    bcftools isec -p _fp _{old,new}/0001.vcf.gz
+
+_{old,new}/0001.vcf is the false positives our two runs produces.
+After intersecting those, we now have:
+
+- _fp/0000.vcf:  old false positives we have removed
+- _fp/0001.vcf:  new false positives we have acquired
+
+Similarly on _{old,new}/0000.vcf to identify cured / caused
+false-negatives.  This provides a way to data mine things much more
+carefully.  We can further drill down on these cured/caused variants
+by subdividing into deletions vs insertions, or filtering to high
+quality only.
