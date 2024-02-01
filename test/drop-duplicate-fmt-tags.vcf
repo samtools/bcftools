@@ -1,0 +1,6 @@
+##fileformat=VCFv4.1
+##FORMAT=<ID=GT,Number=1,Type=String>
+##FORMAT=<ID=X,Number=1,Type=Integer>
+##contig=<ID=chr1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+chr1	1	.	A	C	.	.	.	GT:X:GT:X	0/0:0:0/1:1

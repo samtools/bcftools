@@ -354,6 +354,7 @@ run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -t 
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.neg0.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 0]);
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.neg1.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 1]);
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.neg2.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 2]);
+run_test(\&test_vcf_view,$opts,in=>'drop-duplicate-fmt-tags',out=>'drop-duplicate-fmt-tags.out',args=>q[-H]);
 run_test(\&test_vcf_64bit,$opts,in=>'view64bit.1',out=>'view64bit.1.out',do_bcf=>1);
 run_test(\&test_vcf_64bit,$opts,in=>'view64bit.2',out=>'view64bit.2.out',do_bcf=>1);
 run_test(\&test_vcf_64bit,$opts,in=>'view64bit.3',out=>'view64bit.3.out');     # large coordinates don't work with BCF
