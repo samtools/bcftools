@@ -13,6 +13,10 @@ Changes affecting specific commands:
     - Fix Type=String multiallelic splitting for Number=A,R,G tags with incorrect number
       of values.
 
+    - Merging into multiallelic sites with `bcftools norm -m +indels` did not work. This is
+      now fixed and the merging is now more strict about variant types, for example complex
+      events, such as AC>TGA, are not considered as indels anymore (#2084)
+
 * bcftools +setGT
 
     - Support for custom genotypes based on the allele with higher depth, such

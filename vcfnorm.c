@@ -79,8 +79,8 @@ typedef struct
 {
     char *tseq, *seq;
     int mseq;
-    bcf1_t **lines, **tmp_lines, **alines, **blines, *mrow_out;
-    int ntmp_lines, mtmp_lines, nalines, malines, nblines, mblines;
+    bcf1_t **lines, **tmp_lines, **mrows, *mrow_out;
+    int ntmp_lines, mtmp_lines, nmrows, mmrows, mrows_first;
     map_t *maps;     // mrow map for each buffered record
     char **als;
     int mmaps, nals, mals;
@@ -1874,72 +1874,98 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
 }
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
-static void mrows_schedule(args_t *args, bcf1_t **line)
+static void mrows_push(args_t *args, bcf1_t **line)
 {
     int i,m;
-    if ( args->mrows_collapse==COLLAPSE_ANY         // merge all record types together
-        || bcf_get_variant_types(*line)&VCF_SNP     // SNP, put into alines
-        || bcf_get_variant_types(*line)==VCF_REF )  // ref
+    if ( !args->nmrows ) args->mrows_first = 0;
+    args->nmrows++;
+    m = args->mmrows;
+    hts_expand(bcf1_t*,args->nmrows,args->mmrows,args->mrows);
+    for (i=m; i<args->mmrows; i++) args->mrows[i] = bcf_init1();
+    SWAP(bcf1_t*, args->mrows[args->nmrows-1], *line);
+
+    if ( args->mrows_collapse==COLLAPSE_ANY ) return;
+
+    // move the line up the sorted list so that the same variant types end up together
+    int cur_type = bcf_get_variant_types(args->mrows[args->nmrows-1]);
+    i = args->mrows_first + args->nmrows - 1;
+    while (i>0)
     {
-        args->nalines++;
-        m = args->malines;
-        hts_expand(bcf1_t*,args->nalines,args->malines,args->alines);
-        for (i=m; i<args->malines; i++) args->alines[i] = bcf_init1();
-        SWAP(bcf1_t*, args->alines[args->nalines-1], *line);
-    }
-    else
-    {
-        args->nblines++;
-        m = args->mblines;
-        hts_expand(bcf1_t*,args->nblines,args->mblines,args->blines);
-        for (i=m; i<args->mblines; i++) args->blines[i] = bcf_init1();
-        SWAP(bcf1_t*, args->blines[args->nblines-1], *line);
+        int prev_type = bcf_get_variant_types(args->mrows[i-1]);
+        if ( prev_type <= cur_type ) break;
+        bcf1_t *tmp = args->mrows[i-1];
+        args->mrows[i-1] = args->mrows[i];
+        args->mrows[i] = tmp;
+        i--;
     }
 }
-static int mrows_ready_to_flush(args_t *args, bcf1_t *line)
+static int mrows_can_flush(args_t *args, bcf1_t *line)
 {
-    if ( args->nalines && (args->alines[0]->rid!=line->rid || args->alines[0]->pos!=line->pos) ) return 1;
-    if ( args->nblines && (args->blines[0]->rid!=line->rid || args->blines[0]->pos!=line->pos) ) return 1;
+    if ( !args->nmrows ) return 0;
+    int ibeg = args->mrows_first;
+    if ( args->mrows[ibeg]->rid != line->rid ) return 1;
+    if ( args->mrows[ibeg]->pos != line->pos ) return 1;
     return 0;
 }
 static bcf1_t *mrows_flush(args_t *args)
 {
-    if ( args->nblines && args->nalines==1 && bcf_get_variant_types(args->alines[0])==VCF_REF )
+    if ( !args->nmrows ) return NULL;
+
+    int ibeg = args->mrows_first;
+
+    //fprintf(stderr,"flush: ibeg=%d n=%d\n",ibeg,args->nmrows);
+    //int i;
+    //for (i=ibeg; i<ibeg+args->nmrows; i++)
+    //  fprintf(stderr,"\ti=%d type=%d %s %s\n",i,bcf_get_variant_types(args->mrows[i]),args->mrows[i]->d.allele[0],args->mrows[i]->d.allele[1]);
+
+    if ( args->nmrows==1 )
     {
-        // By default, REF lines are merged with SNPs if SNPs and indels are to be kept separately.
-        // However, if there are indels only and a single REF line, merge it with indels.
-        args->nblines++;
-        int i,m = args->mblines;
-        hts_expand(bcf1_t*,args->nblines,args->mblines,args->blines);
-        for (i=m; i<args->mblines; i++) args->blines[i] = bcf_init1();
-        SWAP(bcf1_t*, args->blines[args->nblines-1], args->alines[0]);
-        args->nalines--;
+        args->nmrows = 0;
+        return args->mrows[ibeg];
     }
-    if ( args->nalines )
+
+    if ( args->mrows_collapse==COLLAPSE_ANY )
     {
-        if ( args->nalines==1 )
-        {
-            args->nalines = 0;
-            return args->alines[0];
-        }
+        // merge everything with anything
         bcf_clear(args->mrow_out);
-        merge_biallelics_to_multiallelic(args, args->mrow_out, args->alines, args->nalines);
-        args->nalines = 0;
+        merge_biallelics_to_multiallelic(args, args->mrow_out, &args->mrows[ibeg], args->nmrows - ibeg);
+        args->nmrows = 0;
         return args->mrow_out;
     }
-    else if ( args->nblines )
+
+    int j;
+    int types[] = { VCF_SNP, VCF_MNP, VCF_INDEL, VCF_OTHER, -1 };       // merge everything within the same category
+    if ( args->mrows_collapse==COLLAPSE_SNPS ) types[1] = -1;           // merge SNPs only
+    else if ( args->mrows_collapse==COLLAPSE_INDELS ) types[0] = VCF_INDEL, types[1] = -1;    // merge indels only
+    for (j=0; types[j]!=-1; j++)
     {
-        if ( args->nblines==1 )
+        int i, type = types[j]; // to keep the compiler happy
+        for (i=ibeg; i<ibeg+args->nmrows; i++)
         {
-            args->nblines = 0;
-            return args->blines[0];
+            type = bcf_get_variant_types(args->mrows[i]);
+            if ( type!=types[j] && type!=VCF_REF ) break;
         }
-        bcf_clear(args->mrow_out);
-        merge_biallelics_to_multiallelic(args, args->mrow_out, args->blines, args->nblines);
-        args->nblines = 0;
-        return args->mrow_out;
+        if ( i==ibeg+1 && type!=VCF_REF )
+        {
+            // just one line of this type, no merging, but multiple lines of different type follow
+            args->nmrows--;
+            args->mrows_first++;
+            return args->mrows[ibeg];
+        }
+        if ( i>ibeg )
+        {
+            // more than one line, merging is needed
+            int nflush = i - ibeg;
+            bcf_clear(args->mrow_out);
+            merge_biallelics_to_multiallelic(args, args->mrow_out, &args->mrows[ibeg], nflush);
+            args->nmrows -= nflush;
+            args->mrows_first += nflush;
+            return args->mrow_out;
+        }
     }
-    return NULL;
+    args->nmrows--;
+    args->mrows_first++;
+    return args->mrows[ibeg];
 }
 static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
 {
@@ -2013,21 +2039,13 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
         k = rbuf_shift(&args->rbuf);
         if ( args->mrows_op==MROWS_MERGE )
         {
-            if ( mrows_ready_to_flush(args, args->lines[k]) )
+            if ( mrows_can_flush(args, args->lines[k]) )
             {
                 while ( (line=mrows_flush(args)) )
                     if ( bcf_write1(file, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
             }
-            int merge = 1;
-            if ( args->mrows_collapse!=COLLAPSE_BOTH && args->mrows_collapse!=COLLAPSE_ANY )
-            {
-                if ( !(bcf_get_variant_types(args->lines[k]) & args->mrows_collapse) ) merge = 0;
-            }
-            if ( merge )
-            {
-                mrows_schedule(args, &args->lines[k]);
-                continue;
-            }
+            mrows_push(args, &args->lines[k]);
+            continue;
         }
         else if ( args->rmdup )
         {
@@ -2125,12 +2143,9 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->mtmp_lines; i++)
         if ( args->tmp_lines[i] ) bcf_destroy1(args->tmp_lines[i]);
     free(args->tmp_lines);
-    for (i=0; i<args->malines; i++)
-        bcf_destroy1(args->alines[i]);
-    free(args->alines);
-    for (i=0; i<args->mblines; i++)
-        bcf_destroy1(args->blines[i]);
-    free(args->blines);
+    for (i=0; i<args->mmrows; i++)
+        bcf_destroy1(args->mrows[i]);
+    free(args->mrows);
     for (i=0; i<args->mmaps; i++)
         free(args->maps[i].map);
     for (i=0; i<args->ntmp_als; i++)
@@ -2228,7 +2243,8 @@ static int split_and_normalize(args_t *args)
     // any restrictions on variant types to split?
     if ( args->mrows_collapse!=COLLAPSE_BOTH && args->mrows_collapse!=COLLAPSE_ANY )
     {
-        if ( !(bcf_get_variant_types(line) & args->mrows_collapse) )
+        int type = args->mrows_collapse==COLLAPSE_SNPS ? VCF_SNP : VCF_INDEL;
+        if ( !(bcf_get_variant_types(line) & type) )
         {
             normalize_line(args, line);
             return 0;

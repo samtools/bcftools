@@ -2503,6 +2503,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
+    {nbsp} +
+    {nbsp} +
+    Note that multiallelic sites with both SNPs and indels will be split into
+    biallelic sites with both *-m -snps* and *-m -indels*.
 
 *--multi-overlaps* '0'|'.'::
     use the reference ('0') or missing ('.') allele for overlapping alleles after

@@ -298,6 +298,12 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',ou
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align',fai=>'norm.right-align',out=>'norm.right-align.2.out',args=>'--old-rec-tag ORI -g {PATH}/norm.right-align.gff');
 run_test(\&test_vcf_norm,$opts,in=>'norm.atom-split-norm',fai=>'norm.atom-split-norm',out=>'norm.atom-split-norm.1.out',args=>'--old-rec-tag ORI -a -m -any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.string-tags',out=>'norm.string-tags.1.out',args=>'-m -any');
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.1.out',args=>['-m -','-m +both']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.2.out',args=>['-m -','-m +indels']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.3.out',args=>['-m -','-m +snps']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.out',args=>['-m -','-m +any']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
+run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.1.out',args=>'-HA');
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.2.out',args=>'-HAA');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1');
