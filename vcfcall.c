@@ -397,7 +397,8 @@ static int tgt_parse(const char *line, char **chr_beg, char **chr_end, uint32_t 
     while ( *ss )
     {
         se = ss;
-        while ( *se && *se!=',' ) se++;
+        while ( *se && *se!=',' && !isspace(*se) ) se++;
+        if ( !*se || isspace(*se) ) break;
         als->n++;
         als->allele = (char**)realloc(als->allele,als->n*sizeof(*als->allele));
         als->allele[als->n-1] = (char*)malloc(se-ss+1);
@@ -406,6 +407,7 @@ static int tgt_parse(const char *line, char **chr_beg, char **chr_end, uint32_t 
         ss = se+1;
         if ( !*se ) break;
     }
+    if ( als->n<2 ) error("Unable to parse the -T file; expected CHROM\\tPOS\\tREF,ALT with -C alleles but found instead:\n\t%s\n",line);
     return 0;
 }
 static void tgt_free(void *payload)
