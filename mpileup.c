@@ -72,8 +72,11 @@ typedef struct {
     uint32_t fmt_flag;
     int rflag_skip_any_unset, rflag_skip_all_unset, rflag_skip_any_set, rflag_skip_all_set, output_type;
     int openQ, extQ, tandemQ, min_support, indel_win_size; // for indels
+    int seqQ_offset;
     double min_frac; // for indels
-    double indel_bias;
+    double indel_bias, poly_mqual;
+    double del_bias; // compensate for diff deletion vs insertion error rates
+    double vs_ref;
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads, clevel;
     faidx_t *fai;
@@ -99,6 +102,7 @@ typedef struct {
     htsFile *bcf_fp;
     bcf_hdr_t *bcf_hdr;
     int indels_v20;
+    int edlib;
     int argc;
     char **argv;
     int write_index;
@@ -584,12 +588,14 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
 
         // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
         // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
-        if ( !(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth )
+        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth)
         {
             bcf_callaux_clean(conf->bca, &conf->bc);
             conf->bca->chr = tid>=0 ? hdr->target_name[tid] : NULL;
             int iret;
-            if ( conf->indels_v20 )
+            if (conf->edlib)
+                iret = bcf_edlib_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref, ref_len);
+            else if ( conf->indels_v20 )
                 iret = bcf_iaux_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref);
             else
                 iret = bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref);
@@ -864,6 +870,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
     conf->bca->indel_bias = conf->indel_bias;
+    conf->bca->del_bias = conf->del_bias;
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
@@ -871,6 +878,10 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->ambig_reads = conf->ambig_reads;
     conf->bca->indel_win_size = conf->indel_win_size;
     conf->bca->indels_v20 = conf->indels_v20;
+    conf->bca->edlib = conf->edlib;
+    conf->bca->seqQ_offset = conf->seqQ_offset;
+    conf->bca->poly_mqual = conf->poly_mqual;
+    conf->bca->vs_ref = conf->vs_ref;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
     conf->bc.n  = nsmpl;
@@ -1248,7 +1259,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "      --write-index       Automatically index the output files [off]\n"
         "\n"
         "SNP/INDEL genotype likelihoods options:\n"
-        "  -X, --config STR        Specify platform specific profiles (see below)\n"
+        "  -X, --config STR        Specify platform profile (use \"-X list\" for details)\n"
         "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
     fprintf(fp,
         "  -F, --gap-frac FLOAT    Minimum fraction of gapped reads [%g]\n", mplp->min_frac);
@@ -1270,28 +1281,62 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
         "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n", mplp->indel_bias);
     fprintf(fp,
+        "      --del-bias FLOAT    Relative likelihood of insertion to deletion [%.2f]\n", mplp->del_bias);
+    fprintf(fp,
+        "      --score-vs-ref FLOAT\n"
+        "                          Ratio of score vs ref (1) or 2nd-best allele (0) [%.2f]\n", mplp->vs_ref);
+    fprintf(fp,
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
     fprintf(fp,
-        "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n");
+        "      --indels-2.0        New EXPERIMENTAL indel calling model (diploid reference consensus)\n"
+        "      --indels-cns        New EXPERIMENTAL indel calling model with edlib\n"
+        "      --seqq-offset       Indel-cns tuning for indel seq-qual scores [120]\n"
+        "      --no-indels-cns     Disable CNS mode, to use after a -X profile\n"
+        "      --poly-mqual        (Edlib mode) Use minimum quality within homopolymers\n");
     fprintf(fp,"\n");
     fprintf(fp,
-        "Configuration profiles activated with -X, --config:\n"
-        "    1.12:        -Q13 -h100 -m1 -F0.002\n"
-        "    illumina:    [ default values ]\n"
-        "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
-        "    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
-        "\n"
-        "Notes: Assuming diploid individuals.\n"
-        "\n"
-        "Example:\n"
-        "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
-        "   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
-        "\n");
+            "Notes: Assuming diploid individuals.\n\n"
+            "Example:\n"
+            "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
+            "   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
+            "\n");
 
     free(tmp_skip_all_set);
     free(tmp_skip_any_unset);
     free(tmp_skip_all_unset);
     free(tmp_skip_any_set);
+}
+
+static void print_profiles(void) {
+    printf(
+"Configuration profiles activated with -X, --config:\n\n"
+"1.12\n"
+"    -Q13 -h100 -m1 -F0.002\n\n"
+"bgi, bgi-1.20\n"
+"    --indels-cns -B --indel-size 80 -F0.1 --indel-bias 0.9 --seqq-offset 120\n\n"
+"illumina-1.18\n"
+"    --indel-size 110\n\n"
+"illumina\n"
+"illumina-1.20\n"
+"    --indels-cns --indel-size 110\n\n"
+"ont\n"
+"    -B -Q5 --max-BQ 30 -I\n\n"
+"ont-sup, ont-sup-1.20\n"
+"    --indels-cns -B -Q1 --max-BQ 35 -F0.2 -o15 -e1 -h110 --delta-BQ 99\\\n"
+"    --del-bias 0.4 --indel-bias 0.7 --poly-mqual --seqq-offset 130\\\n"
+"    --indel-size 80\n\n"
+"pacbio-ccs-1.18\n"
+"    -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 \\\n"
+"    -M99999 --indel-size 110\n\n"
+"pacbio-ccs, pacbio-ccs-1.20\n"
+"    --indels-cns -B -Q5 --max-BQ 50 -F0.1 -o25 -e1 -h300 --delta-BQ 10 \\\n"
+"    --del-bias 0.4 --poly-mqual --indel-bias 0.9 --seqq-offset 118\\\n"
+"    --indel-size 80 --score-vs-ref 0.7\n\n"
+"ultima, ultima-1.20\n"
+"    --indels-cns -B -Q1 --max-BQ 30 -F0.15 -o20 -e10 -h250 --delta-BQ 10 \\\n"
+"    --del-bias 0.3 --indel-bias 0.7 --poly-mqual --seqq-offset 140 \\\n"
+"    --indel-size 80 --score-vs-ref 0.3\n\n"
+"\n");
 }
 
 int main_mpileup(int argc, char *argv[])
@@ -1309,6 +1354,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
     mplp.min_frac = 0.05; mplp.indel_bias = 1.0; mplp.min_support = 2;
+    mplp.vs_ref = 0;
     mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_REALN_PARTIAL
               | MPLP_SMART_OVERLAPS;
     mplp.argc = argc; mplp.argv = argv;
@@ -1323,7 +1369,10 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;
+    mplp.poly_mqual = 0;
+    mplp.seqQ_offset = 120;
     mplp.clevel = -1;
+    mplp.del_bias = 0; // even insertion and deletion likelhoods.
     hts_srand48(0);
 
     static const struct option lopts[] =
@@ -1382,6 +1431,8 @@ int main_mpileup(int argc, char *argv[])
         {"indel-bias", required_argument, NULL, 10},
         {"indel-size", required_argument, NULL, 15},
         {"indels-2.0", no_argument, NULL, 20},
+        {"indels-cns", no_argument, NULL, 22},
+        {"no-indels-cns", no_argument, NULL, 25},
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
@@ -1395,6 +1446,11 @@ int main_mpileup(int argc, char *argv[])
         {"ambig-reads", required_argument, NULL, 14},
         {"ar", required_argument, NULL, 14},
         {"write-index",no_argument,NULL,21},
+        {"del-bias", required_argument, NULL, 23},
+        {"poly-mqual", no_argument, NULL, 24},
+        {"no-poly-mqual", no_argument, NULL, 26},
+        {"score-vs-ref",required_argument, NULL, 27},
+        {"seqq-offset", required_argument, NULL, 28},
         {NULL, 0, NULL, 0}
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
@@ -1505,19 +1561,36 @@ int main_mpileup(int argc, char *argv[])
             else
                 mplp.indel_bias = 1/atof(optarg);
             break;
+        case 27:
+            mplp.vs_ref = atof(optarg);
+            //if (mplp.vs_ref < 0) mplp.vs_ref = 0;
+            if (mplp.vs_ref > 1) mplp.vs_ref = 1;
+            break;
         case  15: {
                 char *tmp;
                 mplp.indel_win_size = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --indel-size %s\n", optarg);
-                if ( mplp.indel_win_size < 110 )
+                if ( mplp.indel_win_size < 20 )
                 {
-                    mplp.indel_win_size = 110;
+                    mplp.indel_win_size = 20;
                     fprintf(stderr,"Warning: running with --indel-size %d, the requested value is too small\n",mplp.indel_win_size);
                 }
             }
             break;
-        case  20: mplp.indels_v20 = 1; break;
+        case  20: mplp.indels_v20 = 1; mplp.edlib = 0; break;
         case  21: mplp.write_index = 1; break;
+        case  22: mplp.edlib = 1; mplp.indels_v20 = 0; break;
+        case  25: mplp.edlib = 0; break;
+        case  28:
+            mplp.seqQ_offset = atoi(optarg);
+            if (mplp.seqQ_offset < 100)
+                mplp.seqQ_offset = 100;
+            if (mplp.seqQ_offset > 200)
+                mplp.seqQ_offset = 200;
+            break;
+        case  23: mplp.del_bias = atof(optarg); break;
+        case  24: mplp.poly_mqual = 1; break;
+        case  26: mplp.poly_mqual = 0; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
@@ -1532,7 +1605,7 @@ int main_mpileup(int argc, char *argv[])
         break;
         case 'M': mplp.max_read_len = atoi(optarg); break;
         case 'X':
-            if (strcasecmp(optarg, "pacbio-ccs") == 0) {
+            if (strcasecmp(optarg, "pacbio-ccs-1.18") == 0) {
                 mplp.min_frac = 0.1;
                 mplp.min_baseQ = 5;
                 mplp.max_baseQ = 50;
@@ -1541,13 +1614,70 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.max_read_len = 99999;
+
+            } else if (strcasecmp(optarg, "pacbio-ccs") == 0 ||
+                strcasecmp(optarg, "pacbio-ccs-1.20") == 0) {
+                mplp.min_frac = 0.1;
+                mplp.min_baseQ = 5;
+                mplp.max_baseQ = 50;
+                mplp.delta_baseQ = 10;
+                mplp.tandemQ = 300;
+                mplp.openQ = 25;
+                mplp.extQ = 1;
+                mplp.flag &= ~MPLP_REALN;
+                mplp.del_bias = 0.4;
+                mplp.indel_bias = 1/.9;
+                mplp.seqQ_offset = 118;
+                mplp.poly_mqual = 1;
+                mplp.edlib = 1;
+                mplp.vs_ref = 0.7;
+                mplp.indel_win_size = 80;
+
             } else if (strcasecmp(optarg, "ont") == 0) {
-                fprintf(stderr, "For ONT it may be beneficial to also run bcftools call with "
+                fprintf(stderr, "With old ONT data may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
                 mplp.min_baseQ = 5;
                 mplp.max_baseQ = 30;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.flag |= MPLP_NO_INDEL;
+
+            } else if (strcasecmp(optarg, "ont-sup") == 0 ||
+                       strcasecmp(optarg, "ont-sup-1.20") == 0) {
+                mplp.min_frac = 0.2;
+                mplp.min_baseQ = 1;
+                mplp.max_baseQ = 35;
+                mplp.delta_baseQ = 99;
+                mplp.openQ = 15;
+                mplp.extQ = 1;
+                mplp.flag &= ~MPLP_REALN;
+                mplp.max_read_len = 9999999;
+                mplp.del_bias = 0.4;
+                mplp.poly_mqual = 1;
+                mplp.edlib = 1;
+                // If we increase -h then we can increase bias denominator too
+                mplp.tandemQ = 110;
+                mplp.indel_bias = 1/0.7;
+                mplp.seqQ_offset = 130;
+                mplp.indel_win_size = 80;
+
+            } else if (strcasecmp(optarg, "ultima") == 0 ||
+                       strcasecmp(optarg, "ultima-1.20") == 0) {
+                mplp.min_frac = 0.15;
+                mplp.min_baseQ = 1;
+                mplp.max_baseQ = 30;
+                mplp.delta_baseQ = 10;
+                mplp.openQ = 20;
+                mplp.extQ = 10;
+                mplp.tandemQ = 250;
+                mplp.flag &= ~MPLP_REALN;
+                mplp.del_bias = 0.3;
+                mplp.poly_mqual = 1;
+                mplp.edlib = 1;
+                mplp.indel_bias = 1/0.7;
+                mplp.seqQ_offset = 140;
+                mplp.vs_ref = 0.3;
+                mplp.indel_win_size = 80;
+
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;
@@ -1556,11 +1686,36 @@ int main_mpileup(int argc, char *argv[])
                 mplp.tandemQ = 100;
                 mplp.flag &= ~MPLP_REALN_PARTIAL;
                 mplp.flag |= MPLP_REALN;
-            } else if (strcasecmp(optarg, "illumina") == 0) {
+
+            } else if (strcasecmp(optarg, "illumina-1.18") == 0) {
+                mplp.indel_win_size = 110;
                 mplp.flag |= MPLP_REALN_PARTIAL;
+
+            } else if (strcasecmp(optarg, "illumina") == 0 ||
+                       strcasecmp(optarg, "illumina-1.20") == 0) {
+                mplp.edlib = 1;
+                mplp.indel_win_size = 110;
+                mplp.flag |= MPLP_REALN_PARTIAL;
+                mplp.indel_bias = 1;
+                mplp.seqQ_offset = 125;
+                //mplp.indel_win_size = 80; TEST?
+
+            } else if (strcasecmp(optarg, "bgi") == 0 ||
+                       strcasecmp(optarg, "bgi-1.20") == 0) {
+                mplp.min_frac = 0.1;
+                mplp.edlib = 1;
+                mplp.indel_bias = 1;
+                mplp.seqQ_offset = 120;
+                mplp.flag |= MPLP_REALN_PARTIAL;
+                mplp.indel_win_size = 80;
+
+            } else if (strcasecmp(optarg, "list") == 0 ||
+                       strcasecmp(optarg, "help") == 0) {
+                print_profiles();
+                return 1;
             } else {
                 fprintf(stderr, "Unknown configuration name '%s'\n"
-                        "Please choose from 1.12, illumina, pacbio-ccs or ont\n",
+                        "Please use '-X list' to show available choices.\n",
                         optarg);
                 return 1;
             }
