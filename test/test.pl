@@ -880,6 +880,12 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.2.out',
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.3.out',fa=>'consensus.20.fa',args=>'-M . -s b');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.20',out=>'consensus20.4.out',fa=>'consensus.20.fa',args=>'-M . -s a');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.21',out=>'consensus21.1.out',fa=>'consensus.21.fa',args=>'');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.1.out',fa=>'consensus.22.fa',args=>'--regions-overlap 0 --mark-del .');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.2.out',fa=>'consensus.22.fa',args=>'--regions-overlap 1 --mark-del .');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.2.out',fa=>'consensus.22.fa',args=>'--regions-overlap 2 --mark-del .');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.1.out',fa=>'consensus.22.fa',args=>'--regions-overlap 0');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 1');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 2');
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
