@@ -983,6 +983,10 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *-o, --output* 'FILE'::
     write output to a file
 
+*--regions-overlap* '0'|'1'|'2'::
+    how to treat VCF variants overlapping the target region in the fasta file:
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     apply variants of the listed samples. See also the option *-I, --iupac-codes*
 
