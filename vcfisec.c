@@ -58,7 +58,7 @@ typedef struct
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
     char **argv, *prefix, *output_fname, **fnames, *write_files, *targets_list, *regions_list;
-    char *isec_exact;
+    char *isec_exact, *file_list;
     int argc, record_cmd_line;
     char *index_fn;
     int write_index;
@@ -484,6 +484,7 @@ static void usage(void)
     fprintf(stderr, "    -e, --exclude EXPR             Exclude sites for which the expression is true\n");
     fprintf(stderr, "    -f, --apply-filters LIST       Require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --include EXPR             Include only sites for which the expression is true\n");
+    fprintf(stderr, "    -l, --file-list FILE           Read the input file names from the file\n");
     fprintf(stderr, "        --no-version               Do not append version and command line to the header\n");
     fprintf(stderr, "    -n, --nfiles [+-=~]INT         Output positions present in this many (=), this many or more (+), this many or fewer (-), the exact (~) files\n");
     fprintf(stderr, "    -o, --output FILE              Write output to a file [standard output]\n");
@@ -541,6 +542,7 @@ int main_vcfisec(int argc, char *argv[])
         {"collapse",required_argument,NULL,'c'},
         {"complement",no_argument,NULL,'C'},
         {"apply-filters",required_argument,NULL,'f'},
+        {"file-list",required_argument,NULL,'l'},
         {"nfiles",required_argument,NULL,'n'},
         {"prefix",required_argument,NULL,'p'},
         {"write",required_argument,NULL,'w'},
@@ -558,7 +560,7 @@ int main_vcfisec(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -593,6 +595,7 @@ int main_vcfisec(int argc, char *argv[])
             case 'C':
                 if ( args->isec_op!=0 && args->isec_op!=OP_COMPLEMENT ) error("Error: either -C or -n should be given, not both.\n");
                 args->isec_op = OP_COMPLEMENT; break;
+            case 'l': args->file_list = optarg; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;
@@ -635,7 +638,24 @@ int main_vcfisec(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( argc-optind<1 ) usage();   // no file given
+    if ( argc-optind<1 && !args->file_list ) usage();   // no file given
+
+    int nfiles = 0,i;
+    char **files = NULL;
+    if ( args->file_list )
+    {
+        files = hts_readlines(args->file_list, &nfiles);
+        if ( !files ) error("Failed to read from %s\n", args->file_list);
+    }
+    if ( optind<argc )
+    {
+        int n = argc - optind;
+        files = (char**)realloc(files,sizeof(*files)*(n+nfiles));
+        for (i=nfiles; i>0; i--) files[n+i-1] = files[n+i-2];
+        for (i=0; i<n; i++) files[i] = strdup(argv[optind+i]);
+        nfiles += n;
+    }
+
     if ( args->targets_list )
     {
         bcf_sr_set_opt(args->files,BCF_SR_TARGETS_OVERLAP,targets_overlap);
@@ -648,7 +668,7 @@ int main_vcfisec(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
-    if ( argc-optind==2 && !args->isec_op )
+    if ( nfiles==2 && !args->isec_op )
     {
         args->isec_op = OP_VENN;
         if ( !args->prefix ) error("Expected the -p option\n");
@@ -659,11 +679,13 @@ int main_vcfisec(int argc, char *argv[])
         args->isec_n  = 1;
     }
     args->files->require_index = 1;
-    while (optind<argc)
+    for (i=0; i<nfiles; i++)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
-        optind++;
+        if ( !bcf_sr_add_reader(args->files, files[i]) ) error("Failed to open %s: %s\n", files[i],bcf_sr_strerror(args->files->errnum));
+        free(files[i]);
     }
+    free(files);
+
     init_data(args);
     isec_vcf(args);
     destroy_data(args);

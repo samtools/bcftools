@@ -8,6 +8,10 @@ Changes affecting specific commands:
     - Add new --regions-overlap option which allows to take into account overlapping deletions
       that start out of the fasta file target region.
 
+* bcftools isec
+
+    - Add new option `-l, --file-list` to read the list of file names from a file
+
 * bcftools norm
 
     - Change the order of atomization and multiallelic splitting (when both -a,-m are given)

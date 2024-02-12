@@ -1882,6 +1882,9 @@ in the other files.
     include only sites for which 'EXPRESSION' is true. See discussion
     of *-e, --exclude* above.
 
+*-f, --file-list* 'FILE'::
+    Read file names from 'FILE', one file name per line.
+
 *-n, --nfiles* \[+-=]'INT'|~'BITMAP'::
     output positions present in this many (=), this many or more (+), this
     many or fewer (-), or the exact same (~) files
