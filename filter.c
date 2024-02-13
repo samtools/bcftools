@@ -3569,6 +3569,14 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         nops--;
     }
 
+    if ( filter->status |= FILTER_OK )
+    {
+        if ( mops ) free(ops);
+        filter->filters   = out;
+        filter->nfilters  = nout;
+        return filter;
+    }
+
     // In the special cases of TYPE and FILTER the BCF header IDs are yet unknown. Walk through the
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the FILTER token and they must be followed with a comparison operator.

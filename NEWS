@@ -51,6 +51,8 @@ Changes affecting specific commands:
 
     - Recognize `-c field:str`, not just `-c field:string`, as advertised in the usage page
 
+    - Fix a bug which made filtering expression containing missing values crash (#2098)
+
 * bcftools stats
 
     - When GT is missing but AD is present, the program determines the alternate allele from AD.

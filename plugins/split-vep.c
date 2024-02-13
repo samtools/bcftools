@@ -1204,14 +1204,16 @@ static inline void parse_array_real(annot_t *ann, char *str, float **arr, int *m
     while ( *bp )
     {
         ptr[i] = strtod(bp, &ep);
-        if ( !warned_type_err && ((bp==ep && ep[1]!=',') || *ep!=',') )
-        {
-            fprintf(stderr,"Warning: Could not parse, not a numeric list %s=\"%s\", check the -c and --columns-types options.\n"
-                           "         This message is printed only once.\n",ann->tag,str);
-            warned_type_err = 1;
-        }
         if ( bp==ep )
+        {
+            if ( !warned_type_err && (ep[0]!='.' || (ep[1]!=',' && ep[1])) )
+            {
+                fprintf(stderr,"Warning: Could not parse, not a numeric list %s=\"%s\", check the -c and --columns-types options.\n"
+                        "         This message is printed only once.\n",ann->tag,str);
+                warned_type_err = 1;
+            }
             bcf_float_set_missing(ptr[i]);
+        }
         i++;
         while ( *ep && *ep!=',' ) ep++;
         bp = *ep ? ep + 1 : ep;
@@ -1236,14 +1238,16 @@ static inline void parse_array_int32(annot_t *ann, char *str, int **arr, int *ma
     while ( *bp )
     {
         ptr[i] = strtol(bp, &ep, 10);
-        if ( !warned_type_err && ((bp==ep && ep[1]!=',') || *ep!=',') )
-        {
-            fprintf(stderr,"Warning: Could not parse, not a list of integers %s=\"%s\", check the -c and --columns-types options.\n"
-                           "         This message is printed only once.\n",ann->tag,str);
-            warned_type_err = 1;
-        }
         if ( bp==ep )
+        {
+            if ( !warned_type_err && (ep[0]!='.' || (ep[1]!=',' && ep[1])) )
+            {
+                fprintf(stderr,"Warning: Could not parse, not a numeric list %s=\"%s\", check the -c and --columns-types options.\n"
+                        "         This message is printed only once.\n",ann->tag,str);
+                warned_type_err = 1;
+            }
             ptr[i] = bcf_int32_missing;
+        }
         i++;
         while ( *ep && *ep!=',' ) ep++;
         bp = *ep ? ep + 1 : ep;
