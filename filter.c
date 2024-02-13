@@ -3569,7 +3569,7 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         nops--;
     }
 
-    if ( filter->status |= FILTER_OK )
+    if ( filter->status != FILTER_OK )
     {
         if ( mops ) free(ops);
         filter->filters   = out;
