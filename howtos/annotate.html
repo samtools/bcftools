@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.16">
 <title>Annotating VCF/BCF files</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -97,6 +97,16 @@
 <pre>bcftools annotate -x INFO,^FORMAT/GT,FORMAT/PL file.vcf</pre>
 </div>
 </div>
+<div class="listingblock">
+<div class="title"><strong>Rename annotations</strong></div>
+<div class="content">
+<pre># rename INFO tag `OldName` to `NewName`
+bcftools annotate -c INFO/NewName:=INFO/OldName file.vcf
+
+# rename FILTER `OldName` to `NewName`
+bcftools annotate -c FILTER/NewName:=FILTER/OldName file.vcf</pre>
+</div>
+</div>
 <div class="paragraph">
 <div class="title"><strong>Transfer annotations from one VCF file to another</strong></div>
 <p>Populate the columns ID, QUAL and the INFO/TAG annotation</p>
@@ -116,6 +126,14 @@ bcftools annotate -a src.bcf -c ID,QUAL,TAG dst.bcf</pre>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Carry over FILTER column</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools annotate -a src.bcf -c FILTER dst.bcf</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -144,7 +162,7 @@ bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf<
 </div>
 </div>
 <div class="paragraph">
-<div class="title"><strong>Overwriting / not overwriting existing tags and the handling of missing values</strong></div>
+<div class="title"><strong>Overwriting versus not overwriting existing tags and the handling of missing values</strong></div>
 <p>Modifiers that control what to do with missing values:</p>
 </div>
 <table class="tableblock frame-all grid-all" style="width: 70%;">
@@ -173,6 +191,30 @@ bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf<
 </tr>
 </tbody>
 </table>
+<div id="transfer_filter_to_info" class="listingblock">
+<div class="title"><strong>Transfer FILTER values into an INFO tag</strong></div>
+<div class="content">
+<pre># transfer FILTER column to INFO tag NewTag; notice that the -a option is not present, therefore
+# B.bcf/FILTER is the source annotation
+bcftools annotate -c INFO/NewTag:=FILTER B.bcf
+
+# transfer FILTER column from A.bcf to INFO/NewTag in B.bcf; notice that the -a option is present,
+# therefore A.bcf/FILTER is the source annotation
+bcftools annotate -c INFO/NewTag:=FILTER -a A.bcf B.bcf
+
+# transfer B.bcf/FILTER column to INFO tag NewTag; notice that although the -a option is present,
+# the notation "./FILTER" tells the program to transfer the annotation locally and make B.bcf/FILTER
+# the source annotation
+bcftools annotate -c INFO/NewTag:=./FILTER -a A.bcf B.bcf
+
+# transfer B.bcf/FILTER column to INFO/NewTag, then A.bcf/FILTER to B.bcf/FILTER
+bcftools annotate -c INFO/NewTag:=./FILTER,FILTER -a A.bcf B.bcf
+
+# transfer A.bcf/FILTER to B.bcf/FILTER, then the new B.bcf/FILTER value to INFO/NewTag; notice
+# that due to the order of operation, FILTER and INFO/NewTag will be identical
+bcftools annotate -c FILTER,INFO/NewTag:=./FILTER -a A.bcf B.bcf</pre>
+</div>
+</div>
 <div class="paragraph">
 <div class="title"><strong>Transfer annotation from INFO column to FORMAT</strong></div>
 <p>Imagine you need to transfer INFO/DP annotation to FORMAT/DP. This is currently not possible
