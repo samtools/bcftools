@@ -12,6 +12,10 @@ Changes affecting specific commands:
 
     - Add new option `-l, --file-list` to read the list of file names from a file
 
+* bcftools merge
+
+    - Add new option `--force-single` to support single-file edge case (#2100)
+
 * bcftools norm
 
     - Change the order of atomization and multiallelic splitting (when both -a,-m are given)

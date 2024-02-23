@@ -1970,12 +1970,17 @@ also given explicitly using the *--print-header* and *--use-header* options.
 Note that only records from different files can be merged, never from the same file.
 For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcftools norm>> -m* instead.
 
+*--force-no-index*::
+    synonymous to *--no-index*
 
 *--force-samples*::
     if the merged files contain duplicate samples names, proceed anyway.
     Duplicate sample names will be resolved by prepending the index of the file
     as it appeared on the command line to the conflicting sample name (see
     '2:S3' in the above example).
+
+*--force-single*::
+    run even if only one file is given on input
 
 *--print-header*::
     print only merged header and exit
