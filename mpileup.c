@@ -1341,7 +1341,7 @@ static void print_profiles(void) {
 
 int main_mpileup(int argc, char *argv[])
 {
-    int c;
+    int c, i, ret = 1;
     const char *file_list = NULL;
     char **fn = NULL;
     int nfiles = 0, use_orphan = 0, noref = 0;
@@ -1458,19 +1458,31 @@ int main_mpileup(int argc, char *argv[])
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  16 :
             mplp.rflag_skip_any_unset = bam_str2flag(optarg);
-            if ( mplp.rflag_skip_any_unset <0 ) { fprintf(stderr,"Could not parse --nf %s\n", optarg); return 1; }
+            if ( mplp.rflag_skip_any_unset <0 ) {
+                fprintf(stderr,"Could not parse --nf %s\n", optarg);
+                goto err;
+            }
             break;
         case  17 :
             mplp.rflag_skip_all_unset = bam_str2flag(optarg);
-            if ( mplp.rflag_skip_all_unset<0 ) { fprintf(stderr,"Could not parse --if %s\n", optarg); return 1; }
+            if ( mplp.rflag_skip_all_unset<0 ) {
+                fprintf(stderr,"Could not parse --if %s\n", optarg);
+                goto err;
+            }
             break;
         case  18 :
             mplp.rflag_skip_any_set = bam_str2flag(optarg);
-            if ( mplp.rflag_skip_any_set <0 ) { fprintf(stderr,"Could not parse --ef %s\n", optarg); return 1; }
+            if ( mplp.rflag_skip_any_set <0 ) {
+                fprintf(stderr,"Could not parse --ef %s\n", optarg);
+                goto err;
+            }
             break;
         case  19 :
             mplp.rflag_skip_all_set = bam_str2flag(optarg);
-            if ( mplp.rflag_skip_all_set <0 ) { fprintf(stderr,"Could not parse --df %s\n", optarg); return 1; }
+            if ( mplp.rflag_skip_all_set <0 ) {
+                fprintf(stderr,"Could not parse --df %s\n", optarg);
+                goto err;
+            }
             break;
         case  3 : mplp.output_fname = optarg; break;
         case  4 : mplp.openQ = atoi(optarg); break;
@@ -1481,7 +1493,8 @@ int main_mpileup(int argc, char *argv[])
             break;
         case 'f':
             mplp.fai = fai_load(optarg);
-            if (mplp.fai == NULL) return 1;
+            if (mplp.fai == NULL)
+                goto err;
             mplp.fai_fname = optarg;
             break;
         case  7 : noref = 1; break;
@@ -1508,7 +1521,10 @@ int main_mpileup(int argc, char *argv[])
                   if ( optarg[0]=='^' ) optarg++;
                   else mplp.bed_logic = 1;
                   mplp.bed = regidx_init(optarg,NULL,NULL,0,NULL);
-                  if (!mplp.bed) { fprintf(stderr, "bcftools mpileup: Could not read file \"%s\"", optarg); return 1; }
+                  if (!mplp.bed) {
+                      fprintf(stderr, "bcftools mpileup: Could not read file \"%s\"", optarg);
+                      goto err;
+                  }
                   break;
         case 'P': mplp.pl_list = strdup(optarg); break;
         case 'p': mplp.flag |= MPLP_PER_SAMPLE; break;
@@ -1599,7 +1615,7 @@ int main_mpileup(int argc, char *argv[])
         case 'a':
             if (optarg[0]=='?') {
                 list_annotations(stderr);
-                return 1;
+                goto err;
             }
             parse_format_flag(&mplp.fmt_flag,optarg);
         break;
@@ -1712,12 +1728,12 @@ int main_mpileup(int argc, char *argv[])
             } else if (strcasecmp(optarg, "list") == 0 ||
                        strcasecmp(optarg, "help") == 0) {
                 print_profiles();
-                return 1;
+                goto err;
             } else {
                 fprintf(stderr, "Unknown configuration name '%s'\n"
                         "Please use '-X list' to show available choices.\n",
                         optarg);
-                return 1;
+                goto err;
             }
             break;
         case 13: hts_srand48(atoi(optarg)); break;
@@ -1729,7 +1745,7 @@ int main_mpileup(int argc, char *argv[])
             break;
         default:
             fprintf(stderr,"Invalid option: '%c'\n", c);
-            return 1;
+            goto err;
         }
     }
 
@@ -1754,22 +1770,23 @@ int main_mpileup(int argc, char *argv[])
     if ( !(mplp.flag&MPLP_REALN) && mplp.flag&MPLP_REDO_BAQ )
     {
         fprintf(stderr,"Error: The -B option cannot be combined with -E\n");
-        return 1;
+        goto err;
     }
     if (use_orphan) mplp.flag &= ~MPLP_NO_ORPHAN;
     if (argc == 1)
     {
         print_usage(stderr, &mplp);
-        return 1;
+        goto err;
     }
     if (!mplp.fai && !noref) {
         fprintf(stderr,"Error: mpileup requires the --fasta-ref option by default; use --no-reference to run without a fasta reference\n");
-        return 1;
+        goto err;
     }
-    int ret,i;
+
     if (file_list)
     {
-        if ( read_file_list(file_list,&nfiles,&fn) ) return 1;
+        if ( read_file_list(file_list,&nfiles,&fn) )
+            goto err;
         mplp.files  = fn;
         mplp.nfiles = nfiles;
     }
@@ -1788,6 +1805,8 @@ int main_mpileup(int argc, char *argv[])
     if (mplp.bed) regidx_destroy(mplp.bed);
     if (mplp.bed_itr) regitr_destroy(mplp.bed_itr);
     if (mplp.reg) regidx_destroy(mplp.reg);
+
+ err:
     bam_smpl_destroy(mplp.bsmpl);
 
     return ret;
