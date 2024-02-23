@@ -938,9 +938,12 @@ static inline void update_dvaf(stats_t *stats, bcf1_t *line, int ial, float vaf)
 #define vaf2bin(vaf) ((int)nearbyintf((vaf)/0.05))
 static inline void update_vaf(vaf_t *smpl_vaf, bcf1_t *line, int ial, float vaf)
 {
-    int idx = vaf2bin(vaf);
-    if ( bcf_get_variant_type(line,ial)==VCF_SNP ) smpl_vaf->snv[idx]++;
-    else smpl_vaf->indel[idx]++;
+    if ( vaf>=0 && vaf<=1 )
+    {
+        int idx = vaf2bin(vaf);
+        if ( bcf_get_variant_type(line,ial)==VCF_SNP ) smpl_vaf->snv[idx]++;
+        else smpl_vaf->indel[idx]++;
+    }
 }
 
 static inline int calc_sample_depth(args_t *args, int ismpl, bcf_fmt_t *ad_fmt_ptr, bcf_fmt_t *dp_fmt_ptr)
