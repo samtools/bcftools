@@ -314,7 +314,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             if (bca->edlib) {
                 if (indel_in_sample) {
                     seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
-                } else {
+                } else if (p->aux & 0xff) {
                     // An indel in another sample, but not this.  So just use
                     // basic sequence confidences.
                     q = bam_get_qual(p->b)[p->qpos];
