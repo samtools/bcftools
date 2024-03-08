@@ -317,7 +317,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int ref_len, int left, int right,
                                 int sample, int type, int biggest_del,
                                 int *left_shift, int *right_shift,
-                                int *band, int *tcon_len, int *cpos_pos) {
+                                int *band, int *tcon_len, int *cpos_pos,
+                                int pos_l, int pos_r) {
     // Map ASCII ACGTN* to 012345
     static uint8_t base6[256] = {
         4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,
@@ -357,6 +358,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     //--------------------------------------------------
     // Accumulate sequences into cons_base and cons_ins arrays
     int local_band_max = 0; // maximum absolute deviation from diagonal
+    int total_span_str = 0;
+    int type_depth = 0;
     for (i = 0; i < n_plp[s]; i++) {
         const bam_pileup1_t *p = plp[s] + i;
         bam1_t *b = p->b;
@@ -425,6 +428,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                         if (bcf_cgp_append_cons(&cons_ins[x-left], ins,
                                                 ilen, 1) < 0)
                             goto err;
+                        type_depth += (x == pos+1);
                     } else  if (x != pos+1){
                         if (bcf_cgp_append_cons(&ref_ins[x-left],  ins,
                                                 ilen, 1) < 0)
@@ -446,9 +450,10 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (x < left) continue;
                     if (x >= right) break;
                     if ((p->indel == type && !p->is_del) ||  // starts here
-                        (p->indel == 0 && p->is_del && len == -type)) // left
+                        (p->indel == 0 && p->is_del && len == -type)) { // left
                         cons_base[x-left][5]++;
-                    else if (x+len <= pos+1 || (skip_to && x > skip_to))
+                        type_depth += (x == pos+1);
+                    } else if (x+len <= pos+1 || (skip_to && x > skip_to))
                         ref_base[x-left][5]++;
                     else if (x <= pos && x+len > pos+1) {
                         // we have a deletion which overlaps pos, but
@@ -465,6 +470,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 break;
             }
         }
+
+        if (b->core.pos <= pos_l && x >= pos_r)
+            total_span_str++;
 
         // Also track the biggest deviation +/- from diagonal.  We use
         // this band observation in our BAQ alignment step.
@@ -622,10 +630,11 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-#define CONS_CUTOFF      .40 // 40% needed for base vs N
-#define CONS_CUTOFF2     .80 // 80% needed for gap in cons[1]
-#define CONS_CUTOFF_INC  .40 // 40% to include any insertion cons[0]
-#define CONS_CUTOFF_INC2 .80 // 80% to include any insertion cons[1] HOM
+#define CONS_CUTOFF      .40 // % needed for base vs N
+#define CONS_CUTOFF_DEL  .35 // % to include any het del
+#define CONS_CUTOFF2     .80 // % needed for gap in cons[1]
+#define CONS_CUTOFF_INC  .35 // % to include any insertion cons[0]
+#define CONS_CUTOFF_INC2 .80 // % to include any insertion cons[1] HOM
 #define CONS_CUTOFF_INS  .60 // and then 60% needed for it to be bases vs N
 
     //--------------------------------------------------
@@ -723,14 +732,18 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             if (!always_del && cons_base[i][5] >= bca->min_support) {
                 // Candidate HET del.
                 if (cnum == 0) {
-                    het_del = cons_base[i][5] >= CONS_CUTOFF * tot;
+                    int tot2 = tot;
+                    if (i > pos-left && i <= pos-left-biggest_del)
+                        tot2 = total_span_str - type_depth;
+                    het_del = cons_base[i][5] >= CONS_CUTOFF_DEL * tot2;
+
                     if (i < 1024) {
                         if (i > pos-left && i <= pos-left-biggest_del)
                             hetd[i] = 0;
                         else
                             hetd[i] = het_del
                                 ? 1
-                                : (cons_base[i][5] >= .3 * tot ? -1 : 0);
+                                : (cons_base[i][5] >= .3 * tot2 ? -1 : 0);
                     }
                 } else {
                     // HET del uncalled on cnum 0
@@ -1391,6 +1404,26 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     }
     int band = biggest_ins - biggest_del; // NB del is -ve
 
+    // Find left & right extents of STR covering pos, from ref
+    int pos_l = pos, pos_r = pos;
+    {
+        rep_ele *reps, *elt, *tmp;
+        int pstart = MAX(0, pos-30);
+        int pmid = pos-pstart;
+        int pend = MIN(ref_len, pos+30);
+        reps = find_STR((char *)&ref[pstart], pend-pstart, 0);
+        DL_FOREACH_SAFE(reps, elt, tmp) {
+            if (elt->end >= pmid && elt->start <= pmid) {
+                if (pos_l > pstart + elt->start)
+                    pos_l = pstart + elt->start;
+                if (pos_r < pstart + elt->end)
+                    pos_r = pstart + elt->end;
+            }
+            DL_DELETE(reps, elt);
+            free(elt);
+        }
+    }
+
     int str_len1 = l_run, str_len2 = l_run/4;
     for (t = 0; t < n_types; ++t) {
         int l, ir;
@@ -1420,7 +1453,7 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref, ref_len,
                                       left, right, s, types[t], biggest_del,
                                       &left_shift, &right_shift, &band,
-                                      tcon_len, &cpos_pos);
+                                      tcon_len, &cpos_pos, pos_l, pos_r);
             // TODO: Consensus for a deletion shouldn't match the
             // consensus for type 0.  Eg consider
             //         vv                          vv
