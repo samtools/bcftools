@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (informative and non-informative); some reads may have been filtered based on mapq etc.">
+##INFO=<ID=TAG,Number=1,Type=String,Description="This is an example of a string in info.">
+##FORMAT=<ID=TAG,Number=1,Type=String,Description="This is an example of a string in format.">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+chr1	11558102	.	G	GT	.	PASS	DP=61	.	.
+chr1	11558105	.	G	C	.	PASS	DP=61;TAG=Example	TAG	Example
+chr1	11558108	.	A	T	.	PASS	DP=61;TAG=It	TAG	It

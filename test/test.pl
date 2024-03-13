@@ -305,6 +305,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.3.o
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.out',args=>['-m -','-m +any']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
+run_test(\&test_vcf_view,$opts,in=>'filter.string.1',out=>'filter.string.1.1.out',args=>q[-i 'INFO/TAG=@{PATH}/filter.string.1.txt']);
+run_test(\&test_vcf_view,$opts,in=>'filter.string.1',out=>'filter.string.1.1.out',args=>q[-i 'FMT/TAG=@{PATH}/filter.string.1.txt']);
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.1.out',args=>'-HA');
 run_test(\&test_vcf_view,$opts,in=>'merge.gvcf.2.a',out=>'merge.gvcf.2.a.2.out',args=>'-HAA');
 run_test(\&test_vcf_view,$opts,in=>'weird-chr-names',out=>'weird-chr-names.1.out',args=>'',reg=>'-r 1');

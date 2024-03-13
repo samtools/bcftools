@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -615,7 +615,7 @@ static void filters_cmp_string_hash(token_t *atok, token_t *btok, token_t *rtok,
         // there is only one string value, e.g. STR[1]=@list.txt
         if ( btok->idx >= 0 )
         {
-            int ret = khash_str2int_has_key(atok->hash, btok->str_value.s);
+            int ret = btok->str_value.s ? khash_str2int_has_key(atok->hash, btok->str_value.s) : 0;
             if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
             rtok->pass_site = ret;
             return;
