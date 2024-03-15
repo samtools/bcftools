@@ -3142,7 +3142,7 @@ Modify header of VCF/BCF files, change sample names.
     "Not\ a\ good\ sample\ name".
 
 *-T, --temp-prefix* 'PATH'::
-    template for temporary file names, used with *-f*
+    this option is ignored, but left for compatibility with earlier versions of bcftools.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
