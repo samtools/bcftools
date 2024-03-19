@@ -567,6 +567,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
         max_len += ins;
     }
+    max_len += MAX(0, type); // incase type inserted bases never occur
     cons = malloc((max_len+1)*2 + sizeof(char *)*2);
     if (!cons)
         goto err;
@@ -676,6 +677,16 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             int max_v_ins = 0, max_j_ins = 0;
             int tot_ins = 0;
             for (j = 0; j < NI; j++) {
+                if (i+left==pos+1)
+                if (type > 0 && i+left == pos+1
+                    && cons_ins[i].len[j] < type && j == 0) {
+                    cons_ins[i].str[j] = realloc(cons_ins[i].str[j], type);
+                    if (!cons_ins[i].str[j])
+                        goto err;
+                    memset(cons_ins[i].str[j] + cons_ins[i].len[j],
+                           'N', type - cons_ins[i].len[j]);
+                    cons_ins[i].len[j] = type;
+                }
                 if (!cons_ins[i].str[j])
                     break;
                 if (cons_ins[i].freq[j] == 0)
