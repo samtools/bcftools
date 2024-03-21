@@ -212,7 +212,7 @@ sub parse_params
             {
                 id=>'PSC',
                 header=>'PSC, Per-sample counts',
-                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing"
+                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing\t[15]average genotype quality"
             },
             {
                 id=>'PSI',
@@ -672,7 +672,7 @@ sub parse_vcfstats1
         for my $b (keys %{$dat{$a}})
         {
             # Merging multiple vcfstats files. Honestly, this is quite hacky.
-            if ( !exists($$opts{dat}{$a}{$b}) ) { $$opts{dat}{$a}{$b} = $dat{$a}{$b}; next; } # copy all, first occurance
+            if ( !exists($$opts{dat}{$a}{$b}) ) { $$opts{dat}{$a}{$b} = $dat{$a}{$b}; next; } # copy all, first occurence
 
             if ( $a eq 'ID' ) { merge_id($opts,$$opts{dat}{$a},$dat{$a},$b); }
             elsif ( ref($dat{$a}{$b}) ne 'ARRAY' ) { $$opts{dat}{$a}{$b} += $dat{$a}{$b} unless $b eq 'number of samples:'; } # SN, Summary numbers, do not sum sample counts
