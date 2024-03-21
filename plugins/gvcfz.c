@@ -102,7 +102,7 @@ static const char *usage_text(void)
         "   -g, --group-by EXPR             Group gVCF blocks according to the expression\n"
         "   -o, --output FILE               Write gVCF output to the FILE\n"
         "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "       --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Compress blocks by GQ and DP. Multiple blocks separated by a semicolon can be defined\n"
         "   bcftools +gvcfz input.bcf -g'PASS:GQ>60 & DP<20; PASS:GQ>40 & DP<15; Flt1:QG>20; Flt2:-'\n"
@@ -335,7 +335,7 @@ int run(int argc, char **argv)
         {"stats",required_argument,NULL,'s'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"write-index",no_argument,NULL,1},
+        {"write-index",optional_argument,NULL,1},
         {NULL,0,NULL,0}
     };
     int c;
@@ -371,7 +371,10 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
-            case  1 : args->write_index = 1; break;
+            case  1 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -399,7 +402,9 @@ int run(int argc, char **argv)
     set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
     args->fh_out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( bcf_hdr_write(args->fh_out, args->hdr_out)!=0 ) error("Failed to write the header\n");
-    if ( args->write_index && init_index(args->fh_out,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->fh_out,args->hdr_out,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
     while ( bcf_sr_next_line(args->sr) ) process_gvcf(args);
     flush_block(args, NULL);
 

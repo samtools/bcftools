@@ -69,7 +69,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "       --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n";
 }
 
@@ -87,7 +87,7 @@ int run(int argc, char **argv)
         {"targets-file",required_argument,NULL,'T'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"write-index",no_argument,NULL,1},
+        {"write-index",optional_argument,NULL,1},
         {NULL,0,NULL,0}
     };
     int c;
@@ -119,7 +119,10 @@ int run(int argc, char **argv)
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; args->targets_is_file = 1; break;
-            case  1 : args->write_index = 1; break;
+            case  1 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -151,7 +154,9 @@ int run(int argc, char **argv)
     args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_a)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out_fh,args->hdr_a,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out_fh,args->hdr_a,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+      error("Error: failed to initialise index for %s\n",args->output_fname);
 
     while ( bcf_sr_next_line(args->sr) )
     {

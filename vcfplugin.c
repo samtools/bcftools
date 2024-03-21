@@ -550,7 +550,9 @@ static void init_data(args_t *args)
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-        if ( args->write_index && init_index(args->out_fh,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+        if ( init_index2(args->out_fh,args->hdr_out,args->output_fname,
+                         &args->index_fn, args->write_index)<0 )
+            error("Error: failed to initialise index for %s\n",args->output_fname);
     }
 }
 
@@ -613,7 +615,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -l, --list-plugins             List available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -v, --verbose                  Print verbose information, -vv increases verbosity\n");
     fprintf(stderr, "   -V, --version                  Print version string and exit\n");
-    fprintf(stderr, "       --write-index              Automatically index the output files [off]\n");
+    fprintf(stderr, "       --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -691,7 +693,7 @@ int main_plugin(int argc, char *argv[])
         {"targets-file",required_argument,NULL,'T'},
         {"targets-overlap",required_argument,NULL,2},
         {"no-version",no_argument,NULL,8},
-        {"write-index",no_argument,NULL,10},
+        {"write-index",optional_argument,NULL,10},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -740,7 +742,10 @@ int main_plugin(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case 10 : args->write_index = 1; break;
+            case 10 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case '?':
             case 'h': usage_only = 1; break;
             default: error("Unknown argument: %s\n", optarg);

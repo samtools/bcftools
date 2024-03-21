@@ -554,7 +554,9 @@ void init_data(args_t *args)
         if ( args->hdr_nsmpl )
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
         if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
-        if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+        if ( init_index2(args->out_fh,args->hdr,args->output_fname,
+                         &args->index_fn, args->write_index) < 0 )
+            error("Error: failed to initialise index for %s\n",args->output_fname);
     }
     if ( args->verbosity > 0 ) fprintf(stderr,"Calling...\n");
 }
@@ -3328,7 +3330,7 @@ static const char *usage(void)
         "       --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --threads INT                 Use multithreading with <int> worker threads [0]\n"
         "   -v, --verbose INT                 Verbosity level 0-2 [1]\n"
-        "       --write-index                 Automatically index the output files [off]\n"
+        "       --write-index[=FMT]           Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf\n"
@@ -3379,7 +3381,7 @@ int main_csq(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,5},
         {"no-version",no_argument,NULL,3},
-        {"write-index",no_argument,NULL,6},
+        {"write-index",optional_argument,NULL,6},
         {"dump-gff",required_argument,NULL,7},
         {"unify-chr-names",required_argument,NULL,8},
         {0,0,0,0}
@@ -3470,7 +3472,10 @@ int main_csq(int argc, char *argv[])
                 targets_overlap = parse_overlap_option(optarg);
                 if ( targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case  6 : args->write_index = 1; break;
+            case  6 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case  7 : args->dump_gff = optarg; break;
             case  8 :
                 if ( !strcmp(optarg,"0") ) args->unify_chr_names = 0;
