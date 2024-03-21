@@ -97,7 +97,7 @@ static const char *usage_text(void)
         "   -x, --extra STRING              Output records not overlapping listed regions in separate file\n"
         "   -p, --prefix STRING             Prepend string to output VCF names\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "       --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # Scatter a VCF file by shards with 10000 variants each\n"
@@ -203,7 +203,9 @@ static void open_set(subset_t *set, args_t *args)
         if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_plugin");
     }
     if ( bcf_hdr_write(set->fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__, args->str.s);
-    if ( args->write_index && init_index(set->fh,args->hdr,args->str.s,&set->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->str.s);
+    if ( init_index2(set->fh,args->hdr,args->str.s,&set->index_fn,
+                     args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->str.s);
 }
 
 static void init_data(args_t *args)
@@ -352,7 +354,7 @@ int run(int argc, char **argv)
         {"extra",required_argument,NULL,'x'},
         {"prefix",required_argument,NULL,'p'},
         {"hts-opts",required_argument,NULL,5},
-        {"write-index",no_argument,NULL,6},
+        {"write-index",optional_argument,NULL,6},
         {NULL,0,NULL,0}
     };
     int c;
@@ -410,7 +412,10 @@ int run(int argc, char **argv)
             case 'x': args->extra = optarg;  break;
             case 'p': args->prefix = optarg;  break;
             case  5 : args->hts_opts = hts_readlist(optarg, 0, &args->nhts_opts); break;
-            case  6 : args->write_index = 1; break;
+            case  6 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

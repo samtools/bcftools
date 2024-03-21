@@ -150,8 +150,11 @@ void isec_vcf(args_t *args)
         if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
         if (args->record_cmd_line) bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         if ( bcf_hdr_write(out_fh, files->readers[args->iwrite].header)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
-        if ( args->write_index && init_index(out_fh,files->readers[args->iwrite].header,args->output_fname,&args->index_fn)<0 )
-            error("Error: failed to initialise index for %s\n",args->output_fname?args->output_fname:"standard output");
+        if ( init_index2(out_fh,files->readers[args->iwrite].header,
+                         args->output_fname,&args->index_fn,
+                         args->write_index)<0 )
+            error("Error: failed to initialise index for %s\n",
+                  args->output_fname?args->output_fname:"standard output");
     }
     if ( !args->nwrite && !out_std && !args->prefix )
         fprintf(stderr,"Note: -w option not given, printing list of sites...\n");
@@ -498,7 +501,7 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT              Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --write LIST               List of files to write with -p given as 1-based indexes. By default, all files are written\n");
-    fprintf(stderr, "        --write-index              Automatically index the output files [off]\n");
+    fprintf(stderr, "        --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
@@ -556,7 +559,7 @@ int main_vcfisec(int argc, char *argv[])
         {"output-type",required_argument,NULL,'O'},
         {"threads",required_argument,NULL,9},
         {"no-version",no_argument,NULL,8},
-        {"write-index",no_argument,NULL,10},
+        {"write-index",optional_argument,NULL,10},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -632,7 +635,10 @@ int main_vcfisec(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case 10 : args->write_index = 1; break;
+            case 10 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);

@@ -181,7 +181,7 @@ static const char *usage_text(void)
         "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
         "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
         "       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "       --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -778,7 +778,9 @@ static void init_data(args_t *args)
     args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out_fh,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out_fh,args->hdr_out,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
 
     if ( args->dnm_score_type & DNM_FLOAT )
         args->dnm_qual_float = (float*) malloc(sizeof(*args->dnm_qual_float)*bcf_hdr_nsamples(args->hdr));
@@ -1603,7 +1605,7 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,15},
-        {"write-index",no_argument,NULL,16},
+        {"write-index",optional_argument,NULL,16},
         {NULL,0,NULL,0}
     };
     int c;
@@ -1692,7 +1694,10 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case 16 : args->write_index = 1; break;
+            case 16 :
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':
