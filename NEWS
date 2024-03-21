@@ -30,6 +30,10 @@ Changes affecting specific commands:
       now fixed and the merging is now more strict about variant types, for example complex
       events, such as AC>TGA, are not considered as indels anymore (#2084)
 
+* bcftools reheader
+
+    - Allow reading the input file from a stream with --fai (#2088)
+
 * bcftools +setGT
 
     - Support for custom genotypes based on the allele with higher depth, such
