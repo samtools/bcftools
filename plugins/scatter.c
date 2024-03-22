@@ -306,7 +306,12 @@ static void process(args_t *args)
         args->rec_cnt++;
         if (args->rec_cnt == args->nsites) {
           args->rec_cnt = 0;
+          int err = 0;
+          if ( args->write_index && bcf_idx_save(set->fh) < 0)
+              err = 1;
           if ( hts_close(set->fh)!=0 ) error("Error: close failed .. %s\n", set->fname);
+          if (err)
+              error("Error: cannot write to index %s\n", set->index_fn);
           free(set->fname);
           set->fname = NULL;
           args->chunk_cnt++;
