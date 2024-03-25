@@ -245,6 +245,11 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
         PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts | sed 's,-arch i386,,'`"
         PERL_LIBS="`perl -MExtUtils::Embed -e ldopts | sed 's,-arch i386,,'`"
     fi
+    AS_CASE([$PERL_LIBS],
+      [*redhat/redhat-hardened-ld*],[[
+        PERL_CCOPTS="`echo $PERL_CCOPTS | sed 's,-specs=[a-z/]*/redhat/redhat-hardened-[a-z0-9]* *,,g'`"
+        PERL_LIBS="`echo $PERL_LIBS | sed 's,-specs=[a-z/]*/redhat/redhat-hardened-[a-z0-9]* *,,g'`"]
+        AC_MSG_NOTICE([removing -specs=...redhat-hardened... from Perl options])])
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
 
