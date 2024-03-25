@@ -974,6 +974,7 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
                 if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
                 dst[j++] = src[k];
             }
+            if ( !j ) { bcf_double_set_missing(dst[j]); j++; }
             for (; j<tok->nval1; j++) bcf_double_set_vector_end(dst[j]);
         }
     }
@@ -1064,6 +1065,7 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
                     dst[j] = src[k];
                 j++;
             }
+            if ( !j ) { bcf_double_set_missing(dst[j]); j++; }
             for (; j<tok->nval1; j++) bcf_double_set_vector_end(dst[j]);
         }
     }
@@ -1113,30 +1115,39 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 
     if ( nstr<0 ) return;
 
+    if ( tok->idx==-3 && filters_cache_genotypes(flt,line)!=0 ) return;
+
     tok->nvalues = tok->str_value.l = nstr;
     tok->nval1   = nstr / tok->nsamples;
     for (i=0; i<tok->nsamples; i++)
     {
         if ( !tok->usmpl[i] ) continue;
         char *src = tok->str_value.s + i*tok->nval1, *dst = src;
-        int ibeg = 0, idx = 0;
+        int ibeg = 0;
+        int idx = 0;        // idx-th field
         while ( ibeg < tok->nval1 )
         {
             int iend = ibeg;
             while ( iend < tok->nval1 && src[iend] && src[iend]!=',' ) iend++;
 
             int keep = 0;
-            if ( tok->idx >= 0 )
+            if ( tok->idx >= 0 )    // single index, given explicitly, e.g. AD[:1]
             {
                 if ( tok->idx==idx ) keep = 1;
             }
-            else if ( idx < tok->nidxs )
+            else if ( tok->idx == -3 )  // given by GT index, e.g. AD[:GT]
             {
-                if ( tok->idxs[idx] != 0 ) keep = 1;
+                if ( flt->cached_GT.mask[i] & (1<<idx) ) keep = 1;
             }
-            else if ( tok->idxs[tok->nidxs-1] < 0 )
-                keep = 1;
-
+            else    // given as a list, e.g. AD[:0,3]
+            {
+                if ( idx < tok->nidxs )
+                {
+                    if ( tok->idxs[idx] != 0 ) keep = 1;
+                }
+                else if ( tok->idxs[tok->nidxs-1] < 0 )
+                    keep = 1;
+            }
             if ( keep )
             {
                 if ( ibeg!=0 ) memmove(dst, src+ibeg, iend-ibeg+1);
@@ -2407,6 +2418,18 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
     return 2;
 }
 
+// A note about comparisons:
+// When setting value by determining index from the genotype, we face the problem
+// of how to interpret truncating arrays. Say we have TAG defined as Number=. and
+//      GT:TAG   1/1:0,1,2  0/0:0
+// Then when querying we expect the following expression to evaluate for the second
+// sample as
+//      -i 'TAG[1:1]="."'  .. true
+//      -i 'TAG[1:GT]="."' .. false
+// The problem is that the implementation truncates the number of fields, filling
+// usually fewer than the original number of per-sample values. This is fixed by
+// adding an exception that makes the code aware of this: the GT indexing can be
+// recognised by haveing tok->idx==-3
 #define CMP_VECTORS(atok,btok,_rtok,CMP_OP,missing_logic) \
 { \
     token_t *rtok = _rtok; \
@@ -2494,6 +2517,8 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                 double *bptr = btok->values + i*btok->nval1; \
                 for (j=0; j<atok->nval1; j++) \
                 { \
+                    if ( atok->idx==-3 && bcf_double_is_vector_end(aptr[j]) ) break; /* explained above */ \
+                    if ( btok->idx==-3 && bcf_double_is_vector_end(bptr[j]) ) break; /* explained above */ \
                     int nmiss = bcf_double_is_missing_or_vector_end(aptr[j]) ? 1 : 0; \
                     if ( nmiss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
                     nmiss += (bcf_double_is_missing_or_vector_end(bptr[j]) ? 1 : 0); \
@@ -2515,9 +2540,10 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
             { \
                 if ( !rtok->usmpl[i] ) continue; \
                 double *aptr = atok->values + i*atok->nval1; \
-                double *bptr = btok->values + i*btok->nval1; \
+                double *bptr = btok->values; \
                 for (j=0; j<atok->nval1; j++) \
                 { \
+                    if ( atok->idx==-3 && bcf_double_is_vector_end(aptr[j]) ) break; /* explained above */ \
                     int miss = bcf_double_is_missing_or_vector_end(aptr[j]) ? 1 : 0; \
                     if ( miss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
                     for (k=0; k<btok->nvalues; k++) \
@@ -2541,10 +2567,11 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
             for (i=0; i<btok->nsamples; i++) \
             { \
                 if ( !rtok->usmpl[i] ) continue; \
-                double *aptr = atok->values + i*atok->nval1; \
+                double *aptr = atok->values; \
                 double *bptr = btok->values + i*btok->nval1; \
                 for (j=0; j<btok->nval1; j++) \
                 { \
+                    if ( atok->idx==-3 && bcf_double_is_vector_end(bptr[j]) ) break; /* explained above */ \
                     int miss = bcf_double_is_missing_or_vector_end(bptr[j]) ? 1 : 0; \
                     if ( miss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
                     for (k=0; k<atok->nvalues; k++) \

@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=248956422>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=TC,Number=R,Type=Character,Description=".">
+##FORMAT=<ID=TS,Number=R,Type=String,Description=".">
+##FORMAT=<ID=TI,Number=R,Type=Integer,Description=".">
+##FORMAT=<ID=TF,Number=R,Type=Float,Description=".">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+1	1	.	CAA	C,CA	.	.	.	GT:TC:TS:TI:TF	1/2:A,B,C:AA,BB,CC:0,1,2:0,1,2
+1	2	.	CAA	C,CA	.	.	.	GT:TC:TS:TI:TF	2/2:A,B:AA,BB:0,1:0,1

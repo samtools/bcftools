@@ -196,6 +196,11 @@ run_test(\&test_vcf_query,$opts,in=>'query.filter.5',out=>'query.59.out',args=>q
 run_test(\&test_vcf_query,$opts,in=>'query.filter.5',out=>'query.92.out',args=>q[-f'[%POS\\t%GT\\t%SAMPLE\\t%AD\\n]' -i'FMT/AD[GT]==10']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.5',out=>'query.93.out',args=>q[-f'[%POS\\t%GT\\t%SAMPLE\\t%AD\\n]' -i'sSUM(FMT/AD[GT])==210']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.5',out=>'query.94.out',args=>q[-f'[%POS\\t%GT\\t%SAMPLE\\t%AD\\n]' -i'FMT/AD[0:GT]==30']);
+run_test(\&test_vcf_query,$opts,in=>'query.gtidx.1',out=>'query.gtidx.1.out',args=>q[-f'[%GT %TC %TS %TI %TF\\n]' -i'FMT/TF[:GT]==1 && FMT/TF[:GT]==2']);
+run_test(\&test_vcf_query,$opts,in=>'query.gtidx.1',out=>'query.gtidx.1.out',args=>q[-f'[%GT %TC %TS %TI %TF\\n]' -i'FMT/TI[:GT]==1 && FMT/TF[:GT]==2']);
+run_test(\&test_vcf_query,$opts,in=>'query.gtidx.1',out=>'query.gtidx.1.out',args=>q[-f'[%GT %TC %TS %TI %TF\\n]' -i'FMT/TS[:GT]=="BB" && FMT/TS[:GT]=="CC"']);
+run_test(\&test_vcf_query,$opts,in=>'query.gtidx.1',out=>'query.gtidx.1.out',args=>q[-f'[%GT %TC %TS %TI %TF\\n]' -i'FMT/TC[:GT]=="B"  && FMT/TC[:GT]=="C"']);
+run_test(\&test_vcf_query,$opts,in=>'query.gtidx.1',out=>'query.gtidx.2.out',args=>q[-f'[%GT %TI\\n]' -i'FMT/TI[:GT]=="."']);
 run_test(\&test_vcf_query,$opts,in=>'query',out=>'query.60.out',args=>q[-f'%CHROM %POS\\n' -i'CHROM="4"']);
 run_test(\&test_vcf_query,$opts,in=>'query.negative',out=>'query.61.out',args=>q[-f'%POS\\t%TAG1\\n' -i'(TAG1>=-129 && TAG1<=-120) || (TAG1>=-32769 && TAG1<=-32760)']);
 run_test(\&test_vcf_query,$opts,in=>'query.negative',out=>'query.61.out',args=>q[-f'%POS\\t%TAGV1\\n' -i'(TAGV1>=-129 && TAGV1<=-120) || (TAGV1>=-32769 && TAGV1<=-32760)']);
