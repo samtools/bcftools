@@ -303,8 +303,11 @@ Such a file can be easily created from a VCF using:
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
 
-*--write-index*::
-    Automatically index the output files. Can be used only for compressed BCF and VCF output.
+*--write-index[=FMT]*::
+    Automatically index the output files. FMT is optional and can be
+    one of tbi or csi depending on output file format. Defaults to
+    CSI unless specified otherwise. Can be used only for compressed
+    BCF and VCF output.
 
 
 [[annotate]]
@@ -509,8 +512,9 @@ Add or remove annotations.
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 *Examples:*
 ----
@@ -615,8 +619,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 ==== Input/output options:
 
@@ -895,8 +900,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 
 [[consensus]]
@@ -1051,8 +1057,9 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 ==== VCF output options:
 
@@ -1452,8 +1459,9 @@ output VCF and are ignored for the prediction analysis.
     and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
     that of the input VCF. The default is to attempt the automatic translation.
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 *Examples:*
 ----
@@ -1622,8 +1630,9 @@ And similarly here, the second is filtered:
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 
 
@@ -1921,8 +1930,10 @@ in the other files.
     comma-separated list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
-*--write-index*::
-    Automatically index the output file. This is done automatically with the *-p* option.
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and defaults
+    to tbi for vcf.gz and csi for bcf.  This is done automatically
+    with the *-p* option if the output format is compressed.
 
 ==== Examples:
 
@@ -2079,8 +2090,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 [[mpileup]]
 === bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
@@ -2343,8 +2355,9 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 ==== Options for SNP/INDEL genotype likelihood computation
 
@@ -2632,8 +2645,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 [[plugin]]
 
@@ -2691,8 +2705,9 @@ the usage examples that each plugin comes with.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 ==== Plugin options:
 
@@ -3327,8 +3342,9 @@ Transition probabilities:
     Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
     then these are replaced with a string that makes the directory name unique.
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 
 
@@ -3477,8 +3493,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*--write-index[=FMT]*::
+    Automatically index the output file.  FMT is optional and can be
+    one of tbi or csi depending on output file format.
 
 
 ==== Subset options:
