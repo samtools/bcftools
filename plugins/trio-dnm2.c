@@ -181,7 +181,7 @@ static const char *usage_text(void)
         "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
         "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
         "       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -1605,13 +1605,13 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,15},
-        {"write-index",optional_argument,NULL,16},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     double pn_abs, pn_frac;
-    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:n",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:nW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -1694,7 +1694,7 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case 16 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

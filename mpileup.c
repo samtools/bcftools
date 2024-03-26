@@ -1258,7 +1258,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
         "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "      --threads INT       Use multithreading with INT worker threads [0]\n"
-        "      --write-index[=FMT] Automatically index the output files [off]\n"
+        "  -W, --write-index[=FMT] Automatically index the output files [off]\n"
         "\n"
         "SNP/INDEL genotype likelihoods options:\n"
         "  -X, --config STR        Specify platform profile (use \"-X list\" for details)\n"
@@ -1447,7 +1447,7 @@ int main_mpileup(int argc, char *argv[])
         {"seed", required_argument, NULL, 13},
         {"ambig-reads", required_argument, NULL, 14},
         {"ar", required_argument, NULL, 14},
-        {"write-index",optional_argument,NULL,21},
+        {"write-index",optional_argument,NULL,'W'},
         {"del-bias", required_argument, NULL, 23},
         {"poly-mqual", no_argument, NULL, 24},
         {"no-poly-mqual", no_argument, NULL, 26},
@@ -1455,7 +1455,7 @@ int main_mpileup(int argc, char *argv[])
         {"seqq-offset", required_argument, NULL, 28},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:UW::",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  16 :
@@ -1596,7 +1596,7 @@ int main_mpileup(int argc, char *argv[])
             }
             break;
         case  20: mplp.indels_v20 = 1; mplp.edlib = 0; break;
-        case  21:
+        case 'W':
             if (!(mplp.write_index = write_index_parse(optarg)))
                 error("Unsupported index format '%s'\n", optarg);
             break;

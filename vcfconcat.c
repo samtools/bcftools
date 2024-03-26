@@ -987,7 +987,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "   -v, --verbose 0|1              Set verbosity level [1]\n");
-    fprintf(stderr, "       --write-index[=FMT]        Automatically index the output files [off]\n");
+    fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1026,12 +1026,12 @@ int main_vcfconcat(int argc, char *argv[])
         {"file-list",required_argument,NULL,'f'},
         {"min-PQ",required_argument,NULL,'q'},
         {"no-version",no_argument,NULL,8},
-        {"write-index",optional_argument,NULL,13},
+        {"write-index",optional_argument,NULL,'W'},
         {"drop-genotypes",no_argument,NULL,'G'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:Gr:R:cnv:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:Gr:R:cnv:W::",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'c': args->compact_PS = 1; break;
@@ -1081,7 +1081,7 @@ int main_vcfconcat(int argc, char *argv[])
                       args->verbose = strtol(optarg, &tmp, 0);
                       if ( *tmp || args->verbose<0 || args->verbose>1 ) error("Error: currently only --verbose 0 or --verbose 1 is supported\n");
                       break;
-            case 13 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

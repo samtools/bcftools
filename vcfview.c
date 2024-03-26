@@ -550,7 +550,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled    Select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types LIST     Select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private      Select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
-    fprintf(stderr, "          --write-index[=FMT]              Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W,   --write-index[=FMT]              Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -617,11 +617,11 @@ int main_vcfview(int argc, char *argv[])
         {"phased",no_argument,NULL,'p'},
         {"exclude-phased",no_argument,NULL,'P'},
         {"no-version",no_argument,NULL,8},
-        {"write-index",optional_argument,NULL,10},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:aAuUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:aAuUhHc:C:Ii:e:xXpPq:Q:g:W::",loptions,NULL)) >= 0)
     {
         char allele_type[9] = "nref";
         switch (c)
@@ -750,7 +750,7 @@ int main_vcfview(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case 10 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

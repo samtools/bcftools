@@ -82,7 +82,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n";
 }
 
@@ -183,12 +183,12 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"verbose",no_argument,NULL,'v'},
-        {"write-index",optional_argument,NULL,1},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpd",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpdW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -224,7 +224,7 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
-            case  1 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

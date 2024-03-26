@@ -3330,7 +3330,7 @@ static const char *usage(void)
         "       --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --threads INT                 Use multithreading with <int> worker threads [0]\n"
         "   -v, --verbose INT                 Verbosity level 0-2 [1]\n"
-        "       --write-index[=FMT]           Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]           Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf\n"
@@ -3381,7 +3381,7 @@ int main_csq(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,5},
         {"no-version",no_argument,NULL,3},
-        {"write-index",optional_argument,NULL,6},
+        {"write-index",optional_argument,NULL,'W'},
         {"dump-gff",required_argument,NULL,7},
         {"unify-chr-names",required_argument,NULL,8},
         {0,0,0,0}
@@ -3390,7 +3390,7 @@ int main_csq(int argc, char *argv[])
     int regions_overlap = 1;
     int targets_overlap = 0;
     char *targets_list = NULL, *regions_list = NULL, *tmp;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:bB:v:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:bB:v:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -3472,7 +3472,7 @@ int main_csq(int argc, char *argv[])
                 targets_overlap = parse_overlap_option(optarg);
                 if ( targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case  6 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

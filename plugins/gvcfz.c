@@ -102,7 +102,7 @@ static const char *usage_text(void)
         "   -g, --group-by EXPR             Group gVCF blocks according to the expression\n"
         "   -o, --output FILE               Write gVCF output to the FILE\n"
         "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Compress blocks by GQ and DP. Multiple blocks separated by a semicolon can be defined\n"
         "   bcftools +gvcfz input.bcf -g'PASS:GQ>60 & DP<20; PASS:GQ>40 & DP<15; Flt1:QG>20; Flt2:-'\n"
@@ -335,12 +335,12 @@ int run(int argc, char **argv)
         {"stats",required_argument,NULL,'s'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"write-index",optional_argument,NULL,1},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:g:i:e:a",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:g:i:e:aW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -371,7 +371,7 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
-            case  1 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;
