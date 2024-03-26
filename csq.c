@@ -3495,7 +3495,7 @@ int main_csq(int argc, char *argv[])
     }
     else fname = argv[optind];
     if ( argc - optind>1 ) error("%s", usage());
-    if ( !args->fa_fname ) error("Missing the --fa-ref option\n");
+    if ( !args->fa_fname ) error("Missing the --fasta-ref option\n");
     if ( !args->gff_fname ) error("Missing the --gff option\n");
     args->sr = bcf_sr_init();
     if ( targets_list )
