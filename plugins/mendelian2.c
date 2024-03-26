@@ -142,7 +142,7 @@ static const char *usage_text(void)
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Options:\n"
         "   -m, --mode c|[adeEgmMS]         Output mode, the default is `-m c`. Multiple modes can be combined in VCF/BCF\n"
@@ -798,12 +798,12 @@ int run(int argc, char **argv)
         {"targets-overlap",required_argument,NULL,15},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
-        {"write-index",optional_argument,NULL,3},
+        {"write-index",optional_argument,NULL,'W'},
         {0,0,0,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -858,7 +858,7 @@ int run(int argc, char **argv)
             case 'p': args->pfm = optarg; break;
             case  1 : args->rules_str = optarg; break;
             case  2 : args->rules_fname = optarg; break;
-            case  3 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

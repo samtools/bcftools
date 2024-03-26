@@ -346,7 +346,7 @@ static void usage(args_t *args)
 #else
     fprintf(stderr, "    -T, --temp-dir DIR             temporary files [/tmp/bcftools.XXXXXX]\n");
 #endif
-    fprintf(stderr, "        --write-index[=FMT]        Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -409,11 +409,11 @@ int main_sort(int argc, char *argv[])
         {"output-file",required_argument,NULL,'o'},
         {"output",required_argument,NULL,'o'},
         {"help",no_argument,NULL,'h'},
-        {"write-index",optional_argument,NULL,1},
+        {"write-index",optional_argument,NULL,'W'},
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "m:T:O:o:h?",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "m:T:O:o:W::h?",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -438,7 +438,7 @@ int main_sort(int argc, char *argv[])
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
-            case  1 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

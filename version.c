@@ -119,9 +119,9 @@ int write_index_parse(char *arg) {
     int fmt = HTS_FMT_CSI;
 
     if (arg) {
-        if (strcmp(arg, "csi") == 0)
+        if (strcmp(arg, "csi") == 0 || strcmp(arg, "=csi") == 0)
             fmt = HTS_FMT_CSI;
-        else if (strcmp(arg, "tbi") == 0)
+        else if (strcmp(arg, "tbi") == 0 || strcmp(arg, "=tbi") == 0)
             fmt = HTS_FMT_TBI;
         else
             return 0;

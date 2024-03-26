@@ -69,7 +69,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n";
 }
 
@@ -87,12 +87,12 @@ int run(int argc, char **argv)
         {"targets-file",required_argument,NULL,'T'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"write-index",optional_argument,NULL,1},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:r:R:t:T:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:r:R:t:T:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -119,7 +119,7 @@ int run(int argc, char **argv)
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; args->targets_is_file = 1; break;
-            case  1 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

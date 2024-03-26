@@ -503,7 +503,7 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT              Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --write LIST               List of files to write with -p given as 1-based indexes. By default, all files are written\n");
-    fprintf(stderr, "        --write-index[=FMT]        Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
@@ -561,11 +561,11 @@ int main_vcfisec(int argc, char *argv[])
         {"output-type",required_argument,NULL,'O'},
         {"threads",required_argument,NULL,9},
         {"no-version",no_argument,NULL,8},
-        {"write-index",optional_argument,NULL,10},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:W::",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -637,7 +637,7 @@ int main_vcfisec(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case 10 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

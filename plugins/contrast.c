@@ -110,7 +110,7 @@ static const char *usage_text(void)
         "   -t, --targets REG                Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
-        "       --write-index[=FMT]          Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]          Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
         "   # Test if any of the samples a,b is different from the samples c,d,e\n"
@@ -487,12 +487,12 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,4},
-        {"write-index",optional_argument,NULL,5},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -538,7 +538,7 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case  5 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

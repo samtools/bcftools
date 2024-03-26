@@ -615,7 +615,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -l, --list-plugins             List available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -v, --verbose                  Print verbose information, -vv increases verbosity\n");
     fprintf(stderr, "   -V, --version                  Print version string and exit\n");
-    fprintf(stderr, "       --write-index[=FMT]        Automatically index the output files [off]\n");
+    fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -693,11 +693,11 @@ int main_plugin(int argc, char *argv[])
         {"targets-file",required_argument,NULL,'T'},
         {"targets-overlap",required_argument,NULL,2},
         {"no-version",no_argument,NULL,8},
-        {"write-index",optional_argument,NULL,10},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vV",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vVW::",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'V': version_only = 1; break;
@@ -742,7 +742,7 @@ int main_plugin(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case 10 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

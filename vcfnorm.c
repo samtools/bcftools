@@ -2361,7 +2361,7 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
-    fprintf(stderr, "        --write-index[=FMT]         Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # normalize and left-align indels\n");
@@ -2424,11 +2424,11 @@ int main_vcfnorm(int argc, char *argv[])
         {"check-ref",required_argument,NULL,'c'},
         {"strict-filter",no_argument,NULL,'s'},
         {"no-version",no_argument,NULL,8},
-        {"write-index",optional_argument,NULL,14},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2449,7 +2449,7 @@ int main_vcfnorm(int argc, char *argv[])
                 else if ( optarg[0]=='.' ) args->ma_use_ref_allele = 0;
                 else error("Invalid argument to --multi-overlaps\n");
                 break;
-            case 14 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

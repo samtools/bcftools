@@ -97,7 +97,7 @@ static const char *usage_text(void)
         "   -x, --extra STRING              Output records not overlapping listed regions in separate file\n"
         "   -p, --prefix STRING             Prepend string to output VCF names\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
-        "       --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # Scatter a VCF file by shards with 10000 variants each\n"
@@ -359,12 +359,12 @@ int run(int argc, char **argv)
         {"extra",required_argument,NULL,'x'},
         {"prefix",required_argument,NULL,'p'},
         {"hts-opts",required_argument,NULL,5},
-        {"write-index",optional_argument,NULL,6},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "e:i:o:O:r:R:t:T:n:s:S:x:p:h?", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "e:i:o:O:r:R:t:T:n:s:S:x:p:W::h?", loptions, NULL)) >= 0)
     {
         switch (c)
         {
@@ -417,7 +417,7 @@ int run(int argc, char **argv)
             case 'x': args->extra = optarg;  break;
             case 'p': args->prefix = optarg;  break;
             case  5 : args->hts_opts = hts_readlist(optarg, 0, &args->nhts_opts); break;
-            case  6 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;

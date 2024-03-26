@@ -1625,7 +1625,7 @@ static void usage(void)
     fprintf(stderr, "   -o, --output FILE              Output file name [stdout]\n");
     fprintf(stderr, "   -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with INT worker threads [0]\n");
-    fprintf(stderr, "       --write-index[=FMT]        Automatically index the output files [off]\n");
+    fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
     fprintf(stderr, "   -G, --gensample2vcf ...        <PREFIX>|<GEN-FILE>,<SAMPLE-FILE>\n");
@@ -1719,11 +1719,11 @@ int main_vcfconvert(int argc, char *argv[])
         {"fasta-ref",required_argument,NULL,'f'},
         {"no-version",no_argument,NULL,10},
         {"keep-duplicates",no_argument,NULL,12},
-        {"write-index",optional_argument,NULL,16},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:W::",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
@@ -1748,7 +1748,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  7 : args->convert_func = vcf_to_hapsample; args->outfname = optarg; break;
             case  8 : error("The --chrom option has been deprecated, please use --3N6 instead\n"); break;
             case 15 : args->gen_3N6 = 1; break;
-            case 16 :
+            case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
                 break;
