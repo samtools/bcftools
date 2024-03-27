@@ -2518,14 +2518,14 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     100  CC  C,GG   1/2
 
     # After:
-    #   bcftools norm -a .
+    #   bcftools norm -a --atom-overlaps .
     100	 C	 G      ./1
     100	 CC	 C      1/.
     101	 C	 G      ./1
 
     # After:
-    #   bcftools norm -a '*'
-    #   bcftools norm -a \*
+    #   bcftools norm -a --atom-overlaps '*'
+    #   bcftools norm -a --atom-overlaps \*
     100	 C	 G,*    2/1
     100	 CC	 C,*    1/2
     101	 C	 G,*    2/1
