@@ -101,3 +101,25 @@ false-negatives.  This provides a way to data mine things much more
 carefully.  We can further drill down on these cured/caused variants
 by subdividing into deletions vs insertions, or filtering to high
 quality only.
+
+-----------------------------------------------------------------------------
+
+There is also run_multi.sh which can call 3 samples together (eg a
+trio), splits them, and then checks the calling works per sample when
+in the presence of other samples.  This also produces PNG files.
+
+Note the above script requires a working bcftools plugins system.
+This won't be in your path by default if building from a source tree,
+so you may need to manually set BCFTOOLS_PLUGINS=$srcdir/plugins first.
+
+For example:
+
+BENCHDIR=$bcftools_src/mpileup_bench \
+BCFTOOLS=$bcftools_src/bcftools \
+$bcftools_src/mpileup_bench/run_multi.sh \
+HG00[234].illumima.bam illumina.out -X illumina
+
+See the gnuplot example script at the end for ideas on how to merge
+multiple runs together to visualise the impact of a change.
+E.g. "devel" vs a local modification.
+
