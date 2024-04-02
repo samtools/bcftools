@@ -3401,7 +3401,9 @@ void merge_vcf(args_t *args)
         if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
         return;
     }
-    else if ( args->write_index && init_index(args->out_fh,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    else if ( init_index2(args->out_fh,args->out_hdr,args->output_fname,
+                          &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
 
     args->vcmp = vcmp_init();
     args->maux = maux_init(args);
@@ -3487,7 +3489,7 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "        --threads INT                 Use multithreading with INT worker threads [0]\n");
-    fprintf(stderr, "        --write-index                 Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W, --write-index[=FMT]           Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -3532,11 +3534,11 @@ int main_vcfmerge(int argc, char *argv[])
         {"force-no-index",no_argument,NULL,10},
         {"force-single",no_argument,NULL,12},
         {"filter-logic",required_argument,NULL,'F'},
-        {"write-index",no_argument,NULL,11},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:W::",loptions,NULL)) >= 0) {
         switch (c) {
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
@@ -3611,7 +3613,10 @@ int main_vcfmerge(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->no_index = 1; break;
-            case 11 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 12 : args->force_single = 1; break;
             case 'h':
             case '?': usage(); break;

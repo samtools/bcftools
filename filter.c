@@ -3682,7 +3682,8 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         if ( !out[i].tag ) continue;
         if ( out[i].setter==filters_set_type )
         {
-            if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
+            if ( i+1==nout || !out[i+1].key )
+                error("Could not parse the expression: %s\n", filter->str);
             int itok, ival;
             if ( out[i+1].tok_type==TOK_EQ || out[i+1].tok_type==TOK_NE ) ival = i - 1, itok = i + 1;
             else if ( out[i+1].tok_type==TOK_LIKE || out[i+1].tok_type==TOK_NLIKE ) ival = i - 1, itok = i + 1;

@@ -142,7 +142,7 @@ static const char *usage_text(void)
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Options:\n"
         "   -m, --mode c|[adeEgmMS]         Output mode, the default is `-m c`. Multiple modes can be combined in VCF/BCF\n"
@@ -479,7 +479,9 @@ static void init_data(args_t *args)
         args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-        if ( args->write_index && init_index(args->out_fh,args->hdr_out,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+        if ( init_index2(args->out_fh,args->hdr_out,args->output_fname,
+                         &args->index_fn, args->write_index)<0 )
+          error("Error: failed to initialise index for %s\n",args->output_fname);
     }
 }
 
@@ -796,12 +798,12 @@ int run(int argc, char **argv)
         {"targets-overlap",required_argument,NULL,15},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
-        {"write-index",no_argument,NULL,3},
+        {"write-index",optional_argument,NULL,'W'},
         {0,0,0,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hp:P:m:o:O:i:e:t:T:r:R:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -856,7 +858,10 @@ int run(int argc, char **argv)
             case 'p': args->pfm = optarg; break;
             case  1 : args->rules_str = optarg; break;
             case  2 : args->rules_fname = optarg; break;
-            case  3 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s",usage_text()); break;

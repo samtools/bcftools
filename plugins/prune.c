@@ -105,7 +105,7 @@ static const char *usage_text(void)
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "   -w, --window INT[bp|kb|Mb]      The window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
         "   bcftools +prune -m 0.6 -w 1000 input.bcf -Ob -o output.bcf\n"
@@ -186,7 +186,9 @@ static void init_data(args_t *args)
         }
     }
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out_fh,args->hdr,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
     args->ld_filter_id = -1;
     if ( args->ld_filter && strcmp(".",args->ld_filter) )
         args->ld_filter_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->ld_filter);
@@ -316,12 +318,12 @@ int run(int argc, char **argv)
         {"nsites-per-win",required_argument,NULL,'n'},
         {"nsites-per-win-mode",required_argument,NULL,'N'},
         {"window",required_argument,NULL,'w'},
-        {"write-index",no_argument,NULL,4},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:N:w:k",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:N:w:kW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -331,7 +333,10 @@ int run(int argc, char **argv)
                 args->rseed = strtol(optarg,&tmp,10);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --random-seed %s\n", optarg);
                 break;
-            case  4 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'k': args->keep_sites = 1; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

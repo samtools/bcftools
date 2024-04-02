@@ -2271,7 +2271,9 @@ static void normalize_vcf(args_t *args)
         hts_set_opt(args->out, HTS_OPT_THREAD_POOL, args->files->p);
     if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_norm");
     if ( bcf_hdr_write(args->out, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out,args->out_hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out,args->out_hdr,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
 
     while (1)
     {
@@ -2359,7 +2361,7 @@ static void usage(void)
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
-    fprintf(stderr, "        --write-index               Automatically index the output files [off]\n");
+    fprintf(stderr, "    -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # normalize and left-align indels\n");
@@ -2422,11 +2424,11 @@ int main_vcfnorm(int argc, char *argv[])
         {"check-ref",required_argument,NULL,'c'},
         {"strict-filter",no_argument,NULL,'s'},
         {"no-version",no_argument,NULL,8},
-        {"write-index",no_argument,NULL,14},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2447,7 +2449,10 @@ int main_vcfnorm(int argc, char *argv[])
                 else if ( optarg[0]=='.' ) args->ma_use_ref_allele = 0;
                 else error("Invalid argument to --multi-overlaps\n");
                 break;
-            case 14 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 15 : args->right_align = 1; break;
             case 'N': args->do_indels = 0; break;
             case 'd':

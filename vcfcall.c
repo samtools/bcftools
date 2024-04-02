@@ -718,7 +718,9 @@ static void init_data(args_t *args)
 
     if (args->record_cmd_line) bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
     if ( bcf_hdr_write(args->out_fh, args->aux.hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out_fh,args->aux.hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out_fh,args->aux.hdr,args->output_fname,
+                     &args->index_fn, args->write_index)<0 )
+        error("Error: failed to initialise index for %s\n",args->output_fname);
 
     if ( args->flag&CF_INS_MISSED ) init_missed_line(args);
 }
@@ -922,7 +924,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -M, --keep-masked-ref           Keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -V, --skip-variants TYPE        Skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             Output variant sites only\n");
-    fprintf(stderr, "       --write-index               Automatically index the output files [off]\n");
+    fprintf(stderr, "   -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Consensus/variant calling options:\n");
     fprintf(stderr, "   -c, --consensus-caller          The original calling method (conflicts with -m)\n");
@@ -1006,12 +1008,12 @@ int main_vcfcall(int argc, char *argv[])
         {"chromosome-X",no_argument,NULL,'X'},
         {"chromosome-Y",no_argument,NULL,'Y'},
         {"no-version",no_argument,NULL,8},
-        {"write-index",no_argument,NULL,10},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
 
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:A*NMV:vcmp:C:n:P:f:a:ig:XYF:G:", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:A*NMV:vcmp:C:n:P:f:a:ig:XYF:G:W::", loptions, NULL)) >= 0)
     {
         switch (c)
         {
@@ -1094,7 +1096,10 @@ int main_vcfcall(int argc, char *argv[])
                 args.regions_overlap = parse_overlap_option(optarg);
                 if ( args.regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
                 break;
-            case  10: args.write_index = 1; break;
+            case 'W':
+                if (!(args.write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             default: usage(&args);
         }
     }

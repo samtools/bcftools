@@ -126,7 +126,7 @@ static const char *usage_text(void)
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
         "   # Split a VCF file\n"
@@ -488,7 +488,9 @@ static void init_data(args_t *args)
         for (j=0; j<set->nsmpl; j++)
             set->hdr->samples[j] = set->rename ? set->rename[j] : args->hdr_in->samples[set->smpl[j]];
         if ( bcf_hdr_write(set->fh, set->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
-        if ( args->write_index && init_index(set->fh,set->hdr,str.s,&set->index_fn)<0 ) error("Error: failed to initialise index for %s\n",str.s);
+        if ( init_index2(set->fh,set->hdr,str.s,&set->index_fn,
+                         args->write_index)<0 )
+            error("Error: failed to initialise index for %s\n",str.s);
         if ( args->filter_str )
             set->filter = filter_init(set->hdr, args->filter_str);
     }
@@ -654,12 +656,12 @@ int run(int argc, char **argv)
         {"groups-file",required_argument,NULL,'G'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"write-index",no_argument,NULL,4},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:G:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:G:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -704,7 +706,10 @@ int run(int argc, char **argv)
                 args->targets_overlap = parse_overlap_option(optarg);
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
-            case  4 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

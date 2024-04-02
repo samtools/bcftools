@@ -863,7 +863,9 @@ static int mpileup(mplp_conf_t *conf)
     for (i=0; i<nsmpl; i++)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
     if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
-    if ( conf->write_index && init_index(conf->bcf_fp,conf->bcf_hdr,conf->output_fname,&conf->index_fn)<0 ) error("Error: failed to initialise index for %s\n",conf->output_fname);
+    if ( init_index2(conf->bcf_fp,conf->bcf_hdr,conf->output_fname,
+                     &conf->index_fn, conf->write_index) < 0 )
+        error("Error: failed to initialise index for %s\n",conf->output_fname);
 
     conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ,
                               conf->delta_baseQ);
@@ -1256,7 +1258,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
         "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "      --threads INT       Use multithreading with INT worker threads [0]\n"
-        "      --write-index       Automatically index the output files [off]\n"
+        "  -W, --write-index[=FMT] Automatically index the output files [off]\n"
         "\n"
         "SNP/INDEL genotype likelihoods options:\n"
         "  -X, --config STR        Specify platform profile (use \"-X list\" for details)\n"
@@ -1445,7 +1447,7 @@ int main_mpileup(int argc, char *argv[])
         {"seed", required_argument, NULL, 13},
         {"ambig-reads", required_argument, NULL, 14},
         {"ar", required_argument, NULL, 14},
-        {"write-index",no_argument,NULL,21},
+        {"write-index",optional_argument,NULL,'W'},
         {"del-bias", required_argument, NULL, 23},
         {"poly-mqual", no_argument, NULL, 24},
         {"no-poly-mqual", no_argument, NULL, 26},
@@ -1453,7 +1455,7 @@ int main_mpileup(int argc, char *argv[])
         {"seqq-offset", required_argument, NULL, 28},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:UW::",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  16 :
@@ -1594,7 +1596,10 @@ int main_mpileup(int argc, char *argv[])
             }
             break;
         case  20: mplp.indels_v20 = 1; mplp.edlib = 0; break;
-        case  21: mplp.write_index = 1; break;
+        case 'W':
+            if (!(mplp.write_index = write_index_parse(optarg)))
+                error("Unsupported index format '%s'\n", optarg);
+            break;
         case  22: mplp.edlib = 1; mplp.indels_v20 = 0; break;
         case  25: mplp.edlib = 0; break;
         case  28:
