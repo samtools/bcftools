@@ -3118,6 +3118,12 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     # (-i) use "[]". This is for historic reasons and backward-compatibility.
     bcftools query -f '%AC{1}\n' -i 'AC[1]>10' file.vcf.gz
 
+    # Print all samples at sites where at least one sample has DP=1 or DP=2. In the second case
+    # print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
+    bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 || FMT/DP=2' file.vcf
+    bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 |  FMT/DP=2' file.vcf
+
+
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
 Modify header of VCF/BCF files, change sample names.

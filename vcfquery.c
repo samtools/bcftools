@@ -256,6 +256,7 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
+    fprintf(stderr, "\t# For more examples see http://samtools.github.io/bcftools/bcftools.html#query\n");
     fprintf(stderr, "\n");
     exit(1);
 }
