@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=LAD,Number=.,Type=Integer,Description="Localized field: Allelic Depths">
+##FORMAT=<ID=LPL,Number=.,Type=Integer,Description="Local normalized, Phred-scaled likelihoods for genotypes as in original gVCF (without allele reordering)">
+##FORMAT=<ID=LAA,Number=.,Type=Integer,Description="Mapping of alt allele index from original gVCF to msVCF, comma-separated, 1-based (each value is the allele index in the msVCF)">
+##contig=<ID=chr,length=123456>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl1	smpl2
+chr	1	.	A	C,G	.	.	.	GT:LAD:LPL:LAA	0/0:31:0:.	0/1:17,16:86,0,57:1
+chr	2	.	G	A,T	.	.	.	GT:LAD:LPL:LAA	0/2:13,12:82,0,55:2	0/0:34:0:.
+chr	3	.	T	G	.	.	.	GT:LAD:LPL:LAA	0/0:29:0:.	0/1:13,8:81,0,53:1
+chr	4	.	A	C	.	.	.	GT:LAD:LPL:LAA	1/1:0,27:88,61,0:1	0/1:18,19:85,0,52:1
+chr	5	.	T	TA,TAA,TAAA,TAAAA,TAAAAA,TAAAAAA,TAAAAAAA	.	.	.	GT:LAD:LPL:LAA	5/2:0,8,13:305,339,82,220,0,61:5,2	2/2:0,25:90,56,0:2

@@ -68,6 +68,11 @@ Changes affecting specific commands:
       printing "Requested allele outside valid range". This is now fixed by taking into account
       the actual number of ALT alleles.
 
+* bcftools +tag2tag
+
+    - Support for conversion from tags using localized alleles (e.g. LPL, LAD) to the family of
+      standard tags (PL, AD)
+
 * bcftools +trio-dnm2
 
     - Extend --strictly-novel to exclude cases where the non-Mendelian allele
