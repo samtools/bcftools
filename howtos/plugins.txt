@@ -84,11 +84,11 @@ split:: split VCF by sample, creating single-sample VCFs
 
 link:plugin.split-vep.html[split-vep]:: extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These can be added as a new INFO field to the VCF or in a custom text format
 
-tag2tag:: Converts between similar tags, such as GL, PL and GP.
+link:plugin.tag2tag.html[tag2tag]:: Converts between similar tags, such as GL,PL,GP or QR,QA,QS or localized alleles, eg LPL,LAD.
 
 link:plugin.trio-dnm2.html[trio-dnm2]:: screen variants for possible de-novo mutations in trios
 
-trio-stats:: Calculate transmission rate in trio children. The usage and format is similar to ``indel-stats`` and ``smpl-stats``. 
+trio-stats:: Calculate transmission rate in trio children. The usage and format is similar to ``indel-stats`` and ``smpl-stats``.
 
 trio-switch-rate:: Calculates phase switch rate in trio children.
 

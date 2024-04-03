@@ -1,0 +1,50 @@
+include::header.inc[]
+
+
+Plugin tag2tag
+--------------
+
+This plugin can be used to convert between similar tags such GL,PL,GP or QR,QA,QS or tags that use localized alleles, e.g. LPL,LAD.
+
+The list of plugin-specific options can be obtained by running `bcftools +tag2tag -h`, which will print the following usage page:
+----
+Usage: bcftools +tag2tag [General Options] -- [Plugin Options]
+Options:
+   run "bcftools plugin" for a list of common options
+
+Plugin options:
+       --ORI-to-NEW           Convert from source tags FORMAT/GL,PL,GP to FORMAT/GL,PL,GP,GT
+       --QR-QA-to-QS          Convert FORMAT/QR,QA to FORMAT/QS
+       --XX-to-LXX            Convert from normal to localized tags (from PL,AD to LAA,LPL,LAD)
+       --LXX-to-XX            Convert from localized to normal tags (from LAA,LPL,LAD to PL,AD)
+   -d, --defaults LIST        Values to use in place of missing --LXX-to-XX fields [AD:.,PL:.]
+   -s, --skip-nalt INT        Do not modify sites with fewer (--XX-to-LXX) or more (--LXX-to-XX)
+                              than INT alternate alleles, 0=all sites [0]
+   -r, --replace              Drop the source tag
+   -t, --threshold FLOAT      Threshold for GP to GT hard-call [0.1]
+
+Examples:
+   bcftools +tag2tag in.vcf -- -r --GP-to-GL
+   bcftools +tag2tag in.vcf --    --PL-to-GT
+
+   # Expand the family of localized tags (LPL,LAD,LAF) to normal tags (PL,AD,AF). With the -s 3
+   # option, only sites with fewer than three alternate alleles will be expanded.
+   # Note that FORMAT/LAA must be present.
+   bcftools +tag2tag in.vcf -- --LXX-to-XX -s 3
+
+   # The same as above, but convert only the LAD tag
+   bcftools +tag2tag in.vcf -- --LAD-to-AD -s 3
+
+   # Replace the family of normal tags (PL,AD,AF) with localized tags (LPL,LAD,LAF). With the -s 3
+   # option, only sites with more than three alternate alleles will be modified. Note that in order
+   # to remove the original tags, -r must be given.
+   bcftools +tag2tag in.vcf -- --XX-to-LXX -s 3 -r
+
+   # The same as above, but convert only the PL tag
+   bcftools +tag2tag in.vcf -- --PL-to-LPL -s 3
+----
+
+
+include::footer.inc[]
+
+
