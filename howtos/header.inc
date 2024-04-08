@@ -20,6 +20,7 @@
 * link:annotate.html[Adding annotation]
 * link:query.html[Extracting information]
 * link:filtering.html[Filtering expressions]
+* link:scaling.html[Performance and Scaling]
 * link:plugins.html[Plugins]
 * link:FAQ.html[FAQ]
 

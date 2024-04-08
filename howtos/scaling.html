@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<title>Performance and Scaling</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+<li>
+<p><a href="publications.html">Publications</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="annotate.html">Adding annotation</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="scaling.html">Performance and Scaling</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_performance_and_scaling">Performance and Scaling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With ever increasing sample size, this page gives some tips how to speed up processing.</p>
+</div>
+<div class="sect2">
+<h3 id="_what_works">What works</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Use BCF instead of VCF.</strong> With many samples this speeds up things significantly. When using multiple bcftools
+commands, stream it as uncompressed BCF. This point cannot be emphasized enough: when streamed as VCF, the
+program parses the plain text VCF representation into the binary BCF representation understood by the
+computer, than converting the binary representation into plain text just to be converted into the binary
+form again. So, stream like this instead</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools mpileup -Ou ... | bcftools call -Ou ... | bcftools annotate -o output.bcf</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Split and process by region.</strong></p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools view -r chr:beg-end</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Use localized tags.</strong>
+With extremely many samples (tens and hundreds of thousands), the quadratic scaling of Number=G tags (namely
+FORMAT/PL) causes problems for highly variable indel sites. There can be dozens of alternate alleles and
+a single VCF row can exceed the BCF limit of ~2GB per row. This problem can be avoided by switching to
+local alleles described in this <a href="https://github.com/samtools/hts-specs/pull/434">pull request</a> to
+the VCF specification. The space inefficient PL tags are replaced with LPL tags which represent the same
+information subset to locally relevant alleles</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>FORMAT/LAA .. Increasing, 1-based indices into ALT indicating which alleles are relevant
+FORMAT/LPL .. The same as PL but subset to REF and LAA alleles
+FORMAT/LAD .. The same as AD but subset to REF and LAA alleles</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The local alleles are supported in bcftools at the VCF merging stage (see the <code>-L, --local-alleles</code> option in
+the <a href="http://samtools.github.io/bcftools/bcftools.html#merge">merge</a>) where the multiallelic sites are
+most likely to be generated. One can also convert back and forth between normal and localzied tags using
+the <a href="plugin.tag2tag.html">tag2tag</a> plugin.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_what_does_not_work">What does not work</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>The --threads option is less useful than you think.</strong>
+The <code>--threads</code> option is currently used only for uncompressing input and compressing output, not for
+processing itself. Therefore setting it to unrealistically high values may not help much. It is
+recommended to perform some benchmarking if uncertain.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by 
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

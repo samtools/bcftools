@@ -1,0 +1,53 @@
+include::header.inc[]
+
+
+Performance and Scaling
+-----------------------
+
+With ever increasing sample size, this page gives some tips how to speed up processing.
+
+
+=== What works
+
+* *Use BCF instead of VCF.* With many samples this speeds up things significantly. When using multiple bcftools
+  commands, stream it as uncompressed BCF. This point cannot be emphasized enough: when streamed as VCF, the
+  program parses the plain text VCF representation into the binary BCF representation understood by the
+  computer, than converting the binary representation into plain text just to be converted into the binary
+  form again. So, stream like this instead
+----
+bcftools mpileup -Ou ... | bcftools call -Ou ... | bcftools annotate -o output.bcf
+----
+
+* *Split and process by region.*
+----
+bcftools view -r chr:beg-end
+----
+
+* *Use localized tags.*
+  With extremely many samples (tens and hundreds of thousands), the quadratic scaling of Number=G tags (namely
+  FORMAT/PL) causes problems for highly variable indel sites. There can be dozens of alternate alleles and
+  a single VCF row can exceed the BCF limit of ~2GB per row. This problem can be avoided by switching to
+  local alleles described in this link:https://github.com/samtools/hts-specs/pull/434[pull request] to
+  the VCF specification. The space inefficient PL tags are replaced with LPL tags which represent the same
+  information subset to locally relevant alleles
+----
+FORMAT/LAA .. Increasing, 1-based indices into ALT indicating which alleles are relevant
+FORMAT/LPL .. The same as PL but subset to REF and LAA alleles
+FORMAT/LAD .. The same as AD but subset to REF and LAA alleles
+----
+
+The local alleles are supported in bcftools at the VCF merging stage (see the `-L, --local-alleles` option in
+the link:http://samtools.github.io/bcftools/bcftools.html#merge[merge]) where the multiallelic sites are
+most likely to be generated. One can also convert back and forth between normal and localzied tags using
+the link:plugin.tag2tag.html[tag2tag] plugin.
+
+=== What does not work
+
+* *The --threads option is less useful than you think.*
+  The `--threads` option is currently used only for uncompressing input and compressing output, not for
+  processing itself. Therefore setting it to unrealistically high values may not help much. It is
+  recommended to perform some benchmarking if uncertain.
+
+include::footer.inc[]
+
+

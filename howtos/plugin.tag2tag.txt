@@ -4,7 +4,8 @@ include::header.inc[]
 Plugin tag2tag
 --------------
 
-This plugin can be used to convert between similar tags such GL,PL,GP or QR,QA,QS or tags that use localized alleles, e.g. LPL,LAD.
+This plugin can be used to convert between similar tags such GL,PL,GP or QR,QA,QS or tags that use local alleles, e.g. LPL,LAD.
+(For a description of localized tags see link:scaling.html[the page on scaling].)
 
 The list of plugin-specific options can be obtained by running `bcftools +tag2tag -h`, which will print the following usage page:
 ----
