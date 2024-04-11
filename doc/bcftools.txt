@@ -380,6 +380,7 @@ Add or remove annotations.
     To replace only existing values without modifying missing annotations, use "-TAG".
     To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
     If position needs to be replaced, mark the column with the new position as "~POS".
+    Note that this works only for ID and POS, for other fields see the description of *-i* below.
     {nbsp} +
     {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
@@ -423,6 +424,17 @@ Add or remove annotations.
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
+    {nbsp} +
+    {nbsp} +
+    Additionally, the command *bcftools annotate* supports expressions updated from the annotation
+    file dynamically for each record:
+----
+    # The field 'STR' from the -a file is required to match INFO/TAG in VCF. In the first example
+    # the alleles REF,ALT must match, in the second example they are ignored. The option -k is required
+    # to output also records that were not annotated
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,REF,ALT,SCORE,STR -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,STR     -i'TAG={STR}' -k input.vcf
+----
 
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them

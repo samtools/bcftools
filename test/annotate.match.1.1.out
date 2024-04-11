@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=STR,Number=1,Type=String,Description="">
+##INFO=<ID=INT,Number=1,Type=Integer,Description="">
+##INFO=<ID=FLT,Number=1,Type=Float,Description="">
+##INFO=<ID=SCORE,Number=1,Type=Integer,Description="">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	10	.	A	C	.	PASS	STR=xx2;INT=22;FLT=2.2;SCORE=22
