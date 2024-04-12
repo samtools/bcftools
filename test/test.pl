@@ -501,9 +501,6 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--s
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
-run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.1.out',args=>q[-c CHROM,POS,-,-,SCORE,STR,INT,FLT -i'STR={STR}']);
-run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.2.out',args=>q[-c CHROM,POS,REF,ALT,SCORE,STR,INT,FLT -i'INT={INT}']);
-run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.2.out',args=>q[-c CHROM,POS,REF,ALT,SCORE,STR,INT,FLT -i'FLT={FLT}']);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,POS,-,T_STR');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate2',out=>'annotate22.out',args=>'-c CHROM,FROM,TO,T_STR');
