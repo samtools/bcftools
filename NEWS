@@ -1,5 +1,10 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Add short option -W for --write-index. The option now accepts an optional parameter
+  which allows to choose between TBI and CSI index format.
+
 
 Changes affecting specific commands:
 
@@ -15,6 +20,12 @@ Changes affecting specific commands:
 * bcftools merge
 
     - Add new option `--force-single` to support single-file edge case (#2100)
+
+* bcftools mpileup
+
+    - Add new option --indels-cns for an alternative indel calling model, which should increase
+      the speed on long read data (thanks to using edlib) and the precision (thanks to a number
+      of heuristics).
 
 * bcftools norm
 
