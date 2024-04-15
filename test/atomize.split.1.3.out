@@ -1,0 +1,46 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=11,length=135006516>
+##contig=<ID=12,length=135006516>
+##FILTER=<ID=flt,Description="Test FILTER">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=XRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=ISTR,Number=1,Type=String,Description="Test String in INFO">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="Test String in FORMAT">
+##FORMAT=<ID=FFI,Number=1,Type=Integer,Description="Test Integer in FORMAT">
+##FORMAT=<ID=FFF,Number=1,Type=Float,Description="Test Float in FORMAT">
+##FORMAT=<ID=FAF,Number=A,Type=Float,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FAI,Number=A,Type=Integer,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FRF,Number=R,Type=Float,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FRI,Number=R,Type=Integer,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AR in FORMAT">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Test Number=G in FORMAT">
+##INFO=<ID=OLD_REC,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4
+11	101	.	G	C,*	.	.	OLD_REC=11|101|GCGT|G,GCGA,GTGA,CCGT|4	GT	2	0	0	1
+11	101	.	GCGT	G,*	.	.	OLD_REC=11|101|GCGT|G,GCGA,GTGA,CCGT|1	GT	1	2	2	2
+11	102	.	C	T,*	.	.	OLD_REC=11|101|GCGT|G,GCGA,GTGA,CCGT|3	GT	2	0	1	0
+11	104	.	T	A,*	.	.	OLD_REC=11|101|GCGT|G,GCGA,GTGA,CCGT|2,3	GT	2	1	1	0
+11	201	.	C	G,*	.	.	OLD_REC=11|201|CC|GG,GT|1,2	GT	0	1	1	0
+11	202	.	C	G,*	.	.	OLD_REC=11|201|CC|GG,GT|1	GT	0	1	2	0
+11	202	.	C	T,*	.	.	OLD_REC=11|201|CC|GG,GT|2	GT	0	2	1	0
+12	101	rs101	G	C,*	199	flt	INDEL;AN=4;AC=4,.;DP=19;ISTR=SomeString;XRF=0,4,.;XRI=0,4,.;XRS=000,xx,.;XAF=4,.;XAI=444,.;XAS=zzz,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|4	GT	0/2	2/0	0/0	0/1
+12	101	rs101	GCGT	G,*	199	flt	INDEL;AN=4;AC=1,.;DP=19;ISTR=SomeString;XRF=0,10,.;XRI=0,1111,.;XRS=000,AAA,.;XAF=10,.;XAI=1111,.;XAS=AAA,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|1	GT	0/1	1/2	2/2	2/2
+12	102	rs101	C	T,*	199	flt	INDEL;AN=4;AC=3,.;DP=19;ISTR=SomeString;XRF=0,300000,.;XRI=0,3333,.;XRS=000,DDD,.;XAF=3,.;XAI=33,.;XAS=xx,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|3	GT	0/2	2/0	0/1	0/0
+12	104	rs101	T	A,*	199	flt	INDEL;AN=4;AC=2,.;DP=19;ISTR=SomeString;XRF=0,200,.;XRI=0,2222,.;XRS=000,BBB,.;XAF=200000,.;XAI=22,.;XAS=DDD,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|2,3	GT	0/2	2/1	1/1	1/0
+12	201	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1,2	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,2,.	1/1:zz:22:2.2:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.
+12	202	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,2,.	2/2:zz:22:2.2:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.
+12	202	.	C	T,*	.	.	OLD_REC=12|201|CC|GG,GT|2	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,3,5,.,.,.	2:yy:11:1.1:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,5,.	1/1:zz:22:2.2:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,3,5,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.

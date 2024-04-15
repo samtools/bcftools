@@ -303,8 +303,11 @@ Such a file can be easily created from a VCF using:
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
 
-*--write-index*::
-    Automatically index the output files. Can be used only for compressed BCF and VCF output.
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output files. 'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format. Defaults to
+    CSI unless specified otherwise. Can be used only for compressed
+    BCF and VCF output.
 
 
 [[annotate]]
@@ -509,8 +512,9 @@ Add or remove annotations.
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 *Examples:*
 ----
@@ -615,8 +619,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 ==== Input/output options:
 
@@ -654,7 +659,7 @@ demand. The original calling model can be invoked with the *-c* option.
 ----
 
 *-G, --group-samples* [TAG:]'FILE'|'-'::
-    by default, all samples are assumed to come from a single population. This option allows to group samples
+    by default, all samples are assumed to come from a single population. This option groups samples
     into populations and apply the HWE assumption within but not across the populations. 'FILE' is a tab-delimited
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
@@ -895,8 +900,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 
 [[consensus]]
@@ -983,6 +989,10 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *-o, --output* 'FILE'::
     write output to a file
 
+*--regions-overlap* '0'|'1'|'2'::
+    how to treat VCF variants overlapping the target region in the fasta file:
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     apply variants of the listed samples. See also the option *-I, --iupac-codes*
 
@@ -1047,8 +1057,9 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 ==== VCF output options:
 
@@ -1282,6 +1293,9 @@ bitmask. The construction of the bitmask limits the number of consequences
 that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 15, but
 if more are required, see the *--ncsq* option.
 
+Note that the program annotates only records with a functional consequence and
+intergenic regions will pass through unchanged.
+
 The program requires on input a VCF/BCF file, the reference genome in fasta
 format (*--fasta-ref*) and genomic features in the GFF3 format downloadable
 from the Ensembl website (*--gff-annot*), and outputs an annotated VCF/BCF
@@ -1321,7 +1335,7 @@ output VCF and are ignored for the prediction analysis.
     reference sequence in fasta format (required)
 
 *--force*::
-    run even if some sanity checks fail. Currently the option allows to skip
+    run even if some sanity checks fail. Currently the option enables skipping
     transcripts in malformatted GFFs with incorrect phase
 
 *-g, --gff-annot* 'FILE'::
@@ -1445,8 +1459,9 @@ output VCF and are ignored for the prediction analysis.
     and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
     that of the input VCF. The default is to attempt the automatic translation.
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 *Examples:*
 ----
@@ -1598,7 +1613,7 @@ And similarly here, the second is filtered:
 
 *-s, --soft-filter* 'STRING'|'+'::
     annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
-    by the program ("Filter%d").
+    by the program ("Filter%d"). Applies to records that do not meet filter expression.
 
 *-S, --set-GTs* '.'|'0'::
     set genotypes of failed samples to missing value ('.') or reference allele ('0')
@@ -1615,8 +1630,9 @@ And similarly here, the second is filtered:
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 
 
@@ -1875,6 +1891,9 @@ in the other files.
     include only sites for which 'EXPRESSION' is true. See discussion
     of *-e, --exclude* above.
 
+*-f, --file-list* 'FILE'::
+    Read file names from 'FILE', one file name per line.
+
 *-n, --nfiles* \[+-=]'INT'|~'BITMAP'::
     output positions present in this many (=), this many or more (+), this
     many or fewer (-), or the exact same (~) files
@@ -1911,8 +1930,10 @@ in the other files.
     comma-separated list of input files to output given as 1-based indices. With *-p* and no
     *-w*, all files are written.
 
-*--write-index*::
-    Automatically index the output file. This is done automatically with the *-p* option.
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and defaults
+    to tbi for vcf.gz and csi for bcf.  This is done automatically
+    with the *-p* option if the output format is compressed.
 
 ==== Examples:
 
@@ -1960,12 +1981,17 @@ also given explicitly using the *--print-header* and *--use-header* options.
 Note that only records from different files can be merged, never from the same file.
 For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcftools norm>> -m* instead.
 
+*--force-no-index*::
+    synonymous to *--no-index*
 
 *--force-samples*::
     if the merged files contain duplicate samples names, proceed anyway.
     Duplicate sample names will be resolved by prepending the index of the file
     as it appeared on the command line to the conflicting sample name (see
     '2:S3' in the above example).
+
+*--force-single*::
+    run even if only one file is given on input
 
 *--print-header*::
     print only merged header and exit
@@ -2006,7 +2032,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     Sites with many alternate alleles can require extremely large storage space which
     can exceed the 2GB size limit representable by BCF. This is caused
     by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
-    and alternate alleles. The *-L, --local-alleles* option allows to replace such tags
+    and alternate alleles. The *-L, --local-alleles* option allows replacement of such tags
     with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
     for that sample. A new FORMAT/LAA tag is added which lists 1-based indices of the
     alternate alleles relevant (local) for the current sample. The number 'INT' gives the
@@ -2015,7 +2041,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 
 *-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'[,'*']::
     The option controls what types of multiallelic records can be created. If single asterisk
-    '*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
+    '\*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
     if two asterisks '**' are appended, the unobserved allele will be removed all sites.
 ----
 -m none        ..  no new multiallelics, output multiple records instead
@@ -2034,12 +2060,12 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     alleles, vector fields pertaining to unobserved alleles are set to missing ('.') by default.
     The 'METHOD' is one of '.' (the default, use missing values), 'NUMBER' (use a constant value, e.g. 0),
     'max' (the maximum value observed for other alleles in the sample). When *--gvcf* option is set,
-    the rule *-M PL:max,AD:0* is implied. This can be overriden with providing *-M -* or *-M PL:.,AD:.*.
+    the rule *-M PL:max,AD:0* is implied. This can be overridden with providing *-M -* or *-M PL:.,AD:.*.
     Note that if the unobserved allele is explicitly present as '<*>' or '<NON_REF>', then its corresponding
     value will be used regardless of *-M* settings.
 
 *--no-index*::
-    the option allows to merge files without indexing them first. In order for this
+    the option allows files to be merged without indexing them first. In order for this
     option to work, the user must ensure that the input files have chromosomes in
     the same order and consistent with the order of sequences in the VCF header.
 
@@ -2064,8 +2090,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 [[mpileup]]
 === bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
@@ -2179,7 +2206,21 @@ those scenarios.
     A new EXPERIMENTAL indel calling model which aims to address some known deficiencies of
     the current indel calling algorithm. Specifically, it uses diploid reference consensus
     sequence. Note that in the current version it has the potential to increase sensitivity
-    but at the cost of decreased specificity
+    but at the cost of decreased specificity.
+    Only works with short-read sequencing technologies.
+
+*--indels-cns*::
+    Another EXPERIMENTAL indel calling method, predating indels-2.0 in
+    PR form, but merged more recently.  It also uses a diploid
+    reference consensus, but with added parameters and heuristics to
+    optimise for a variety of sequencing platforms.  This is usually
+    faster and more accurate than the default caller and --indels-2.0,
+    but has not been tested on non-diploid samples and samples without
+    approximately even allele frequency.
+
+*--no-indels-cns*::
+    May be used to turn off --indels-cns mode when using one of the
+    newer profiles that has this enabled by default.
 
 *-q, -min-MQ* 'INT'::
     Minimum mapping quality for an alignment to be used [0]
@@ -2314,20 +2355,52 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 ==== Options for SNP/INDEL genotype likelihood computation
 
 *-X, --config* 'STR'::
-    Specify a platform specific configuration profile.  The profile
-    should be one of '1.12', 'illumina', 'ont' or 'pacbio-ccs'.
-    Settings applied are as follows:
+    Specify a platform specific configuration profile.  Specifying the
+    profile as "list" will list the available profile names and the
+    parameters they change.  There are profiles named after a release,
+    which should be used if you wish to ensure forward compatibility
+    of results.  The non-versioned names (eg "illumina") will always
+    point to the most recent set of parameters for that instrument type.
+    The current values are:
 
-        1.12           -Q13 -h100 -m1
-        illumina       [ default values ]
-        ont	           -B -Q5 --max-BQ 30 -I
-        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
+        1.12            -Q13 -h100 -m1
+
+        bgi
+        bgi-1.20        --indels-cns -B --indel-size 80 -F0.1 --indel-bias 0.9
+                        --seqq-offset 120
+
+        illumina-1.18   [ default values ]
+
+        illumina
+        illumina-1.20   --indels-cns --seqq-offset 125
+
+        ont             -B -Q5 --max-BQ 30 -I
+
+        ont-sup
+        ont-sup-1.20    --indels-cns -B -Q1 --max-BQ 35 --delta-BQ 99 -F0.2
+                        -o15 -e1 -h110 --del-bias 0.4 --indel-bias 0.7
+                        --poly-mqual --seqq-offset 130 --indel-size 80
+
+        pacbio-ccs-1.18 -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
+
+        pacbio-ccs
+        pacbio-ccs-1.20  --indels-cns -B -Q5 --max-BQ 50 -F0.1 -o25 -e1 -h300
+                         --delta-BQ 10 --del-bias 0.4 --poly-mqual
+                         --indel-bias 0.9 --seqq-offset 118 --indel-size 80
+                         --score-vs-ref 0.7
+
+        ultima
+        ultima-1.20      --indels-cns -B -Q1 --max-BQ 30 --delta-BQ 10 -F0.15
+                         -o20 -e10 -h250 --del-bias 0.3 --indel-bias 0.7
+                         --poly-mqual --seqq-offset 140 --score-vs-ref 0.3
+                         --indel-size 80
 
 *--ar, --ambig-reads* 'drop'|'incAD'|'incAD0'::
     What to do with ambiguous indel reads that do not span an entire
@@ -2366,10 +2439,27 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     0.75) while higher depth samples or where you favour recall rates
     over precision may work better with a higher value such as 2.0.
 
+*--del-bias* 'FLOAT'::
+    Skews the likelihood of deletions over insertions.  Defaults to an
+    even distribution value of 1.0.  Lower values imply a higher rate
+    of false positive deletions (meaning candidate deletions are less
+    likely to be real).
+
 *--indel-size* 'INT'::
     Indel window size to use when assessing the quality of candidate indels.
     Note that although the window size approximately corresponds to the maximum
     indel size considered, it is not an exact threshold [110]
+
+*--seqq-offset* 'INT'::
+    Tunes the importance of indel sequence quality per depth.  The
+    final "seqQ" quality used is "offset - 5*MIN(depth,20)". [120]
+
+*--poly-mqual*::
+    Use the lowest quality value within a homopolymer run, instead of
+    the quality immediately adjacent to the indel.  This may be
+    important for unclocked instruments, particularly ones with a flow
+    chemistry where runs of bases of identical type are incorporated
+    together.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling
@@ -2441,14 +2531,14 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     100  CC  C,GG   1/2
 
     # After:
-    #   bcftools norm -a .
+    #   bcftools norm -a --atom-overlaps .
     100	 C	 G      ./1
     100	 CC	 C      1/.
     101	 C	 G      ./1
 
     # After:
-    #   bcftools norm -a '*'
-    #   bcftools norm -a \*
+    #   bcftools norm -a --atom-overlaps '*'
+    #   bcftools norm -a --atom-overlaps \*
     100	 C	 G,*    2/1
     100	 CC	 C,*    1/2
     101	 C	 G,*    2/1
@@ -2500,6 +2590,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
+    {nbsp} +
+    {nbsp} +
+    Note that multiallelic sites with both SNPs and indels will be split into
+    biallelic sites with both *-m -snps* and *-m -indels*.
 
 *--multi-overlaps* '0'|'.'::
     use the reference ('0') or missing ('.') allele for overlapping alleles after
@@ -2551,8 +2645,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 [[plugin]]
 
@@ -2610,8 +2705,9 @@ the usage examples that each plugin comes with.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 ==== Plugin options:
 
@@ -2760,12 +2856,13 @@ By default, appropriate system directories are searched for installed plugins.
     split VCF by sample, creating single- or multi-sample VCFs
 
 *split-vep*::
-    extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
-    can be added as a new INFO field to the VCF or in a custom text format. See
+    extract fields from structured annotations such as INFO/CSQ created by VEP or INFO/BCSQ created by
+    bcftools/csq. These can be added as a new INFO field to the VCF or in a custom text format. See
     <http://samtools.github.io/bcftools/howtos/plugin.split-vep.html> for more.
 
 *tag2tag*::
-    Convert between similar tags, such as GL,PL,GP or QR,QA,QS.
+    Convert between similar tags, such as GL,PL,GP or QR,QA,QS or tags with localized alleles e.g. LPL,LAD.
+    See <http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html> for more.
 
 *trio-dnm2*::
     screen variants for possible de-novo mutations in trios
@@ -3037,6 +3134,12 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     # (-i) use "[]". This is for historic reasons and backward-compatibility.
     bcftools query -f '%AC{1}\n' -i 'AC[1]>10' file.vcf.gz
 
+    # Print all samples at sites where at least one sample has DP=1 or DP=2. In the second case
+    # print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
+    bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 || FMT/DP=2' file.vcf
+    bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 |  FMT/DP=2' file.vcf
+
+
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
 Modify header of VCF/BCF files, change sample names.
@@ -3061,7 +3164,7 @@ Modify header of VCF/BCF files, change sample names.
     "Not\ a\ good\ sample\ name".
 
 *-T, --temp-prefix* 'PATH'::
-    template for temporary file names, used with *-f*
+    this option is ignored, but left for compatibility with earlier versions of bcftools.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
@@ -3246,8 +3349,9 @@ Transition probabilities:
     Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
     then these are replaced with a string that makes the directory name unique.
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 
 
@@ -3396,8 +3500,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*--write-index*::
-    Automatically index the output file
+*-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
+    Automatically index the output file.  'FMT' is optional and can be
+    one of "tbi" or "csi" depending on output file format.
 
 
 ==== Subset options:

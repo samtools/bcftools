@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="">
+##contig=<ID=4,assembly=b37,length=191154276>
+##reference=ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	C	D
+4	1	.	A	.	.	.	.	DP	1	0

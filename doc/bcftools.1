@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2023-12-12
+.\"      Date: 2024-04-15
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2023-12-12" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2024-04-15" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2023\-12\-12\fP and refers to bcftools git version \fB1.19\fP.
+This manual page was last updated \fB2024\-04\-15\fP and refers to bcftools git version \fB1.20\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -612,9 +612,12 @@ Use multithreading with \fIINT\fP worker threads. The option is currently used o
 output stream, only when \fI\-\-output\-type\fP is \fIb\fP or \fIz\fP. Default: 0.
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output files. Can be used only for compressed BCF and VCF output.
+Automatically index the output files. \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format. Defaults to
+CSI unless specified otherwise. Can be used only for compressed
+BCF and VCF output.
 .RE
 .SS "bcftools annotate \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
@@ -900,9 +903,10 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .sp
 \fBExamples:\fP
@@ -1042,9 +1046,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "Input/output options:"
 .sp
@@ -1096,7 +1101,7 @@ workflow looks like this:
 .sp
 \fB\-G, \-\-group\-samples\fP \fIFILE\fP|\fI\-\fP
 .RS 4
-by default, all samples are assumed to come from a single population. This option allows to group samples
+by default, all samples are assumed to come from a single population. This option groups samples
 into populations and apply the HWE assumption within but not across the populations. \fIFILE\fP is a tab\-delimited
 text file with sample names in the first column and group names in the second column. If \fI\-\fP is
 given instead, no HWE assumption is made at all and single\-sample calling is performed. (Note that
@@ -1436,9 +1441,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "bcftools consensus \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
@@ -1566,6 +1572,12 @@ instead of skipping the missing genotypes, output the character CHAR (e.g. "?")
 write output to a file
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+how to treat VCF variants overlapping the target region in the fasta file:
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 apply variants of the listed samples. See also the option \fB\-I, \-\-iupac\-codes\fP
@@ -1685,9 +1697,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "VCF output options:"
 .sp
@@ -2011,6 +2024,9 @@ bitmask. The construction of the bitmask limits the number of consequences
 that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 15, but
 if more are required, see the \fB\-\-ncsq\fP option.
 .sp
+Note that the program annotates only records with a functional consequence and
+intergenic regions will pass through unchanged.
+.sp
 The program requires on input a VCF/BCF file, the reference genome in fasta
 format (\fB\-\-fasta\-ref\fP) and genomic features in the GFF3 format downloadable
 from the Ensembl website (\fB\-\-gff\-annot\fP), and outputs an annotated VCF/BCF
@@ -2060,7 +2076,7 @@ reference sequence in fasta format (required)
 .sp
 \fB\-\-force\fP
 .RS 4
-run even if some sanity checks fail. Currently the option allows to skip
+run even if some sanity checks fail. Currently the option enables skipping
 transcripts in malformatted GFFs with incorrect phase
 .RE
 .sp
@@ -2237,9 +2253,10 @@ and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will matc
 that of the input VCF. The default is to attempt the automatic translation.
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .sp
 \fBExamples:\fP
@@ -2444,7 +2461,7 @@ see \fBCommon Options\fP
 \fB\-s, \-\-soft\-filter\fP \fISTRING\fP|\fI+\fP
 .RS 4
 annotate FILTER column with \fISTRING\fP or, with \fI+\fP, a unique filter name generated
-by the program ("Filter%d").
+by the program ("Filter%d"). Applies to records that do not meet filter expression.
 .RE
 .sp
 \fB\-S, \-\-set\-GTs\fP \fI.\fP|\fI0\fP
@@ -2472,9 +2489,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "bcftools gtcheck [\fIOPTIONS\fP] [\fB\-g\fP \fIgenotypes.vcf.gz\fP] \fIquery.vcf.gz\fP"
 .sp
@@ -2784,6 +2802,11 @@ include only sites for which \fIEXPRESSION\fP is true. See discussion
 of \fB\-e, \-\-exclude\fP above.
 .RE
 .sp
+\fB\-f, \-\-file\-list\fP \fIFILE\fP
+.RS 4
+Read file names from \fIFILE\fP, one file name per line.
+.RE
+.sp
 \fB\-n, \-\-nfiles\fP [+\-=]\fIINT\fP|~\fIBITMAP\fP
 .RS 4
 output positions present in this many (=), this many or more (+), this
@@ -2842,9 +2865,11 @@ comma\-separated list of input files to output given as 1\-based indices. With \
 \fB\-w\fP, all files are written.
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file. This is done automatically with the \fB\-p\fP option.
+Automatically index the output file.  \fIFMT\fP is optional and defaults
+to tbi for vcf.gz and csi for bcf.  This is done automatically
+with the \fB\-p\fP option if the output format is compressed.
 .RE
 .SS "Examples:"
 .sp
@@ -2915,12 +2940,22 @@ also given explicitly using the \fB\-\-print\-header\fP and \fB\-\-use\-header\f
 Note that only records from different files can be merged, never from the same file.
 For "vertical" merge take a look at \fBbcftools concat\fP or \fBbcftools norm \-m\fP instead.
 .sp
+\fB\-\-force\-no\-index\fP
+.RS 4
+synonymous to \fB\-\-no\-index\fP
+.RE
+.sp
 \fB\-\-force\-samples\fP
 .RS 4
 if the merged files contain duplicate samples names, proceed anyway.
 Duplicate sample names will be resolved by prepending the index of the file
 as it appeared on the command line to the conflicting sample name (see
 \fI2:S3\fP in the above example).
+.RE
+.sp
+\fB\-\-force\-single\fP
+.RS 4
+run even if only one file is given on input
 .RE
 .sp
 \fB\-\-print\-header\fP
@@ -2979,7 +3014,7 @@ Read file names from \fIFILE\fP, one file name per line.
 Sites with many alternate alleles can require extremely large storage space which
 can exceed the 2GB size limit representable by BCF. This is caused
 by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
-and alternate alleles. The \fB\-L, \-\-local\-alleles\fP option allows to replace such tags
+and alternate alleles. The \fB\-L, \-\-local\-alleles\fP option allows replacement of such tags
 with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
 for that sample. A new FORMAT/LAA tag is added which lists 1\-based indices of the
 alternate alleles relevant (local) for the current sample. The number \fIINT\fP gives the
@@ -2990,7 +3025,7 @@ is 0 which disables the feature and outputs values for all alternate alleles.
 \fB\-m, \-\-merge\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIsnp\-ins\-del\fP|\fIall\fP|\fInone\fP|\fIid\fP[,\fI*\fP]
 .RS 4
 The option controls what types of multiallelic records can be created. If single asterisk
-\fI\fB\fP is appended, the unobserved allele \fI<\fP>\fP or \fI<NON_REF>\fP will be removed at variant sites;
+\fI*\fP is appended, the unobserved allele \fI<*>\fP or \fI<NON_REF>\fP will be removed at variant sites;
 if two asterisks \fI**\fP are appended, the unobserved allele will be removed all sites.
 .RE
 .sp
@@ -3016,14 +3051,14 @@ Rules for merging vector tags at multiallelic sites. When input files have diffe
 alleles, vector fields pertaining to unobserved alleles are set to missing (\fI.\fP) by default.
 The \fIMETHOD\fP is one of \fI.\fP (the default, use missing values), \fINUMBER\fP (use a constant value, e.g. 0),
 \fImax\fP (the maximum value observed for other alleles in the sample). When \fB\-\-gvcf\fP option is set,
-the rule \fB\-M PL:max,AD:0\fP is implied. This can be overriden with providing \fB\-M \-\fP or \fB\-M PL:.,AD:.\fP.
+the rule \fB\-M PL:max,AD:0\fP is implied. This can be overridden with providing \fB\-M \-\fP or \fB\-M PL:.,AD:.\fP.
 Note that if the unobserved allele is explicitly present as \fI<*>\fP or \fI<NON_REF>\fP, then its corresponding
 value will be used regardless of \fB\-M\fP settings.
 .RE
 .sp
 \fB\-\-no\-index\fP
 .RS 4
-the option allows to merge files without indexing them first. In order for this
+the option allows files to be merged without indexing them first. In order for this
 option to work, the user must ensure that the input files have chromosomes in
 the same order and consistent with the order of sequences in the VCF header.
 .RE
@@ -3063,9 +3098,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "bcftools mpileup [\fIOPTIONS\fP] \fB\-f\fP \fIref.fa\fP \fIin.bam\fP [\fIin2.bam\fP [...]]"
 .sp
@@ -3205,7 +3241,25 @@ is the opposite of \fBsamtools mpileup \-G\fP.
 A new EXPERIMENTAL indel calling model which aims to address some known deficiencies of
 the current indel calling algorithm. Specifically, it uses diploid reference consensus
 sequence. Note that in the current version it has the potential to increase sensitivity
-but at the cost of decreased specificity
+but at the cost of decreased specificity.
+Only works with short\-read sequencing technologies.
+.RE
+.sp
+\fB\-\-indels\-cns\fP
+.RS 4
+Another EXPERIMENTAL indel calling method, predating indels\-2.0 in
+PR form, but merged more recently.  It also uses a diploid
+reference consensus, but with added parameters and heuristics to
+optimise for a variety of sequencing platforms.  This is usually
+faster and more accurate than the default caller and \-\-indels\-2.0,
+but has not been tested on non\-diploid samples and samples without
+approximately even allele frequency.
+.RE
+.sp
+\fB\-\-no\-indels\-cns\fP
+.RS 4
+May be used to turn off \-\-indels\-cns mode when using one of the
+newer profiles that has this enabled by default.
 .RE
 .sp
 \fB\-q, \-min\-MQ\fP \fIINT\fP
@@ -3401,25 +3455,105 @@ BQB.
 .if n .RE
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "Options for SNP/INDEL genotype likelihood computation"
 .sp
 \fB\-X, \-\-config\fP \fISTR\fP
 .RS 4
-Specify a platform specific configuration profile.  The profile
-should be one of \fI1.12\fP, \fIillumina\fP, \fIont\fP or \fIpacbio\-ccs\fP.
-Settings applied are as follows:
+Specify a platform specific configuration profile.  Specifying the
+profile as "list" will list the available profile names and the
+parameters they change.  There are profiles named after a release,
+which should be used if you wish to ensure forward compatibility
+of results.  The non\-versioned names (eg "illumina") will always
+point to the most recent set of parameters for that instrument type.
+The current values are:
 .sp
 .if n .RS 4
 .nf
 .fam C
-1.12           \-Q13 \-h100 \-m1
-illumina       [ default values ]
-ont                   \-B \-Q5 \-\-max\-BQ 30 \-I
-pacbio\-ccs     \-D \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-M99999
+1.12            \-Q13 \-h100 \-m1
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+bgi
+bgi\-1.20        \-\-indels\-cns \-B \-\-indel\-size 80 \-F0.1 \-\-indel\-bias 0.9
+                \-\-seqq\-offset 120
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+illumina\-1.18   [ default values ]
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+illumina
+illumina\-1.20   \-\-indels\-cns \-\-seqq\-offset 125
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+ont             \-B \-Q5 \-\-max\-BQ 30 \-I
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+ont\-sup
+ont\-sup\-1.20    \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 35 \-\-delta\-BQ 99 \-F0.2
+                \-o15 \-e1 \-h110 \-\-del\-bias 0.4 \-\-indel\-bias 0.7
+                \-\-poly\-mqual \-\-seqq\-offset 130 \-\-indel\-size 80
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+pacbio\-ccs\-1.18 \-D \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-M99999
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+pacbio\-ccs
+pacbio\-ccs\-1.20  \-\-indels\-cns \-B \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-h300
+                 \-\-delta\-BQ 10 \-\-del\-bias 0.4 \-\-poly\-mqual
+                 \-\-indel\-bias 0.9 \-\-seqq\-offset 118 \-\-indel\-size 80
+                 \-\-score\-vs\-ref 0.7
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+ultima
+ultima\-1.20      \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 30 \-\-delta\-BQ 10 \-F0.15
+                 \-o20 \-e10 \-h250 \-\-del\-bias 0.3 \-\-indel\-bias 0.7
+                 \-\-poly\-mqual \-\-seqq\-offset 140 \-\-score\-vs\-ref 0.3
+                 \-\-indel\-size 80
 .fam
 .fi
 .if n .RE
@@ -3472,11 +3606,34 @@ precision over recall), it is advisable to set this lower (such as
 over precision may work better with a higher value such as 2.0.
 .RE
 .sp
+\fB\-\-del\-bias\fP \fIFLOAT\fP
+.RS 4
+Skews the likelihood of deletions over insertions.  Defaults to an
+even distribution value of 1.0.  Lower values imply a higher rate
+of false positive deletions (meaning candidate deletions are less
+likely to be real).
+.RE
+.sp
 \fB\-\-indel\-size\fP \fIINT\fP
 .RS 4
 Indel window size to use when assessing the quality of candidate indels.
 Note that although the window size approximately corresponds to the maximum
 indel size considered, it is not an exact threshold [110]
+.RE
+.sp
+\fB\-\-seqq\-offset\fP \fIINT\fP
+.RS 4
+Tunes the importance of indel sequence quality per depth.  The
+final "seqQ" quality used is "offset \- 5*MIN(depth,20)". [120]
+.RE
+.sp
+\fB\-\-poly\-mqual\fP
+.RS 4
+Use the lowest quality value within a homopolymer run, instead of
+the quality immediately adjacent to the indel.  This may be
+important for unclocked instruments, particularly ones with a flow
+chemistry where runs of bases of identical type are incorporated
+together.
 .RE
 .sp
 \fB\-I, \-\-skip\-indels\fP
@@ -3572,14 +3729,14 @@ by shell and must be put in quotes or escaped by a backslash:
     100  CC  C,GG   1/2
 
     # After:
-    #   bcftools norm \-a .
+    #   bcftools norm \-a \-\-atom\-overlaps .
     100         C         G      ./1
     100         CC         C      1/.
     101         C         G      ./1
 
     # After:
-    #   bcftools norm \-a \*(Aq*\*(Aq
-    #   bcftools norm \-a \(rs*
+    #   bcftools norm \-a \-\-atom\-overlaps \*(Aq*\*(Aq
+    #   bcftools norm \-a \-\-atom\-overlaps \(rs*
     100         C         G,*    2/1
     100         CC         C,*    1/2
     101         C         G,*    2/1
@@ -3650,6 +3807,12 @@ together: If only SNP records should be split or merged, specify \fIsnps\fP; if
 both SNPs and indels should be merged separately into two records, specify
 \fIboth\fP; if SNPs and indels should be merged into a single record, specify
 \fIany\fP.
+\~
+.br
+\~
+.br
+Note that multiallelic sites with both SNPs and indels will be split into
+biallelic sites with both \fB\-m \-snps\fP and \fB\-m \-indels\fP.
 .RE
 .sp
 \fB\-\-multi\-overlaps\fP \fI0\fP|\fI.\fP
@@ -3732,9 +3895,10 @@ maximum distance between two records to consider when locally
 sorting variants which changed position during the realignment
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "bcftools [plugin \fINAME\fP|+\fINAME\fP] \fI[OPTIONS]\fP \fIFILE\fP \(em \fI[PLUGIN OPTIONS]\fP"
 .sp
@@ -3810,9 +3974,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "Plugin options:"
 .sp
@@ -4243,15 +4408,18 @@ split VCF by sample, creating single\- or multi\-sample VCFs
 .sp
 \fBsplit\-vep\fP
 .RS 4
-extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
-can be added as a new INFO field to the VCF or in a custom text format. See
+extract fields from structured annotations such as INFO/CSQ created by VEP or INFO/BCSQ created by
+bcftools/csq. These can be added as a new INFO field to the VCF or in a custom text format. See
 .URL "http://samtools.github.io/bcftools/howtos/plugin.split\-vep.html" "" ""
 for more.
 .RE
 .sp
 \fBtag2tag\fP
 .RS 4
-Convert between similar tags, such as GL,PL,GP or QR,QA,QS.
+Convert between similar tags, such as GL,PL,GP or QR,QA,QS or tags with localized alleles e.g. LPL,LAD.
+See \c
+.URL "http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html" "" ""
+for more.
 .RE
 .sp
 \fBtrio\-dnm2\fP
@@ -4674,6 +4842,17 @@ bcftools query \-f \*(Aq%AC{1}\(rsn\*(Aq \-i \*(AqAC[1]>10\*(Aq file.vcf.gz
 .fam
 .fi
 .if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Print all samples at sites where at least one sample has DP=1 or DP=2. In the second case
+# print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
+bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 || FMT/DP=2\*(Aq file.vcf
+bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |  FMT/DP=2\*(Aq file.vcf
+.fam
+.fi
+.if n .RE
 .SS "bcftools reheader [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 Modify header of VCF/BCF files, change sample names.
@@ -4707,7 +4886,7 @@ spaces can be escaped using the backslash character, for example
 .sp
 \fB\-T, \-\-temp\-prefix\fP \fIPATH\fP
 .RS 4
-template for temporary file names, used with \fB\-f\fP
+this option is ignored, but left for compatibility with earlier versions of bcftools.
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
@@ -4956,9 +5135,10 @@ Use this directory to store temporary files. If the last six characters of the s
 then these are replaced with a string that makes the directory name unique.
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "bcftools stats [\fIOPTIONS\fP] \fIA.vcf.gz\fP [\fIB.vcf.gz\fP]"
 .sp
@@ -5179,9 +5359,10 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-write\-index\fP
+\fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
-Automatically index the output file
+Automatically index the output file.  \fIFMT\fP is optional and can be
+one of "tbi" or "csi" depending on output file format.
 .RE
 .SS "Subset options:"
 .sp

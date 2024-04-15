@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=248387328>
+##reference=file:ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	C	T,CTT	.	.	.
+1	1	.	C	A,CAA	.	.	.
+1	2	.	C	<DEL>,<DUP>	.	.	.

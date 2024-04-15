@@ -1,6 +1,6 @@
 /*  bcftools.h -- utility function declarations.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -50,7 +50,15 @@ void error(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2
 void error_errno(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
 
 // For on the fly index creation with --write-index
-int init_index(htsFile *fh, bcf_hdr_t *hdr, char *fname, char **idx_fname);
+int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
+                char **idx_fname, int idx_fmt);
+int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
+               char **idx_fname);
+
+// Used to set args->write_index in CLI.
+// It will be true if set correctly.
+// Note due to HTS_FMT_CSI being zero we have to use an additional bit.
+int write_index_parse(char *arg);
 
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
 const char *hts_bcf_wmode(int file_type);

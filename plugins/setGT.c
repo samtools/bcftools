@@ -56,7 +56,7 @@ typedef struct
     filter_t *filter;
     char *filter_str;
     struct {
-        int m_allele, M_allele, *gt, *phased, ploidy;
+        int m_allele, M_allele, x_vaf_allele, *gt, *phased, ploidy;
         char *gt_str;
     } custom;
     int filter_logic, rand_seed;
@@ -85,6 +85,7 @@ args_t *args = NULL;
 
 #define MINOR_ALLELE -1
 #define MAJOR_ALLELE -2
+#define X_VAF_ALLELE -3
 
 const char *about(void)
 {
@@ -105,7 +106,7 @@ const char *usage(void)
         "       and the new genotype can be one of:\n"
         "           .       .. missing (\".\" or \"./.\", keeps ploidy)\n"
         "           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
-        "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, overrides ploidy)\n"
+        "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X overrides ploidy)\n"
         "           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           X       .. allele with bigger read depth as determined from FMT/AD\n"
@@ -277,6 +278,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             int allele;
             if ( *ptr=='m' ) { allele = MINOR_ALLELE; args->new_mask |= GT_MINOR; }
             else if ( *ptr=='M' ) { allele = MAJOR_ALLELE; args->new_mask |= GT_MAJOR; }
+            else if ( *ptr=='X' ) { allele = X_VAF_ALLELE; args->new_mask |= GT_X_VAF; }
             else if ( *ptr=='/' || *ptr=='|' )
             {
                 if ( !args->custom.ploidy ) error("Could not parse the genotype: %s\n",args->custom.gt_str);
@@ -313,7 +315,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
         bcf_hdr_printf(args->out_hdr, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     if ( (args->new_mask & GT_X_VAF) && !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"AD")) )
-        error("Error: the FORMAT/AD annotation does exist, cannot run with --new-gt X\n");
+        error("Error: the FORMAT/AD annotation does exist, cannot run with --new-gt %s\n",args->custom.gt_str);
 
     return 0;
 }
@@ -381,6 +383,7 @@ static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
     {
         if ( args->custom.gt[i]==MINOR_ALLELE ) new_allele = args->custom.m_allele;
         else if ( args->custom.gt[i]==MAJOR_ALLELE ) new_allele = args->custom.M_allele;
+        else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = args->custom.x_vaf_allele==bcf_gt_missing ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
         else new_allele = args->custom.gt[i];
         if ( new_allele >= nals ) // cannot set, the requested index is bigger than there are alleles in ALT
             new_allele = bcf_gt_missing;
@@ -544,7 +547,10 @@ bcf1_t *process(bcf1_t *rec)
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(ptr, ngts);
             else if ( args->new_mask & GT_CUSTOM )
+            {
+                if ( args->new_mask & GT_X_VAF ) args->custom.x_vaf_allele = args->xarr[i];
                 changed += set_gt_custom(args, ptr, ngts, rec->n_allele);
+            }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(ptr, ngts, args->xarr[i]);
             else
@@ -582,7 +588,10 @@ bcf1_t *process(bcf1_t *rec)
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(args->gts + i*ngts, ngts);
             else if ( args->new_mask & GT_CUSTOM )
+            {
+                if ( args->new_mask & GT_X_VAF ) args->custom.x_vaf_allele = args->xarr[i];
                 changed += set_gt_custom(args, args->gts + i*ngts, ngts, rec->n_allele);
+            }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(args->gts + i*ngts, ngts, args->xarr[i]);
             else
@@ -615,7 +624,10 @@ bcf1_t *process(bcf1_t *rec)
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(ptr, ngts);
             else if ( args->new_mask & GT_CUSTOM )
+            {
+                if ( args->new_mask & GT_X_VAF ) args->custom.x_vaf_allele = args->xarr[i];
                 changed += set_gt_custom(args, args->gts + i*ngts, ngts, rec->n_allele);
+            }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(ptr, ngts, args->xarr[i]);
             else

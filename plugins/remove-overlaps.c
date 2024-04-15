@@ -82,7 +82,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "       --write-index               Automatically index the output files [off]\n"
+        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n";
 }
 
@@ -103,7 +103,9 @@ static void init_data(args_t *args)
     args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->write_index && init_index(args->out_fh,args->hdr,args->output_fname,&args->index_fn)<0 ) error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( init_index2(args->out_fh,args->hdr,args->output_fname,&args->index_fn,
+                     args->write_index)<0 )
+      error("Error: failed to initialise index for %s\n",args->output_fname);
 
     args->vcfbuf = vcfbuf_init(args->hdr, 0);
     if ( args->rmdup )
@@ -181,12 +183,12 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"verbose",no_argument,NULL,'v'},
-        {"write-index",no_argument,NULL,1},
+        {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpd",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpdW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -222,7 +224,10 @@ int run(int argc, char **argv)
                           if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
-            case  1 : args->write_index = 1; break;
+            case 'W':
+                if (!(args->write_index = write_index_parse(optarg)))
+                    error("Unsupported index format '%s'\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

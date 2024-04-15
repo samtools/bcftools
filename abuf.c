@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2021-2023 Genome Research Ltd.
+   Copyright (c) 2021-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -418,6 +418,14 @@ static void _split_table_set_history(abuf_t *buf)
 {
     int i,j,ret;
     bcf1_t *rec = buf->split.rec;
+
+    // Don't update if the tag already exists. This is to prevent -a from overwriting -m
+    int m = 0;
+    char *tmp = NULL;
+    ret = bcf_get_info_string(buf->hdr,rec,buf->split.info_tag,&tmp,&m);
+    free(tmp);
+    if ( ret>0 ) return;
+
     buf->tmps.l = 0;
     ksprintf(&buf->tmps,"%s|%"PRIhts_pos"|%s|",bcf_seqname(buf->hdr,rec),rec->pos+1,rec->d.allele[0]);
     for (i=1; i<rec->n_allele; i++)
