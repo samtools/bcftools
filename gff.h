@@ -150,6 +150,7 @@
 
 #define STRAND_REV 0
 #define STRAND_FWD 1
+#define STRAND_UNK 2
 
 #define TRIM_NONE   0
 #define TRIM_5PRIME 1
@@ -273,9 +274,9 @@ struct gf_tscript_t_
 {
     uint32_t id;        // transcript id
     uint32_t beg,end;   // transcript's beg and end coordinate (ref strand, 0-based, inclusive)
-    uint32_t strand:1,  // STRAND_REV or STRAND_FWD
+    uint32_t strand:2,  // STRAND_REV,FWD,UNK
              used:1,    // does it have any exons, UTRs, CDS?
-             ncds:30,   // number of exons
+             ncds:29,   // number of exons
              mcds;
     gf_cds_t **cds;     // ordered list of exons
     uint32_t trim:2,    // complete, 5' or 3' trimmed, see TRIM_* types

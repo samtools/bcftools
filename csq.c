@@ -965,7 +965,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
     if ( tr->strand==STRAND_FWD && splice->vcf.pos >= ex_beg + 3 ) return 0;
 
 #if XDBG
-    fprintf(stderr,"shifted_del_synonymous: %d-%d  %s\n",ex_beg,ex_end, tr->strand==STRAND_FWD?"fwd":"rev");
+    fprintf(stderr,"shifted_del_synonymous: %d-%d  %s\n",ex_beg,ex_end, tr->strand==STRAND_FWD?"fwd":(tr->strand==STRAND_REV?"rev":"unk"));
     fprintf(stderr,"   %d  ..  %s > %s\n",splice->vcf.pos+1,splice->vcf.ref,splice->vcf.alt);
 #endif
 
@@ -998,7 +998,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         while ( ptr_vcf[i] && ptr_vcf[i]==ptr_ref[i] ) i++;
         if ( ptr_vcf[i] ) return 0;       // the deleted sequence cannot be replaced
     }
-    else
+    else if ( tr->strand==STRAND_FWD )
     {
         // STRAND_FWD
         int32_t vcf_block_beg = splice->vcf.pos + ref_len - 2*ndel;        // the position of the first base of the ref block that could potentially replace the deletion
@@ -1271,13 +1271,13 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
     {
         if ( splice->check_region_beg ) splice->csq |= CSQ_SPLICE_REGION;
         if ( splice->tr->strand==STRAND_FWD ) { if ( splice->check_start ) splice->csq |= CSQ_START_LOST; }
-        else { if ( splice->check_stop ) splice->csq |= CSQ_STOP_LOST; }
+        else if ( splice->tr->strand==STRAND_REV ) { if ( splice->check_stop ) splice->csq |= CSQ_STOP_LOST; }
     }
     if ( splice->ref_end > ex_end - 3 )
     {
         if ( splice->check_region_end ) splice->csq |= CSQ_SPLICE_REGION;
         if ( splice->tr->strand==STRAND_REV ) { if ( splice->check_start ) splice->csq |= CSQ_START_LOST; }
-        else { if ( splice->check_stop ) splice->csq |= CSQ_STOP_LOST; }
+        else if ( splice->tr->strand==STRAND_FWD ) { if ( splice->check_stop ) splice->csq |= CSQ_STOP_LOST; }
     }
     if ( splice->set_refalt )
     {
@@ -1338,17 +1338,17 @@ int hap_init(args_t *args, hap_node_t *parent, hap_node_t *child, gf_cds_t *cds,
     if ( !(tr->trim & TRIM_5PRIME) )
     {
         if ( tr->strand==STRAND_FWD ) { if ( child->icds==0 ) splice.check_start = 1; }
-        else { if ( child->icds==tr->ncds-1 ) splice.check_start = 1; }
+        else if ( tr->strand==STRAND_REV ) { if ( child->icds==tr->ncds-1 ) splice.check_start = 1; }
     }
     if ( !(tr->trim & TRIM_3PRIME) )
     {
         if ( tr->strand==STRAND_FWD ) { if ( child->icds==tr->ncds-1 ) splice.check_stop = 1; }
-        else { if ( child->icds==0 ) splice.check_stop = 1; }
+        else if ( tr->strand==STRAND_REV ) { if ( child->icds==0 ) splice.check_stop = 1; }
     }
     if ( splice.check_start )   // do not check starts in incomplete CDS, defined as not starting with M
     {
         if ( tr->strand==STRAND_FWD ) { if ( dna2aa(TSCRIPT_AUX(tr)->ref+N_REF_PAD+cds->beg-tr->beg) != 'M' ) splice.check_start = 0; }
-        else { if ( cdna2aa(TSCRIPT_AUX(tr)->ref+N_REF_PAD+cds->beg-tr->beg+cds->len-3) != 'M' ) splice.check_start = 0; }
+        else if ( tr->strand==STRAND_REV ) { if ( cdna2aa(TSCRIPT_AUX(tr)->ref+N_REF_PAD+cds->beg-tr->beg+cds->len-3) != 'M' ) splice.check_start = 0; }
     }
     if ( child->icds!=0 ) splice.check_region_beg = 1;
     if ( child->icds!=tr->ncds-1 ) splice.check_region_end = 1;
@@ -1586,7 +1586,7 @@ fprintf(stderr,"\ntranslate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,
             }
         }
     }
-    else    // STRAND_REV
+    else if ( strand==STRAND_REV )
     {
         // right padding - number of bases to take from ref
         npad = (seq.m - (sbeg + seq.l)) % 3;
@@ -1673,6 +1673,7 @@ fprintf(stderr,"\ntranslate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,
             }
         }
     }
+    else error("Should not happen: %d\n", strand);
     kputc_(0,tseq); tseq->l--;
 #if DBG
  fprintf(stderr,"    tseq: %s\n", tseq->s);
@@ -1858,7 +1859,7 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
     kputs(gf_type2gff_string(csq->biotype), str);
 
     if ( CSQ_PRN_STRAND(csq->type) || csq->vstr.l )
-        kputs(csq->strand==STRAND_FWD ? "|+" : "|-", str);
+        kputs(csq->strand==STRAND_FWD ? "|+" : (csq->strand==STRAND_REV ? "|-" : "|."), str);
 
     if ( csq->vstr.l )
         kputs(csq->vstr.s, str);
@@ -1882,6 +1883,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
 {
     int i;
     gf_tscript_t *tr = hap->tr;
+    assert( tr->strand==STRAND_FWD || tr->strand==STRAND_REV );
     int ref_node = tr->strand==STRAND_FWD ? ibeg : iend;
     int icsq = node->ncsq_list++;
     hts_expand0(csq_t,node->ncsq_list,node->mcsq_list,node->csq_list);
@@ -2177,7 +2179,7 @@ void hap_finalize(args_t *args, hap_t *hap)
                 indel = 0;
             }
         }
-        else
+        else if ( tr->strand==STRAND_REV )
         {
             i = istack + 1, ibeg = -1;
             while ( --i > 0 )
