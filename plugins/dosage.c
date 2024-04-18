@@ -49,7 +49,7 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -t, --tags <list>   VCF tags to determine the dosage from [PL,GL,GT]\n"
+        "   -t, --tags <list>   VCF tags to determine the dosage from [PL,GL,GT,GP]\n"
         "\n"
         "Example:\n"
         "   bcftools +dosage in.vcf -- -t GT\n"
@@ -57,7 +57,7 @@ const char *usage(void)
 }
 
 bcf_hdr_t *in_hdr = NULL;
-int pl_type = 0, gl_type = 0;
+int pl_type = 0, gl_type = 0, gp_type = 0;
 uint8_t *buf = NULL;
 int nbuf = 0;   // NB: number of elements, not bytes
 char **tags = NULL;
@@ -203,6 +203,57 @@ int calc_dosage_GT(bcf1_t *rec)
     return 0;
 }
 
+int calc_dosage_GP(bcf1_t *rec)
+{
+    int i, j, nret = bcf_get_format_values(in_hdr, rec, "GP", (void**)&buf, &nbuf, BCF_HT_REAL);
+    if (nret < 0) return -1;  // Failure to retrieve values
+
+    nret /= rec->n_sample;  // Number of probabilities per sample
+    if (nret != rec->n_allele*(rec->n_allele+1)/2) return -1;  // Check for diploid (triangular number check)
+
+    hts_expand(float, nret, mvals, vals);  // Ensure space in vals
+    hts_expand(float, rec->n_allele, mdsg, dsg);  // Ensure space in dsg
+
+    float *ptr = (float*) buf;
+    for (i = 0; i < rec->n_sample; i++)
+    {
+        float sum = 0;
+        for (j = 0; j < nret; j++)
+        {
+            vals[j] = ptr[j];  // Copy genotype probabilities
+            sum += vals[j];
+        }
+
+        if (sum > 0)  // Normalize probabilities if sum is positive
+        {
+            for (j = 0; j < nret; j++) vals[j] /= sum;
+
+            memset(dsg, 0, sizeof(float) * rec->n_allele);  // Initialize dosage values
+            int k, l = 0;
+            for (j = 0; j < rec->n_allele; j++)
+            {
+                for (k = 0; k <= j; k++)
+                {
+                    dsg[j] += vals[l] * (k == j ? 1 : 0.5);
+                    dsg[k] += vals[l] * (k == j ? 1 : 0.5);
+                    l++;
+                }
+            }
+        }
+        else  // Handle zero or negative sums as error condition
+        {
+            for (j = 0; j < rec->n_allele; j++) dsg[j] = -1;
+        }
+
+        // Print dosages for the current sample
+        for (j = 1; j < rec->n_allele; j++)
+            printf("%c%f", j == 1 ? '\t' : ',', dsg[j]);
+        ptr += nret;  // Move to the next sample's data
+    }
+
+    return 0;
+}
+
 
 char **split_list(char *str, int *nitems)
 {
@@ -226,7 +277,7 @@ char **split_list(char *str, int *nitems)
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     int i, id, c;
-    char *tags_str = "PL,GL,GT";
+    char *tags_str = "PL,GL,GT,GP";
 
     static struct option loptions[] =
     {
@@ -282,6 +333,21 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             handlers = (dosage_f*) realloc(handlers,(nhandlers+1)*sizeof(*handlers));
             handlers[nhandlers++] = calc_dosage_GT;
+        }
+        else if ( !strcmp("GP", tags[i]) )
+        {
+            id = bcf_hdr_id2int(in_hdr, BCF_DT_ID, "GP");
+            if ( bcf_hdr_idinfo_exists(in_hdr, BCF_HL_FMT, id) )
+            {
+                gp_type = bcf_hdr_id2type(in_hdr, BCF_HL_FMT, id);
+                if ( gp_type != BCF_HT_INT && gp_type != BCF_HT_REAL )
+                {
+                    fprintf(stderr, "Expected numeric type of FORMAT/GP\n");
+                    return -1;
+                }
+                handlers = (dosage_f*) realloc(handlers, (nhandlers+1) * sizeof(*handlers));
+                handlers[nhandlers++] = calc_dosage_GP; 
+            }
         }
         else
         {
