@@ -501,6 +501,9 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--s
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.1.out',args=>q[-c CHROM,POS,-,-,SCORE,~X,-,- -i'STR={X}']);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.2.out',args=>q[-c CHROM,POS,REF,ALT,SCORE,-,~X,- -i'INT={X}']);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.2.out',args=>q[-c CHROM,POS,REF,ALT,SCORE,-,-,~X -i'FLT={X}']);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,POS,-,T_STR');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate',tab=>'annotate2',out=>'annotate22.out',args=>'-c CHROM,FROM,TO,T_STR');
@@ -556,7 +559,7 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate22',vcf=>'annotate22',out=>'anno
 run_test(\&test_vcf_annotate,$opts,in=>'annotate23',tab=>'annotate23',out=>'annotate31.out',args=>'-c CHROM,POS,~ID,REF,ALT,INFO/END');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate24.dst',vcf=>'annotate24.src',out=>'annotate24.1.out',args=>'-c XX');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate25',tab=>'annotate25',out=>'annotate25.1.out',args=>'-c CHROM,POS,ID,REF,ALT,~INFO/END');
-run_test(\&test_vcf_annotate,$opts,in=>'annotate26',tab=>'annotate26',out=>'annotate26.1.out',args=>'-c CHROM,POS,~POS');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate26',tab=>'annotate26',out=>'annotate26.1.out',args=>'-c CHROM,POS,-POS');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.1.out',args=>'-c CHROM,POS,REF,ALT,TSTR,TFLT,TINT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.2.out',args=>'-c CHROM,POS,REF,ALT,.TSTR,.TFLT,.TINT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.3.out',args=>'-c CHROM,POS,REF,ALT,.+TSTR,.+TFLT,.+TINT');

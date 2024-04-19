@@ -1,5 +1,20 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - Support dynamic variables read from a tab-delimited annotation file (#2151)
+      For example, in the two cases below the field 'STR' from the -a file is required to match
+      the INFO/TAG in VCF. In the first example the alleles REF,ALT must match, in the second
+      example they are ignored. The option -k is required to output also records that were not
+      annotated:
+
+        bcftools annotate -a ann.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k in.vcf
+        bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k in.vcf
+
+
 ## Release 1.20 (15th April 2024)
 
 

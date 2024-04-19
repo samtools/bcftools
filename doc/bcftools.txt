@@ -354,7 +354,7 @@ Add or remove annotations.
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
-    POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
+    POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-".
     {nbsp} +
     {nbsp} +
@@ -378,8 +378,12 @@ Add or remove annotations.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    As a special case of this, if position needs to be replaced, mark the column with the new coordinate as "-POS".
+    (Note that in previous releases this used to be "~POS", now deprecated.)
+    {nbsp} +
+    {nbsp} +
     To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
-    If position needs to be replaced, mark the column with the new position as "~POS".
+    Note that this works only for ID and POS, for other fields see the description of *-i* below.
     {nbsp} +
     {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
@@ -387,6 +391,30 @@ Add or remove annotations.
     {nbsp} +
     {nbsp} +
     See also the *-l, --merge-logic* option.
+    {nbsp} +
+    {nbsp} +
+    *Summary of `-c, --columns`:*
+----
+    CHROM,POS,TAG       .. match by chromosome and position, transfer annotation from TAG
+    CHROM,POS,-,TAG     .. same as above, but ignore the third column of the annotation file
+    CHROM,BEG,END,TAG   .. match by region (BEG,END are synonymous to FROM,TO)
+    CHROM,POS,REF,ALT   .. match by CHROM, POS, REF and ALT
+
+    DST_TAG:=SRC_TAG    .. transfer the SRC_TAG using the new name DST_TAG
+    INFO                .. transfer all INFO annotations
+    ^INFO/TAG           .. transfer all INFO annotations except "TAG"
+
+    TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
+    +TAG      .. add or overwrite existing target value only it is "."
+    .TAG      .. add or overwrite existing target value even if source is "."
+    .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
+    -TAG      .. overwrite existing value, never add new if target does not exist
+    =TAG      .. do not overwrite but append value to existing tags
+
+    ~FIELD    .. use this column to match lines with -i/-e expression (see the description of -i below)
+    ~ID       .. in addition to CHROM,POS,REF,ALT match by also ID
+    ~INFO/END .. in addition to CHROM,POS,REF,ALT match by also INFO/END
+----
 
 *-C, --columns-file* 'file'::
     Read the list of columns from a file (normally given via the *-c, --columns* option).
@@ -397,7 +425,7 @@ Add or remove annotations.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
-    *<<expressions,EXPRESSIONS>>*.
+    *<<expressions,EXPRESSIONS>>* and the extension described in *-i, --include* below.
 
 *--force*::
     continue even when parsing errors, such as undefined tags, are encountered. Note
@@ -423,6 +451,19 @@ Add or remove annotations.
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
+    {nbsp} +
+    {nbsp} +
+    Additionally, the command *bcftools annotate* supports expressions updated from the annotation
+    file dynamically for each record:
+----
+    # The field 'STR' from the -a file is required to match INFO/TAG in VCF. In the first example
+    # the alleles REF,ALT must match, in the second example they are ignored. The option -k is required
+    # to output also records that are not annotated. The third example shows the same concept with
+    # a numerical expression.
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~INT     -i'TAG>{INT}' -k input.vcf
+----
 
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them

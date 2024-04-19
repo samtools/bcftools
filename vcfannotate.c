@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -104,6 +104,19 @@ typedef struct _annot_col_t
 }
 annot_col_t;
 
+typedef struct
+{
+    char *name;     // column name
+    int ht_type;    // type, one of BCF_HT_STR,BCF_HT_INT,BCF_HT_REAL
+    int icol;       // index of the annotation column to use
+    union {         // memory area with the current annotation value to pass to filter_test_ext
+        int i;
+        float f;
+        char *s;
+    };
+}
+ext_t;
+
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
@@ -125,7 +138,7 @@ typedef struct _args_t
     regitr_t *tgt_itr;
     int tgt_is_bed;
 
-    filter_t *filter;
+    filter_t *filter, *filter_ext;  // only one is initialized, the latter contains external values to set dynamically on the fly
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
     int keep_sites;
@@ -148,6 +161,11 @@ typedef struct _args_t
     char *set_ids_fmt;
     convert_t *set_ids;
     int set_ids_replace;
+
+    // external values for dynamic -i/-e expressions
+    int n_ext;
+    ext_t *ext;
+    void **ext_ptr;
 
     int nsmpl_annot;
     int *sample_map, nsample_map, sample_is_file;   // map[idst] -> isrc
@@ -617,7 +635,7 @@ static int setter_pos(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     char *tmp;
     int pos = strtol(tab->cols[col->icol], &tmp, 10);
     if ( tmp==tab->cols[col->icol] )
-        error("Could not parse ~POS at %s:%"PRId64" .. [%s]\n",bcf_seqname(args->hdr,line),(int64_t)line->pos+1,tab->cols[col->icol]);
+        error("Could not parse -POS at %s:%"PRId64" .. [%s]\n",bcf_seqname(args->hdr,line),(int64_t)line->pos+1,tab->cols[col->icol]);
     line->pos = pos - 1;
     return 0;
 }
@@ -2211,7 +2229,23 @@ static void init_columns(args_t *args)
         kputsn(ss, se-ss, &str);
         if ( !str.s[0] || !strcasecmp("-",str.s) ) ;
         else if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = icol;
-        else if ( !strcasecmp("POS",str.s) ) args->beg_idx = icol;
+        else if ( !strcasecmp("POS",str.s) )
+        {
+            if ( replace==REPLACE_NON_MISSING && !args->tgts_is_vcf )
+            {
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                memset(col,0,sizeof(*col));
+                col->icol = icol;
+                col->replace = replace;
+                col->setter  = setter_pos;
+                col->hdr_key_src = strdup(str.s);
+                col->hdr_key_dst = strdup(str.s);
+                args->match_end = icol;
+            }
+            else
+                args->beg_idx = icol;
+        }
         else if ( !strcasecmp("FROM",str.s) || !strcasecmp("BEG",str.s) ) args->beg_idx = icol;
         else if ( !strcasecmp("TO",str.s) || !strcasecmp("END",str.s) ) args->end_idx = icol;
         else if ( !strcasecmp("REF",str.s) )
@@ -2270,9 +2304,23 @@ static void init_columns(args_t *args)
             col->hdr_key_dst = strdup(str.s);
             args->match_end = icol;
         }
-        else if ( !strcasecmp("~POS",str.s) && !args->tgts_is_vcf )
+        else if ( !strcasecmp("~POS",str.s) )
         {
-            if ( args->tgts_is_vcf ) error("Error: cannot use ~POS, position can be replaced only from a tab-delimited file\n");
+            error("Error: the use of ~POS has been deprecated, use -POS to transfer the column POS.\n");
+        }
+        else if ( str.s[0]=='~' )
+        {
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            memset(col,0,sizeof(*col));
+            col->icol = icol;
+            col->replace = MATCH_VALUE;
+            col->setter  = NULL;
+            col->hdr_key_src = strdup(str.s+1);
+        }
+        else if ( !strcasecmp("-POS",str.s) && !args->tgts_is_vcf )
+        {
+            if ( args->tgts_is_vcf ) error("Error: cannot use -POS, position can be replaced only from a tab-delimited file\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2832,6 +2880,106 @@ static void rename_annots_push(args_t *args, char *src, char *dst)
     ksprintf(&str,"%s %s",src,dst);
     args->rename_annots_map[ args->rename_annots_nmap - 1 ] = str.s;
 }
+static void init_filters(args_t *args)
+{
+    // Check if the -i/-e expressions contain external values that should be determined
+    // on the fly from the annotation file. The expressions can be given as
+    //      TAG={NAME}
+    //      TAG={str:NAME}
+    //      TAG={int:NAME}
+    //      TAG={float:NAME}
+    kstring_t str = {0,0,0};
+    char *src = strdup(args->filter_str);
+    int len = 0;
+    while (1)
+    {
+        char *beg = strchr(src+len,'{');
+        if ( !beg ) break;
+
+        // check if "{" appears inside quotes, in such case do not modify
+        char skip = 0;
+        char *tmp = src;
+        while ( tmp<beg )
+        {
+            if ( tmp[0]!='"' && tmp[0]!='\'' ) { tmp++; continue; }
+
+            // quote character found
+            int quote = tmp[0];
+            tmp++;
+            while ( *tmp && tmp[0]!=quote ) tmp++;
+            if ( !*tmp ) error("Could not parse the expression: %s\n",args->filter_str);    // unbalanced quotation; todo: check for escape char
+            len = tmp - src + 1;
+            skip = 1;
+        }
+        if ( skip ) continue;
+
+        char *end = ++beg;
+        while ( *end && *end!='}' ) end++;
+        if ( !*end ) error("Could not parse the expression: %s\n",args->filter_str);
+        *end = 0;
+
+        // explicit typing?
+        int type = -1;
+        tmp = beg;
+        while ( *tmp && *tmp!=':' ) tmp++;
+        if ( *tmp )
+        {
+            *tmp = 0;
+            if ( !strcasecmp(beg,"str") ) type = BCF_HT_STR;
+            else if ( !strcasecmp(beg,"int") ) type = BCF_HT_INT;
+            else if ( !strcasecmp(beg,"float") ) type = BCF_HT_REAL;
+        }
+        args->n_ext++;
+        args->ext = (ext_t*)realloc(args->ext,sizeof(*args->ext)*args->n_ext);
+        ext_t *ext = &args->ext[args->n_ext-1];
+        ext->ht_type = type;
+        ext->name = strdup(beg);
+        if ( beg-1 > src ) kputsn(src,beg-1-src,&str);
+        if ( type==-1 ) kputs("{}",&str);
+        else if ( type==BCF_HT_STR ) kputs("{str}",&str);
+        else if ( type==BCF_HT_INT ) kputs("{int}",&str);
+        else if ( type==BCF_HT_REAL ) kputs("{float}",&str);
+        len = str.l;
+        kputs(end+1,&str);
+        free(src);
+        src = strdup(str.s);
+        str.l = 0;
+    }
+    args->filter = filter_init(args->hdr, src);
+    free(src);
+    free(str.s);
+
+    int i,j,n_ext;
+    const int *ext_type = filter_ext_types(args->filter, &n_ext);
+    if ( n_ext != args->n_ext )
+        error("Failed to parse the expression, unexpected number of dynamic variables (%d vs %d): %s\n",n_ext,args->n_ext,args->filter_str);
+
+    if ( !args->n_ext ) return;
+
+    if ( !args->tgts )
+        error("Error: dynamic variables in -i/-e expressions can be currently used only with tab-delimited file, not with VCF (todo)\n");
+
+    // contains external values
+    args->ext_ptr = malloc(sizeof(*args->ext_ptr)*args->n_ext);
+    for (i=0; i<args->n_ext; i++) args->ext[i].ht_type = ext_type[i];
+    args->filter_ext = args->filter;
+    args->filter = NULL;
+
+    // set the column idx
+    if ( args->ncols )
+    {
+        for (i=0; i<args->n_ext; i++)
+        {
+            for (j=0; j<args->ncols; j++)
+            {
+                if ( strcmp(args->ext[i].name,args->cols[j].hdr_key_src) ) continue;
+                args->ext[i].icol = args->cols[j].icol;
+                break;
+            }
+            if ( j==args->ncols ) error("No such column: %s\n",args->ext[i].name);
+        }
+    }
+}
 
 static void init_data(args_t *args)
 {
@@ -2900,7 +3048,7 @@ static void init_data(args_t *args)
     args->vcmp = vcmp_init();
 
     if ( args->filter_str )
-        args->filter = filter_init(args->hdr, args->filter_str);
+        init_filters(args);
 
     if ( args->mark_sites )
     {
@@ -2938,6 +3086,13 @@ static void init_data(args_t *args)
 static void destroy_data(args_t *args)
 {
     int i;
+    for (i=0; i<args->n_ext; i++)
+    {
+        free(args->ext[i].name);
+        if ( args->ext[i].ht_type!=BCF_HT_STR ) continue;
+    }
+    free(args->ext_ptr);
+    free(args->ext);
     for (i=0; i<args->nrm; i++) free(args->rm[i].key);
     free(args->rm);
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
@@ -2992,8 +3147,8 @@ static void destroy_data(args_t *args)
     free(args->dst_smpl_pld);
     if ( args->set_ids )
         convert_destroy(args->set_ids);
-    if ( args->filter )
-        filter_destroy(args->filter);
+    if ( args->filter ) filter_destroy(args->filter);
+    if ( args->filter_ext ) filter_destroy(args->filter_ext);
     if (args->out_fh)
     {
         if ( args->write_index )
@@ -3072,7 +3227,7 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         }
         else i++;
     }
-    if ( args->ref_idx==-1 && args->nalines ) return;
+    if ( !args->filter_ext && args->ref_idx==-1 && args->nalines ) return;
 
     while ( !bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), start_pos,end_pos) )
     {
@@ -3084,7 +3239,7 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         tmp->start = args->tgts->start;
         tmp->end   = args->tgts->end;
         parse_annot_line(args, args->tgts->line.s, tmp);
-        if ( args->ref_idx != -1 )
+        if ( args->filter_ext || args->ref_idx != -1 )
         {
             int iseq = args->tgts->iseq;
             if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
@@ -3123,172 +3278,181 @@ static int strstr_match(char *a, char *b)
     }
     return 0;
 }
-static void annotate(args_t *args, bcf1_t *line)
+static int annotate_from_regidx(args_t *args, bcf1_t *line)
 {
-    args->current_rec = line;
-
-    int i, j;
-    for (i=0; i<args->nrm; i++)
-        args->rm[i].handler(args, line, &args->rm[i]);
-
+    int j;
     int has_overlap = 0;
-    if ( args->tgt_idx )
+
+    for (j=0; j<args->ncols; j++) args->cols[j].done = 0;
+    if ( regidx_overlap(args->tgt_idx, bcf_seqname(args->hdr,line),line->pos,line->pos+line->rlen-1, args->tgt_itr) )
     {
-        for (j=0; j<args->ncols; j++) args->cols[j].done = 0;
-        if ( regidx_overlap(args->tgt_idx, bcf_seqname(args->hdr,line),line->pos,line->pos+line->rlen-1, args->tgt_itr) )
+        hts_pos_t vcf_end = line->pos + line->rlen - 1;
+        while ( regitr_overlap(args->tgt_itr) )
         {
-            hts_pos_t vcf_end = line->pos + line->rlen - 1;
-            while ( regitr_overlap(args->tgt_itr) )
+            annot_line_t *tmp = &args->alines[0];
+            tmp->rid   = line->rid;
+            tmp->start = args->tgt_itr->beg;
+            tmp->end   = args->tgt_itr->end;
+
+            // Check min overlap
+            int len_ann = tmp->end - tmp->start + 1;
+            int len_vcf = line->rlen;
+            int isec = (tmp->end < vcf_end ? tmp->end : vcf_end) - (tmp->start > line->pos ? tmp->start : line->pos) + 1;
+            assert( isec > 0 );
+            if ( args->min_overlap_ann && args->min_overlap_ann > (float)isec/len_ann ) continue;
+            if ( args->min_overlap_vcf && args->min_overlap_vcf > (float)isec/len_vcf ) continue;
+
+            parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
+
+            // If a plain BED file is provided and we are asked to just mark overlapping sites, there are
+            // no additional columns. Not sure if there can be any side effects for ill-formatted BED files
+            // with variable number of columns
+            if ( !args->ncols && args->mark_sites ) has_overlap = 1;
+
+            for (j=0; j<args->ncols; j++)
             {
-                annot_line_t *tmp = &args->alines[0];
-                tmp->rid   = line->rid;
-                tmp->start = args->tgt_itr->beg;
-                tmp->end   = args->tgt_itr->end;
-
-                // Check min overlap
-                int len_ann = tmp->end - tmp->start + 1;
-                int len_vcf = line->rlen;
-                int isec = (tmp->end < vcf_end ? tmp->end : vcf_end) - (tmp->start > line->pos ? tmp->start : line->pos) + 1;
-                assert( isec > 0 );
-                if ( args->min_overlap_ann && args->min_overlap_ann > (float)isec/len_ann ) continue;
-                if ( args->min_overlap_vcf && args->min_overlap_vcf > (float)isec/len_vcf ) continue;
-
-                parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
-
-                // If a plain BED file is provided and we are asked to just mark overlapping sites, there are
-                // no additional columns. Not sure if there can be any side effects for ill-formatted BED files
-                // with variable number of columns
-                if ( !args->ncols && args->mark_sites ) has_overlap = 1;
-
-                for (j=0; j<args->ncols; j++)
-                {
-                    if ( args->cols[j].done==1 ) continue;
-                    int ret = args->cols[j].setter(args,line,&args->cols[j],tmp);
-                    if ( ret < 0 )
-                        error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-                    if ( ret==0 )
-                        args->cols[j].done = 1;
-                    has_overlap = 1;
-                }
+                if ( args->cols[j].done==1 ) continue;
+                int ret = args->cols[j].setter(args,line,&args->cols[j],tmp);
+                if ( ret < 0 )
+                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+                if ( ret==0 )
+                    args->cols[j].done = 1;
+                has_overlap = 1;
             }
-        }
-        for (j=0; j<args->ncols; j++)
-        {
-            if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
-            if ( !args->cols[j].setter ) continue;
-            if ( args->cols[j].setter(args,line,&args->cols[j],NULL) < 0 )
-                error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
     }
-    else if ( args->tgts )
+    for (j=0; j<args->ncols; j++)
     {
-        // Buffer annotation lines. When multiple ALT alleles are present in the annotation file, at least one
-        // must match some of the VCF alleles. If the append-missing mode is set (and REF+ALT is requested), the
-        // buffered lines will annotate the VCF respecting the order in ALT and when no matching line is found
-        // for an ALT, missing value is appended instead.
-        int end_pos = line->pos + line->rlen - 1;
-        buffer_annot_lines(args, line, line->pos, end_pos);
-
-        args->nsrt_alines = 0;
-        hts_expand(uint32_t,args->nalines,args->msrt_alines,args->srt_alines);
-        if ( args->nalines >= 0xffff || line->n_allele >= 0xffff )
-            error("Error: too many alleles or annotation lines in the buffer at %s:%"PRId64" (todo:skip?)\n",bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-
-        kstring_t match_end = {0,0,0};
-        if ( args->match_end>=0 && bcf_get_info_int32(args->hdr,line,"END",&args->tmpi,&args->mtmpi)==1 )
-            kputw(args->tmpi[0],&match_end);
-
-        // Find matching lines
-        for (i=0; i<args->nalines; i++)
+        if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
+        if ( !args->cols[j].setter ) continue;
+        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) < 0 )
+            error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+    }
+    return has_overlap;
+}
+static int pass_filter_test_ext(args_t *args, bcf1_t *line, annot_line_t *ann)
+{
+    char *tmp;
+    int i;
+    for (i=0; i<args->n_ext; i++)
+    {
+        int j = args->ext[i].icol;
+        if ( args->ext[i].ht_type==BCF_HT_STR ) args->ext_ptr[i] = args->ext[i].s = ann->cols[j];
+        else if ( args->ext[i].ht_type==BCF_HT_INT )
         {
-            if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
-            if ( args->ref_idx != -1 )  // REF+ALT matching requested
+            args->ext[i].i = strtol(ann->cols[j],&tmp,10);
+            if ( *tmp )
             {
-                if ( line->pos!=args->alines[i].start || vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].als[0]) < 0 ) continue;   // refs are not compatible
-                for (j=1; j<args->alines[i].nals; j++)
-                {
-                    int ialt;
-                    if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 )  // match: no ALT allele in VCF and annot file has "."
-                        ialt = 0;
-                    else
-                    {
-                        ialt = vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]);
-                        if ( ialt < 0 ) continue;
-                        ialt++;
-                    }
-                    if ( args->match_id>=0 && !strstr_match(line->d.id,args->alines[i].cols[args->match_id]) ) continue;
-                    if ( args->match_end>=0 && match_end.l && strcmp(match_end.s,args->alines[i].cols[args->match_end]) ) continue;
-                    args->srt_alines[args->nsrt_alines++] = (ialt<<16) | i;
-                    has_overlap = 1;
-                    break;
-                }
+                if ( strcmp(".",ann->cols[j]) ) error("Error: could not parse the annotation file, expected an integer, found \"%s\"\n",ann->cols[j]);
+                args->ext_ptr[i] = NULL;
             }
-            else    // overlap, REF+ALT matching not requested
+            else
+                args->ext_ptr[i] = &args->ext[i].i;
+        }
+        else if ( args->ext[i].ht_type==BCF_HT_REAL )
+        {
+            args->ext[i].f = strtod(ann->cols[j],&tmp);
+            if ( *tmp )
+            {
+                if ( strcmp(".",ann->cols[j]) ) error("Error: could not parse the annotation file, expected a float, found \"%s\"\n",ann->cols[j]);
+                args->ext_ptr[i] = NULL;
+            }
+            else
+                args->ext_ptr[i] = &args->ext[i].f;
+        }
+    }
+    int pass = filter_test_ext(args->filter_ext,line,NULL,(const void**)args->ext_ptr);
+    if ( args->filter_logic==FLT_EXCLUDE ) pass = pass ? 0 : 1;
+    return pass;
+}
+static int annotate_from_tab(args_t *args, bcf1_t *line)
+{
+    int i,j;
+    int has_overlap = 0;
+
+    // Buffer annotation lines. When multiple ALT alleles are present in the annotation file, at least one
+    // must match some of the VCF alleles. If the append-missing mode is set (and REF+ALT is requested), the
+    // buffered lines will annotate the VCF respecting the order in ALT and when no matching line is found
+    // for an ALT, missing value is appended instead.
+    int end_pos = line->pos + line->rlen - 1;
+    buffer_annot_lines(args, line, line->pos, end_pos);
+
+    args->nsrt_alines = 0;
+    hts_expand(uint32_t,args->nalines,args->msrt_alines,args->srt_alines);
+    if ( args->nalines >= 0xffff || line->n_allele >= 0xffff )
+        error("Error: too many alleles or annotation lines in the buffer at %s:%"PRId64" (todo:skip?)\n",bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+
+    kstring_t match_end = {0,0,0};
+    if ( args->match_end>=0 && bcf_get_info_int32(args->hdr,line,"END",&args->tmpi,&args->mtmpi)==1 )
+        kputw(args->tmpi[0],&match_end);
+
+    // Find matching lines
+    for (i=0; i<args->nalines; i++)
+    {
+        if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
+        if ( args->ref_idx != -1 )  // REF+ALT matching requested
+        {
+            if ( line->pos!=args->alines[i].start || vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].als[0]) < 0 ) continue;   // refs are not compatible
+            for (j=1; j<args->alines[i].nals; j++)
+            {
+                int ialt;
+                if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 )  // match: no ALT allele in VCF and annot file has "."
+                    ialt = 0;
+                else
+                {
+                    ialt = vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]);
+                    if ( ialt < 0 ) continue;
+                    ialt++;
+                }
+                if ( args->match_id>=0 && !strstr_match(line->d.id,args->alines[i].cols[args->match_id]) ) continue;
+                if ( args->match_end>=0 && match_end.l && strcmp(match_end.s,args->alines[i].cols[args->match_end]) ) continue;
+                if ( args->filter_ext && !pass_filter_test_ext(args,line,&args->alines[i]) ) continue;
+                args->srt_alines[args->nsrt_alines++] = (ialt<<16) | i;
+                has_overlap = 1;
+                break;
+            }
+        }
+        else if ( args->filter_ext )
+        {
+            if ( pass_filter_test_ext(args,line,&args->alines[i]) )
             {
                 args->srt_alines[args->nsrt_alines++] = (0xffff<<16) | i;
                 has_overlap = 1;
             }
         }
+        else    // overlap, REF+ALT matching not requested
+        {
+            args->srt_alines[args->nsrt_alines++] = (0xffff<<16) | i;
+            has_overlap = 1;
+        }
+    }
 
-        free(match_end.s);
+    free(match_end.s);
+    if ( !has_overlap && args->filter_ext && !args->keep_sites ) return has_overlap;
 
-        // Sort lines if needed
+    // Sort lines if needed
+    if ( args->has_append_mode )
+    {
+        // insertion sort by VCF ALT index (top bits) and alines index (low bits)
+        uint32_t tmp;
+        for (i=1; i<args->nsrt_alines; i++)
+            for (j=i; j>0 && args->srt_alines[j] < args->srt_alines[j-1]; j--)
+                tmp = args->srt_alines[j], args->srt_alines[j] = args->srt_alines[j-1], args->srt_alines[j-1] = tmp;
+    }
+    // Annotate
+    for (j=0; j<args->ncols; j++) args->cols[j].done = 0;
+    int ialt_exp = 1;
+    for (i=0; i<args->nsrt_alines; i++)
+    {
+        int ialt = args->srt_alines[i] >> 16;
+        int ilin = args->srt_alines[i] & 0xffff;
         if ( args->has_append_mode )
         {
-            // insertion sort by VCF ALT index (top bits) and alines index (low bits)
-            uint32_t tmp;
-            for (i=1; i<args->nsrt_alines; i++)
-                for (j=i; j>0 && args->srt_alines[j] < args->srt_alines[j-1]; j--)
-                    tmp = args->srt_alines[j], args->srt_alines[j] = args->srt_alines[j-1], args->srt_alines[j-1] = tmp;
-        }
-        // Annotate
-        for (j=0; j<args->ncols; j++) args->cols[j].done = 0;
-        int ialt_exp = 1;
-        for (i=0; i<args->nsrt_alines; i++)
-        {
-            int ialt = args->srt_alines[i] >> 16;
-            int ilin = args->srt_alines[i] & 0xffff;
-            if ( args->has_append_mode )
+            if ( ialt_exp > ialt ) continue;    // multiple annotation lines for the same position
+            if ( ialt_exp < ialt )
             {
-                if ( ialt_exp > ialt ) continue;    // multiple annotation lines for the same position
-                if ( ialt_exp < ialt )
-                {
-                    // REF+ALT matching requested, append-missing mode: insert "." if no annotation line was found for the ALT
-                    while ( ialt_exp++ < ialt )
-                    {
-                        for (j=0; j<args->ncols; j++)
-                        {
-                            if ( args->cols[j].merge_method != MM_APPEND_MISSING ) continue;
-                            if ( args->cols[j].done==1 ) continue;
-                            if ( !args->cols[j].setter ) continue;
-                            int ret = args->cols[j].setter(args,line,&args->cols[j],args->aline_missing);
-                            if ( ret < 0 )
-                                error("fixme: Could not set missing %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-                            if ( ret==0 )
-                                args->cols[j].done = 1;
-                        }
-                    }
-                }
-            }
-            for (j=0; j<args->ncols; j++)
-            {
-                if ( args->cols[j].done==1 ) continue;
-                if ( !args->cols[j].setter ) continue;
-                int ret = args->cols[j].setter(args,line,&args->cols[j],&args->alines[ilin]);
-                if ( ret < 0 )
-                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-                if ( ret==0 )
-                    args->cols[j].done = 1;
-            }
-            ialt_exp = ialt + 1;
-        }
-        if ( args->nsrt_alines )
-        {
-            // In the append-missing mode fill missing values to all trailing ALTs, but only if at least one
-            // record was found. Otherwise leave the row will be left without annotation.
-            if ( args->has_append_mode && ialt_exp < line->n_allele )
-            {
-                while ( ialt_exp++ < line->n_allele )
+                // REF+ALT matching requested, append-missing mode: insert "." if no annotation line was found for the ALT
+                while ( ialt_exp++ < ialt )
                 {
                     for (j=0; j<args->ncols; j++)
                     {
@@ -3303,41 +3467,97 @@ static void annotate(args_t *args, bcf1_t *line)
                     }
                 }
             }
-            // Flush
-            for (j=0; j<args->ncols; j++)
-            {
-                if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
-                if ( !args->cols[j].setter ) continue;
-                int ret = args->cols[j].setter(args,line,&args->cols[j],NULL);
-                if ( ret < 0 )
-                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-            }
         }
-    }
-    else if ( args->files->nreaders == 2 )
-    {
-        if ( bcf_sr_has_line(args->files,1) )
-        {
-            bcf1_t *aline = bcf_sr_get_line(args->files,1);
-            for (j=0; j<args->ncols; j++)
-            {
-                if ( !args->cols[j].setter ) continue;
-                if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
-                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-            }
-
-            has_overlap = 1;
-        }
-    }
-    else if ( args->ncols )
-    {
         for (j=0; j<args->ncols; j++)
         {
+            if ( args->cols[j].done==1 ) continue;
             if ( !args->cols[j].setter ) continue;
-            if ( args->cols[j].setter(args,line,&args->cols[j],NULL) )
+            int ret = args->cols[j].setter(args,line,&args->cols[j],&args->alines[ilin]);
+            if ( ret < 0 )
+                error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+            if ( ret==0 )
+                args->cols[j].done = 1;
+        }
+        ialt_exp = ialt + 1;
+    }
+    if ( args->nsrt_alines )
+    {
+        // In the append-missing mode fill missing values to all trailing ALTs, but only if at least one
+        // record was found. Otherwise leave the row will be left without annotation.
+        if ( args->has_append_mode && ialt_exp < line->n_allele )
+        {
+            while ( ialt_exp++ < line->n_allele )
+            {
+                for (j=0; j<args->ncols; j++)
+                {
+                    if ( args->cols[j].merge_method != MM_APPEND_MISSING ) continue;
+                    if ( args->cols[j].done==1 ) continue;
+                    if ( !args->cols[j].setter ) continue;
+                    int ret = args->cols[j].setter(args,line,&args->cols[j],args->aline_missing);
+                    if ( ret < 0 )
+                        error("fixme: Could not set missing %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+                    if ( ret==0 )
+                        args->cols[j].done = 1;
+                }
+            }
+        }
+        // Flush
+        for (j=0; j<args->ncols; j++)
+        {
+            if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
+            if ( !args->cols[j].setter ) continue;
+            int ret = args->cols[j].setter(args,line,&args->cols[j],NULL);
+            if ( ret < 0 )
                 error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
     }
+    return has_overlap;
+}
+static int annotate_from_vcf(args_t *args, bcf1_t *line)
+{
+    if ( !bcf_sr_has_line(args->files,1) ) return 0;
+    int j;
+    bcf1_t *aline = bcf_sr_get_line(args->files,1);
+    for (j=0; j<args->ncols; j++)
+    {
+        if ( !args->cols[j].setter ) continue;
+        if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
+            error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+    }
+    return 1;
+}
+static int annotate_from_self(args_t *args, bcf1_t *line)
+{
+    int j;
+    for (j=0; j<args->ncols; j++)
+    {
+        if ( !args->cols[j].setter ) continue;
+        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) )
+            error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+    }
+    return 0;
+}
+static int annotate_line(args_t *args, bcf1_t *line)
+{
+    args->current_rec = line;
+
+    int i;
+    for (i=0; i<args->nrm; i++)
+        args->rm[i].handler(args, line, &args->rm[i]);
+
+    int has_overlap = 0;
+    if ( args->tgt_idx )
+        has_overlap = annotate_from_regidx(args,line);
+
+    else if ( args->tgts )
+        has_overlap = annotate_from_tab(args,line);
+
+    else if ( args->files->nreaders == 2 )
+        has_overlap = annotate_from_vcf(args,line);
+
+    else if ( args->ncols )
+        has_overlap = annotate_from_self(args,line);
+
     if ( args->set_ids )
     {
         args->tmpks.l = 0;
@@ -3362,6 +3582,8 @@ static void annotate(args_t *args, bcf1_t *line)
         else
             bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,has_overlap?0:1);
     }
+
+    return has_overlap;
 }
 
 static void usage(args_t *args)
@@ -3604,7 +3826,8 @@ int main_vcfannotate(int argc, char *argv[])
                 continue;
             }
         }
-        annotate(args, line);
+        int keep = annotate_line(args, line);
+        if ( args->filter_ext && !args->keep_sites && !keep ) continue;
         if ( bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
     }
     destroy_data(args);
