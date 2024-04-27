@@ -3141,6 +3141,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
     %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+    %VKX            VariantKey, biallelic hexadecimal encoding of CHROM,POS,REF,ALT (https://github.com/tecnickcom/variantkey)
     []              Format fields must be enclosed in brackets to loop over all samples
     \n              new line
     \t              tab character
