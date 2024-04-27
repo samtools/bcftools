@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.16">
 <title>Frequently Asked Questions</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -86,20 +86,62 @@
 <div id="incorrect-nfields" class="paragraph">
 <div class="title"><strong>Incorrect number of fields at chr1:1234567</strong></div>
 <p>This error is triggered when the number of values in the data line does not match
-its definition in the header.
-A common error is to define a tag with variable number of fields
-(such as <code>Number=G</code> or <code>Number=A</code> or <code>Number=R</code> in the header) and output incorrect
-number of values at multiallelic the data lines.  The number of values
-must correspond to the number of alleles as explained in the section 1.4.2 of the <a href="http://samtools.github.io/hts-specs/VCFv4.3.pdf">VCF specification</a>.</p>
+its definition in the header. For example, one may see an error like</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>[W::bcf_calc_ac] Incorrect number of AC fields at Chrxx:xxxxx. (This message is printed only once.)</pre>
+</div>
 </div>
 <div class="paragraph">
-<p><em>How to verify and fix:</em><br>
+<p>In this example, the VCF specification defines the tag AC as <code>Number=A</code></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>##INFO=&lt;ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes"&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and expects a value for each ALT allele, for example</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>chr1  64334  .  A  C,T  .  .  AC=1,1  GT  0/1  0/1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The error above is printed when different number of values is encoutered, for example <code>AC=1</code> or <code>AC=1,1,1</code> in the example above.</p>
+</div>
+<div class="paragraph">
+<p>Other such definitions are <code>Number=R</code> (there must be as many values as there are REF+ALT alleles in total),
+and <code>Number=G</code> (this is more complicated, see the section 1.4.2 of the <a href="http://samtools.github.io/hts-specs/VCFv4.3.pdf">VCF specification</a>).</p>
+</div>
+<div class="paragraph">
+<p><em>How to verify:</em><br>
 Look up the tag definition in the header (<code>bcftools view -h file.vcf.gz | grep TAG</code>) to check the expected number
 of values and then check the number of alleles and values in the data line (<code>bcftools view -H file.vcf.gz -r chr1:1234567</code>).
 Note that the program only works with ploidy 1 or 2, so if defined as <code>Number=G</code> and the ploidy is bigger,
-the program will fail.
+the program is not ready for cases like that.</p>
+</div>
+<div class="paragraph">
+<p><em>How to fix:</em><br>
 If the tag is not important for your analysis, a quick and dirty workaround is to remove the
-tag from the VCF completely (<code>bcftools annotate -x TAG</code>).</p>
+tag from the VCF completely</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools annotate -x TAG</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the tag must remain in the VCF, change the definition of the tag in the header to <code>Number=.</code></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools view -h old.vcf &gt; hdr.txt
+# edit hdr.txt and change the tag definition to Number=.
+bcftools reheader -h hdr.txt old.vcf &gt; new.vcf</pre>
+</div>
 </div>
 <div id="region-subset" class="paragraph">
 <div class="title"><strong>The -R option pulls in sites from outside of the regions file</strong></div>

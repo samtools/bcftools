@@ -8,20 +8,41 @@ Frequently Asked Questions
 
 [#incorrect-nfields]
 This error is triggered when the number of values in the data line does not match
-its definition in the header.
-A common error is to define a tag with variable number of fields
-(such as `Number=G` or `Number=A` or `Number=R` in the header) and output incorrect
-number of values at multiallelic the data lines.  The number of values
-must correspond to the number of alleles as explained in the section 1.4.2 of the link:http://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification].
+its definition in the header. For example, one may see an error like
+----
+[W::bcf_calc_ac] Incorrect number of AC fields at Chrxx:xxxxx. (This message is printed only once.)
+----
+In this example, the VCF specification defines the tag AC as `Number=A`
+----
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+----
+and expects a value for each ALT allele, for example
+----
+chr1  64334  .  A  C,T  .  .  AC=1,1  GT  0/1  0/1
+----
+The error above is printed when different number of values is encoutered, for example `AC=1` or `AC=1,1,1` in the example above.
 
-_How to verify and fix:_ +
+Other such definitions are `Number=R` (there must be as many values as there are REF+ALT alleles in total),
+and `Number=G` (this is more complicated, see the section 1.4.2 of the link:http://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification]).
+
+_How to verify:_ +
 Look up the tag definition in the header (`bcftools view -h file.vcf.gz | grep TAG`) to check the expected number
 of values and then check the number of alleles and values in the data line (`bcftools view -H file.vcf.gz -r chr1:1234567`).
 Note that the program only works with ploidy 1 or 2, so if defined as `Number=G` and the ploidy is bigger,
-the program will fail.
-If the tag is not important for your analysis, a quick and dirty workaround is to remove the
-tag from the VCF completely (`bcftools annotate -x TAG`).
+the program is not ready for cases like that.
 
+_How to fix:_ +
+If the tag is not important for your analysis, a quick and dirty workaround is to remove the
+tag from the VCF completely
+----
+bcftools annotate -x TAG
+----
+If the tag must remain in the VCF, change the definition of the tag in the header to `Number=.`
+----
+bcftools view -h old.vcf > hdr.txt
+# edit hdr.txt and change the tag definition to Number=.
+bcftools reheader -h hdr.txt old.vcf > new.vcf
+----
 
 
 
