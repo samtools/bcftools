@@ -894,7 +894,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
         {
             if ( gt[j]==bcf_int32_vector_end ) break;
             if ( bcf_gt_is_missing(gt[j]) ) continue; // missing allele: leave as is
-            if ( (ialt==0 || args->ma_use_ref_allele) && bcf_gt_allele(gt[j])==0 ) continue; // ref && `--multi-overlaps 0`: leave as is
+            if ( bcf_gt_allele(gt[j])==0 ) continue; // ref && `--multi-overlaps 0`: leave as is
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
             else if ( args->ma_use_ref_allele )

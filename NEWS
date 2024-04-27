@@ -19,6 +19,7 @@ Changes affecting specific commands:
     - Support realignment of symbolic <DUP.*> alleles, similarly to <DEL.*> added previously
       (#1919,#2145)
 
+    - Fix in reporting reference allele genotypes with `--multi-overlaps .` (#2160)
 
 
 ## Release 1.20 (15th April 2024)
