@@ -14,6 +14,12 @@ Changes affecting specific commands:
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k in.vcf
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k in.vcf
 
+* bcftools norm
+
+    - Support realignment of symbolic <DUP.*> alleles, similarly to <DEL.*> added previously
+      (#1919,#2145)
+
+
 
 ## Release 1.20 (15th April 2024)
 

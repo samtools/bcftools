@@ -88,8 +88,8 @@ typedef struct
     int32_t *int32_arr;
     int ntmp_arr1, ntmp_arr2, nint32_arr;
     kstring_t *tmp_str;
-    kstring_t *tmp_als, *tmp_del, tmp_kstr;
-    int ntmp_als, ntmp_del;
+    kstring_t *tmp_als, *tmp_sym, tmp_kstr;
+    int ntmp_als, ntmp_sym;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
     int aln_win;            // the realignment window size (maximum repeat size)
@@ -555,32 +555,54 @@ static int realign(args_t *args, bcf1_t *line)
     if ( bcf_get_variant_types(line)==VCF_BND ) return ERR_SYMBOLIC;   // breakend, not an error
 
     // make a copy of each allele for trimming
-    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
-    hts_expand0(kstring_t,line->n_allele,args->ntmp_del,args->tmp_del);
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als); // the actual sequence to realign
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_sym,args->tmp_sym); // the original symbolic allele strings to output
     kstring_t *als = args->tmp_als;
-    kstring_t *del = args->tmp_del;
+    kstring_t *sym = args->tmp_sym;
     int symbolic_alts = 1;
     for (i=0; i<line->n_allele; i++)
     {
-        del[i].l = 0;
+        sym[i].l = 0;
         if ( line->d.allele[i][0]=='<' )
         {
-            // symbolic allele, only <DEL.*> will be realigned
-            if ( strncmp("<DEL",line->d.allele[i],4) ) return ERR_SYMBOLIC;
-            if ( nref < line->rlen )
+            // symbolic allele, only <DEL.*> and <DUP.*> will be realigned
+            // TODO: there should be check for symbolic allele length. If too big, perhaps should not attempt realignment
+            int32_t sv_len = 0;
+            if ( !strncmp("<DEL",line->d.allele[i],4) ) sv_len = -line->rlen;
+            else if ( !strncmp("<DUP",line->d.allele[i],4) )
             {
+                if ( bcf_get_info_int32(args->hdr,line,"SVLEN",&args->int32_arr,&args->nint32_arr)==1 ) sv_len = args->int32_arr[0];
+            }
+            if ( !sv_len ) return ERR_SYMBOLIC;
+
+            als[i].l = 0;
+            if ( sv_len<0 )
+            {
+                // del, expand REF and replace ALT, for example, replace "REF=C ALT=<DEL>" with "REF=CAT ALT=C"
+                if ( nref < line->rlen )
+                {
+                    free(ref);
+                    reflen = line->rlen;
+                    ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+                    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
+                    seq_to_upper(ref,0);
+                    replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+                    als[0].l = 0;
+                    kputs(ref, &als[0]);
+                }
+                kputsn(als[0].s,1,&als[i]);
+            }
+            else // sv_len>0
+            {
+                // dup, replace "REF=C ALT=<DUP>" with "REF=C ALT=CAT"
                 free(ref);
-                reflen = line->rlen;
-                ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+                ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+sv_len, &nref);
                 if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
                 seq_to_upper(ref,0);
                 replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
-                als[0].l = 0;
-                kputs(ref, &als[0]);
+                kputs(ref,&als[i]);
             }
-            als[i].l = 0;
-            kputsn(als[0].s,1,&als[i]);
-            kputs(line->d.allele[i],&del[i]);
+            kputs(line->d.allele[i],&sym[i]);   // preserve the symbolic allele string
             continue;
         }
         if ( i>0 ) symbolic_alts = 0;
@@ -630,7 +652,7 @@ static int realign(args_t *args, bcf1_t *line)
     for (i=0; i<line->n_allele; i++)
     {
         if (i>0) kputc(',',&args->tmp_kstr);
-        if ( del[i].l ) kputs(del[i].s,&args->tmp_kstr);
+        if ( sym[i].l ) kputs(sym[i].s,&args->tmp_kstr);
         else kputsn(als[i].s,als[i].l,&args->tmp_kstr);
     }
     args->tmp_kstr.s[ args->tmp_kstr.l ] = 0;
@@ -2150,10 +2172,10 @@ static void destroy_data(args_t *args)
         free(args->maps[i].map);
     for (i=0; i<args->ntmp_als; i++)
         free(args->tmp_als[i].s);
-    for (i=0; i<args->ntmp_del; i++)
-        free(args->tmp_del[i].s);
+    for (i=0; i<args->ntmp_sym; i++)
+        free(args->tmp_sym[i].s);
     free(args->tmp_als);
-    free(args->tmp_del);
+    free(args->tmp_sym);
     free(args->tmp_kstr.s);
     if ( args->tmp_str )
     {
