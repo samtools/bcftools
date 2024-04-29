@@ -1,6 +1,6 @@
 /*  convert.c -- functions for converting between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -111,6 +111,7 @@ struct _convert_t
     int allow_undef_tags;
     int force_newline;
     int header_samples;
+    int no_hdr_indices;
     uint8_t **subset_samples;
 };
 
@@ -1609,9 +1610,17 @@ int convert_header(convert_t *convert, kstring_t *str)
                         }
                     }
                     else if ( convert->header_samples )
-                        ksprintf(str, "[%d]%s:%s", ++icol, hdr->samples[ks], convert->fmt[k].key);
+                    {
+                        icol++;
+                        if ( !convert->no_hdr_indices ) ksprintf(str,"[%d]",icol);
+                        ksprintf(str,"%s:%s", hdr->samples[ks], convert->fmt[k].key);
+                    }
                     else
-                        ksprintf(str, "[%d]%s", ++icol, convert->fmt[k].key);
+                    {
+                        icol++;
+                        if ( !convert->no_hdr_indices ) ksprintf(str,"[%d]",icol);
+                        ksprintf(str,"%s", convert->fmt[k].key);
+                    }
                 }
                 if ( has_fmt_newline )
                 {
@@ -1633,7 +1642,9 @@ int convert_header(convert_t *convert, kstring_t *str)
             if ( convert->fmt[i].key ) kputs(convert->fmt[i].key, str);
             continue;
         }
-        ksprintf(str, "[%d]%s", ++icol, convert->fmt[i].key);
+        icol++;
+        if ( !convert->no_hdr_indices ) ksprintf(str,"[%d]",icol);
+        ksprintf(str,"%s", convert->fmt[i].key);
     }
     if ( has_fmt_newline ) kputc('\n',str);
     return str->l - l_ori;
@@ -1775,6 +1786,9 @@ int convert_set_option(convert_t *convert, enum convert_option opt, ...)
         case force_newline:
             convert->force_newline = va_arg(args, int);
             if ( convert->force_newline ) force_newline_(convert);
+            break;
+        case no_hdr_indices:
+            convert->no_hdr_indices = va_arg(args, int);
             break;
         default:
             ret = -1;

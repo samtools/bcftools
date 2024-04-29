@@ -1,6 +1,6 @@
 /*  convert.h -- functions for converting between VCF/BCF and related formats.
 
-    Copyright (C) 2014-2023 Genome Research Ltd.
+    Copyright (C) 2014-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -35,6 +35,7 @@ enum convert_option
     header_samples,         // include sample name in bracketed tags (e.g. SAMPLE1:GT SAMPLE2:GT for [ %GT])
     force_newline,          // automatically insert a newline when not part of the formatting expression
     print_filtered,         // print the provided string instead of discarding samples not included in subset_samples
+    no_hdr_indices,         // drop column indices when printing header, i.e. "#CHROM", not "#[1]CHROM"
 };
 
 convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *str);

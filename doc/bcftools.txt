@@ -3070,7 +3070,8 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     fields will be still printed but instead of their actual value, 'STR' will be used.
 
 *-H, --print-header*::
-    print header
+    print header. By default, the header is printed with column indices, e.g. "#[1]CHROM".
+    These can be suppressed by giving the option twice, "`-HH`".
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see

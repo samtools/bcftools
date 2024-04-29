@@ -233,7 +233,7 @@ static const char *usage_text(void)
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
         "   -g, --gene-list [+]FILE         Consider only features listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
         "       --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene]\n"
-        "   -H, --print-header              Print header\n"
+        "   -H, --print-header              Print header, -HH to omit column indices\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -1001,6 +1001,7 @@ static void init_data(args_t *args)
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
         if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
+        if ( args->print_header>1 ) convert_set_option(args->convert, no_hdr_indices, 1);
         convert_set_option(args->convert, force_newline, 1);
     }
     if ( args->genes_fname ) init_gene_list(args);
@@ -1541,7 +1542,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
-            case 'H': args->print_header = 1; break;
+            case 'H': args->print_header++; break;
             case 'x': drop_sites = 1; break;
             case 'X': drop_sites = 0; break;
             case 'd': args->duplicate = 1; break;

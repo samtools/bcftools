@@ -254,6 +254,7 @@ run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.97.out',args=>q[-
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.97.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE %DP %GT]']);
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]\\n']);
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-H -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
+run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.2.out',args=>q[-HH -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.1.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 || DP=2']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.2.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 |  DP=2']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.5',out=>'norm.split.5.1.out',args=>'-m - --multi-overlaps .');
@@ -718,6 +719,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.10.out',cmd=>'+
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.11.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.2.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d -H]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.3.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d -HH]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n' -a BCSQ -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n'         -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.14.out',cmd=>'+split-vep',args=>qq[-c gnomAD_NFE_AF:real,ALLELE_NUM:int | $$opts{bin}/bcftools query -f'%POS\\t%gnomAD_NFE_AF\\t%ALLELE_NUM\\n']);

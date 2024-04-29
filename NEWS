@@ -1,6 +1,15 @@
 ## Release a.b
 
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* bcftools query
+* bcftools +split-vep
+
+    - The columns indices printed by default with `-H` (e.g., "#[1]CHROM") can be now
+      suppressed by giving the option twice `-HH` (#2152)
+
+
 Changes affecting specific commands:
 
 * bcftools annotate
@@ -20,6 +29,7 @@ Changes affecting specific commands:
       (#1919,#2145)
 
     - Fix in reporting reference allele genotypes with `--multi-overlaps .` (#2160)
+
 
 
 ## Release 1.20 (15th April 2024)
