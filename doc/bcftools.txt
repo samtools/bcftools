@@ -1380,7 +1380,7 @@ output VCF and are ignored for the prediction analysis.
     transcripts in malformatted GFFs with incorrect phase
 
 *-g, --gff-annot* 'FILE'::
-    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    GFF3 annotation file (required), such as http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/.
     The script *<<gff2gff,gff2gff>>* can help with conversion from non-standard GFF formats.
     An example of a minimal working GFF file:
 ----
@@ -1499,6 +1499,9 @@ output VCF and are ignored for the prediction analysis.
     Automatically detect and unify chromosome naming conventions in the GFF, fasta
     and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
     that of the input VCF. The default is to attempt the automatic translation.
+
+*-v, --verbose* 'INT'::
+    verbosity level (0-2)
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -2681,6 +2684,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*-v, --verbose* 'INT'::
+    verbosity level of GFF parsing (0-2)
 
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally

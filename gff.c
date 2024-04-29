@@ -1063,7 +1063,7 @@ int gff_parse(gff_t *gff)
         INC_NWARN(wrong_phase);
         INC_NWARN(overlapping_cds);
         if ( nwarn > 0 )
-            fprintf(stderr,"Warning: %d warnings were suppressed, run with `--verbose 2` to see them all\n",nwarn);
+            fprintf(stderr,"Warning: %d warnings were suppressed, increase verbosity to see them all\n",nwarn);
     }
 
     if ( gff->dump_fname ) gff_dump(gff, gff->dump_fname);
