@@ -60,6 +60,8 @@ gcc_task:
     LC_ALL: C
     CIRRUS_CLONE_DEPTH: 1
     HTSDIR: ./htslib
+    CFLAGS:  -fsanitize=address
+    LDFLAGS: -fsanitize=address
 
   matrix:
     - environment:
@@ -93,8 +95,8 @@ ubuntu_task:
        memory: 2G
       environment:
        USE_CONFIG: yes
-       CFLAGS: -g -Wall -O3 -fsanitize=address
-       LDFLAGS: -fsanitize=address -Wl,-rpath,`pwd`/inst/lib
+       CFLAGS: -g -Wall -O3
+       LDFLAGS: -Wl,-rpath,`pwd`/inst/lib
 
   # NB: we could consider building a docker image with these
   # preinstalled and specifying that instead, to speed up testing.
