@@ -3335,11 +3335,11 @@ static const char *usage(void)
         "   -W, --write-index[=FMT]           Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
-        "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf\n"
+        "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.87.gff3.gz in.vcf\n"
         "\n"
         "   # GFF3 annotation files can be downloaded from Ensembl. e.g. for human:\n"
-        "   ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/\n"
-        "   ftp://ftp.ensembl.org/pub/grch37/release-84/gff3/homo_sapiens/\n"
+        "   http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/\n"
+        "   http://ftp.ensembl.org/pub/grch37/current/gff3/homo_sapiens/\n"
         "\n";
 }
 
