@@ -1462,6 +1462,23 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
         bcf_update_info_string(args->out_hdr,dst,tag,args->tmp_arr1);
     }
 }
+static int gt_array_grow_ploidy(args_t *args, uint8_t **tmp_arr, int *ntmp_arr, int ngt_ori, int ngt_new, int nsmpl)
+{
+    *ntmp_arr = 4*ngt_new*nsmpl;
+    int32_t *ptr = (int32_t*)realloc(*tmp_arr,*ntmp_arr);
+    if ( !ptr ) error("Error: failed to allocate %d bytes\n",*ntmp_arr);
+    *tmp_arr = (uint8_t*) ptr;
+
+    int i,j;
+    for (i=nsmpl-1; i>=0; i--)
+    {
+        int32_t *src = ptr + i*ngt_ori;
+        int32_t *dst = ptr + i*ngt_new;
+        for (j=ngt_new; j>ngt_ori; j--) dst[j-1] = bcf_int32_vector_end;
+        for (j=ngt_ori; j>0; j--) dst[j-1] = src[j-1];
+    }
+    return ngt_new;
+}
 static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_fmt_t *fmt, bcf1_t *dst)
 {
     // reusing int8_t arrays as int32_t arrays
@@ -1480,7 +1497,9 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
         int ngts2 = bcf_get_genotypes(args->hdr,lines[i],&args->tmp_arr2,&ntmp2);
         args->ntmp_arr2 = ntmp2 * 4;
         ngts2 /= nsmpl;
-        if ( ngts!=ngts2 ) error("Error at %s:%"PRId64": cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1);
+        int ploidy_changed = ngts - ngts2;
+        if ( ngts < ngts2 ) ngts = gt_array_grow_ploidy(args,&args->tmp_arr1,&args->ntmp_arr1,ngts,ngts2,nsmpl);
+        if ( ngts > ngts2 ) ngts2 = gt_array_grow_ploidy(args,&args->tmp_arr2,&args->ntmp_arr2,ngts2,ngts,nsmpl);
 
         int32_t *gt  = (int32_t*) args->tmp_arr1;       // the first, destination line
         int32_t *gt2 = (int32_t*) args->tmp_arr2;       // one of the subsequent lines, i.e. the source line
@@ -1490,16 +1509,22 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
             // never overwrite with ref allele
             for (k2=0; k2<ngts2; k2++)
             {
-                if ( gt2[k2]==bcf_int32_vector_end ) break;
-                if ( bcf_gt_is_missing(gt2[k2]) ) continue;
+                if ( gt2[k2]==bcf_int32_vector_end )
+                {
+                    if ( ploidy_changed && bcf_gt_is_missing(gt[k2]) ) gt[k2] = bcf_int32_vector_end;
+                    break;
+                }
+                if ( bcf_gt_is_missing(gt2[k2]) ) continue;     // don't overwrite with missing
+
+                // don't overwrite with ref, unless the destination is missing, e.g. "./. + 0/1"
                 int ial2 = bcf_gt_allele(gt2[k2]);
-                if ( ial2==0 ) continue;    // never overwrite with ref
+                if ( ial2==0 && !bcf_gt_is_missing(gt[k2]) && gt[k2]!=bcf_int32_vector_end ) continue;
                 if ( ial2>=args->maps[i].nals ) error("Error at %s:%"PRId64": incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1,ial2);
 
                 // The destination allele
                 int ial = args->maps[i].map[ial2];
                 if ( gt[k2]==bcf_int32_vector_end || bcf_gt_is_missing(gt[k2]) || !bcf_gt_allele(gt[k2]) )
-                    gt[k2] = bcf_gt_is_phased(gt[k2]) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
+                    gt[k2] = (gt[k2]!=bcf_int32_vector_end && bcf_gt_is_phased(gt[k2])) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
                 else
                 {
                     // conflict, the first line has non-zero allele, use the old way, possibly disrupt the phasing
