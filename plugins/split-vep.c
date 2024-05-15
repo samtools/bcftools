@@ -162,7 +162,7 @@ static const char *default_severity(void)
     return
         "# Default consequence substrings ordered in ascending order by severity.\n"
         "# Consequences with the same severity can be put on the same line in arbitrary order.\n"
-        "# See also https://m.ensembl.org/info/genome/variation/prediction/predicted_data.htm\n"
+        "# See also https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html\n"
         "intergenic\n"
         "feature_truncation feature_elongation\n"
         "regulatory\n"
