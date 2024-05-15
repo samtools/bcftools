@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<title>Plugin setGT</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+<li>
+<p><a href="publications.html">Publications</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="annotate.html">Adding annotation</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="scaling.html">Performance and Scaling</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_plugin_setgt">Plugin setGT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The plugin <code>+setGT</code> allows to edit genotypes</p>
+</div>
+<div class="paragraph">
+<p>The list of plugin-specific options can be obtained by running
+<code>bcftools +setGT -h</code>, which will print the following usage page:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>About: Sets genotypes. The target genotypes can be specified as:
+           ./.     .. completely missing ("." or "./.", depending on ploidy)
+           ./x     .. partially missing (e.g., "./0" or ".|1" but not "./.")
+           .       .. partially or completely missing
+           a       .. all genotypes
+           b       .. heterozygous genotypes failing two-tailed binomial test (example below)
+           q       .. select genotypes using -i/-e options
+           r:FLOAT .. select randomly a proportion of FLOAT genotypes (can be combined with other modes)
+       and the new genotype can be one of:
+           .       .. missing ("." or "./.", keeps ploidy)
+           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)
+           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X overrides ploidy)
+           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
+           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
+           X       .. allele with bigger read depth as determined from FMT/AD
+           p       .. phase genotype (0/1 becomes 0|1)
+           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)
+Usage: bcftools +setGT [General Options] -- [Plugin Options]
+Options:
+   run "bcftools plugin" for a list of common options
+
+Plugin options:
+   -e, --exclude EXPR        Exclude a genotype if true (requires -t q)
+   -i, --include EXPR        include a genotype if true (requires -t q)
+   -n, --new-gt TYPE         Genotypes to set, see above
+   -s, --seed INT            Random seed to use with -t r [0]
+   -t, --target-gt TYPE      Genotypes to change, see above
+
+Example:
+   # set missing genotypes ("./.") to phased ref genotypes ("0|0")
+   bcftools +setGT in.vcf -- -t . -n 0p
+
+   # set missing genotypes with DP&gt;0 and GQ&gt;20 to ref genotypes ("0/0")
+   bcftools +setGT in.vcf -- -t q -n 0 -i 'GT="." &amp;&amp; FMT/DP&gt;0 &amp;&amp; GQ&gt;20'
+
+   # set partially missing genotypes to completely missing
+   bcftools +setGT in.vcf -- -t ./x -n .
+
+   # set heterozygous genotypes to 0/0 if binom.test(nAlt,nRef+nAlt,0.5)&lt;1e-3
+   bcftools +setGT in.vcf -- -t "b:AD&lt;1e-3" -n 0
+
+   # force unphased heterozygous genotype if binom.test(nAlt,nRef+nAlt,0.5)&gt;0.1
+   bcftools +setGT in.vcf -- -t ./x -n c:'m/M'</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by 
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
