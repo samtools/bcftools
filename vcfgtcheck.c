@@ -1,6 +1,6 @@
 /*  vcfgtcheck.c -- Check sample identity.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -955,7 +955,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -965,7 +965,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
                 idx++;
@@ -1006,7 +1006,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -1016,7 +1016,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }
@@ -1073,7 +1073,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -1083,7 +1083,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }

@@ -23,6 +23,11 @@ Changes affecting specific commands:
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k in.vcf
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k in.vcf
 
+* bcftools gtcheck
+
+    - Fix a segfault with --no-HWE-prob. The bug was introduced with the output format change in
+      1.19 which replaced the DC section with DCv2 (#2180)
+
 * bcftools norm
 
     - Support realignment of symbolic <DUP.*> alleles, similarly to <DEL.*> added previously

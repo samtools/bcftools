@@ -960,6 +960,7 @@ run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.2.out',args=>q[    -G30 --AF-d
 run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref]);
 run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref --include-noalt]);
 run_test(\&test_roh,$opts,in=>'roh.1',out=>'roh.1.4.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --include-noalt]);
+run_test(\&test_gtcheck,$opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.2.out',args=>q[-e 0 --no-HWE-prob]);
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-e 0]);
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-e 0 -u GT,GT]);
 run_test(\&test_gtcheck,$opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-e 0 -u GT,PL]);
