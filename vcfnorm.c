@@ -64,7 +64,7 @@ typedef struct
 {
     int n;  // number of alleles
     char *ref, *alt;
-    void *hash;
+    void *hash; // str2int hash
 }
 cmpals1_t;
 
@@ -2014,7 +2014,29 @@ static bcf1_t *mrows_flush(args_t *args)
     args->mrows_first++;
     return args->mrows[ibeg];
 }
-static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
+static char *strdup_alt_svlen(args_t *args, bcf1_t *rec, int ial)
+{
+    if ( rec->d.allele[ial][0]!='<' ) return strdup(rec->d.allele[ial]);
+
+    int n = bcf_get_info_int32(args->hdr, rec, "SVLEN", &args->tmp_arr1, &args->ntmp_arr1);
+    if ( n<=0 ) return strdup(rec->d.allele[ial]);
+
+    if ( n+1 != rec->n_allele )
+    {
+        // there should be as many SVLEN numbers as there are ALT alleles
+        static int warned = 0;
+        if ( !warned )
+        {
+            fprintf(stderr,"TODO: different number of ALT alleles and SVLEN fields %s:%"PRIhts_pos"\n",bcf_seqname(args->hdr,rec),rec->pos+1);
+            warned = 1;
+        }
+    }
+
+    kstring_t str = {0,0,0};
+    ksprintf(&str,"%s.%d",rec->d.allele[ial],args->tmp_arr1[ial-1]);
+    return str.s;
+}
+static void cmpals_add(args_t *args, cmpals_t *ca, bcf1_t *rec)
 {
     ca->ncmpals++;
     hts_expand0(cmpals1_t, ca->ncmpals, ca->mcmpals, ca->cmpals);
@@ -2022,10 +2044,11 @@ static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
     free(cmpals->ref);
     cmpals->ref = strdup(rec->d.allele[0]);
     cmpals->n   = rec->n_allele;
+
     if ( rec->n_allele==2 )
     {
         free(cmpals->alt);
-        cmpals->alt = strdup(rec->d.allele[1]);
+        cmpals->alt = strdup_alt_svlen(args,rec,1);
     }
     else
     {
@@ -2036,9 +2059,10 @@ static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
             khash_str2int_inc(cmpals->hash, strdup(rec->d.allele[i]));
     }
 }
-static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
+static int cmpals_match(args_t *args, cmpals_t *ca, bcf1_t *rec)
 {
     int i, j;
+    char *alt_svlen = rec->n_allele==2 ? strdup_alt_svlen(args,rec,1) : NULL;
     for (i=0; i<ca->ncmpals; i++)
     {
         cmpals1_t *cmpals = ca->cmpals + i;
@@ -2050,7 +2074,8 @@ static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
         // the most frequent case
         if ( rec->n_allele==2 )
         {
-            if ( strcasecmp(rec->d.allele[1], cmpals->alt) ) continue;
+            if ( strcasecmp(alt_svlen, cmpals->alt) ) continue;
+            free(alt_svlen);
             return 1;
         }
 
@@ -2060,6 +2085,7 @@ static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
         if ( j<rec->n_allele ) continue;
         return 1;
     }
+    free(alt_svlen);
     return 0;
 }
 static void cmpals_reset(cmpals_t *ca) { ca->ncmpals = 0; }
@@ -2102,7 +2128,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 if ( args->rmdup & BCF_SR_PAIR_ANY ) continue;    // rmdup by position only
                 if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
                 if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(&args->cmpals_out, args->lines[k]) ) continue;
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k]) ) continue;
             }
             else
             {
@@ -2112,7 +2138,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(&args->cmpals_out);
             }
             prev_type |= line_type;
-            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(&args->cmpals_out, args->lines[k]);
+            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k]);
         }
         if ( bcf_write1(file, args->out_hdr, args->lines[k])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }

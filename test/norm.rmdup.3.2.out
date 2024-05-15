@@ -1,0 +1,7 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	A	<DEL>	.	.	SVLEN=-1000
+1	18	.	AC	A	.	.	.
