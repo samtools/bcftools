@@ -895,7 +895,7 @@ static void report(args_t *args)
                          "#       match, the observed concordance was less likely to occur by chance)\n");
     ksprintf(&args->kstr,"#     - Number of sites compared for this pair of samples (bigger = more informative)\n");
     ksprintf(&args->kstr,"#     - Number of matching genotypes\n");
-    ksprintf(&args->kstr,"#DCv2\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]Average -log P(HWE)\t[6]Number of sites compared\t[6]Number of matching genotypes\n");
+    ksprintf(&args->kstr,"#DCv2\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]Average -log P(HWE)\t[6]Number of sites compared\t[7]Number of matching genotypes\n");
     if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
 
     int trim = args->ntop;
