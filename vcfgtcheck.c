@@ -141,7 +141,7 @@ static int cmp_pair(const void *_a, const void *_b)
 
 typedef struct
 {
-    uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosoms
+    uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosomes
     unsigned long kbs_dat[1];
 }
 diff_sites_t;

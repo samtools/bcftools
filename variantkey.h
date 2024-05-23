@@ -92,7 +92,7 @@ static inline uint8_t encode_numeric_chrom(const char *chrom, size_t size)
     {
         if ((chrom[i] > '9') || (chrom[i] < '0'))
         {
-            return 0; // NA: a character that is not a numebr was found.
+            return 0; // NA: a character that is not a number was found.
         }
         v = ((v * 10) + (chrom[i] - '0'));
     }

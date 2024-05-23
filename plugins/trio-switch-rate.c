@@ -77,7 +77,7 @@ const char *usage(void)
     return 
         "\n"
         "About: Calculate phase switch rate in trio children.\n"
-        "Usage: bcftools +trio-swich-rate [General Options] -- [Plugin Options]\n"
+        "Usage: bcftools +trio-switch-rate [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"

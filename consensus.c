@@ -984,7 +984,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         ks_resize(&args->fa_buf, args->fa_buf.l + len_diff);
         memmove(args->fa_buf.s + idx + rec->rlen + len_diff, args->fa_buf.s + idx + rec->rlen, args->fa_buf.l - idx - rec->rlen);
 
-        // This can get tricky, make sure the bases unchanged by the insertion do not overwrite preceeding variants.
+        // This can get tricky, make sure the bases unchanged by the insertion do not overwrite preceding variants.
         // For example, here we want to get TAA:
         //      POS REF ALT
         //      1   C   T

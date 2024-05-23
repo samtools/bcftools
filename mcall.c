@@ -444,7 +444,7 @@ void mcall_destroy(call_t *call)
 // qual calculation is not affected.
 // Missing values are replaced by generic likelihoods when X (unseen allele) is
 // present.
-// NB: While the -m callig model uses the pdgs in canonical order,
+// NB: While the -m calling model uses the pdgs in canonical order,
 // the original samtools -c calling code uses pdgs in reverse order (AA comes
 // first, RR last).
 // NB: Ploidy is not taken into account here, which is incorrect.
@@ -1495,7 +1495,7 @@ int mcall(call_t *call, bcf1_t *rec)
     // If available, take into account reference panel AFs
     if ( call->prior_AN && bcf_get_info_int32(call->hdr, rec, call->prior_AN ,&call->ac, &call->nac)==1 )
     {
-        int an = call->ac[0];   // number of alleles total, procede only if not zero; reuse call->ac
+        int an = call->ac[0];   // number of alleles total, proceed only if not zero; reuse call->ac
         if ( an > 0 && bcf_get_info_int32(call->hdr, rec, call->prior_AC ,&call->ac, &call->nac)==nals_ori-1 )    // number of ALT alleles
         {
             int ac0 = an;       // this will become the number of REFs

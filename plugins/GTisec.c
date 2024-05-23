@@ -2,7 +2,7 @@
                    subsets of the present samples and output in banker's
                    sequence order (in this sequence, the number of contained
                    samples increases monotonically, a property that is e.g.
-                   useful for programatically creating plotting files for the
+                   useful for programmatically creating plotting files for the
                    R package VennDiagram or the plotting tool circos from the
                    counts, as in the command line tools bankers2VennDiagram and
                    bankers2circos at htpps://github.com/dlaehnemann/bankers2)

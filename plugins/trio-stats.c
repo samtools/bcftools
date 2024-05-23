@@ -132,7 +132,7 @@ static const char *usage_text(void)
         "Plugin options:\n"
         "   -a, --alt-trios INT         for transmission rate consider only sites with at most this\n"
         "                                   many alternate trios, 0 for unlimited [0]\n"
-        "   -d, --debug TYPE            comma-separted list of features: {mendel-errors,transmitted}\n"
+        "   -d, --debug TYPE            comma-separated list of features: {mendel-errors,transmitted}\n"
         "   -e, --exclude EXPR          exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
         "   -i, --include EXPR          include trios for which the expression is true (one failing sample invalidates a trio)\n"
         "   -o, --output FILE           output file name [stdout]\n"

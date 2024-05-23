@@ -941,7 +941,7 @@ static void usage(args_t *args)
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");
     // fprintf(stderr, "       -1 INT    number of group-1 samples [0]\n");
-    // fprintf(stderr, "       -C FLOAT  posterior constrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
+    // fprintf(stderr, "       -C FLOAT  posterior contrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
     // fprintf(stderr, "       -U INT    number of permutations for association testing (effective with -1) [0]\n");
     // fprintf(stderr, "       -X FLOAT  only perform permutations for P(chi^2)<FLOAT [%g]\n", args->aux.min_perm_p);
     fprintf(stderr, "\n");

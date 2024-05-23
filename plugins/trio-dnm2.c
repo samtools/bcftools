@@ -77,7 +77,7 @@ typedef struct
 {
     // combines priors, mutation rates, genotype transmission probability; see init_priors()
     double pprob[10][10][10];           // prior probability; the order is father,mother,child
-    uint8_t denovo[10][10][10];         // is the GT combination not compatible with normal inheritence (0) or is de novo (1)
+    uint8_t denovo[10][10][10];         // is the GT combination not compatible with normal inheritance (0) or is de novo (1)
     uint8_t denovo_allele[10][10][10];  // which of the alleles is de novo for this configuration
 }
 priors_t;
@@ -366,7 +366,7 @@ static double init_mf_priors(args_t *args, int fi, int mi)
     int nref_mf = (fa==0 ? 1 : 0) + (fb==0 ? 1 : 0) + (ma==0 ? 1 : 0) + (mb==0 ? 1 : 0);
 
     const double p_homref = 0.998;                                  // this assumes bi-allelic sites
-    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occuring twice for a different allele
+    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occurring twice for a different allele
     const double p_nonref = 1 - p_homref - p_poly;
 
     if ( nalt_mf>=3 )                                               // penalize heavily sites with 3 unique ALTs
@@ -399,7 +399,7 @@ static double init_mf_priors_chrX(args_t *args, int mi)
     int nref_m = (ma==0 ? 1 : 0) + (mb==0 ? 1 : 0);
 
     const double p_homref = 0.999;                                  // this assumes bi-allelic sites
-    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occuring twice for a different allele
+    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occurring twice for a different allele
     const double p_nonref = 1 - p_homref - p_poly;
 
     if ( nalt_m>=2 )                                               // 2 unique ALTs, 3 cases
@@ -429,7 +429,7 @@ static double init_mf_priors_chrXX(args_t *args, int fi, int mi)
     else nalt_mf--;
 
     const double p_homref = 0.998;                                  // this assumes bi-allelic sites
-    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occuring twice for a different allele
+    const double p_poly   = (1 - p_homref) * (1 - p_homref);        // p of this occurring twice for a different allele
     const double p_nonref = 1 - p_homref - p_poly;
 
     if ( nalt_mf>=3 )                                               // 3 unique ALTs

@@ -86,7 +86,7 @@ typedef struct _token_t
     // modified on filter evaluation at each VCF line
     double *values;
     kstring_t str_value;
-    int is_str, is_missing; // is_missing is set only for constants, variables are controled via nvalues
+    int is_str, is_missing; // is_missing is set only for constants, variables are controlled via nvalues
     int pass_site;          // -1 not applicable, 0 fails, >0 pass
     uint8_t *pass_samples;  // status of individual samples
     int nvalues, mvalues;   // number of used values: n=0 for missing values, n=1 for scalars, for strings n=str_value.l
@@ -755,7 +755,7 @@ static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *
  *  @line:      BCF line
  *  @info_id:   tag ID, as returned by bcf_hdr_id2int
  *  @ivec:      0-based index to retrieve, -1 when single value is expected
- *  @vptr:      pointer to memory location of sufficient size to accomodate
+ *  @vptr:      pointer to memory location of sufficient size to accommodate
  *              info_id's type
  *
  *  The returned value is -1 if tag is not present, 0 if present but
@@ -2451,7 +2451,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
 // The problem is that the implementation truncates the number of fields, filling
 // usually fewer than the original number of per-sample values. This is fixed by
 // adding an exception that makes the code aware of this: the GT indexing can be
-// recognised by haveing tok->idx==-3
+// recognised by having tok->idx==-3
 #define CMP_VECTORS(atok,btok,_rtok,CMP_OP,missing_logic) \
 { \
     token_t *rtok = _rtok; \
@@ -3711,7 +3711,7 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
     // In the special cases of TYPE and FILTER the BCF header IDs are yet unknown. Walk through the
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the FILTER token and they must be followed with a comparison operator.
-    // At this point we also initialize regex expressions which, in RPN, must preceed the LIKE/NLIKE operator.
+    // At this point we also initialize regex expressions which, in RPN, must precede the LIKE/NLIKE operator.
     // Additionally, treat "." as missing value rather than a string in numeric equalities; that
     // @file is only used with ID; etc.
     // This code is fragile: improve me.
