@@ -625,7 +625,7 @@ void destroy_data(args_t *args)
 }
 
 /*
-    The splice_* functions are for consquences around splice sites: start,stop,splice_*
+    The splice_* functions are for consequences around splice sites: start,stop,splice_*
  */
 #define SPLICE_VAR_REF 0   // ref: ACGT>ACGT, csq not applicable, skip completely
 #define SPLICE_OUTSIDE 1   // splice acceptor or similar; csq set and is done, does not overlap the region

@@ -425,7 +425,7 @@ static void init_data(args_t *args)
         args->rules = regidx_init(args->rules_fname, parse_rules, NULL, sizeof(rule_t), args);
     else
         args->rules = init_rules(args, args->rules_str);
-    if ( !args->rules ) error("Coud not parse the Mendelian rules\n");
+    if ( !args->rules ) error("Could not parse the Mendelian rules\n");
     args->itr  = regitr_init(args->rules);
     args->rule = (rule_t*) malloc(sizeof(*args->rule)*args->nsex_id);
 

@@ -50,7 +50,7 @@ static void add_rep(rep_ele **list, char *cons, int clen, int pos, int rlen,
 	    return;
     }
 
-    // Find current and last occurence of repeated word.
+    // Find current and last occurrence of repeated word.
 
     cp2 = &cons[pos+1];
     // If unpadded, this is quicker: cp1 = &cons[pos+1-rlen];

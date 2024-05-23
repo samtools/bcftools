@@ -1571,7 +1571,7 @@ int convert_header(convert_t *convert, kstring_t *str)
     int i, icol = 0, l_ori = str->l;
     bcf_hdr_t *hdr = convert->header;
 
-    // Supress the header output if LINE is present
+    // Suppress the header output if LINE is present
     for (i=0; i<convert->nfmt; i++)
         if ( convert->fmt[i].type == T_LINE ) break;
     if ( i!=convert->nfmt )

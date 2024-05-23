@@ -879,7 +879,7 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
 
     /*
         A noisy CN2 band is hard to distinguish from two CN3 bands which are
-        close to each other. Set a treshold on the minimum separation based
+        close to each other. Set a threshold on the minimum separation based
         on the BAF deviation at p=0.95
     */
     baf_dev2 /= norm_cn3;

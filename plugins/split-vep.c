@@ -623,7 +623,7 @@ static void parse_column_str(args_t *args)
             // either the original or sanitized version of the tag exists
             idx_end = idx_beg;
         }
-        else if ( (tp=strrchr(bp,':')) )    // notice this requests the last occurence of ':'
+        else if ( (tp=strrchr(bp,':')) )    // notice this requests the last occurrence of ':'
         {
             // there is a colon in the original string, expecting type specification
             *tp = 0;
@@ -1351,7 +1351,7 @@ static void restrict_csqs_to_genes(args_t *args)
 // Split the VEP annotation by transcript and by field, then check if the number of subfields looks alright.
 // Unfortunately, we cannot enforce the number of subfields to match the header definition because that can
 // be variable: `bcftools csq` outputs different number of fields for different consequence types.
-// So we need to distinguish between this reasonable case and incorrectly formated consequences such
+// So we need to distinguish between this reasonable case and incorrectly formatted consequences such
 // as those reported for LoF_info subfield here https://github.com/Ensembl/ensembl-vep/issues/1351.
 static void split_csq_fields(args_t *args, bcf1_t *rec, int csq_str_len)
 {

@@ -266,7 +266,7 @@ then
 	v12_indel_hq=`$bcftools view -H -i "TYPE='indel' && QUAL >= $qual && QUAL < $qual_max" $v2.isec/0003.vcf|wc -l`
 	v12_indel_hq2=`$bcftools view -H -i "TYPE='indel' && QUAL >= $qual" $v2.isec/0003.vcf|wc -l`
 
-	# Total number of SNPs minue true HQ snps we call
+	# Total number of SNPs minus true HQ snps we call
 	v12_snp_hq2=`expr $tot_snp - $v12_snp_hq2`
 	v12_indel_hq2=`expr $tot_indel - $v12_indel_hq2`
 	printf "$v2\t$qual\t$v12_snp_hq $v2_snp_hq\t$v12_indel_hq $v2_indel_hq\t$tot_snp $v12_snp_hq2 $v2_snp_hq2\t$tot_indel $v12_indel_hq2 $v2_indel_hq2\n"

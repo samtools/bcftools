@@ -757,7 +757,7 @@ Changes affecting specific commands:
       annotating from a tab-delimited text file, this feature can be invoked
       by using `-c INFO/END`.
 
-    - add a new '.' modifier to control wheter missing values should be carried
+    - add a new '.' modifier to control whether missing values should be carried
       over from a tab-delimited file or not. For example:
 
          -c TAG .. adds TAG if the source value is not missing. If TAG
@@ -1109,7 +1109,7 @@ Changes affecting specific commands:
 
 * bcftools csq:
 
-    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too
+    - Fix a bug which caused incorrect FORMAT/BCSQ formatting at sites with too
       many per-sample consequences
 
     - Fix a bug which incorrectly handled the --ncsq parameter and could clash
@@ -1826,7 +1826,7 @@ Updates, improvements and bugfixes for many other commands:
 
 * `roh`: Now possible to process multiple samples at once. This allows
   considerable speedups for files with thousands of samples where the cost of
-  HMM is neglibible compared to I/O and decompressing. In order to fit tens of
+  HMM is negligible compared to I/O and decompressing. In order to fit tens of
   thousands samples in memory, a sliding HMM can be used (new `--buffer-size`
   option). Viterbi training now uses Baum-Welch algorithm, and works much
   better. Support for gVCFs or FORMAT/PL tags. Added `-o, output` and

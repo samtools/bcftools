@@ -672,7 +672,7 @@ sub parse_vcfstats1
         for my $b (keys %{$dat{$a}})
         {
             # Merging multiple vcfstats files. Honestly, this is quite hacky.
-            if ( !exists($$opts{dat}{$a}{$b}) ) { $$opts{dat}{$a}{$b} = $dat{$a}{$b}; next; } # copy all, first occurance
+            if ( !exists($$opts{dat}{$a}{$b}) ) { $$opts{dat}{$a}{$b} = $dat{$a}{$b}; next; } # copy all, first occurrence
 
             if ( $a eq 'ID' ) { merge_id($opts,$$opts{dat}{$a},$dat{$a},$b); }
             elsif ( ref($dat{$a}{$b}) ne 'ARRAY' ) { $$opts{dat}{$a}{$b} += $dat{$a}{$b} unless $b eq 'number of samples:'; } # SN, Summary numbers, do not sum sample counts
@@ -749,7 +749,7 @@ sub init_plots
 
         img_fmt = '$$opts{img_fmt}'
 
-        # Use logarithimic X axis for allele frequency plots
+        # Use logarithmic X axis for allele frequency plots
         af_xlog = 0
 
         # Plots to generate, set to 0 to disable
