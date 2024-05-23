@@ -148,7 +148,7 @@ program.  For example in this run many sites were filtered:
 Number of lines: total/processed: 599218/37730
 ----
 
-If the number of the processed sites is too low, check what was the reason for exluding
+If the number of the processed sites is too low, check what was the reason for excluding 
 them. This command should give the number of sites that were processed:
 
 ----

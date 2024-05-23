@@ -20,7 +20,7 @@ and expects a value for each ALT allele, for example
 ----
 chr1  64334  .  A  C,T  .  .  AC=1,1  GT  0/1  0/1
 ----
-The error above is printed when different number of values is encoutered, for example `AC=1` or `AC=1,1,1` in the example above.
+The error above is printed when different number of values is encountered, for example `AC=1` or `AC=1,1,1` in the example above.
 
 Other such definitions are `Number=R` (there must be as many values as there are REF+ALT alleles in total),
 and `Number=G` (this is more complicated, see the section 1.4.2 of the link:http://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification]).
