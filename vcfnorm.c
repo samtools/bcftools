@@ -114,6 +114,7 @@ typedef struct
     gff_t *gff;
     regidx_t *idx_tscript;
     regitr_t *itr_tscript;
+    int (*cmp_func)(const void *aptr, const void *bptr);
 }
 args_t;
 
@@ -2291,7 +2292,12 @@ static void normalize_line(args_t *args, bcf1_t *line)
         args->lines[i] = bcf_dup(line);
         while ( rbuf_prev(&args->rbuf,&i) )
         {
-            if ( args->lines[i]->rid==args->lines[j]->rid && args->lines[i]->pos > args->lines[j]->pos ) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+            if ( args->lines[i]->rid==args->lines[j]->rid )
+            {
+                bcf_unpack(args->lines[i], BCF_UN_STR);
+                bcf_unpack(args->lines[j], BCF_UN_STR);
+                if ( args->cmp_func(&args->lines[i], &args->lines[j]) > 0) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+            }
             j = i;
         }
         if ( args->atomize!=SPLIT ) break;
@@ -2429,6 +2435,7 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE         Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "    -s, --strict-filter             When merging (-m+), merged site is PASS only if all sites being merged PASS\n");
+    fprintf(stderr, "    -S, --sort METHOD               Sort order: chr_pos,lex [chr_pos]\n");
     fprintf(stderr, "    -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
@@ -2469,6 +2476,7 @@ int main_vcfnorm(int argc, char *argv[])
     args->gff_verbosity = 1;
     int regions_overlap = 1;
     int targets_overlap = 0;
+    args->cmp_func = cmp_bcf_pos;
 
     static struct option loptions[] =
     {
@@ -2479,6 +2487,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"old-rec-tag",required_argument,NULL,12},
         {"keep-sum",required_argument,NULL,10},
         {"fasta-ref",required_argument,NULL,'f'},
+        {"sort",required_argument,NULL,'S'},
         {"gff-annot",required_argument,NULL,'g'},
         {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
         {"do-not-normalize",no_argument,NULL,'N'},
@@ -2504,7 +2513,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2518,6 +2527,11 @@ int main_vcfnorm(int argc, char *argv[])
                 if ( args->gff_verbosity<0 || args->gff_verbosity>2 ) error("Error: expected integer 0-2 with -v, --verbose\n");
                 break;
             case 'a': args->atomize = SPLIT; break;
+            case 'S':
+                if ( !strcasecmp(optarg,"pos") ) args->cmp_func = cmp_bcf_pos;
+                else if ( !strcasecmp(optarg,"lex") ) args->cmp_func = cmp_bcf_pos_ref_alt;
+                else error("Error: the sort order --sort %s is not recognised\n",optarg);
+                break;
             case 11 :
                 if ( optarg[0]=='*' ) args->use_star_allele = 1;
                 else if ( optarg[0]=='.' ) args->use_star_allele = 0;

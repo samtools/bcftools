@@ -1,0 +1,4 @@
+##fileformat=VCFv4.1
+##contig=<ID=chr19>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr19	50359054	.	C	G,T,A	.	.	.

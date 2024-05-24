@@ -2673,6 +2673,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-s, --strict-filter*::
     when merging ('-m+'), merged site is PASS only if all sites being merged PASS
 
+*-S, --sort* 'pos'|'lex'::
+    when splitting sites or processing duplicates, sort records on output by
+    POS only ('pos', the default) or by POS and lexicographically by REF+ALT ('lex')
+
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*
 

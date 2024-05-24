@@ -68,6 +68,10 @@ char *init_tmp_prefix(const char *prefix);
 int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
 int parse_overlap_option(const char *arg);
 
+// Default sort order: chr,pos,alleles
+int cmp_bcf_pos(const void *aptr, const void *bptr);
+int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr);
+
 static inline int iupac2bitmask(char iupac)
 {
     const int A = 1;

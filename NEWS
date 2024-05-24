@@ -43,6 +43,8 @@ Changes affecting specific commands:
 
     - Support of duplicate removal of symbolic alleles of the same type but different SVLEN (#2182)
 
+    - New `-S, --sort` switch to optionally sort output records by allele (#1484)
+
 
 
 ## Release 1.20 (15th April 2024)

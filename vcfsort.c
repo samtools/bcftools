@@ -1,6 +1,6 @@
 /*  vcfsort.c -- sort subcommand
 
-   Copyright (C) 2017-2023 Genome Research Ltd.
+   Copyright (C) 2017-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -102,6 +102,16 @@ int cmp_bcf_pos(const void *aptr, const void *bptr)
     if ( a->rid > b->rid ) return 1;
     if ( a->pos < b->pos ) return -1;
     if ( a->pos > b->pos ) return 1;
+    return 0;
+}
+int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr)
+{
+    bcf1_t *a = *((bcf1_t**)aptr);
+    bcf1_t *b = *((bcf1_t**)bptr);
+    if ( a->rid < b->rid ) return -1;
+    if ( a->rid > b->rid ) return 1;
+    if ( a->pos < b->pos ) return -1;
+    if ( a->pos > b->pos ) return 1;
 
     // Sort the same chr:pos records lexicographically by ref,alt.
     // This will be called rarely so should not slow the sorting down
@@ -122,7 +132,7 @@ void buf_flush(args_t *args)
 {
     if ( !args->nbuf ) return;
 
-    qsort(args->buf, args->nbuf, sizeof(*args->buf), cmp_bcf_pos);
+    qsort(args->buf, args->nbuf, sizeof(*args->buf), cmp_bcf_pos_ref_alt);
 
     args->nblk++;
     args->blk = (blk_t*) realloc(args->blk, sizeof(blk_t)*args->nblk);
@@ -260,7 +270,7 @@ static inline int blk_is_smaller(blk_t **aptr, blk_t **bptr)
 {
     blk_t *a = *aptr;
     blk_t *b = *bptr;
-    int ret = cmp_bcf_pos(&a->rec, &b->rec);
+    int ret = cmp_bcf_pos_ref_alt(&a->rec, &b->rec);
     if ( ret < 0 ) return 1;
     return 0;
 }
