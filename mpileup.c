@@ -1170,7 +1170,7 @@ static void list_annotations(FILE *fp)
         "\n"
         "FORMAT annotation tags available (\"FORMAT/\" prefix is optional):\n"
         "\n"
-        "  FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)\n"
+        "* FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)\n"
         "  FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)\n"
         "  FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)\n"
         "  FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)\n"
@@ -1374,7 +1374,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
-    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
+    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB|B2B_FMT_AD;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;

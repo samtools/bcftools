@@ -911,37 +911,37 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.2.out',
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.1.out',fa=>'consensus.22.fa',args=>'--regions-overlap 0');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 1');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 2');
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150 -a -AD],test_list=>1);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600 -a -AD]); # test files from samtools mpileup test suite
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060 -a -AD]); # test file converted to vcf from samtools mpileup test suite
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP,-AD -r17:100-600]); #test files from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.5.out',args=>q[-a DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-600 --gvcf 0,2,5]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-200,17:201-300,17:301-400,17:401-500,17:501-600 --gvcf 0,2,5]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -s HG00101,HG00102]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -S {PATH}/mplp.samples]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -s ^HG00101,HG00102]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -S ^{PATH}/mplp.samples]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.9.out',args=>q[-t17:100-150 -S {PATH}/mplp.9.samples]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.10.out',args=>q[-t17:100-150 -G {PATH}/mplp.10.samples]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3)],out=>'mpileup/mpileup.11.out',args=>q[]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-s HG00102]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-s ^HG99999]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV,-AD -r17:100-600 --gvcf 0,2,5]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV,-AD -r17:100-200,17:201-300,17:301-400,17:401-500,17:501-600 --gvcf 0,2,5]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.7.out',args=>q[-a -AD -r17:100-150 -s HG00101,HG00102]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.7.out',args=>q[-a -AD -r17:100-150 -S {PATH}/mplp.samples]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.8.out',args=>q[-a -AD -r17:100-150 -s ^HG00101,HG00102]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.8.out',args=>q[-a -AD -r17:100-150 -S ^{PATH}/mplp.samples]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.9.out',args=>q[-a -AD -t17:100-150 -S {PATH}/mplp.9.samples]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.10.out',args=>q[-a -AD -t17:100-150 -G {PATH}/mplp.10.samples]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3)],out=>'mpileup/mpileup.11.out',args=>q[-a -AD]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-a -AD -s HG00102]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-a -AD -s ^HG99999]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-a -AD -G {PATH}/mplp.11.rgs]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-a -AD -G {PATH}/mplp.11.rgs]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1.out',ref=>'indel-AD.1.fa',args=>q[-a AD]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1cns.out',ref=>'indel-AD.1.fa',args=>q[-a AD --indels-cns]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.2.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.3.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD]);
 run_test(\&test_mpileup,$opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.4.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD0]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup-SCR)],out=>'mpileup/mpileup-SCR.out',ref=>'mpileup-SCR.fa',args=>q[-a INFO/SCR,FMT/SCR]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-all-set PAIRED,PROPER_PAIR,MREVERSE]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-any-set READ1]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-all-unset READ1]);
-run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-any-unset READ1]);
-run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.1)],ref=>'annot-NMBZ.1.fa',out=>'mpileup/annot-NMBZ.1.1.out',args=>q[-a INFO/NMBZ -r chr19:69-99]);
-run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.2)],ref=>'annot-NMBZ.2.fa',out=>'mpileup/annot-NMBZ.2.1.out',args=>q[-a INFO/NMBZ -r chr6:75]);
-run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.3.1 annot-NMBZ.3.2)],ref=>'annot-NMBZ.3.fa',out=>'mpileup/annot-NMBZ.3.1.out',args=>q[-a INFO/NMBZ -r chr16:75]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup-SCR)],out=>'mpileup/mpileup-SCR.out',ref=>'mpileup-SCR.fa',args=>q[-a -AD,INFO/SCR,FMT/SCR]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-a -AD -t 1:100 --skip-all-set PAIRED,PROPER_PAIR,MREVERSE]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-a -AD -t 1:100 --skip-any-set READ1]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-a -AD -t 1:100 --skip-all-unset READ1]);
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-a -AD -t 1:100 --skip-any-unset READ1]);
+run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.1)],ref=>'annot-NMBZ.1.fa',out=>'mpileup/annot-NMBZ.1.1.out',args=>q[-a -AD,INFO/NMBZ -r chr19:69-99]);
+run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.2)],ref=>'annot-NMBZ.2.fa',out=>'mpileup/annot-NMBZ.2.1.out',args=>q[-a -AD,INFO/NMBZ -r chr6:75]);
+run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.3.1 annot-NMBZ.3.2)],ref=>'annot-NMBZ.3.fa',out=>'mpileup/annot-NMBZ.3.1.out',args=>q[-a -AD,INFO/NMBZ -r chr16:75]);
 run_test(\&test_csq,$opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
 run_test(\&test_csq,$opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.chr.gff3');
 run_test(\&test_csq,$opts,in=>'csq.2',out=>'csq.2.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff',tbcsq=>1);

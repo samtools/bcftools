@@ -32,6 +32,8 @@ Changes affecting specific commands:
 
     - Return non-zero error code when the input BAM/CRAM file is truncated (#2177)
 
+    - Add FORMAT/AD annotation by default, disable with `-a -AD`
+
 * bcftools norm
 
     - Support realignment of symbolic <DUP.*> alleles, similarly to <DEL.*> added previously
