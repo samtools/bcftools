@@ -28,6 +28,10 @@ Changes affecting specific commands:
     - Fix a segfault with --no-HWE-prob. The bug was introduced with the output format change in
       1.19 which replaced the DC section with DCv2 (#2180)
 
+* bcftools mpileup
+
+    - Return non-zero error code when the input BAM/CRAM file is truncated (#2177)
+
 * bcftools norm
 
     - Support realignment of symbolic <DUP.*> alleles, similarly to <DEL.*> added previously

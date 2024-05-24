@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2023 Genome Research Ltd.
+    Copyright (C) 2008-2024 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -612,7 +612,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
             }
         }
     }
-    return 0;
+    return ret;
 }
 
 static int mpileup(mplp_conf_t *conf)
@@ -938,6 +938,7 @@ static int mpileup(mplp_conf_t *conf)
 
 
     // Run mpileup for multiple regions
+    int ret = 0;
     if ( nregs )
     {
         int ireg = 0;
@@ -966,12 +967,18 @@ static int mpileup(mplp_conf_t *conf)
                     bam_mplp_reset(conf->iter);
                 }
             }
-            mpileup_reg(conf,conf->reg_itr->beg,conf->reg_itr->end);
+            ret = mpileup_reg(conf,conf->reg_itr->beg,conf->reg_itr->end);
+            if ( ret<0 ) break;
         }
         while ( regitr_loop(conf->reg_itr) );
     }
     else
-        mpileup_reg(conf,0,UINT32_MAX);
+        ret = mpileup_reg(conf,0,UINT32_MAX);
+    if ( ret<0 )
+    {
+        fprintf(stderr, "[%s] failed to read from input file\n", __func__);
+        exit(EXIT_FAILURE);
+    }
 
     flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, NULL);
 
