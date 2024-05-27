@@ -240,6 +240,10 @@ run_test(\&test_vcf_query,$opts,in=>'query.smpl',out=>'query.smpl.5.out',args=>q
 run_test(\&test_vcf_query,$opts,in=>'query.smpl',out=>'query.smpl.6.out',args=>q[-l -S {PATH}/query.smpl.txt]);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.1.out',args=>q[-f'%ID\\n' -i'ID~"s12"']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.2.out',args=>q[-f'%ID\\n' -i'ID="rs123"']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.3.out',args=>q[-f'%ID\\n' -i'ID="abc"']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.3.out',args=>q[-f'%ID\\n' -i'ID=@].$$opts{path}.q[/query.filter.id.3.txt']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.4.out',args=>q[-f'%ID\\n' -i'ID!="abc"']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.id',out=>'query.filter.id.4.out',args=>q[-f'%ID\\n' -i'ID!=@].$$opts{path}.q[/query.filter.id.3.txt']);
 run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.85.out',args=>q[-i'FILTER="A"' -f'%FILTER\\n']);
 run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.86.out',args=>q[-i'FILTER~"A"' -f'%FILTER\\n']);
 run_test(\&test_vcf_query,$opts,in=>'filter.12',out=>'query.87.out',args=>q[-i'FILTER="A;B"' -f'%FILTER\\n']);

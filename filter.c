@@ -706,34 +706,48 @@ static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *
     {
         token_t *tmp = atok; atok = btok; btok = tmp;
     }
-    if ( atok->hash )
+
+    char *id = line->d.id;
+    int pass = 0;
+
+    while ( id )
     {
-        if ( rtok->tok_type!=TOK_EQ && rtok->tok_type!=TOK_NE )
-            error("Only == and != operators are supported for strings read from a file\n");
+        char *ep = strchr(id,';');
+        if ( ep ) *ep = 0;
 
-        int ret = khash_str2int_has_key(atok->hash, line->d.id);
-        if ( rtok->tok_type==TOK_NE ) ret = ret ? 0 : 1;
-        rtok->pass_site = ret;
-        return;
+        if ( atok->hash )
+        {
+            if ( rtok->tok_type!=TOK_EQ && rtok->tok_type!=TOK_NE )
+                error("Only == and != operators are supported for strings read from a file\n");
+
+            pass = khash_str2int_has_key(atok->hash, id);
+        }
+        else
+        {
+            if ( !btok->str_value.l ) error("Error occurred while evaluating the expression\n");
+
+            if ( rtok->tok_type==TOK_EQ || rtok->tok_type==TOK_NE )
+                pass = strcmp(btok->str_value.s,id) ? 0 : 1;
+            else
+            {
+                if ( rtok->tok_type!=TOK_LIKE && rtok->tok_type!=TOK_NLIKE )
+                    error("Only the following operators are supported for querying ID: ==, !=, ~, !~; the operator type %d is not supported (%p %p)\n",
+                            rtok->tok_type,atok->regex,btok->regex);
+
+                regex_t *regex = atok->regex ? atok->regex : (btok->regex ? btok->regex : NULL);
+                if ( !regex ) error("fixme: regex initialization failed\n");
+                pass = regexec(regex,id, 0,NULL,0) ? 0 : 1;
+            }
+        }
+        if ( ep )
+        {
+            *ep = ';';
+            id = ep + 1;
+        }
+        if ( pass || !ep ) break;
     }
-
-    if ( !btok->str_value.l ) error("Error occurred while evaluating the expression\n");
-
-    if ( rtok->tok_type==TOK_EQ )
-        rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 0 : 1;
-    else if ( rtok->tok_type==TOK_NE )
-        rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 1 : 0;
-    else
-    {
-        if ( rtok->tok_type!=TOK_LIKE && rtok->tok_type!=TOK_NLIKE )
-            error("Only the following operators are supported for querying ID: ==, !=, ~, !~; the operator type %d is not supported (%p %p)\n",
-                rtok->tok_type,atok->regex,btok->regex);
-
-        regex_t *regex = atok->regex ? atok->regex : (btok->regex ? btok->regex : NULL);
-        if ( !regex ) error("fixme: regex initialization failed\n");
-        rtok->pass_site = regexec(regex,line->d.id, 0,NULL,0) ? 0 : 1;
-        if ( rtok->tok_type==TOK_NLIKE ) rtok->pass_site = rtok->pass_site ? 0 : 1;
-    }
+    if ( rtok->tok_type==TOK_NE || rtok->tok_type==TOK_NE) pass = pass ? 0 : 1;
+    rtok->pass_site = pass;
 }
 
 /**

@@ -3,6 +3,9 @@
 
 Changes affecting the whole of bcftools, or multiple commands:
 
+* Support multiple semicolon-separated strings when filtering by ID using -i/-e (#2190).
+  For example, `-i 'ID="rs123"'` now correctly matches `rs123;rs456`
+
 * bcftools query
 * bcftools +split-vep
 
