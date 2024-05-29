@@ -848,8 +848,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
         }
     }
-    if ( idx>0 && idx>=args->fa_buf.l )
-        error("FIXME: %s:%"PRId64" .. idx=%d, ori_pos=%d, len=%"PRIu64", off=%d\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,idx,args->fa_ori_pos,(uint64_t)args->fa_buf.l,args->fa_mod_off);
+
+    // the variant is beyond the available fasta sequence
+    if ( idx>0 && idx>=args->fa_buf.l ) return;
 
     // sanity check the reference base
     if ( alt_allele[0]=='<' )
