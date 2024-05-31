@@ -2172,7 +2172,8 @@ multiple regions and many alignment files are processed.
     Assume the quality is in the Illumina 1.3+ encoding.
 
 *-A, --count-orphans*::
-    Do not skip anomalous read pairs in variant calling.
+    Include anomalous read pairs in variant calling, i.e. reads with
+    flag PAIRED but not PROPER_PAIR set. By default such reads are discarded.
 
 *-b, --bam-list* 'FILE'::
     List of input alignment files, one file per line [null]
