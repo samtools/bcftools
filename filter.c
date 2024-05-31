@@ -1313,9 +1313,13 @@ static void filters_set_ilen(filter_t *flt, bcf1_t *line, token_t *tok)
     int i, rlen = strlen(line->d.allele[0]);
     for (i=1; i<line->n_allele; i++)
     {
+        if ( line->d.allele[i][0]=='<' )
+        {
+            bcf_double_set_missing(tok->values[i-1]);
+            continue;
+        }
         int alen = strlen(line->d.allele[i]);
-        if ( rlen==alen ) bcf_double_set_missing(tok->values[i-1]);
-        else tok->values[i-1] = alen - rlen;
+        tok->values[i-1] = alen - rlen;
     }
 }
 static void filters_set_ref_string(filter_t *flt, bcf1_t *line, token_t *tok)

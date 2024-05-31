@@ -42,6 +42,7 @@ THE SOFTWARE.  */
 #include "abuf.h"
 #include "gff.h"
 #include "regidx.h"
+#include "filter.h"
 
 #define CHECK_REF_EXIT 1
 #define CHECK_REF_WARN 2
@@ -50,6 +51,10 @@ THE SOFTWARE.  */
 
 #define MROWS_SPLIT 1
 #define MROWS_MERGE  2
+
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
 
 // for -m+, mapping from allele indexes of a single input record
 // to allele indexes of output record
@@ -100,7 +105,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, njoined, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, njoined, ntotal, nfilter, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -115,6 +120,10 @@ typedef struct
     regidx_t *idx_tscript;
     regitr_t *itr_tscript;
     int (*cmp_func)(const void *aptr, const void *bptr);
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    int filter_pass;
+    filter_t *filter;
 }
 args_t;
 
@@ -2198,11 +2207,16 @@ static void init_data(args_t *args)
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);
     }
+    if ( args->filter_str )
+        args->filter = filter_init(args->hdr, args->filter_str);
+    args->filter_pass = 1;
+
     args->out_hdr = bcf_hdr_dup(args->out_hdr);
 }
 
 static void destroy_data(args_t *args)
 {
+    if ( args->filter ) filter_destroy(args->filter);
     if ( args->gff )
     {
         gff_destroy(args->gff);
@@ -2252,10 +2266,10 @@ static void normalize_line(args_t *args, bcf1_t *line)
 {
     if ( args->fai )
     {
-        if ( args->check_ref & CHECK_REF_FIX ) fix_ref(args, line);
+        if ( args->filter_pass && (args->check_ref & CHECK_REF_FIX) ) fix_ref(args, line);
         if ( args->do_indels )
         {
-            int ret = realign(args, line);
+            int ret = args->filter_pass ? realign(args, line) : ERR_OK;
 
             // exclude broken VCF lines
             if ( ret==ERR_REF_MISMATCH && args->check_ref & CHECK_REF_SKIP )
@@ -2275,10 +2289,10 @@ static void normalize_line(args_t *args, bcf1_t *line)
         }
     }
 
-    if ( args->atomize==SPLIT ) abuf_push(args->abuf,line);
+    if ( args->filter_pass && args->atomize==SPLIT ) abuf_push(args->abuf,line);
     while (1)
     {
-        if ( args->atomize==SPLIT )
+        if ( args->filter_pass && args->atomize==SPLIT )
         {
             line = abuf_flush(args->abuf, 0);
             if ( !line ) break;
@@ -2300,7 +2314,7 @@ static void normalize_line(args_t *args, bcf1_t *line)
             }
             j = i;
         }
-        if ( args->atomize!=SPLIT ) break;
+        if ( !args->filter_pass || args->atomize!=SPLIT ) break;
     }
 }
 
@@ -2312,7 +2326,14 @@ static int split_and_normalize(args_t *args)
     bcf1_t *line = bcf_sr_get_line(args->files,0);
     args->ntotal++;
 
-    if ( args->mrows_op!=MROWS_SPLIT || line->n_allele<=2 )
+    if ( args->filter )
+    {
+        args->filter_pass = filter_test(args->filter,line,NULL);
+        if ( args->filter_logic==FLT_EXCLUDE ) args->filter_pass = args->filter_pass ? 0 : 1;
+        if ( !args->filter_pass ) args->nfilter++;
+    }
+
+    if ( args->mrows_op!=MROWS_SPLIT || line->n_allele<=2 || !args->filter_pass )
     {
         // normal operation, no splitting
         normalize_line(args, line);
@@ -2401,7 +2422,8 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/joined/realigned/skipped:\t%d/%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/split/joined/realigned/removed/skipped:\t%d/%d/%d/%d/%d/%d\n",
+        args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nfilter);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
@@ -2420,9 +2442,11 @@ static void usage(void)
     fprintf(stderr, "    -c, --check-ref e|w|x|s         Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates         Remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -d, --rm-dup TYPE               Remove duplicate snps|indels|both|all|exact\n");
+    fprintf(stderr, "    -e, --exclude EXPR              Do not normalize records for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -f, --fasta-ref FILE            Reference sequence\n");
     fprintf(stderr, "        --force                     Try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
     fprintf(stderr, "    -g, --gff-annot FILE            Follow HGVS 3'rule and right-align variants in transcripts on the forward strand\n");
+    fprintf(stderr, "    -i, --include EXPR              Normalize only records for which the expression is true (see man page for details)\n");
     fprintf(stderr, "        --keep-sum TAG,..           Keep vector sum constant when splitting multiallelics (see github issue #360)\n");
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
@@ -2484,6 +2508,8 @@ int main_vcfnorm(int argc, char *argv[])
         {"force",no_argument,NULL,7},
         {"atomize",no_argument,NULL,'a'},
         {"atom-overlaps",required_argument,NULL,11},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
         {"old-rec-tag",required_argument,NULL,12},
         {"keep-sum",required_argument,NULL,10},
         {"fasta-ref",required_argument,NULL,'f'},
@@ -2513,7 +2539,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2527,6 +2553,12 @@ int main_vcfnorm(int argc, char *argv[])
                 if ( args->gff_verbosity<0 || args->gff_verbosity>2 ) error("Error: expected integer 0-2 with -v, --verbose\n");
                 break;
             case 'a': args->atomize = SPLIT; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'S':
                 if ( !strcasecmp(optarg,"pos") ) args->cmp_func = cmp_bcf_pos;
                 else if ( !strcasecmp(optarg,"lex") ) args->cmp_func = cmp_bcf_pos_ref_alt;

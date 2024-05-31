@@ -2608,6 +2608,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     If a record is present in multiple files, output only the first instance.
     Alias for *-d none*, deprecated.
 
+*-e, --exclude* 'EXPRESSION'::
+    do not normalize input records for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*. Note that duplicate removal ignores this option.
+
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
     and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
@@ -2621,6 +2625,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     when a GFF file is provided, follow HGVS 3'rule and right-align variants in transcripts on the forward
     strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
     description of the supported GFF3 file format see *<<csq,bcftools csq>>*.
+
+*-i, --include* 'EXPRESSION'::
+    normalize only input records for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*. Note that duplicate removal ignores this option.
 
 *--keep-sum* 'TAG'[,...]::
     keep vector sum constant when splitting multiallelic sites. Only AD tag
@@ -3929,7 +3937,7 @@ number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-indel length (deletions negative, insertions positive)
+indel length (deletions negative, insertions positive, balanced substitutions zero)
 
         N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN
 

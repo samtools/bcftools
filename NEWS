@@ -6,6 +6,9 @@ Changes affecting the whole of bcftools, or multiple commands:
 * Support multiple semicolon-separated strings when filtering by ID using -i/-e (#2190).
   For example, `-i 'ID="rs123"'` now correctly matches `rs123;rs456`
 
+* The filtering expression ILEN can be positive (insertion), negative (deletion), zero
+  (balanced substitutions), or set to missing value (symbolic alleles).
+
 * bcftools query
 * bcftools +split-vep
 
@@ -48,6 +51,8 @@ Changes affecting specific commands:
 
     - New `-S, --sort` switch to optionally sort output records by allele (#1484)
 
+    - Add the `-i/-e` filtering options to select records for normalization. Note duplicate
+      removal ignores this option.
 
 
 ## Release 1.20 (15th April 2024)

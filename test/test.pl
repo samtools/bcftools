@@ -296,6 +296,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm
 run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a');
 run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
 run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
+run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>['-a --old-rec-tag OLD_REC','-m -any --force']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>['-m -any --old-rec-tag OLD_REC --force','-a']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'-m -any --old-rec-tag OLD_REC --force -a');
@@ -305,6 +306,7 @@ run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.3',out=>'atomize.split.3.1.out',args=>'--atomize --atom-overlaps .');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.4',out=>'atomize.split.4.1.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.4',out=>'atomize.split.4.2.out',args=>q[--atomize --atom-overlaps . --old-rec-tag OLD_REC -i 'ILEN=0']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.1.out',args=>'-m +both');
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.2.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.5',out=>'norm.5.1.out',args=>'-m - --multi-overlaps 0');
@@ -321,7 +323,9 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.string-tags',out=>'norm.string-tags.1.o
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.1.out',args=>['-m -','-m +both']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.2.out',args=>['-m -','-m +indels']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.3.out',args=>['-m -','-m +snps']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.3.out',args=>['-m -','-m +snps']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.out',args=>['-m -','-m +any']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.5.out',args=>q[-m - -i 'type="snp"']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
 run_test(\&test_vcf_view,$opts,in=>'filter.string.1',out=>'filter.string.1.1.out',args=>q[-i 'INFO/TAG=@{PATH}/filter.string.1.txt']);
