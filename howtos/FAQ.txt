@@ -4,8 +4,34 @@ include::header.inc[]
 Frequently Asked Questions
 --------------------------
 
-.*Incorrect number of fields at chr1:1234567*
+.*'XYZ' is not defined in the header, assuming Type=String*
+[#undefined-tag]
+The link:https://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification] recommends that all INFO and
+FORMAT tags that appear throughout the file body are defined in the VCF header.
 
+Fix the header using the reheader command
+----
+# Write out the header to be modified
+bcftools view -h old.vcf > header.txt
+
+# Edit the header using your favorite text editor and add the missing definition, eg
+#   ##INFO=<ID=XYZ,Number=1,Type=Integer,Description="Describe the tag">
+vi header.txt
+
+# Reheader the file
+bcftools reheader -h header.txt -o new.vcf old.vcf
+----
+
+Why do you have to do it? Although VCF specification allows undefined tags, HTSlib and BCFtools internally
+treat VCF as BCF, where all tags must be defined in the header. This is because of the way BCF is designed:
+the tags throughout the BCF file are represented as pointers to the dictionary of tags stored in the header.
+We work around this problem by adding missing definitions on the fly. Note this can work for read-only operations, but
+will still lead to problems when writing the file out as BCF: even though the reader
+updated its internal structures with a dummy definition and continued reading, the writer was not
+aware about the new tag when the header was written.
+
+
+.*Incorrect number of fields at chr1:1234567*
 [#incorrect-nfields]
 This error is triggered when the number of values in the data line does not match
 its definition in the header. For example, one may see an error like
