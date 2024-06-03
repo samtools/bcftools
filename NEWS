@@ -29,6 +29,9 @@ Changes affecting specific commands:
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k in.vcf
         bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k in.vcf
 
+    - When adding Type=String annotations from a tab-delimited file, encode characters with
+      special meaning using percent encoding (';', '=' in INFO and ':' in FORMAT) (#2202)
+
 * bcftools gtcheck
 
     - Fix a segfault with --no-HWE-prob. The bug was introduced with the output format change in
