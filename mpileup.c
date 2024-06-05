@@ -1220,7 +1220,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "\n"
         "Input options:\n"
         "  -6, --illumina1.3+      Quality is in the Illumina-1.3+ encoding\n"
-        "  -A, --count-orphans     Do not discard anomalous read pairs\n"
+        "  -A, --count-orphans     Include anomalous read pairs, with flag PAIRED but not PROPER_PAIR set\n"
         "  -b, --bam-list FILE     List of input BAM filenames, one per line\n"
         "  -B, --no-BAQ            Disable BAQ (per-Base Alignment Quality)\n"
         "  -C, --adjust-MQ INT     Adjust mapping quality [0]\n"

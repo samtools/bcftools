@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=ISTR,Number=1,Type=String,Description="string">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="string">
+##contig=<ID=chr1>
+##reference=ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+chr1	101	.	C	G	.	.	ISTR=%3D_and_%_and_%3B_work	FSTR	%_and_=_and_%3A_work

@@ -1186,6 +1186,29 @@ void khash_str2int_clear_free(void *_hash)
         if (kh_exist(hash, k)) free((char*)kh_key(hash, k));
     kh_clear(str2int, hash);
 }
+static const char *escape_string(const char *str, char needle[], char **rmme, size_t *len)
+{
+    kstring_t tmp = {0,0,0};
+    const char *bp = str, *ep = str;
+    while ( *ep )
+    {
+        int i = 0;
+        while ( needle[i] && needle[i]!=*ep ) i++;
+        if ( !needle[i] ) { ep++; continue; }
+        kputsn(bp,ep-bp,&tmp);
+        ksprintf(&tmp,"%%%X",*ep);
+        bp = ++ep;
+    }
+    if ( !tmp.l )
+    {
+        *len = strlen(str);
+        return str;
+    }
+    kputs(bp,&tmp);
+    *len  = tmp.l;
+    *rmme = tmp.s;
+    return tmp.s;
+}
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     if ( (col->replace & REPLACE_MISSING) && col->number!=BCF_VL_A && col->number!=BCF_VL_R )
@@ -1199,13 +1222,17 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     if ( col->replace & SET_OR_APPEND ) col->merge_method=MM_UNIQUE;
 
     annot_line_t *tab = (annot_line_t*) data;
+    const char *escaped = NULL;
+    char *rmme = NULL;
 
-    int len = 0;
+    size_t len = 0;
     if ( tab )
     {
-        len = strlen(tab->cols[col->icol]);
-        if ( !len ) return 0;
-        if ( len==1 && tab->cols[col->icol][0]=='.' && col->merge_method!=MM_APPEND_MISSING && !(col->replace & CARRY_OVER_MISSING) ) return 1;
+        char *str = tab->cols[col->icol];
+        if ( !str || !*str ) return 0;
+        if ( !str[1] && str[0]=='.' && col->merge_method!=MM_APPEND_MISSING && !(col->replace & CARRY_OVER_MISSING) ) return 1;
+        char needle[] = {';','=',0};
+        escaped = escape_string(tab->cols[col->icol],needle,&rmme,&len);
     }
 
     if ( col->merge_method!=MM_FIRST )
@@ -1219,8 +1246,12 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             if ( col->merge_method==MM_UNIQUE )
             {
                 if ( !col->mm_str_hash ) col->mm_str_hash = (khash_t(str2int)*)khash_str2int_init();
-                if ( khash_str2int_has_key(col->mm_str_hash, tab->cols[col->icol]) ) return 1;
-                khash_str2int_inc(col->mm_str_hash, strdup(tab->cols[col->icol]));
+                if ( khash_str2int_has_key(col->mm_str_hash, escaped) )
+                {
+                    free(rmme);
+                    return 1;
+                }
+                khash_str2int_inc(col->mm_str_hash, strdup(escaped));
             }
 
             if ( (col->replace & SET_OR_APPEND) && !col->mm_kstr.l )
@@ -1232,17 +1263,20 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             }
 
             if ( col->mm_kstr.l ) kputc(',',&col->mm_kstr);
-            kputs(tab->cols[col->icol], &col->mm_kstr);
+            kputs(escaped, &col->mm_kstr);
+            free(rmme);
             return 1;
         }
-
         if ( col->mm_kstr.l )
         {
             hts_expand(char,col->mm_kstr.l+1,args->mtmps,args->tmps);
             memcpy(args->tmps,col->mm_kstr.s,col->mm_kstr.l+1);
         }
         else
+        {
+            free(rmme);
             return 0;
+        }
 
         // flush the line
         if ( col->merge_method==MM_UNIQUE )
@@ -1253,13 +1287,13 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     {
         assert(tab);
         hts_expand(char,len+1,args->mtmps,args->tmps);
-        memcpy(args->tmps,tab->cols[col->icol],len+1);
-
+        memcpy(args->tmps,escaped,len+1);
         if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
             return setter_ARinfo_string(args,line,col,tab->nals,tab->als);
     }
-
-    return bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmps);
+    int ret = bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmps);
+    free(rmme);
+    return ret;
 }
 static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -1693,11 +1727,18 @@ static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void 
     if ( col->icol+args->nsmpl_annot > tab->ncols )
         error("Incorrect number of values for %s at %s:%"PRId64"\n",col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
+    char needle[] = {':',0};
     int ismpl;
     for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++)
-        args->tmpp[ismpl] = tab->cols[col->icol + ismpl];
-
-    return core_setter_format_str(args,line,col,args->tmpp);
+    {
+        size_t len;
+        char *rmme = NULL;
+        const char *str = escape_string(tab->cols[col->icol + ismpl],needle,&rmme,&len);
+        args->tmpp[ismpl] = rmme ? rmme : strdup(str);
+    }
+    int ret = core_setter_format_str(args,line,col,args->tmpp);
+    for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++) free(args->tmpp[ismpl]);
+    return ret;
 }
 static int determine_ploidy(int nals, int *vals, int nvals1, uint8_t *smpl, int nsmpl)
 {
