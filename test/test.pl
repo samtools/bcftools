@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2023 Genome Research Ltd.
+#   Copyright (C) 2012-2024 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -1833,7 +1833,8 @@ sub test_vcf_plugin
 {
     my ($opts,%args) = @_;
     if ( !$$opts{test_plugins} ) { return; }
-    $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
+    # Sadly, this does not work:
+    #   $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
     my $wpath = $$opts{path};
     if ($^O =~ /^msys/) {
@@ -1850,11 +1851,11 @@ sub test_vcf_plugin
     {
         for my $file (@{$args{index}}) { bgzip_tabix_vcf($opts,$file); }
     }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_", exp_fix=>1);
+    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_", exp_fix=>1);
 }
 sub test_vcf_concat
 {
@@ -2116,14 +2117,13 @@ sub test_plugin_split
 {
     my ($opts,%args) = @_;
     if ( !$$opts{test_plugins} ) { return; }
-    $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
 
     my ($package, $filename, $line, $test)=caller(0);
     $test =~ s/^.+:://;
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
 
-    cmd("$$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
+    cmd("BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
 
     opendir(my $dh,"$$opts{tmp}/$args{tmp}") or failed($opts,$test,"Cannot read $$opts{tmp}/$args{tmp}: $!");
     my @files = sort grep { !(/^\./) } readdir($dh);
@@ -2132,7 +2132,7 @@ sub test_plugin_split
     my $files = join(' ',@files);
     test_cmd($opts,%args,
         cmd=>
-            "$$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} " .
+            "BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} " .
             " && cd $$opts{tmp}/$args{tmp} " .
             " && for f in $files; do echo \$f; $$opts{bin}/bcftools query -l \$f; $$opts{bin}/bcftools view -H \$f; done"
         );
@@ -2141,21 +2141,20 @@ sub test_plugin_scatter
 {
     my ($opts,%args) = @_;
     if ( !$$opts{test_plugins} ) { return; }
-    $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
 
     my ($package, $filename, $line, $test)=caller(0);
     $test =~ s/^.+:://;
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
 
-    cmd("$$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
+    cmd("BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
 
     opendir(my $dh,"$$opts{tmp}/$args{tmp}") or failed($opts,$test,"Cannot read $$opts{tmp}/$args{tmp}: $!");
     my @files = sort grep { !(/^\./) } readdir($dh);
     closedir($dh) or failed($opts,$test,"Close failed: $$opts{tmp}/$args{tmp}");
 
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} && cd $$opts{tmp}/$args{tmp} && cat $files | grep -v ^##");
+    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} && cd $$opts{tmp}/$args{tmp} && cat $files | grep -v ^##");
 }
 sub test_roh
 {
