@@ -1689,7 +1689,7 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 
 Note that the interpretation of the discordance score depends on the options provided (specifically *-e* and
 *-u*) and on the available annotations (FORMAT/PL vs FORMAT/GT).
-The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.
+The discordance score can be interpreted as the number of mismatching genotypes only if GT-vs-GT matching is performed.
 
 *--distinctive-sites* 'NUM[,MEM[,DIR]]'::
     Find sites that can distinguish between at least NUM sample pairs. If the number is smaller or equal to 1,

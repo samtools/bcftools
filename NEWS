@@ -37,6 +37,10 @@ Changes affecting specific commands:
     - Fix a segfault with --no-HWE-prob. The bug was introduced with the output format change in
       1.19 which replaced the DC section with DCv2 (#2180)
 
+    - The number of matching genotypes in the DCv2 output was not calculated correctly with
+      non-zero `-E, --error-probability`. Consequently, also the average HWE score was incorrect.
+      The main output, the discordance score, was not affected by the bug
+
 * bcftools +mendelian2
 
     - Include the number of good cases where at least one of the trio genotypes has an alternate
