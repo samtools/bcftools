@@ -149,6 +149,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <strings.h>
 #include "bcftools.h"
 #include "filter.h"
 #include "regidx.h"

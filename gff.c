@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <string.h>
+#include <strings.h>
 #include <htslib/hts.h>
 #include <htslib/khash.h>
 #include <htslib/khash_str2int.h>
