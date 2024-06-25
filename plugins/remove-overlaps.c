@@ -185,8 +185,10 @@ static void flush(args_t *args, int flush_all)
                 error("Failed to write to %s\n", args->output_fname);
         }
         else
+        {
             ret = bcf_write1(args->out_fh, args->hdr, rec);
-        if ( ret!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+            if ( ret!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        }
     }
 }
 static void process(args_t *args)
