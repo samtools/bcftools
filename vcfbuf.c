@@ -233,10 +233,10 @@ int vcfbuf_nsites(vcfbuf_t *buf)
 
 bcf1_t *vcfbuf_push(vcfbuf_t *buf, bcf1_t *rec)
 {
-    // make sure the caller is using the buffer correctly and calls vcfbuf_flush() or vcfbuf_peek()
+    // make sure the caller is using the buffer correctly and calls vcfbuf_flush()
     // before placing next vcfbuf_push() call
     assert(buf->status!=dirty);
-    buf->status = dirty;
+    if ( !buf->dummy ) buf->status = dirty;
 
     rbuf_expand0(&buf->rbuf, vcfrec_t, buf->rbuf.n+1, buf->vcf);
     int i = rbuf_append(&buf->rbuf);
@@ -286,7 +286,6 @@ static int cmpint_desc(const void *_a, const void *_b)
 
 static void _prune_sites(vcfbuf_t *buf, int flush_all)
 {
-    buf->status = clean;
 
     int nbuf = flush_all ? buf->rbuf.n : buf->rbuf.n - 1;
 
@@ -366,8 +365,6 @@ static int mark_dup_can_flush_(vcfbuf_t *buf, int flush_all)
     if  ( buf->status==dirty )
     {
         // a new site was just added by vcfbuf_push()
-        buf->status = clean;
-
         rbuf_expand0(&mark->rbuf, uint8_t, buf->rbuf.n, mark->mark);
         int i = rbuf_append(&mark->rbuf);
         mark->mark[i] = 0;
@@ -592,19 +589,19 @@ bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
     // pruning mode
     if ( buf->win )
     {
-
-        int can_flush = 0;
-        if ( buf->win > 0 )
+        int can_flush = flush_all;
+        i = rbuf_kth(&buf->rbuf, 0);    // first
+        j = rbuf_last(&buf->rbuf);      // last
+        if ( buf->vcf[i].rec->rid != buf->vcf[j].rec->rid ) can_flush = 1;
+        else if ( buf->win > 0 )
         {
             if ( buf->rbuf.n > buf->win ) can_flush = 1;
         }
         else if ( buf->win < 0 )
         {
-            i = rbuf_kth(&buf->rbuf, 0);    // first
-            j = rbuf_last(&buf->rbuf);      // last
-            if ( buf->vcf[i].rec->rid != buf->vcf[j].rec->rid ) can_flush = 1;
-            if ( buf->vcf[i].rec->pos - buf->vcf[j].rec->pos > -buf->win ) can_flush = 1;
+            if ( !(buf->vcf[i].rec->pos - buf->vcf[j].rec->pos > buf->win) ) can_flush = 1;
         }
+        buf->status = clean;
         if ( !can_flush ) return NULL;
         if ( buf->prune.max_sites && buf->prune.max_sites < buf->rbuf.n ) _prune_sites(buf, flush_all);
         goto ret;
@@ -626,11 +623,13 @@ bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
         {
             if ( mark_expr_can_flush_(buf,flush_all) ) can_flush = 1;
         }
+        buf->status = clean;
         if ( !can_flush ) return NULL;
         goto ret;
     }
 
 ret:
+    buf->status = clean;
     i = rbuf_shift(&buf->rbuf);
     return buf->vcf[i].rec;
 }
