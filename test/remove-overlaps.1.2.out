@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+##INFO=<ID=overlap,Type=Flag,Number=0,Description="Marked by +remove-overlaps">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100000	.	CC	G	.	.	overlap
+1	100001	.	C	G	.	.	overlap
+1	789241	.	C	G	.	.	.
+1	789242	.	C	G	.	.	overlap
+1	789242	.	C	A	.	.	overlap
+1	789243	.	C	CA	.	.	.
+1	789243	.	C	CCA	.	.	overlap
+1	789244	.	C	A	.	.	overlap
+1	789244	.	C	CA	.	.	overlap
+1	789244	.	C	T	.	.	overlap
+1	789244	.	C	CCA	.	.	overlap
+1	789245	.	C	T,CA,TTT	.	.	overlap
+1	789245	.	C	T,A	.	.	overlap
+1	789245	.	C	T	.	.	overlap
+1	789245	.	C	A,T	.	.	overlap
+1	789245	.	C	T	.	.	overlap
+1	789245	.	C	CA,TTT,T	.	.	overlap
+1	790000	.	C	G	.	.	.
+1	800000	.	CC	G	.	.	overlap
+1	800001	.	C	G	.	.	overlap
+1	900000	.	C	G	.	.	.

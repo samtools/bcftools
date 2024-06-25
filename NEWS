@@ -66,6 +66,18 @@ Changes affecting specific commands:
     - Add the `-i/-e` filtering options to select records for normalization. Note duplicate
       removal ignores this option.
 
+* bcftools +remove-overlaps
+
+    - Revamp the program to allow greater flexibility, with the following new options:
+
+            -M, --mark-tag TAG   Mark -m sites with INFO/TAG
+            -m, --mark EXPR      Mark (if also -M is present) or remove sites [overlap]
+                                    dup       .. all overlapping sites
+                                    overlap   .. overlapping sites
+                                    min(QUAL) .. mark sites with lowest QUAL until overlaps are resolved
+                --reverse        Apply the reverse logic, for example preserve duplicates instead of removing
+            -O, --output-type t  t: plain list of sites (chr,pos), tz: compressed list
+
 
 ## Release 1.20 (15th April 2024)
 
