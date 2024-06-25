@@ -516,7 +516,8 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
             overlap_t *oi = &mark->buf[i];
             int j = rbuf_kth(&buf->rbuf, i);
             assert(j>=0);
-            bcf1_t *rec = buf->vcf[i].rec;
+            bcf1_t *rec = buf->vcf[j].rec;
+            assert(rec);
             oi->value = rec->qual;  // todo: other than QUAL values
             if ( oi->bset )
             {
