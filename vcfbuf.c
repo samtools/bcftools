@@ -549,7 +549,6 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
         qsort(mark->buf_ptr,buf->rbuf.n,sizeof(*mark->buf_ptr),cmp_overlap_ptr_asc);   // todo: other than min()
 
         // go through the list sorted by overlap_t.value, eg QUAL
-        int nrm = 0;
         for (i=0; nolap && i<buf->rbuf.n; i++)
         {
             kbitset_iter_t itr;
@@ -565,7 +564,6 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
                 nolap--;
             }
             mark->mark[oi->idx] = 1;
-            nrm++;
         }
     }
     else if ( buf->rbuf.n > 1 ) flush = 1;
