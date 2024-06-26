@@ -713,8 +713,13 @@ run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.11',out=>'trio-dnm/trio-
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);
-run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps',out=>'remove-overlaps.1.out',cmd=>'+remove-overlaps',args=>'');
-run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps',out=>'remove-overlaps.2.out',cmd=>'+remove-overlaps',args=>'-d');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.1.out',cmd=>'+remove-overlaps',args=>'-m overlap');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.2.out',cmd=>'+remove-overlaps',args=>'-m overlap -M overlap');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.3.out',cmd=>'+remove-overlaps',args=>'-m overlap -O t');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.4.out',cmd=>'+remove-overlaps',args=>'-m overlap --reverse');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.5.out',cmd=>'+remove-overlaps',args=>'-m dup -M DUP');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.6.out',cmd=>'+remove-overlaps',args=>'-m dup -M unique --reverse');
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.2',out=>'remove-overlaps.2.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.1.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n' -i'Consequence!="."']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-s worst:missense+ -f'%POS\\t%Consequence\\n']);
@@ -1852,11 +1857,11 @@ sub test_vcf_plugin
     {
         for my $file (@{$args{index}}) { bgzip_tabix_vcf($opts,$file); }
     }
-    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_", exp_fix=>1);
+    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_", exp_fix=>1);
 }
 sub test_vcf_concat
 {
@@ -2124,7 +2129,7 @@ sub test_plugin_split
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
 
-    cmd("BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
+    cmd("export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
 
     opendir(my $dh,"$$opts{tmp}/$args{tmp}") or failed($opts,$test,"Cannot read $$opts{tmp}/$args{tmp}: $!");
     my @files = sort grep { !(/^\./) } readdir($dh);
@@ -2133,7 +2138,7 @@ sub test_plugin_split
     my $files = join(' ',@files);
     test_cmd($opts,%args,
         cmd=>
-            "BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} " .
+            "export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} " .
             " && cd $$opts{tmp}/$args{tmp} " .
             " && for f in $files; do echo \$f; $$opts{bin}/bcftools query -l \$f; $$opts{bin}/bcftools view -H \$f; done"
         );
@@ -2148,14 +2153,14 @@ sub test_plugin_scatter
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
 
-    cmd("BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
+    cmd("export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
 
     opendir(my $dh,"$$opts{tmp}/$args{tmp}") or failed($opts,$test,"Cannot read $$opts{tmp}/$args{tmp}: $!");
     my @files = sort grep { !(/^\./) } readdir($dh);
     closedir($dh) or failed($opts,$test,"Close failed: $$opts{tmp}/$args{tmp}");
 
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} && cd $$opts{tmp}/$args{tmp} && cat $files | grep -v ^##");
+    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +scatter $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} && cd $$opts{tmp}/$args{tmp} && cat $files | grep -v ^##");
 }
 sub test_roh
 {

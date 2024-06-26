@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+##INFO=<ID=DUP,Type=Flag,Number=0,Description="Marked by +remove-overlaps">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100000	.	CC	G	.	.	.
+1	100001	.	C	G	.	.	.
+1	789241	.	C	G	.	.	.
+1	789242	.	C	G	.	.	DUP
+1	789242	.	C	A	.	.	DUP
+1	789243	.	C	CA	.	.	DUP
+1	789243	.	C	CCA	.	.	DUP
+1	789244	.	C	A	.	.	DUP
+1	789244	.	C	CA	.	.	DUP
+1	789244	.	C	T	.	.	DUP
+1	789244	.	C	CCA	.	.	DUP
+1	789245	.	C	T,CA,TTT	.	.	DUP
+1	789245	.	C	T,A	.	.	DUP
+1	789245	.	C	T	.	.	DUP
+1	789245	.	C	A,T	.	.	DUP
+1	789245	.	C	T	.	.	DUP
+1	789245	.	C	CA,TTT,T	.	.	DUP
+1	790000	.	C	G	.	.	.
+1	800000	.	CC	G	.	.	.
+1	800001	.	C	G	.	.	.
+1	900000	.	C	G	.	.	.

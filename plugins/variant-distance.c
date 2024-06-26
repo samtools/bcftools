@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2022-2023 Genome Research Ltd.
+    Copyright (C) 2022-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -134,7 +134,7 @@ static void init_data(args_t *args)
       error("Error: failed to initialise index for %s\n",args->output_fname);
 
     args->buf = vcfbuf_init(args->hdr, 0);
-    vcfbuf_set_opt(args->buf,int,VCFBUF_DUMMY,1)
+    vcfbuf_set(args->buf,VCFBUF_DUMMY,1);
 }
 static void destroy_data(args_t *args)
 {

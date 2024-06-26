@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+##INFO=<ID=rmme,Type=Flag,Number=0,Description="Marked by +remove-overlaps">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100000	.	CCCC	C	5	.	rmme
+1	100001	.	CCCC	C	9	.	.
+1	100002	.	CCCC	C	7	.	rmme
+1	100005	.	C	T	9	.	.
+1	200001	.	CCCC	C	9	.	.
+1	200005	.	C	T	9	.	.

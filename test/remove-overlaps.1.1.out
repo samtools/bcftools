@@ -5,3 +5,5 @@
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 1	789241	.	C	G	.	.	.
 1	789243	.	C	CA	.	.	.
+1	790000	.	C	G	.	.	.
+1	900000	.	C	G	.	.	.
