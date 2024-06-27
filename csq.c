@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2023 Genome Research Ltd.
+   Copyright (c) 2016-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -793,7 +793,7 @@ static inline int csq_stage_utr(args_t *args, regitr_t *itr, bcf1_t *rec, uint32
 static inline void csq_stage_splice(args_t *args, bcf1_t *rec, gf_tscript_t *tr, uint32_t type, int ial)
 {
 #if XDBG
-fprintf(stderr,"csq_stage_splice %d: type=%d\n",rec->pos+1,type);
+fprintf(stderr,"csq_stage_splice %d: type=%d\n",(int)rec->pos+1,type);
 #endif
     if ( !type ) return;
     csq_t csq;
@@ -1181,7 +1181,9 @@ fprintf(stderr,"splice_csq_del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%
         splice->kalt.l = 0; kputsn(splice->vcf.alt + splice->tbeg, splice->vcf.alen, &splice->kalt);
         if ( (splice->ref_beg+1 < ex_beg && splice->ref_end >= ex_beg) || (splice->ref_beg+1 < ex_end && splice->ref_end >= ex_end) ) // ouch, ugly ENST00000409523/long-overlapping-del.vcf
         {
-            splice->csq |= (splice->ref_end - splice->ref_beg)%3 ? CSQ_FRAMESHIFT_VARIANT : CSQ_INFRAME_DELETION;
+            int ref_beg = splice->ref_beg + splice->kalt.l - 1;     // 0 for AAA>A, 1 for AAA>AC
+            if ( ref_beg < splice->ref_end )
+                splice->csq |= (splice->ref_end - ref_beg)%3 ? CSQ_FRAMESHIFT_VARIANT : CSQ_INFRAME_DELETION;
             return SPLICE_OVERLAP;
         }
     }
@@ -1708,7 +1710,7 @@ void tscript_splice_ref(gf_tscript_t *tr)
 int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 {
 #if XDBG
-fprintf(stderr,"csq_push: %d .. %d\n",rec->pos+1,csq->type.type);
+fprintf(stderr,"csq_push: %d .. %d\n",(int)rec->pos+1,csq->type.type);
 #endif
     khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
     vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
