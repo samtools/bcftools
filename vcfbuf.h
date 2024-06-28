@@ -56,6 +56,9 @@ typedef enum
                             //          int is_marked = vcfbuf_get_val(buf,int,MARK);
                             //          if ( is_marked ) do_something(rec);
                             //      }
+    MARK_MISSING_EXPR,      // char *, what to do when missing value are encountered with min(QUAL)
+                            //      0   .. set to 0 (the default)
+                            //      DP  .. scale max quality in the window proportionally to INFO/DP
 
     // LD related options
     LD_RAND_MISSING,        // randomize rather than ignore missing genotypes

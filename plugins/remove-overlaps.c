@@ -50,7 +50,7 @@ typedef struct
     vcfbuf_t *vcfbuf;
     int argc, region_is_file, target_is_file, output_type, verbose, nrm, ntot, clevel;
     int reverse;
-    char **argv, *region, *target, *fname, *output_fname, *mark_expr, *mark_tag;
+    char **argv, *region, *target, *fname, *output_fname, *mark_expr, *mark_tag, *missing_expr;
     htsFile *out_fh;
     BGZF *fh_bgzf;
     bcf_hdr_t *hdr;
@@ -63,22 +63,25 @@ args_t;
 
 const char *about(void)
 {
-    return "Remove overlapping variants\n";
+    return "Remove, list or mark overlapping variants\n";
 }
 
 static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Remove overlapping variants.\n"
+        "About: Remove, list or mark overlapping variants.\n"
         "\n"
         "Usage: bcftools +remove-overlaps [OPTIONS]\n"
         "Plugin options:\n"
         "   -M, --mark-tag TAG          Mark -m sites with INFO/TAG\n"
         "   -m, --mark EXPR             Mark (if also -M is present) or remove sites [overlap]\n"
-        "                                   dup       .. all overlapping sites\n"
+        "                                   dup       .. all duplicate sites\n"
         "                                   overlap   .. overlapping sites\n"
-        "                                   min(QUAL) .. mark sites with lowest QUAL until overlaps are resolved\n"
+        "                                   min(QUAL) .. sites with lowest QUAL until overlaps are resolved\n"
+        "       --missing EXPR          Value to use for missing tags with -m 'min(QUAL)'\n"
+        "                                   0   .. the default\n"
+        "                                   DP  .. heuristics, scale maximum QUAL value proportionally to INFO/DP\n"
         "       --reverse               Apply the reverse logic, for example preserve duplicates instead of removing\n"
         "Standard options:\n"
         "   -e, --exclude EXPR          Exclude sites for which the expression is true\n"
@@ -138,6 +141,7 @@ static void init_data(args_t *args)
 
     args->vcfbuf = vcfbuf_init(args->hdr, 0);
     vcfbuf_set(args->vcfbuf,MARK,args->mark_expr);
+    if ( args->missing_expr ) vcfbuf_set(args->vcfbuf,MARK_MISSING_EXPR,args->missing_expr);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -221,6 +225,7 @@ int run(int argc, char **argv)
         {"mark",required_argument,NULL,'m'},
         {"reverse",no_argument,NULL,1},
         {"no-version",no_argument,NULL,2},
+        {"missing",required_argument,NULL,3},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"regions",required_argument,NULL,'r'},
@@ -240,6 +245,7 @@ int run(int argc, char **argv)
             case 'M': args->mark_tag = optarg; break;
             case  1 : args->reverse = 1; break;
             case  2 : args->record_cmd_line = 0; break;
+            case  3 : args->missing_expr = optarg; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

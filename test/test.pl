@@ -720,6 +720,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.5.out',cmd=>'+remove-overlaps',args=>'-m dup -M DUP');
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.1',out=>'remove-overlaps.1.6.out',cmd=>'+remove-overlaps',args=>'-m dup -M unique --reverse');
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.2',out=>'remove-overlaps.2.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme]);
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme]);
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme --missing 0]);
+run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.2.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme --missing DP]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.1.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n' -i'Consequence!="."']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-s worst:missense+ -f'%POS\\t%Consequence\\n']);
@@ -868,6 +871,10 @@ run_test(\&test_vcf_convert_hs2vcf,$opts,h=>'convert.hs.gt.ids.hap',s=>'convert.
 run_test(\&test_vcf_convert_gvcf,$opts,in=>'convert.gvcf',out=>'convert.gvcf.out',fa=>'gvcf.fa',args=>'--gvcf2vcf -i\'FILTER="PASS"\'');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.23andme',out=>'convert.23andme.vcf',args=>'-c ID,CHROM,POS,AA -s SAMPLE1',fai=>'23andme');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.tsv',out=>'convert.tsv.vcf',args=>'-c -,CHROM,POS,REF,ALT',fai=>'23andme');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.1.out',fa=>'consensus.overlaps.1.fa',args=>'-s A');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.2.out',fa=>'consensus.overlaps.1.fa',args=>'-s B');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.3.out',fa=>'consensus.overlaps.1.fa',args=>'-s A -a N');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.4.out',fa=>'consensus.overlaps.1.fa',args=>'-s B -a N');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.beyond',out=>'consensus.beyond.1.out',fa=>'consensus.beyond.fa',args=>'');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus',out=>'consensus.1.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-s -');
 run_test(\&test_vcf_consensus_chain,$opts,in=>'consensus',out=>'consensus.1.chain',chain=>'consensus.1.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-s -');

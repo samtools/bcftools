@@ -1,0 +1,26 @@
+##fileformat=VCFv4.2
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Combined depth across samples">
+##contig=<ID=chr>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr	398016	.	T	<NON_REF>	.	.	DP=74
+chr	398017	.	GGGGACCCTTCCCTGTGCCTGGCAGAGCGGTGCAATGCA	G,<NON_REF>	27.74	.	DP=93
+chr	398036	.	T	C,<NON_REF>	161.77	.	DP=79
+chr	398037	.	G	<NON_REF>	.	.	DP=114
+chr	398038	.	G	<NON_REF>	.	.	DP=114
+chr	398039	.	C	<NON_REF>	.	.	DP=114
+chr	398040	.	A	<NON_REF>	.	.	DP=114
+chr	398041	.	G	<NON_REF>	.	.	DP=114
+chr	398042	.	A	<NON_REF>	.	.	DP=114
+chr	398043	.	G	<NON_REF>	.	.	DP=114
+chr	398044	.	C	<NON_REF>	.	.	DP=114
+chr	398045	.	G	A,<NON_REF>	209.77	.	DP=89
+chr	398046	.	G	<NON_REF>	.	.	DP=109
+chr	398047	.	T	<NON_REF>	.	.	DP=109
+chr	398048	.	G	<NON_REF>	.	.	DP=109
+chr	398049	.	C	<NON_REF>	.	.	DP=109
+chr	398050	.	A	<NON_REF>	.	.	DP=109
+chr	398051	.	A	<NON_REF>	.	.	DP=109
+chr	398052	.	T	<NON_REF>	.	.	DP=109
+chr	398053	.	G	<NON_REF>	.	.	DP=109
+chr	398054	.	C	<NON_REF>	.	.	DP=109
+chr	398055	.	A	<NON_REF>	.	.	DP=98

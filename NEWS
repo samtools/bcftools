@@ -32,6 +32,16 @@ Changes affecting specific commands:
     - When adding Type=String annotations from a tab-delimited file, encode characters with
       special meaning using percent encoding (';', '=' in INFO and ':' in FORMAT) (#2202)
 
+* bcftools consensus
+
+    - Allow to apply a reference allele which overlaps a previous deletion, there is no
+      need to complain about overlapping alleles in such case
+
+* bcftools csq
+
+    - Fix a rare bug where indel combined with a substitution ending at exon boundary is
+      incorrectly predicted to have 'inframe' rather than 'frameshift' consequence (#2212)
+
 * bcftools gtcheck
 
     - Fix a segfault with --no-HWE-prob. The bug was introduced with the output format change in
@@ -75,6 +85,9 @@ Changes affecting specific commands:
                                     dup       .. all overlapping sites
                                     overlap   .. overlapping sites
                                     min(QUAL) .. mark sites with lowest QUAL until overlaps are resolved
+                --missing EXPR   Value to use for missing tags with -m 'min(QUAL)'
+                                    0   .. the default
+                                    DP  .. heuristics, scale maximum QUAL value proportionally to INFO/DP
                 --reverse        Apply the reverse logic, for example preserve duplicates instead of removing
             -O, --output-type t  t: plain list of sites (chr,pos), tz: compressed list
 

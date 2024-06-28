@@ -66,11 +66,16 @@ prune_t;
 #define MARK_OVERLAP 1
 #define MARK_DUP     2
 #define MARK_EXPR    3
+
+#define MARK_MISSING_SCALAR 0   // actual value to use
+#define MARK_MISSING_MAX_DP 1   // max overlap_t.value scaled by INFO/DP
+
 // temporary internal structure for iterative overlap removal by mark_t.expr
 typedef struct
 {
     double value;       // the sort value
     int rmme, idx;      // mark for removal, index in vcfbuf_t.rbuf
+    int dp;             // with MARK_MISSING_MAX_DP, INFO/DP is used extrapolate missing QUAL
     kbitset_t *bset;    // mark which records it overlaps with, given as 0-based indexes to vcfbuf_t.rbuf
     bcf1_t *rec;
 }
@@ -92,6 +97,12 @@ typedef struct
     // MARK_EXPR
     int nbuf;
     overlap_t *buf, **buf_ptr;
+    int missing_expr;       // the value to use when min(QUAL) encounters a missing value
+    float missing_value;    // the default missing value
+    float max_qual;         // with MARK_MISSING_MAX_DP
+    int max_qual_dp;        //
+    int ntmpi;              // temporary int array and the allocated memory
+    int32_t *tmpi;
 }
 mark_t;
 
@@ -137,6 +148,7 @@ void vcfbuf_destroy(vcfbuf_t *buf)
     for (i=0; i<buf->mark.nbuf; i++) kbs_destroy(buf->mark.buf[i].bset);
     free(buf->mark.buf);
     free(buf->mark.buf_ptr);
+    free(buf->mark.tmpi);
     free(buf);
 }
 
@@ -210,6 +222,24 @@ int vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, ...)
             if ( !strcasecmp(buf->mark.expr,"overlap") ) buf->mark.mode = MARK_OVERLAP;
             else if ( !strcasecmp(buf->mark.expr,"dup") ) buf->mark.mode = MARK_DUP;
             else buf->mark.mode = MARK_EXPR;
+            va_end(args);
+            return 0;
+
+        case MARK_MISSING_EXPR:
+            va_start(args, key);
+            char *expr = va_arg(args,char*);
+            if ( !strcasecmp(expr,"0") )
+            {
+                buf->mark.missing_expr = MARK_MISSING_SCALAR;
+                buf->mark.missing_value = 0;
+            }
+            else if ( !strcasecmp(expr,"DP") )
+            {
+                if ( buf->mark.mode!=MARK_EXPR ) error("Only the combination of --mark 'min(QUAL)' with --missing DP is currently supported\n");
+                buf->mark.missing_expr = MARK_MISSING_MAX_DP;
+            }
+            else
+                error("todo: MARK_MISSING_EXPR=%s\n",expr);
             va_end(args);
             return 0;
     }
@@ -494,7 +524,33 @@ static int cmp_overlap_ptr_asc(const void *aptr, const void *bptr)
     if ( a->value > b->value ) return 1;
     return 0;
 }
+static void mark_expr_missing_reset_(vcfbuf_t *buf)
+{
+    buf->mark.max_qual = 0;
+    buf->mark.max_qual_dp = 0;
+}
+static void mark_expr_missing_prep_(vcfbuf_t *buf, overlap_t *olap)
+{
+    int nval = bcf_get_info_int32(buf->hdr,olap->rec,"DP",&buf->mark.tmpi,&buf->mark.ntmpi);
+    if ( nval!=1 ) return;
 
+    olap->dp = buf->mark.tmpi[0];
+    if ( bcf_float_is_missing(olap->rec->qual) ) return;
+    if ( buf->mark.max_qual < olap->rec->qual )
+    {
+        buf->mark.max_qual = olap->rec->qual;
+        buf->mark.max_qual_dp = olap->dp;
+    }
+}
+static void mark_expr_missing_set_(vcfbuf_t *buf, overlap_t *olap)
+{
+    if ( !bcf_float_is_missing(olap->rec->qual) ) return;
+    if ( !buf->mark.max_qual_dp ) return;
+
+    // scale QUAL of the most confident variant in the overlap proportionally to the coverage
+    // and use that to prioritize the records
+    olap->value = buf->mark.max_qual * olap->dp / buf->mark.max_qual_dp;
+}
 static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
 {
     mark_t *mark = &buf->mark;
@@ -505,6 +561,8 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
     {
         flush = mark_overlap_helper_(buf,flush_all);
         if ( !flush ) return 0;
+
+        if ( mark->missing_expr==MARK_MISSING_MAX_DP ) mark_expr_missing_reset_(buf);
 
         // init overlaps, each overlap_t structure keeps a list of overlapping records, symmetrical
         size_t nori = mark->nbuf;
@@ -518,7 +576,11 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
             assert(j>=0);
             bcf1_t *rec = buf->vcf[j].rec;
             assert(rec);
-            oi->value = rec->qual;  // todo: other than QUAL values
+            oi->rec = rec;
+
+            // todo: other than QUAL values
+            oi->value = bcf_float_is_missing(rec->qual) ? mark->missing_value : rec->qual;
+            if ( mark->missing_expr==MARK_MISSING_MAX_DP ) mark_expr_missing_prep_(buf,oi);
             if ( oi->bset )
             {
                 kbs_resize(&oi->bset,buf->rbuf.n);
@@ -527,7 +589,6 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
             else
                 oi->bset = kbs_init(buf->rbuf.n);
             oi->idx  = i;
-            oi->rec  = rec;
             mark->buf_ptr[i] = oi;
             mark->mark[oi->idx] = 0;
         }
@@ -535,6 +596,7 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
         for (i=0; i<buf->rbuf.n; i++)
         {
             overlap_t *oi = &mark->buf[i];
+            if ( mark->missing_expr==MARK_MISSING_MAX_DP ) mark_expr_missing_set_(buf,oi);
             int j;
             for (j=i+1; j<buf->rbuf.n; j++)
             {
@@ -564,7 +626,8 @@ static int mark_expr_can_flush_(vcfbuf_t *buf, int flush_all)
                 kbs_delete(mark->buf[j].bset,oi->idx);
                 nolap--;
             }
-            mark->mark[oi->idx] = 1;
+            j = rbuf_kth(&mark->rbuf,oi->idx);
+            mark->mark[j] = 1;
         }
     }
     else if ( buf->rbuf.n > 1 ) flush = 1;
