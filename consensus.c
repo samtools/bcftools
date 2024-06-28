@@ -781,6 +781,19 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     else if ( (var_type & VCF_OTHER) && !strncasecmp(rec->d.allele[ialt],"<INS",4) ) trim_beg = 1;
 
     // Overlapping variant?
+    if ( ialt==0 && rec->pos <= args->fa_frz_pos && rec->pos + rec->rlen - 1 > args->fa_frz_pos )
+    {
+        // Applying the reference allele which overlaps a previous deletion. If we are here, it
+        // means it goes beyond the freezed position, hence the record can be trimmed and moved
+        // forward
+        int ntrim = args->fa_frz_pos - rec->pos + 1;
+        int nref  = strlen(rec->d.allele[0]);
+        assert( ntrim < nref );
+        rec->pos  += ntrim;
+        rec->rlen -= ntrim;
+        memmove(rec->d.allele[0],rec->d.allele[0]+ntrim,nref-ntrim);
+        rec->d.allele[0][nref-ntrim] = 0;
+    }
     if ( rec->pos <= args->fa_frz_pos )
     {
         // Can be still OK iff this is an insertion (and which does not follow another insertion, see #888).
@@ -795,7 +808,6 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             fprintf(stderr,"The site %s:%"PRId64" overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
             return;
         }
-
     }
 
     char *ref_allele = rec->d.allele[0];
