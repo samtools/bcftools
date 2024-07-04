@@ -2028,7 +2028,10 @@ static char *strdup_alt_svlen(args_t *args, bcf1_t *rec, int ial)
 {
     if ( rec->d.allele[ial][0]!='<' ) return strdup(rec->d.allele[ial]);
 
-    int n = bcf_get_info_int32(args->hdr, rec, "SVLEN", &args->tmp_arr1, &args->ntmp_arr1);
+    int ntmp = args->ntmp_arr1 / sizeof(int32_t);
+    int n = bcf_get_info_int32(args->hdr, rec, "SVLEN", &args->tmp_arr1, &ntmp);
+    args->ntmp_arr1 = ntmp * sizeof(int32_t);
+    int32_t *svlen = (int32_t *) args->tmp_arr1;
     if ( n<=0 ) return strdup(rec->d.allele[ial]);
 
     if ( n+1 != rec->n_allele )
@@ -2043,7 +2046,7 @@ static char *strdup_alt_svlen(args_t *args, bcf1_t *rec, int ial)
     }
 
     kstring_t str = {0,0,0};
-    ksprintf(&str,"%s.%d",rec->d.allele[ial],args->tmp_arr1[ial-1]);
+    ksprintf(&str,"%s.%d",rec->d.allele[ial],svlen[ial-1]);
     return str.s;
 }
 static void cmpals_add(args_t *args, cmpals_t *ca, bcf1_t *rec)
