@@ -133,12 +133,40 @@ static int parse_ori2new_option(args_t *args, char *optarg)
         args->loc_src = (1<<LPL)|(1<<LAD)|(1<<LAA);
         args->loc_dst = (1<<PL)|(1<<AD);
     }
+    else if ( !strcasecmp("--LPL-to-PL",optarg) )
+    {
+        args->src = LXX;
+        args->dst = XX;
+        args->loc_src = (1<<LPL)|(1<<LAA);
+        args->loc_dst = (1<<PL);
+    }
+    else if ( !strcasecmp("--LAD-to-AD",optarg) )
+    {
+        args->src = LXX;
+        args->dst = XX;
+        args->loc_src = (1<<LAD)|(1<<LAA);
+        args->loc_dst = (1<<AD);
+    }
     else if ( !strcasecmp("--XX-to-LXX",optarg) )
     {
         args->src = XX;
         args->dst = LXX;
         args->loc_src = (1<<PL)|(1<<AD);
         args->loc_dst = (1<<LPL)|(1<<LAD)|(1<<LAA);
+    }
+    else if ( !strcasecmp("--PL-to-LPL",optarg) )
+    {
+        args->src = XX;
+        args->dst = LXX;
+        args->loc_src = (1<<PL);
+        args->loc_dst = (1<<LPL)|(1<<LAA);
+    }
+    else if ( !strcasecmp("--AD-to-LAD",optarg) )
+    {
+        args->src = XX;
+        args->dst = LXX;
+        args->loc_src = (1<<AD);
+        args->loc_dst = (1<<LAD)|(1<<LAA);
     }
     else if ( !strcasecmp("--QR-QA-to-QS",optarg) )
     {
@@ -247,7 +275,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             int j = tags_LXX[i];
             if ( !(args->loc_src & (1<<j)) ) continue;
             if ( (tag_id=bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,tags[j].str))<0 || !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,tag_id) ) error("The source tag does not exist: %s\n",tags[j].str);
-            if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[j].type ) error("The source tag is of different type than required by the VCF specification\n");
+            if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[j].type )
+                error("The source tag %s is of different type than required by the VCF specification (%d vs %d)\n",tags[j].str,bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id),tags[j].type);
         }
     }
     else if ( args->src==XX )
@@ -257,13 +286,15 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             int j = tags_XX[i];
             if ( !(args->loc_src & (1<<j)) ) continue;
             if ( (tag_id=bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,tags[j].str))<0 || !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,tag_id) ) error("The source tag does not exist: %s\n",tags[j].str);
-            if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[j].type ) error("The source tag is of different type than required by the VCF specification\n");
+            if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[j].type )
+                error("The source tag %s is of different type than required by the VCF specification (%d vs %d)\n",tags[j].str,bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id),tags[j].type);
         }
     }
     else
     {
         if ( (tag_id=bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,tags[args->src].str))<0 || !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,tag_id) ) error("The source tag does not exist: %s\n",tags[args->src].str);
-        if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[args->src].type ) error("The source tag is of different type than required by the VCF specification\n");
+        if ( bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id)!=tags[args->src].type )
+            error("The source tag %s is of different type than required by the VCF specification (%d vs %d)\n",tags[args->src].str,bcf_hdr_id2type(args->in_hdr,BCF_HL_FMT,tag_id),tags[args->src].type);
     }
 
     // Remove tags from the header if -r, --replace was given. However, do not remove if -s, --skip-nalt was given,
