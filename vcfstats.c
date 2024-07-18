@@ -408,7 +408,8 @@ static void init_user_stats(args_t *args, bcf_hdr_t *hdr, stats_t *stats)
 {
     stats->nusr = args->nusr;
     stats->usr = (user_stats_t*)malloc(sizeof(user_stats_t)*args->nusr);
-    memcpy(stats->usr,args->usr,args->nusr*sizeof(user_stats_t));
+    if (args->nusr)
+        memcpy(stats->usr,args->usr,args->nusr*sizeof(user_stats_t));
     int i;
     for (i=0; i<stats->nusr; i++)
     {
