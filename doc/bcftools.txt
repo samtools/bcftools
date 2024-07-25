@@ -707,10 +707,15 @@ demand. The original calling model can be invoked with the *-c* option.
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
     per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*).
 
-*-g, --gvcf* 'INT'::
-    output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
-    minimum per-sample depth required to include a site in the non-variant
-    block.
+*-g, --gvcf* 'INT'[,...]::
+    output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+    specified by the list of integers. For example, passing '5,15' will
+    group sites into two types of gVCF blocks, the first with minimum
+    per-sample DP from the interval [5,15) and the latter with minimum
+    depth 15 or more. In this example, sites with minimum per-sample
+    depth less than 5 will be printed as separate records, outside of
+    gVCF blocks.
+
 
 *-i, --insert-missed* 'INT'::
     output also sites missed by mpileup but present in *-T, --targets-file*.
