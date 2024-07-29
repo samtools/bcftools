@@ -44,10 +44,15 @@
 #include "kheap.h"
 #include "bcftools.h"
 
+#define MAX_TMP_FILES_PER_LAYER 32
+#define MERGE_LAYERS 12
+#define MAX_TMP_FILES (MAX_TMP_FILES_PER_LAYER * MERGE_LAYERS)
+
 typedef struct
 {
     char *fname;
     htsFile *fh;
+    size_t idx;
     bcf1_t *rec;
 }
 blk_t;
@@ -60,9 +65,10 @@ typedef struct _args_t
     size_t max_mem, mem;
     bcf1_t **buf;
     uint8_t *mem_block;
-    size_t nbuf, mbuf, nblk;
-    blk_t *blk;
-    char *index_fn;
+
+    size_t nbuf, mbuf, nblk, tmp_count;
+    blk_t blk[MAX_TMP_FILES];
+    uint32_t tmp_layers[MERGE_LAYERS];
     int write_index;
 }
 args_t;
@@ -71,9 +77,9 @@ void clean_files(args_t *args)
 {
     int i;
     fprintf(stderr,"Cleaning\n");
-    for (i=0; i<args->nblk; i++)
+    for (i=0; i<MAX_TMP_FILES; i++)
     {
-        blk_t *blk = args->blk + i;
+        blk_t *blk = &args->blk[i];
         if ( blk->fname )
         {
             unlink(blk->fname);
@@ -128,25 +134,50 @@ int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr)
     return 0;
 }
 
+htsFile * open_tmp_file(args_t *args, char **fname_out, size_t *idx_out)
+{
+    htsFile *fh = NULL;
+    kstring_t str = {0,0,0};
+    int tries = 1000;
+
+    do {
+        if (ksprintf(ks_clear(&str), "%s/%05zd.bcf",
+                     args->tmp_dir, args->tmp_count++) < 0) {
+            clean_files_and_throw(args, "%s", strerror(errno));
+        }
+
+        fh = hts_open(str.s, "wbx1");
+        if ( fh == NULL && (errno != EEXIST || --tries <= 0)) {
+            clean_files_and_throw(args, "Cannot write %s: %s\n",
+                                  str.s, strerror(errno));
+        }
+    } while (fh == NULL);
+
+    *fname_out = ks_release(&str);
+    *idx_out = args->tmp_count - 1;
+
+    return fh;
+}
+
+void do_partial_merge(args_t *args);
+
 void buf_flush(args_t *args)
 {
     if ( !args->nbuf ) return;
 
     qsort(args->buf, args->nbuf, sizeof(*args->buf), cmp_bcf_pos_ref_alt);
 
+    if (args->tmp_layers[0] >= MAX_TMP_FILES_PER_LAYER)
+        do_partial_merge(args);
+
+    assert(args->nblk < MAX_TMP_FILES);
+    blk_t *blk = &args->blk[args->nblk];
     args->nblk++;
-    args->blk = (blk_t*) realloc(args->blk, sizeof(blk_t)*args->nblk);
-    if ( !args->blk ) error("Error: could not allocate %zu bytes of memory, try reducing --max-mem\n",sizeof(blk_t)*args->nblk);
-    blk_t *blk = args->blk + args->nblk - 1;
+    args->tmp_layers[0]++;
 
-    kstring_t str = {0,0,0};
-    ksprintf(&str, "%s/%05d.bcf", args->tmp_dir, (int)args->nblk);
-    blk->fname = str.s;
-    blk->rec   = NULL;
-    blk->fh    = NULL;
+    assert(blk->fname == NULL && blk->fh == NULL);
 
-    htsFile *fh = hts_open(blk->fname, "wbu");
-    if ( fh == NULL ) clean_files_and_throw(args, "Cannot write %s: %s\n", blk->fname, strerror(errno));
+    htsFile *fh = open_tmp_file(args, &blk->fname, &blk->idx);
     if ( bcf_hdr_write(fh, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__,blk->fname);
 
     int i;
@@ -272,6 +303,7 @@ static inline int blk_is_smaller(blk_t **aptr, blk_t **bptr)
     blk_t *b = *bptr;
     int ret = cmp_bcf_pos_ref_alt(&a->rec, &b->rec);
     if ( ret < 0 ) return 1;
+    if (ret == 0 && a->idx < b->idx) return 1;
     return 0;
 }
 KHEAP_INIT(blk, blk_t*, blk_is_smaller)
@@ -291,30 +323,30 @@ void blk_read(args_t *args, khp_blk_t *bhp, bcf_hdr_t *hdr, blk_t *blk)
     khp_insert(blk, bhp, &blk);
 }
 
-void merge_blocks(args_t *args)
+void merge_blocks(args_t *args, htsFile *out, const char *output_fname,
+                  int idx_fmt, size_t from)
 {
-    fprintf(stderr,"Merging %d temporary files\n", (int)args->nblk);
     khp_blk_t *bhp = khp_init(blk);
+    char *index_fn = NULL;
+    size_t i;
 
-    int i;
-    for (i=0; i<args->nblk; i++)
+    for (i=from; i<args->nblk; i++)
     {
-        blk_t *blk = args->blk + i;
+        blk_t *blk = &args->blk[i];
         blk->fh = hts_open(blk->fname, "r");
         if ( !blk->fh ) clean_files_and_throw(args, "Could not read %s: %s\n", blk->fname, strerror(errno));
         bcf_hdr_t *hdr = bcf_hdr_read(blk->fh);
         bcf_hdr_destroy(hdr);
-        blk->rec = bcf_init();
         blk_read(args, bhp, args->hdr, blk);
     }
 
-    char wmode[8];
-    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
-    htsFile *out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
-    if ( bcf_hdr_write(out, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( init_index2(out,args->hdr,args->output_fname,&args->index_fn,
-                     args->write_index)<0 )
-        error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( bcf_hdr_write(out, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__, output_fname);
+
+    if (idx_fmt) {
+        if ( init_index2(out,args->hdr,output_fname,&index_fn,idx_fmt)<0 )
+            error("Error: failed to initialise index for %s\n",output_fname);
+    }
+
     while ( bhp->ndat )
     {
         blk_t *blk = bhp->dat[0];
@@ -322,22 +354,93 @@ void merge_blocks(args_t *args)
         khp_delete(blk, bhp);
         blk_read(args, bhp, args->hdr, blk);
     }
-    if ( args->write_index )
+    if ( idx_fmt )
     {
         if ( bcf_idx_save(out)<0 )
         {
-            if ( hts_close(out)!=0 ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
-            error("Error: cannot write to index %s\n", args->index_fn);
+            if ( hts_close(out)!=0 ) error("Error: close failed .. %s\n", output_fname);
+            error("Error: cannot write to index %s\n", index_fn);
         }
-        free(args->index_fn);
+        free(index_fn);
     }
-    if ( hts_close(out)!=0 ) clean_files_and_throw(args, "Close failed: %s\n", args->output_fname);
+
+    for (i = from; i < args->nblk; i++)
+    {
+        blk_t *blk = &args->blk[i];
+        if (unlink(blk->fname) != 0)
+            clean_files_and_throw(args, "Couldn't remove temporary file %s\n", blk->fname);
+        free(blk->fname);
+        blk->fname = NULL;
+    }
+
+    khp_destroy(blk, bhp);
+}
+
+void do_partial_merge(args_t *args)
+{
+    uint32_t to_layer = 0;
+    size_t to_merge = 0;
+
+    // Temp. files are arranged in layers of at most MAX_TMP_FILES_PER_LAYER.
+    // When a layer is full, it is merged into the next layer up.  Each
+    // layer will therefore contain files with exponentially more records
+    // then the previous one, but will be merged exponentially less frequently.
+    // The result is that the overall complexity will remain O(n*log(n))
+    // even if we need to do lots of partial merges.
+
+    while (to_layer < MERGE_LAYERS
+           && args->tmp_layers[to_layer] >= MAX_TMP_FILES_PER_LAYER)
+    {
+        to_merge += args->tmp_layers[to_layer];
+        args->tmp_layers[to_layer] = 0;
+        to_layer++;
+    }
+
+    assert(to_merge > 0 && to_merge <= args->nblk);
+
+    if (to_layer == MERGE_LAYERS) {
+        // Edge case - if we've got here, we've completely used the
+        // temp file allocation, so merge absolutely everything and
+        // leave one file at the highest level.  Strictly this breaks
+        // the O(n*log(n)) complexity, but unless MERGE_LAYERS and
+        // MAX_TMP_FILES_PER_LAYER are too small it would take so long
+        // to get here it should never actually happen...
+        assert(to_merge == MAX_TMP_FILES_PER_LAYER * MERGE_LAYERS);
+        to_layer = MERGE_LAYERS - 1;
+    }
+
+    char *fname = NULL;
+    size_t blk_idx = 0;
+    htsFile *fh = open_tmp_file(args, &fname, &blk_idx);
+    merge_blocks(args, fh, fname, 0, args->nblk - to_merge);
+    if (hts_close(fh) != 0)
+        clean_files_and_throw(args, "Close failed: %s\n", fname);
+
+    args->nblk -= to_merge;
+    assert(args->blk[args->nblk].fh == NULL);
+    assert(args->blk[args->nblk].fname == NULL);
+    args->blk[args->nblk].idx = blk_idx;
+    args->blk[args->nblk++].fname = fname;
+    args->tmp_layers[to_layer]++;
+}
+
+void merge_to_output(args_t *args)
+{
+    char wmode[8] = { 0 };
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    const char *output_fname = args->output_fname ? args->output_fname : "-";
+
+    htsFile *out = hts_open(output_fname, wmode);
+    if (!out) clean_files_and_throw(args, "[%s] Error: cannot open %s\n", __func__, output_fname);
+
+    fprintf(stderr,"Merging %zd temporary files\n", args->nblk);
+    merge_blocks(args, out, output_fname, args->write_index, 0);
+    fprintf(stderr,"Done\n");
+
+    if ( hts_close(out)!=0 )
+        clean_files_and_throw(args, "Close failed: %s\n", output_fname);
 
     clean_files(args);
-
-    free(args->blk);
-    khp_destroy(blk, bhp);
-    fprintf(stderr,"Done\n");
 }
 
 static void usage(args_t *args)
@@ -375,10 +478,20 @@ size_t parse_mem_string(const char *str)
 void mkdir_p(const char *fmt, ...);
 static void init(args_t *args)
 {
+    size_t i;
     args->max_mem *= 0.9;
     args->mem_block = malloc(args->max_mem);
     if ( !args->mem_block ) error("Error: could not allocate %zu bytes of memory, try reducing --max-mem\n",args->max_mem);
     args->mem = 0;
+
+    for (i = 0; i < MAX_TMP_FILES; i++)
+    {
+        args->blk[i].fname = NULL;
+        args->blk[i].rec = bcf_init();
+        if (!args->blk[i].rec)
+            clean_files_and_throw(args,"Couldn't allocate bcf record\n");
+    }
+
 
     args->tmp_dir = init_tmp_prefix(args->tmp_dir);
 
@@ -467,7 +580,7 @@ int main_sort(int argc, char *argv[])
 
     init(args);
     sort_blocks(args);
-    merge_blocks(args);
+    merge_to_output(args);
     destroy(args);
 
     return 0;
