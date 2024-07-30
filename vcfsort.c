@@ -133,7 +133,27 @@ int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr)
     if ( a->n_allele < b->n_allele ) return -1;
     return 0;
 }
+static int cmp_bcf_pos_ref_alt_stable(const void *aptr, const void *bptr)
+{
+    // cmp_bcf_pos_ref_alt() with tie-breaker to make qsort stable
+    int res = cmp_bcf_pos_ref_alt(aptr, bptr);
+    if (res != 0) return res;
 
+    // Got a tie - use the position in the original input to break it.
+    // As everything is read into a big memory buffer, for most records
+    // we can just compare the pointers directly.  The exception is
+    // any record that didn't quite fit in the memory buffer, causing it to be
+    // flushed.  Those are flagged by setting bcf1_t::errcode == -1, and
+    // as they were the last record in the segment, they should always go
+    // at the end.
+
+    bcf1_t *a = *((bcf1_t**)aptr);
+    bcf1_t *b = *((bcf1_t**)bptr);
+    if (a->errcode == -1) return 1;
+    if (b->errcode == -1) return -1;
+
+    return a < b ? -1 : 1;
+}
 htsFile * open_tmp_file(args_t *args, char **fname_out, size_t *idx_out)
 {
     htsFile *fh = NULL;
@@ -161,11 +181,26 @@ htsFile * open_tmp_file(args_t *args, char **fname_out, size_t *idx_out)
 
 void do_partial_merge(args_t *args);
 
-void buf_flush(args_t *args)
+void buf_flush(args_t *args, bcf1_t *last_rec)
 {
+    int errcode_copy;
+
     if ( !args->nbuf ) return;
 
-    qsort(args->buf, args->nbuf, sizeof(*args->buf), cmp_bcf_pos_ref_alt);
+    if (last_rec) {
+        // If the last record isn't in the big memory buffer, it needs to
+        // be flagged so the comparison function handles it correctly
+        // ( See cmp_bcf_pos_ref_alt_stable() ).  Borrow the errcode field
+        // to do this.  It should never be set to -1, so we can use that as
+        // a sentinel.
+        errcode_copy = last_rec->errcode;
+        last_rec->errcode = -1;
+    }
+
+    qsort(args->buf, args->nbuf, sizeof(*args->buf), cmp_bcf_pos_ref_alt_stable);
+
+    if (last_rec)
+        last_rec->errcode = errcode_copy;
 
     if (args->tmp_layers[0] >= MAX_TMP_FILES_PER_LAYER)
         do_partial_merge(args);
@@ -209,7 +244,7 @@ void buf_push(args_t *args, bcf1_t *rec)
         args->nbuf++;
         hts_expand(bcf1_t*, args->nbuf, args->mbuf, args->buf);
         args->buf[args->nbuf-1] = rec;
-        buf_flush(args);
+        buf_flush(args, rec);
         bcf_destroy(rec);
         return;
     }
@@ -291,7 +326,7 @@ void sort_blocks(args_t *args)
         bcf_unpack(rec, BCF_UN_STR);
         buf_push(args, rec);
     }
-    buf_flush(args);
+    buf_flush(args, NULL);
     free(args->buf);
 
     if ( hts_close(in)!=0 ) clean_files_and_throw(args,"Close failed: %s\n", args->fname);
