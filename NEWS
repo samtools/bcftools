@@ -76,6 +76,9 @@ Changes affecting specific commands:
     - Add the `-i/-e` filtering options to select records for normalization. Note duplicate
       removal ignores this option.
 
+    - Fix a bug where `--atomize` would not fill GT alleles for atomized SNVs followed by
+      an indel (#2239)
+
 * bcftools +remove-overlaps
 
     - Revamp the program to allow greater flexibility, with the following new options:

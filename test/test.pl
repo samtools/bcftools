@@ -307,6 +307,8 @@ run_test(\&test_vcf_norm,$opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.3',out=>'atomize.split.3.1.out',args=>'--atomize --atom-overlaps .');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.4',out=>'atomize.split.4.1.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.4',out=>'atomize.split.4.2.out',args=>q[--atomize --atom-overlaps . --old-rec-tag OLD_REC -i 'ILEN=0']);
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.5',out=>'atomize.split.5.1.out',args=>q[--atomize --old-rec-tag OLD_REC --atom-overlaps .]);
+run_test(\&test_vcf_norm,$opts,in=>'atomize.split.5',out=>'atomize.split.5.2.out',args=>q[--atomize --old-rec-tag OLD_REC]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.1.out',args=>'-m +both');
 run_test(\&test_vcf_norm,$opts,in=>'norm.4',out=>'norm.4.2.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.5',out=>'norm.5.1.out',args=>'-m - --multi-overlaps 0');
