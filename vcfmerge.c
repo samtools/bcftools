@@ -2257,9 +2257,8 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, missing_rule_t *mrule
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
                     src = fmt_ori->p + sizeof(src_type_t) * j * fmt_ori->n; \
-                    int tag_missing = src_is_missing && fmt_ori->n==1; \
-                    if (!tag_missing) \
-                    { \
+                    int tag_missing = src_is_missing && fmt_ori->n==1;  \
+                    if ( src_is_missing && fmt_ori->n>1 ) { \
                         src += sizeof(src_type_t); \
                         tag_missing = src_is_vector_end ; \
                     } \
@@ -2345,9 +2344,9 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, missing_rule_t *mrule
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
-                    src = fmt_ori->p + sizeof(src_type_t) * j * fmt_ori->size; \
+                    src = fmt_ori->p + j*fmt_ori->size; \
                     int tag_missing = src_is_missing && fmt_ori->n==1;  \
-                    if (!tag_missing) { \
+                    if ( src_is_missing && fmt_ori->n>1 ) { \
                         src += sizeof(src_type_t); \
                         tag_missing = src_is_vector_end ; \
                     } \
@@ -2358,7 +2357,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, missing_rule_t *mrule
                         for (l=1; l<nsize; l++) { tgt++; tgt_set_vector_end; } \
                         continue; \
                     } \
-                    src = fmt_ori->p + sizeof(src_type_t) * j *fmt_ori->size; \
+                    src = fmt_ori->p + j*fmt_ori->size; \
                     if ( ma->buf[i].unkn_allele )  /* Use value from the unknown allele when available */ \
                     { \
                         int iunkn = ma->buf[i].unkn_allele; \

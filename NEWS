@@ -60,6 +60,12 @@ Changes affecting specific commands:
       Note that bug only affected the error message, the program otherwise assigns the family
       members correctly (#2242)
 
+* bcftools merge
+
+    - Fix a severe bug in merging of FORMAT fields with Number=R and Number=A values. For example,
+      rows with high-coverage FORMAT/AD values (bigger or equal to 128) could have been assigned
+      to incorrect samples. The bug was introduced in version 1.19. For details see #2244.
+
 * bcftools mpileup
 
     - Return non-zero error code when the input BAM/CRAM file is truncated (#2177)
