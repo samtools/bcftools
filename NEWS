@@ -56,6 +56,10 @@ Changes affecting specific commands:
     - Include the number of good cases where at least one of the trio genotypes has an alternate
       allele (#2204)
 
+    - Fix the error message which would report the wrong sample when non-existent sample is given.
+      Note that bug only affected the error message, the program otherwise assigns the family
+      members correctly (#2242)
+
 * bcftools mpileup
 
     - Return non-zero error code when the input BAM/CRAM file is truncated (#2177)

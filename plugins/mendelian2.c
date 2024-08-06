@@ -439,9 +439,9 @@ static void init_data(args_t *args)
         args->trio  = (trio_t*) calloc(1,sizeof(trio_t));
         list = hts_readlist(args->pfm, 0, &n);
         if ( n!=3 ) error("Expected three sample names with -t\n");
-        args->trio[0].idx[iKID] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[0]);
-        args->trio[0].idx[iDAD] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[1]);
-        args->trio[0].idx[iMOM] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[2]);
+        const int ped_idx[3] = {2,1,0};  // sample order is different on the command line (P,F,M) and in the code (M,F,P)
+        for (i=0; i<3; i++)
+            args->trio[0].idx[i] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[ped_idx[i]]);
         if ( args->trio[0].idx[iKID] < 0 )
         {
             if ( strlen(list[0])>3 && !strncasecmp(list[0],"1X:",3) )
@@ -455,10 +455,10 @@ static void init_data(args_t *args)
                 args->trio[0].sex_id = iMOM;
             }
         }
-        for (i=0; i<n; i++)
+        for (i=0; i<3; i++)
         {
-            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[i]);
-            free(list[i]);
+            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[ped_idx[i]]);
+            free(list[ped_idx[i]]);
         }
         free(list);
     }
