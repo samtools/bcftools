@@ -29,6 +29,7 @@ THE SOFTWARE.  */
 #include <htslib/hts_defs.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include <htslib/kfunc.h>
 #include <math.h>
 
 #define FT_TAB_TEXT 0       // custom tab-delimited text file
@@ -50,10 +51,8 @@ void error(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2
 void error_errno(const char *format, ...) HTS_NORETURN HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
 
 // For on the fly index creation with --write-index
-int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
-                char **idx_fname, int idx_fmt);
-int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
-               char **idx_fname);
+int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname, int idx_fmt);
+int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname);
 
 // Used to set args->write_index in CLI.
 // It will be true if set correctly.
@@ -131,6 +130,23 @@ static inline double phred_score(double prob)
     if ( prob==0 ) return 99;
     prob = -4.3429*log(prob);
     return prob>99 ? 99 : prob;
+}
+
+static inline double calc_binom_two_sided(int na, int nb, double aprob)
+{
+    if ( !na && !nb ) return -1;
+    if ( na==nb ) return 1;
+
+    // kfunc.h implements kf_betai, which is the regularized beta function  P(X<=k/N;p) = I_{1-p}(N-k,k+1)
+
+    double prob = na > nb ? 2 * kf_betai(na, nb+1, aprob) : 2 * kf_betai(nb, na+1, aprob);
+
+    if ( prob > 1 ) prob = 1;   // this can happen, machine precision error, eg. kf_betai(1,0,0.5)
+    return prob;
+}
+static inline double calc_binom_one_sided(int na, int nb, double aprob, int ge)
+{
+    return ge ? kf_betai(na, nb + 1, aprob) : kf_betai(nb, na + 1, 1 - aprob);
 }
 
 static const uint64_t bcf_double_missing    = 0x7ff0000000000001;

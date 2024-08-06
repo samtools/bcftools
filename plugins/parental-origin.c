@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2019-2021 Genome Research Ltd.
+   Copyright (c) 2019-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -74,7 +74,7 @@ typedef struct
     double ppat,pmat;   // method 1: probability of paternal/maternal origin
     int ntest;          // number of informative sites
     int nmat, npat;     // method 2: number of pat/mat sites based on simple ad[0] < ad[1] comparison
-    double min_pbinom;  // minimum binomial probability of paternal hets 
+    double min_pbinom;  // minimum binomial probability of paternal hets
 }
 args_t;
 
@@ -87,7 +87,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Determine parental origin of a CNV region\n"
         "Usage: bcftools +parental-origin [Plugin Options]\n"
@@ -125,7 +125,7 @@ static void init_data(args_t *args)
     if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
         error("Error: the tag FORMAT/GT is not present in %s\n", args->fname);
 
-    if ( args->filter_str ) 
+    if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
 
     int i, n = 0;
@@ -150,16 +150,6 @@ static void destroy_data(args_t *args)
     free(args->gt);
     bcf_sr_destroy(args->sr);
     free(args);
-}
-static inline double calc_binom_two_sided(int na, int nb, double aprob)
-{
-    double prob = na > nb ? 2 * kf_betai(na, nb+1, aprob) : 2 * kf_betai(nb, na+1, aprob);
-    if ( prob > 1 ) prob = 1;
-    return prob;
-}
-static inline double calc_binom_one_sided(int na, int nb, double aprob, int ge)
-{
-    return ge ? kf_betai(na, nb + 1, aprob) : kf_betai(nb, na + 1, 1 - aprob);
 }
 static void process_record(args_t *args, bcf1_t *rec)
 {
@@ -258,7 +248,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( args->cnv_type==CNV_DEL )
     {
         if ( *dsgP!=0 && *dsgP!=2 ) return;     // proband not a hom
-        if ( *dsgF == *dsgM ) return;           // cannot distinguish between parents 
+        if ( *dsgF == *dsgM ) return;           // cannot distinguish between parents
         if ( !args->greedy )
         {
             if ( *dsgF==1 && *dsgP==*dsgM ) return; // both parents have the proband's allele
@@ -350,7 +340,7 @@ int run(int argc, char **argv)
     char *tmp;
     while ((c = getopt_long(argc, argv, "h?e:i:p:r:t:dgb:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
@@ -366,7 +356,7 @@ int run(int argc, char **argv)
             case 'p': args->pfm = optarg; break;
             case 'd': args->debug = 1; break;
             case 'g': args->greedy = 1; break;
-            case 'b': 
+            case 'b':
                 args->min_pbinom = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -b %s\n", optarg);
                 if ( args->min_pbinom<0 || args->min_pbinom>1 ) error("Expected value from the interval [0,1] with --min-binom-prob\n");

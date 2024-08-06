@@ -2031,19 +2031,6 @@ static int func_strlen(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     }
     return 1;
 }
-static inline double calc_binom(int na, int nb)
-{
-    if ( na==0 && nb==0 ) return -1;
-    if ( na==nb ) return 1;
-
-    // kfunc.h implements kf_betai, which is the regularized beta function  P(X<=k/N;p) = I_{1-p}(N-k,k+1)
-
-    double pval = na < nb ? kf_betai(nb, na + 1, 0.5) : kf_betai(na, nb + 1, 0.5);
-    pval *= 2;
-    if ( pval>1 ) pval = 1;     // this can happen, machine precision error, eg. kf_betai(1,0,0.5)
-
-    return pval;
-}
 static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     int i, istack = nstack - rtok->nargs;
@@ -2111,7 +2098,7 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
                     bcf_double_set_missing(rtok->values[i]);
                     continue;
                 }
-                rtok->values[i] = calc_binom(vals[idx1],vals[idx2]);
+                rtok->values[i] = calc_binom_two_sided(vals[idx1],vals[idx2],0.5);
                 if ( rtok->values[i] < 0 )
                 {
                     bcf_double_set_missing(rtok->values[i]);
@@ -2135,7 +2122,7 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
                     bcf_double_set_missing(rtok->values[i]);
                     continue;
                 }
-                rtok->values[i] = calc_binom(ptr1[0],ptr2[0]);
+                rtok->values[i] = calc_binom_two_sided(ptr1[0],ptr2[0],0.5);
                 if ( rtok->values[i] < 0 )
                 {
                     bcf_double_set_missing(rtok->values[i]);
@@ -2174,7 +2161,7 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
             bcf_double_set_missing(rtok->values[0]);
         else
         {
-            rtok->values[0] = calc_binom(ptr1[0],ptr2[0]);
+            rtok->values[0] = calc_binom_two_sided(ptr1[0],ptr2[0],0.5);
             if ( rtok->values[0] < 0 )
                 bcf_double_set_missing(rtok->values[0]);
         }

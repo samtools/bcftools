@@ -1209,11 +1209,11 @@ static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
     if ( n[0]==n[1] ) kputc(n[0]==0 ? '.':'0', str);
     else
     {
-        double pval = n[0] < n[1] ? kf_betai(n[1], n[0] + 1, 0.5) : kf_betai(n[0], n[1] + 1, 0.5);
-        pval *= 2;
-        if ( pval>=1 ) pval = 0;     // this can happen, machine precision error, eg. kf_betai(1,0,0.5)
-        else
-            pval = -4.34294481903*log(pval);
+        double pval = calc_binom_two_sided(n[0],n[1],0.5);
+
+        // convrt to phred
+        if ( pval>=1 ) pval = 0;
+        else pval = -4.34294481903*log(pval);
         kputd(pval, str);
     }
     return;
