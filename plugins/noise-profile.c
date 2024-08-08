@@ -49,7 +49,7 @@
 // VAF profile across many samples at a single site. Used as a regidx payload
 typedef struct
 {
-    char ref, alt;      // todo: indels
+    char ref, alt;      // indels are hacky, just sets alt to I or D
     uint32_t no_good:1, // is the site suitable for training?
              nval:31,   // number of values
             *dist;      // histogram of VAF frequencies
@@ -153,7 +153,8 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     // REF part and REF length
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
-    *end = *beg + se-ss-1;
+    int ref_len = se - ss;
+    *end = *beg + ref_len - 1;
 
     site_t *site = (site_t*)payload;
     memset(site,0,sizeof(site_t));
@@ -163,7 +164,10 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     // ALT part
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
-    site->alt = ss[0];
+    int alt_len = se - ss;
+    if ( ref_len==alt_len ) site->alt = ss[0];
+    else if ( ref_len > alt_len ) site->alt = 'D';
+    else site->alt = 'I';
 
     return 0;
 }
@@ -285,37 +289,63 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
         bam_pileup1_t **plp = mpileup_get_val(args->mplp,bam_pileup1_t**,LEGACY_PILEUP);
         char *ref = mpileup_get(args->mplp,REF,&len);
 
-        site_t *site = NULL;
+        // There can be duplicate positions with different ALT alleles, we make each of these accessible
+        // through ialt2site array, the index uses the encoding 0/1/2/3 for A/C/G/T and 4 for I/D
+        site_t *ialt2site[5] = {NULL,NULL,NULL,NULL,NULL};
+        int has_site = 0;
         while ( regitr_overlap(args->sites_itr) )
         {
-            site = &regitr_payload(args->sites_itr,site_t);
-            if ( ref[0]==site->ref ) break;
-            fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs %c\n",chr,pos+1,ref[0],site->ref);
-            site = NULL;
+            site_t *site = &regitr_payload(args->sites_itr,site_t);
+            if ( ref[0]!=site->ref )
+            {
+                fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs %c\n",chr,pos+1,ref[0],site->ref);
+                continue;
+            }
+            int ialt = site->alt=='I' || site->alt=='D' ? 4 : seq_nt16_int[seq_nt16_table[(int)site->alt]];
+            ialt2site[ialt] = site;
+            has_site = 1;
         }
-        if ( !site ) continue;
+        if ( !has_site ) continue;
         for (i=0; i<nsmpl; i++)
         {
-            int nref = 0, nalt = 0;
+            // Collect counts: the number of reads in total, alt alleles total, and each alt separately
+            int ntot = 0, nalt[5] = {0,0,0,0,0}, nalt_tot = 0;
             for (j=0; j<n_plp[i]; j++)
             {
                 const bam_pileup1_t *plp1 = plp[i] + j;
                 int bi = bam_seqi(bam_get_seq(plp1->b), plp1->qpos);
-                char bc = bi ? seq_nt16_str[bi] : 'x';
-                if ( bc==site->ref ) nref++;
-                else if ( bc==site->alt ) nalt++;
+                assert( bi );   // when does this happen?
+                char bc = seq_nt16_str[bi];
+                ntot++;
+                if ( bc!=ref[0] )    // todo: indels
+                {
+                    int ialt = seq_nt16_int[seq_nt16_table[(int)bc]];
+                    nalt[ialt]++;
+                    nalt_tot++;
+                }
             }
-            int ifreq = nn2bin(args->profile.nbins,nref,nalt);
-            if ( ifreq<0 ) continue;
-            if ( nref > nalt && calc_binom_two_sided(nref,nalt,0.5) <= args->binom_th )
+            if ( !ntot ) continue;
+
+            // Mark good sites: ref must be the major allele, good coverage, and low VAF
+            int nref = ntot - nalt_tot;
+            int no_good = 1;
+            if ( nref > nalt_tot && calc_binom_two_sided(nref,nalt_tot,0.5) <= args->binom_th )
             {
+                int ifreq = nn2bin(args->profile.nbins,nref,nalt_tot);
                 args->profile.good_calls.nval++;
                 args->profile.good_calls.dist[ifreq]++;
+                no_good = 0;
             }
-            else
-                site->no_good = 1;  // this site in this sample is not good for training: either low coverage or high VAF
-            site->nval++;
-            site->dist[ifreq]++;
+            for (j=0; j<5; j++)
+            {
+                site_t *site = ialt2site[j];
+                if ( !site ) continue;
+                int ifreq = nn2bin(args->profile.nbins,ntot-nalt[j],nalt[j]);
+                if ( ifreq<0 ) continue;
+                site->no_good = no_good;
+                site->nval++;
+                site->dist[ifreq]++;
+            }
         }
     }
     return 0;
@@ -349,17 +379,19 @@ static void batch_profile_set_mean_var(batch_t *batch)
         }
         batch->nval++;
     }
-    assert(batch->nval);
-    double min_nonzero_var = HUGE_VAL;
-    for (i=0; i<batch->nbins; i++)
+    if ( batch->nval )
     {
-        batch->mean[i] = batch->mean[i]/batch->nval;
-        batch->var[i]  = batch->var[i]/batch->nval - batch->mean[i]*batch->mean[i];
-        if ( batch->var[i]>0 && batch->var[i] < min_nonzero_var ) min_nonzero_var = batch->var[i];
+        double min_nonzero_var = HUGE_VAL;
+        for (i=0; i<batch->nbins; i++)
+        {
+            batch->mean[i] = batch->mean[i]/batch->nval;
+            batch->var[i]  = batch->var[i]/batch->nval - batch->mean[i]*batch->mean[i];
+            if ( batch->var[i]>0 && batch->var[i] < min_nonzero_var ) min_nonzero_var = batch->var[i];
+        }
+        // to avoid infinite scores, make sure we never see zero variance
+        for (i=0; i<batch->nbins; i++)
+            if ( batch->var[i]==0 ) batch->var[i] = min_nonzero_var;
     }
-    // to avoid infinite scores, make sure we never see zero variance
-    for (i=0; i<batch->nbins; i++)
-        if ( batch->var[i]==0 ) batch->var[i] = min_nonzero_var;
     regitr_destroy(itr);
 }
 static double score_site(batch_t *batch, site_t *site)
