@@ -41,6 +41,7 @@
 #include <htslib/vcfutils.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/time.h>
 #include "mpileup2/mpileup.h"
 #include "bcftools.h"
 #include "regidx.h"
@@ -69,10 +70,10 @@ batch_t;
 
 typedef struct
 {
-    int argc, output_type, record_cmd_line, clevel, use_bam_idx;
+    int argc, output_type, record_cmd_line, clevel, use_bam_idx, verbose;
     char **argv, *output_fname, *sites_fname, *aln_fname, *fasta_fname, *batch_fname, *batch;
-    char **bams;
-    int nbams;
+    char **bams, **batch_fnames;
+    int nbams, nbatch_fnames;
     double binom_th;    // include in the profile only calls with binom(VAF)<=binom_th
     BGZF *out_fh;
     regidx_t *sites_idx;
@@ -104,10 +105,12 @@ static const char *usage_text(void)
         "\n"
         "Other options:\n"
         "   -b, --batch I/N               Run I-th batch out of N, 1-based\n"
-        "   -i, --use-index               Use index to jump, rather than stream, the alignments\n"
-        "   -m, --merge-batches FILE      Merge files produced with -b, --batch\n"
+        "   -i, --use-index               Use index to jump the alignments, rather than stream\n"
+        "   -m, --merge-batches FILE      Merge files produced with -b, --batch, FILE is a list of batch files\n"
+        "   -M, --merge-files FILE ...    Same as -m, FILE is one or more btch files\n"
         "   -o, --output FILE             Output file name [stdout]\n"
         "   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]\n"
+        "   -v, --verbose                 Print the elapsed and estimated total running time\n"
         "\n"
         "Example:\n"
         "   # Typical run\n"
@@ -456,12 +459,70 @@ static int write_batch(args_t *args, batch_t *batch)
     free(str.s);
     return 0;
 }
+static void ksprint_time(kstring_t *str, double delta)
+{
+    int day = 0,hour = 0, min = 0, sec = 0;
+    if ( delta > 60*60*24 )
+    {
+        day = ceil(delta/60./60./24);
+        delta = 0;
+    }
+    if ( delta > 60*60 )
+    {
+        hour = ceil(delta/60./60.);
+        delta = 0;
+    }
+    if ( delta > 60 )
+    {
+        min = ceil(delta/60.);
+        delta = 0;
+    }
+    if ( delta > 0 )
+    {
+        sec = ceil(delta);
+        if ( !sec ) sec = 1;
+    }
+    if ( day ) ksprintf(str,"%dd",day);
+    if ( hour ) ksprintf(str,"%dh",hour);
+    if ( min ) ksprintf(str,"%dm",min);
+    if ( sec ) ksprintf(str,"%ds",sec);
+}
 static int batch_profile_run(args_t *args)
 {
-    // collect the profiles across all bams. This is the I/O intensive part
+    kstring_t str = {0,0,0};
+    struct timeval t0, t1;
+    gettimeofday(&t0, NULL);
+    double delta_prev = 0;
     int i;
+
+    // collect the profiles across all bams. This is the I/O intensive part
     for (i=0; i<args->nbams; i++)
+    {
         batch_profile_run1(args, args->bams[i]);
+
+        if ( args->verbose )
+        {
+            // Report time
+            gettimeofday(&t1, NULL);
+            double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec);
+            double avg = delta / (i+1);
+            double tot = avg * args->nbams;
+            str.l = 0;
+            ksprintf(&str,"Time required to process %s .. ",args->bams[i]);
+            ksprint_time(&str,(delta-delta_prev)/1e6);
+            kputs("  (avg/elapsed/est tot/eta: ",&str);
+            ksprint_time(&str,avg/1e6);
+            kputc('/',&str);
+            ksprint_time(&str,delta/1e6);
+            kputc('/',&str);
+            ksprint_time(&str,tot/1e6);
+            kputc('/',&str);
+            ksprint_time(&str,(tot-delta)/1e6);
+            fprintf(stderr,"%s)\n",str.s);
+            delta_prev = delta;
+        }
+    }
+    free(str.s);
 
     args->profile.idx = args->sites_idx;
     batch_profile_set_mean_var(&args->profile);
@@ -570,6 +631,7 @@ static batch_t *batch_read(char *fname)
 {
     batch_t *batch = calloc(1,sizeof(batch_t));
     batch->idx = regidx_init(fname,parse_batch,free_sites,sizeof(site_t),batch);
+    if ( !batch->idx ) error("Could not read the batch file: %s\n",fname);
     batch->fname = strdup(fname);
     return batch;
 }
@@ -609,18 +671,28 @@ static void batch_destroy(batch_t *batch)
     free(batch->var);
     free(batch);
 }
+static void merge_add_batch(args_t *args, const char *fname)
+{
+    args->nbatch_fnames++;
+    args->batch_fnames = (char**)realloc(args->batch_fnames,sizeof(*args->batch_fnames)*args->nbatch_fnames);
+    args->batch_fnames[args->nbatch_fnames - 1] = strdup(fname);
+}
 static int merge(args_t *args)
 {
     args->out_fh = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
 
-    batch_t *batch = NULL, *tmp;
-    int i,nfile = 0;
-    char **file = hts_readlist(args->batch_fname, 1, &nfile);
-    if ( !file ) error("No files to merge: %s\n",args->batch_fname);
-    for (i=0; i<nfile; i++)
+    if ( !args->nbatch_fnames )
     {
-        tmp = batch_read(file[i]);
-        free(file[i]);
+        args->batch_fnames = hts_readlist(args->batch_fname, 1, &args->nbatch_fnames);
+        if ( !args->batch_fnames ) error("Could not read the file: %s\n",args->batch_fname);
+    }
+
+    batch_t *batch = NULL, *tmp;
+    int i;
+    for (i=0; i<args->nbatch_fnames; i++)
+    {
+        tmp = batch_read(args->batch_fnames[i]);
+        free(args->batch_fnames[i]);
         if ( !i ) { batch = tmp; continue; }
         batch_merge(batch,tmp);
         batch_destroy(tmp);
@@ -631,7 +703,7 @@ static int merge(args_t *args)
 
     if ( args->out_fh && bgzf_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     batch_destroy(batch);
-    free(file);
+    free(args->batch_fnames);
     free(args);
     return 0;
 }
@@ -648,19 +720,21 @@ int run(int argc, char **argv)
     {
         {"batch",required_argument,NULL,'b'},
         {"merge-batches",required_argument,NULL,'m'},
+        {"merge-files",required_argument,NULL,'M'},
         {"use-index",required_argument,NULL,'i'},
         {"nbins",required_argument,NULL,'n'},
         {"binom-th",required_argument,NULL,'B'},
         {"fasta-ref",required_argument,NULL,'f'},
         {"alns",required_argument,NULL,'a'},
         {"sites",required_argument,NULL,'s'},
+        {"verbose",no_argument,NULL,'v'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:B:n:ib:m:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:B:n:ib:m:M:v",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -694,13 +768,17 @@ int run(int argc, char **argv)
             case 's': args->sites_fname = optarg; break;
             case 'a': args->aln_fname = optarg; break;
             case 'b': args->batch = optarg; break;
+            case 'v': args->verbose++; break;
             case 'm': args->batch_fname = optarg; break;
+            case 'M': merge_add_batch(args,optarg); break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
         }
     }
-    int do_merge = args->batch_fname ? 1 : 0;
+    int i;
+    for (i=optind; i<argc; i++) merge_add_batch(args,argv[i]);
+    int do_merge = args->batch_fname || args->nbatch_fnames ? 1 : 0;
     int do_profile = args->aln_fname ? 1 : 0;
     if ( !do_merge && !do_profile ) error("%s", usage_text());
     if ( do_merge && do_profile ) error("%s", usage_text());
