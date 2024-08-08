@@ -401,7 +401,6 @@ void mpileup_destroy(mpileup_t *mplp)
     {
         sam_close(mplp->bam[i].fp);
         if ( mplp->bam[i].cached_rec ) bam_destroy1(mplp->bam[i].cached_rec);
-        if ( mplp->bam[i].idx ) hts_idx_destroy(mplp->bam[i].idx);
         if ( mplp->bam[i].iter ) hts_itr_destroy(mplp->bam[i].iter);
     }
     for (i=0; i<mplp->nbam_names; i++) free(mplp->bam_names[i]);
