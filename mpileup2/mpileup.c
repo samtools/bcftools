@@ -549,6 +549,23 @@ int mpileup_init(mpileup_t *mplp)
         return -1;
     }
 
+    int nregs = 0;
+    char **regs = NULL;
+    if ( mplp->regions_idx )
+    {
+        nregs = regidx_nregs(mplp->regions_idx);
+        regs = calloc(nregs,sizeof(*regs));
+        int i = 0;
+        regitr_reset(mplp->regions_idx,mplp->regions_itr);
+        while ( regitr_loop(mplp->regions_itr) )
+        {
+            assert(i < nregs);
+            mplp->tmp_str.l = 0;
+            ksprintf(&mplp->tmp_str,"%s:%u-%u",mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
+            regs[i++] = strdup(mplp->tmp_str.s);
+        }
+    }
+
     mplp->bam = (bam_aux_t*)calloc(mplp->nbam_names,sizeof(*mplp->bam));
     if ( !mplp->bam )
     {
@@ -597,7 +614,7 @@ int mpileup_init(mpileup_t *mplp)
         mplp->nbam++;
 
         // iterators
-        if ( mplp->regions_idx )
+        if ( nregs )
         {
             hts_idx_t *idx = sam_index_load(baux->fp,baux->fname);
             if ( !idx )
@@ -605,19 +622,10 @@ int mpileup_init(mpileup_t *mplp)
                 hts_log_error("Failed to load index: %s\n",fname);
                 return 1;
             }
-            mplp->tmp_str.l = 0;
-            //ksprintf(&mplp->tmp_str,"%s:%"PRIhts_pos"-%"PRIhts_pos,mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
-            ksprintf(&mplp->tmp_str,"%s:%u-%u",mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
-            baux->iter = sam_itr_querys(idx, hdr, mplp->tmp_str.s);
+            baux->iter = sam_itr_regarray(idx,hdr,regs,nregs);
             if ( !baux->iter )
             {
-                baux->iter = sam_itr_querys(idx, hdr, mplp->regions_itr->seq);
-                if ( baux->iter )
-                {
-                    hts_log_error("[Failed to parse the region: %s",mplp->tmp_str.s);
-                    return 1;
-                }
-                hts_log_error("The sequence \"%s\" not found: %s",mplp->regions_itr->seq,fname);
+                hts_log_error("Failed to initialize %d regions",nregs);
                 return 1;
             }
             if ( mplp->nregions==1 ) // no need to keep the index in memory
@@ -636,6 +644,8 @@ int mpileup_init(mpileup_t *mplp)
         baux->hdr = mplp->hdr;
         baux->tid = -1;
     }
+    for (i=0; i<nregs; i++) free(regs[i]);
+    free(regs);
     bam_smpl_get_samples(mplp->bsmpl,&mplp->nsmpl);
     if ( !mplp->nsmpl )
     {
@@ -1099,60 +1109,20 @@ static int legacy_mpileup_destroy(mpileup_t *mplp)
     bam_mplp_destroy(mplp->legacy.iter);
     return 0;
 }
-static int legacy_mpileup_region_next(mpileup_t *mplp)
+
+static int legacy_mpileup_next(mpileup_t *mplp)
 {
     while (1)
     {
         int pos;
         int ret = bam_mplp_auto(mplp->legacy.iter, &mplp->tid, &pos, mplp->legacy.nplp, (const bam_pileup1_t**)mplp->legacy.plp);
         mplp->pos = pos;
-        if ( ret<0 ) return ret;
+        if ( ret < 0 ) return ret;
         mplp->chr = (char*)sam_hdr_tid2name(mplp->bam[0].hdr,mplp->tid);
         if ( !ret ) return ret;
         if ( mplp->targets_idx && !regidx_overlap(mplp->targets_idx,mplp->chr,mplp->pos,mplp->pos,0) ) continue;
+        if ( mplp->regions_idx && !regidx_overlap(mplp->regions_idx,mplp->chr,mplp->pos,mplp->pos,0) ) continue;
         return ret;
     }
-}
-
-static int legacy_mpileup_next(mpileup_t *mplp)
-{
-    if ( !mplp->nregions )
-        return legacy_mpileup_region_next(mplp);
-
-    int i;
-    while (1)
-    {
-        int ret = legacy_mpileup_region_next(mplp);
-        if ( ret>0 )
-        {
-            if ( mplp->pos < mplp->regions_itr->beg ) continue;
-            if ( mplp->pos <= mplp->regions_itr->end ) return ret;
-        }
-        if ( !regitr_loop(mplp->regions_itr) ) return 0;
-
-        mplp->tmp_str.l = 0;
-        ksprintf(&mplp->tmp_str,"%s:%u-%u",mplp->regions_itr->seq,mplp->regions_itr->beg+1,mplp->regions_itr->end+1);
-        for (i=0; i<mplp->nbam; i++)
-        {
-            bam_aux_t *baux = &mplp->bam[i];
-            hts_itr_destroy(baux->iter);
-            baux->iter = sam_itr_querys(baux->idx, baux->hdr, mplp->tmp_str.s);
-            if ( !baux->iter )
-            {
-                baux->iter = sam_itr_querys(baux->idx, baux->hdr, mplp->regions_itr->seq);
-                if ( baux->iter )
-                {
-                    hts_log_error("[Failed to parse the region: %s",mplp->tmp_str.s);
-                    return 1;
-                }
-                hts_log_error("The sequence \"%s\" not found: %s",mplp->regions_itr->seq,baux->fname);
-                return -1;
-            }
-            bam_mplp_reset(mplp->legacy.iter);
-            baux->tid = baux->pos = -1;
-        }
-        mplp->tid = mplp->pos = -1;
-    }
-    return -1;  // never happens
 }
 
