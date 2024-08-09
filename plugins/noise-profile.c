@@ -215,9 +215,23 @@ static int batch_profile_init(args_t *args)
         if ( ith > args->nbams ) error("Error: asked for %d-th batch in a list of %d files\n",ith,args->nbams);
         int nbatches = strtol(tmp+1,&tmp,10);
         if ( *tmp || nbatches<=0 ) error("Error: could not parse --batch %s\n",args->batch);
+        if ( ith > nbatches ) error("Error: the batch index is outside the permitted range [1,%d]\n",nbatches);
         if ( nbatches > args->nbams ) error("Error: cannot create %d batches from a list of %d files\n",nbatches,args->nbams);
         int nper_batch = ceil((double)args->nbams/nbatches);
         int isrc = (ith-1)*nper_batch;
+        if ( isrc > args->nbams )
+        {
+            args->out_fh = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+            kstring_t str = {0,0,0};
+            ksprintf(&str,
+                "# This is the %d-th chunk out of %d requested. As you can see, it is empty: there are %d files per batch\n"
+                "# and %d files in total. Don't worry, it can still be used with the options --merge-batches and --merge-files.\n",
+                ith,nbatches,nper_batch,args->nbams);
+            if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
+            free(str.s);
+            batch_profile_destroy(args);
+            return 1;
+        }
         if ( isrc + nper_batch > args->nbams ) nper_batch = args->nbams - isrc;
         int i;
         for (i=0; i<isrc; i++)
@@ -690,10 +704,16 @@ static int merge(args_t *args)
     {
         tmp = batch_read(args->batch_fnames[i]);
         free(args->batch_fnames[i]);
-        if ( !i ) { batch = tmp; continue; }
+        if ( !tmp->nval ) // no data
+        {
+            batch_destroy(tmp);
+            continue;
+        }
+        if ( !batch ) { batch = tmp; continue; }
         batch_merge(batch,tmp);
         batch_destroy(tmp);
     }
+    if ( !batch ) error("Error: failed to merge the files, no usable data found\n");
 
     batch_profile_set_mean_var(batch);
     write_batch(args,batch);
