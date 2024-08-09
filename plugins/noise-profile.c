@@ -420,13 +420,21 @@ static double score_site(batch_t *batch, site_t *site)
     for (i=1; i<batch->nbins; i++)
         if ( max_val < site->dist[i] ) max_val = site->dist[i];
 
+    // Only count excesses in non-zero VAF bins, don't penalize cleaner sites.
+    // Take average of a noise profile with normal mean and an idealized profile
+    // where mean is zero - this is to prioritize sites with exceptionally clean
+    // profiles
     double score = 0;
-    for (i=0; i<batch->nbins; i++)
+    for (i=1; i<batch->nbins; i++)
     {
-        double tmp = site->dist[i]/max_val - batch->mean[i];
-        score += tmp*tmp/batch->var[i];
+        double tmp = site->dist[i]/max_val;
+        double val1 = tmp - batch->mean[i];
+        val1 = val1 > 0 ? val1*val1 : 0;        // normal mean, add only if the value exceeds it
+
+        double val2 = tmp*tmp;                  // idealized mean of 0, always add
+        score += 0.5*(val1 + val2)/batch->var[i];
     }
-    return score;
+    return 10*log(1 + score);       // multiply by 10 for a better range of [0,250) or so
 }
 static int write_batch(args_t *args, batch_t *batch)
 {
