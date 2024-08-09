@@ -51,7 +51,7 @@
 typedef struct
 {
     char ref, alt;      // indels are hacky, just sets alt to I or D
-    uint32_t no_good:1, // is the site suitable for training?
+    uint32_t is_good:1, // is the site suitable for training? 0:no, (1 && nval>0):yes, (1 && !nval):no data
              nval:31,   // number of values
             *dist;      // histogram of VAF frequencies
 }
@@ -163,6 +163,7 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     memset(site,0,sizeof(site_t));
     site->ref = ss[0];
     site->dist = calloc(args->profile.nbins,sizeof(*site->dist));
+    site->is_good = 1;  // presume the site is good
 
     // ALT part
     ss = ++se;
@@ -331,13 +332,13 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
 
             // Mark good sites: ref must be the major allele, good coverage, and low VAF
             int nref = ntot - nalt_tot;
-            int no_good = 1;
+            int is_good = 0;
             if ( nref > nalt_tot && calc_binom_two_sided(nref,nalt_tot,0.5) <= args->binom_th )
             {
                 int ifreq = nn2bin(args->profile.nbins,nref,nalt_tot);
                 args->profile.good_calls.nval++;
                 args->profile.good_calls.dist[ifreq]++;
-                no_good = 0;
+                is_good = 1;
             }
             for (j=0; j<5; j++)
             {
@@ -345,7 +346,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                 if ( !site ) continue;
                 int ifreq = nn2bin(args->profile.nbins,ntot-nalt[j],nalt[j]);
                 if ( ifreq<0 ) continue;
-                site->no_good = no_good;
+                if ( ntot ) site->is_good &= is_good;
                 site->nval++;
                 site->dist[ifreq]++;
             }
@@ -368,7 +369,7 @@ static void batch_profile_set_mean_var(batch_t *batch)
     while ( regitr_loop(itr) )
     {
         site_t *site = &regitr_payload(itr,site_t);
-        if ( site->no_good ) continue;
+        if ( !site->is_good || !site->nval ) continue;
 
         // normalize the site and add to the mean and variance calculation
         double max_val = site->dist[0];
@@ -391,9 +392,10 @@ static void batch_profile_set_mean_var(batch_t *batch)
             batch->var[i]  = batch->var[i]/batch->nval - batch->mean[i]*batch->mean[i];
             if ( batch->var[i]>0 && batch->var[i] < min_nonzero_var ) min_nonzero_var = batch->var[i];
         }
-        // to avoid infinite scores, make sure we never see zero variance
+        // to avoid infinite scores, make sure we never see zero variance,
+        // but make it ever decreasing to penalize higher VAF bins
         for (i=0; i<batch->nbins; i++)
-            if ( batch->var[i]==0 ) batch->var[i] = min_nonzero_var;
+            if ( batch->var[i]==0 ) batch->var[i] = min_nonzero_var/i;
     }
     regitr_destroy(itr);
 }
@@ -425,8 +427,8 @@ static int write_batch(args_t *args, batch_t *batch)
             site_t *site = &regitr_payload(itr,site_t);
             double score = score_site(batch,site);
             str.l = 0;
-            ksprintf(&str,"SITE\t%s\t%d\t%c\t%c\t%d\t%e\t", itr->seq, itr->beg+1,site->ref,site->alt,(int)site->no_good,score);
-            for (i=0; i<batch->nbins; i++) ksprintf(&str," %d",site->dist[i]);
+            ksprintf(&str,"SITE\t%s\t%d\t%c\t%c\t%d\t%e\t", itr->seq, itr->beg+1,site->ref,site->alt,(int)site->is_good,score);
+            for (i=0; i<batch->nbins; i++) ksprintf(&str,"%s%d",i==0?"":"-",site->dist[i]);
             ksprintf(&str,"\n");
             if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
         }
@@ -438,7 +440,7 @@ static int write_batch(args_t *args, batch_t *batch)
     {
         str.l = 0;
         ksprintf(&str,"COUNTS\t");
-        for (i=0; i<batch->nbins; i++) ksprintf(&str," %d",batch->good_calls.dist[i]);
+        for (i=0; i<batch->nbins; i++) ksprintf(&str,"%s%d",i==0?"":"-",batch->good_calls.dist[i]);
         ksprintf(&str,"\n");
         if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
     }
@@ -461,31 +463,22 @@ static int write_batch(args_t *args, batch_t *batch)
 }
 static void ksprint_time(kstring_t *str, double delta)
 {
-    int day = 0,hour = 0, min = 0, sec = 0;
     if ( delta > 60*60*24 )
     {
-        day = ceil(delta/60./60./24);
-        delta = 0;
+        ksprintf(str,"%.0fd",ceil(delta/60./60./24));
+        return;
     }
     if ( delta > 60*60 )
     {
-        hour = ceil(delta/60./60.);
-        delta = 0;
+        ksprintf(str,"%.0fh",ceil(delta/60./60.));
+        return;
     }
     if ( delta > 60 )
     {
-        min = ceil(delta/60.);
-        delta = 0;
+        ksprintf(str,"%.0fm",ceil(delta/60.));
+        return;
     }
-    if ( delta > 0 )
-    {
-        sec = ceil(delta);
-        if ( !sec ) sec = 1;
-    }
-    if ( day ) ksprintf(str,"%dd",day);
-    if ( hour ) ksprintf(str,"%dh",hour);
-    if ( min ) ksprintf(str,"%dm",min);
-    if ( sec ) ksprintf(str,"%ds",sec);
+    ksprintf(str,"%.0fs",delta>0 ? ceil(delta) : 1);
 }
 static int batch_profile_run(args_t *args)
 {
@@ -531,13 +524,14 @@ static int batch_profile_run(args_t *args)
 
     return 0;
 }
-static uint32_t *parse_bins(const char *line, uint32_t *nbins)
+static uint32_t *parse_bins(const char *line, uint32_t *nbins, uint32_t *nval)
 {
+    if ( nval ) *nval = 0;
     int i, n = 0;
     const char *ptr = line;
     while ( *ptr )
     {
-        while ( *ptr && !isspace(*ptr) ) ptr++;
+        while ( *ptr && *ptr!='-' ) ptr++;
         n++;
         if ( *ptr ) ptr++;
     }
@@ -547,7 +541,8 @@ static uint32_t *parse_bins(const char *line, uint32_t *nbins)
     {
         char *tmp;
         bins[i] = strtol(ptr,&tmp,10);
-        if ( *tmp && *tmp!=' ' ) error("Could not parse the DIST part of the line: %s\n",line);
+        if ( *tmp && *tmp!='-' ) error("Could not parse the DIST part of the line: %s\n",line);
+        if ( nval ) *nval += bins[i];
         ptr = tmp+1;
     }
     *nbins = n;
@@ -556,15 +551,16 @@ static uint32_t *parse_bins(const char *line, uint32_t *nbins)
 static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
 {
     // parses lines like this:
-    //  SITE	chr	3	A	C	1	7.194245e-02	 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    //  SITE	chr	3	A	C	1	7.194245e-02	 1-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0
     batch_t *batch = (batch_t*) usr;
 
-    uint32_t nbins, *bins;
+    uint32_t nbins, *bins, nval;
     if ( !strncmp(line,"COUNTS\t",7) )
     {
         int i;
-        batch->good_calls.dist = parse_bins(line+8, &nbins);
+        batch->good_calls.dist = parse_bins(line+8, &nbins, &nval);
         if ( batch->nbins && batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line+8);
+        batch->nval = nval;
         for (i=0; i<nbins; i++)
             batch->good_calls.nval += batch->good_calls.dist[i];
         return -1;
@@ -604,11 +600,11 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     while ( *se && !isspace(*se) ) se++;
     site->alt = ss[0];
 
-    // NO_GOOD part
-    if ( *se!='\t' ) error("Could not parse the NO_GOOD part of the line: %s\n",line);
+    // IS_GOOD part
+    if ( *se!='\t' ) error("Could not parse the IS_GOOD part of the line: %s\n",line);
     se++;
-    if ( *se!='1' && *se!='0' ) error("Could not parse the NO_GOOD part of the line: %s\n",line);
-    site->no_good = *se=='0' ? 0 : 1;
+    if ( *se!='1' && *se!='0' ) error("Could not parse the IS_GOOD part of the line: %s\n",line);
+    site->is_good = *se=='0' ? 0 : 1;
     se++;
     while ( *se && isspace(*se) ) se++;
 
@@ -620,10 +616,11 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     if ( !*se ) error("Could not parse the SCORE part of the line: %s\n",line);
 
     // read the PROFILE part
-    bins = parse_bins(se, &nbins);
+    bins = parse_bins(se, &nbins,&nval);
     if ( !batch->nbins ) batch->nbins = nbins;
     if ( batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line);
     site->dist = bins;
+    site->nval = nval;
 
     return 0;
 }
@@ -649,7 +646,7 @@ static int batch_merge(batch_t *tgt, batch_t *src)
         while ( regitr_overlap(tgt_itr) )
         {
             site_t *tgt_site = &regitr_payload(tgt_itr,site_t);
-            if ( src_site->no_good ) tgt_site->no_good = 1;
+            tgt_site->is_good &= src_site->is_good;
             for (i=0; i<tgt->nbins; i++) tgt_site->dist[i] += src_site->dist[i];
             tgt_site->nval += src_site->nval;
             break;
@@ -712,6 +709,7 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
+    args->output_type = -1;
     args->record_cmd_line = 1;
     args->clevel = -1;
     args->binom_th = 1e-4;
@@ -775,6 +773,11 @@ int run(int argc, char **argv)
             case '?':
             default: error("%s", usage_text()); break;
         }
+    }
+    if ( args->output_type==-1 )
+    {
+        if ( strlen(args->output_fname) > 3 && !strcasecmp(".gz",args->output_fname+strlen(args->output_fname)-3) ) args->output_type = FT_GZ;
+        else args->output_type = FT_TAB_TEXT;
     }
     int i;
     for (i=optind; i<argc; i++) merge_add_batch(args,argv[i]);
