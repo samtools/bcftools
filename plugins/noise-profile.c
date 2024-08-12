@@ -50,7 +50,7 @@
 // VAF profile across many samples at a single site. Used as a regidx payload
 typedef struct
 {
-    char ref, alt;      // indels are hacky, just sets alt to I or D
+    char *ref, *alt;    // note indels are preserved, but internally all treated as a single type
     uint32_t is_good:1, // is the site suitable for training? 0:no, (1 && nval>0):yes, (1 && !nval):no data
              nval:31,   // number of values
             *dist;      // histogram of VAF frequencies
@@ -157,11 +157,13 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
     int ref_len = se - ss;
-    *end = *beg + ref_len - 1;
+    *end = *beg;    // we are interested in overlaps at the POS only, not variant length
 
     site_t *site = (site_t*)payload;
     memset(site,0,sizeof(site_t));
-    site->ref = ss[0];
+    site->ref = malloc(ref_len+1);
+    strncpy(site->ref,ss,ref_len);
+    site->ref[ref_len] = 0;
     site->dist = calloc(args->profile.nbins,sizeof(*site->dist));
     site->is_good = 1;  // presume the site is good
 
@@ -169,15 +171,20 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
     int alt_len = se - ss;
-    if ( ref_len==alt_len ) site->alt = ss[0];
-    else if ( ref_len > alt_len ) site->alt = 'D';
-    else site->alt = 'I';
+    site->alt = malloc(alt_len+1);
+    strncpy(site->alt,ss,alt_len);
+    site->alt[alt_len] = 0;
+
+    if ( ref_len==alt_len )     // whatever this is, treat it as SNV, not MNP, should have been split
+        site->ref[1] = site->alt[1] = 0;
 
     return 0;
 }
 static void free_sites(void *payload)
 {
     site_t *site = (site_t*)payload;
+    free(site->ref);
+    free(site->alt);
     free(site->dist);
 }
 static void batch_profile_destroy(args_t *args)
@@ -314,13 +321,13 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
         while ( regitr_overlap(args->sites_itr) )
         {
             site_t *site = &regitr_payload(args->sites_itr,site_t);
-            if ( ref[0]!=site->ref )
+            if ( ref[0]!=site->ref[0] )
             {
-                fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs %c\n",chr,pos+1,ref[0],site->ref);
+                fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs %s\n",chr,pos+1,ref[0],site->ref);
                 continue;
             }
-            int ialt = site->alt=='I' || site->alt=='D' ? 4 : seq_nt16_int[seq_nt16_table[(int)site->alt]];
-            ialt2site[ialt] = site;
+            int ialt = site->ref[1] || site->alt[1] ? 4 : seq_nt16_int[seq_nt16_table[(int)site->alt[0]]];  // indel or SNV?
+            if ( !ialt2site[ialt] ) ialt2site[ialt] = site;     // keep only one duplicate position of the same type
             has_site = 1;
         }
         if ( !has_site ) continue;
@@ -331,13 +338,19 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
             for (j=0; j<n_plp[i]; j++)
             {
                 const bam_pileup1_t *plp1 = plp[i] + j;
-                int bi = bam_seqi(bam_get_seq(plp1->b), plp1->qpos);
-                assert( bi );   // when does this happen?
-                char bc = seq_nt16_str[bi];
-                ntot++;
-                if ( bc!=ref[0] )    // todo: indels
+                int ialt = -1;
+                if ( plp1->indel ) ialt = 4;
+                else
                 {
-                    int ialt = seq_nt16_int[seq_nt16_table[(int)bc]];
+                    int bi = bam_seqi(bam_get_seq(plp1->b), plp1->qpos);
+                    assert( bi );   // when does this happen?
+                    char bc = seq_nt16_str[bi];
+                    if ( bc!=ref[0] )
+                        ialt = seq_nt16_int[seq_nt16_table[(int)bc]];
+                }
+                ntot++;
+                if ( ialt>=0 )
+                {
                     nalt[ialt]++;
                     nalt_tot++;
                 }
@@ -437,6 +450,13 @@ static double score_site(batch_t *batch, site_t *site)
     return 10*log(1 + score);       // multiply by 10 for a better range of [0,250) or so
 }
 
+
+// How to treat duplicate positions: one alt may look good, but we want to consider this
+// as a site - one bad alt spoils it for all. With indels, it's even more complicated,
+// we cannot detect the alleles quite accurately (reference bias, realignment issues),
+// therefore we decided to see just a generic 'indel', not individual indel types. We
+// are aware this can lead to missed calls at multiallelic sites, but reducing FDR is
+// a lesser of the two evils.
 typedef struct
 {
     char *seq;
@@ -452,14 +472,28 @@ static void print_scores(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf
     for (i=0; i<nbuf; i++)
         if ( max_score < buf[i].score ) max_score = buf[i].score;
 
+    // For technical reasons we keep stats on a generic indel, specifically, the first indel record.
+    // We use its distribution and score for all indel types
+    site_t *fst_indel = NULL;
     for (i=0; i<nbuf; i++)
     {
         // ad-hoc rule: increase the lower score by 75% of the difference to the max score
         double score = (max_score - buf[i].score)*0.75 + buf[i].score;
 
+        site_t *site = buf[i].site;
+        int is_good = site->is_good;
+        uint32_t *dist = buf[i].site->dist;
+
+        if ( site->ref[1] || site->alt[1] )
+        {
+            if ( !fst_indel ) fst_indel = site;
+            dist = fst_indel->dist;
+            is_good = fst_indel->is_good;
+        }
+
         str->l = 0;
-        ksprintf(str,"SITE\t%s\t%d\t%c\t%c\t%d\t%e\t", buf[i].seq, buf[i].beg+1, buf[i].site->ref, buf[i].site->alt, (int)buf[i].site->is_good, score);
-        for (j=0; j<batch->nbins; j++) ksprintf(str,"%s%d",j==0?"":"-",buf[i].site->dist[j]);
+        ksprintf(str,"SITE\t%s\t%d\t%s\t%s\t%d\t%e\t", buf[i].seq, buf[i].beg+1, site->ref, site->alt, is_good, score);
+        for (j=0; j<batch->nbins; j++) ksprintf(str,"%s%d",j==0?"":"-",dist[j]);
         ksprintf(str,"\n");
         if ( bgzf_write(args->out_fh,str->s,str->l)!=str->l ) error("Failed to write to %s\n",args->output_fname);
     }
@@ -500,7 +534,7 @@ static int write_batch(args_t *args, batch_t *batch)
     if ( batch->good_calls.dist )
     {
         str.l = 0;
-        ksprintf(&str,"COUNTS\t");
+        ksprintf(&str,"GOOD_COUNTS\t");
         for (i=0; i<batch->nbins; i++) ksprintf(&str,"%s%d",i==0?"":"-",batch->good_calls.dist[i]);
         ksprintf(&str,"\n");
         if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
@@ -510,10 +544,10 @@ static int write_batch(args_t *args, batch_t *batch)
     if ( batch->mean )
     {
         str.l = 0;
-        ksprintf(&str,"MEAN\t");
+        ksprintf(&str,"GOOD_MEAN\t");
         for (i=0; i<batch->nbins; i++) ksprintf(&str," %e",batch->mean[i]);
         ksprintf(&str,"\n");
-        ksprintf(&str,"VAR2\t");
+        ksprintf(&str,"GOOD_VAR2\t");
         for (i=0; i<batch->nbins; i++) ksprintf(&str," %e",batch->var[i]);
         ksprintf(&str,"\n");
         if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
@@ -616,10 +650,10 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     batch_t *batch = (batch_t*) usr;
 
     uint32_t nbins, *bins, nval;
-    if ( !strncmp(line,"COUNTS\t",7) )
+    if ( !strncmp(line,"GOOD_COUNTS\t",12) )
     {
         int i;
-        batch->good_calls.dist = parse_bins(line+8, &nbins, &nval);
+        batch->good_calls.dist = parse_bins(line+13, &nbins, &nval);
         if ( batch->nbins && batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line+8);
         batch->nval = nval;
         for (i=0; i<nbins; i++)
@@ -647,19 +681,25 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     if ( ss==se ) error("Could not parse the POS part of the line: %s\n",line);
     (*beg)--;
 
-    // REF part and REF length
+    // REF part
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
-    *end = *beg + se-ss-1;
+    int ref_len = se - ss;
+    *end = *beg;
 
     site_t *site = (site_t*)payload;
     memset(site,0,sizeof(site_t));
-    site->ref = ss[0];
+    site->ref = malloc(ref_len+1);
+    strncpy(site->ref,ss,ref_len);
+    site->ref[ref_len] = 0;
 
     // ALT part
     ss = ++se;
     while ( *se && !isspace(*se) ) se++;
-    site->alt = ss[0];
+    int alt_len = se - ss;
+    site->alt = malloc(alt_len+1);
+    strncpy(site->alt,ss,alt_len);
+    site->alt[alt_len] = 0;
 
     // IS_GOOD part
     if ( *se!='\t' ) error("Could not parse the IS_GOOD part of the line: %s\n",line);
@@ -707,8 +747,8 @@ static int batch_merge(batch_t *tgt, batch_t *src)
         while ( regitr_overlap(tgt_itr) )
         {
             site_t *tgt_site = &regitr_payload(tgt_itr,site_t);
-            if ( src_site->ref!=tgt_site->ref ) continue;
-            if ( src_site->alt!=tgt_site->alt ) continue;
+            if ( strcmp(src_site->ref,tgt_site->ref) ) continue;
+            if ( strcmp(src_site->alt,tgt_site->alt) ) continue;
             tgt_site->is_good &= src_site->is_good;
             for (i=0; i<tgt->nbins; i++) tgt_site->dist[i] += src_site->dist[i];
             tgt_site->nval += src_site->nval;
@@ -753,7 +793,7 @@ static int merge(args_t *args)
     {
         tmp = batch_read(args->batch_fnames[i]);
         free(args->batch_fnames[i]);
-        if ( !tmp->nval ) // no data
+        if ( !tmp->nbins ) // no data
         {
             batch_destroy(tmp);
             continue;
