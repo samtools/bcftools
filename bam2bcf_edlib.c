@@ -684,7 +684,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (!cons_ins[i].str[j])
                         goto err;
                     memset(cons_ins[i].str[j] + cons_ins[i].len[j],
-                           'N', type - cons_ins[i].len[j]);
+                           4, type - cons_ins[i].len[j]);
                     cons_ins[i].len[j] = type;
                 }
                 if (!cons_ins[i].str[j])
