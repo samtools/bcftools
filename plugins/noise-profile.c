@@ -359,8 +359,8 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                 site_t *site = ialt2site[j];
                 if ( !site ) continue;
                 int ifreq = nn2bin(args->profile.nbins,ntot-nalt[j],nalt[j]);
-                if ( ifreq<0 ) continue;
-                if ( ntot ) site->is_good &= is_good;
+                assert( ifreq>=0 );
+                site->is_good &= is_good;
                 site->nval++;
                 site->dist[ifreq]++;
             }
@@ -436,6 +436,35 @@ static double score_site(batch_t *batch, site_t *site)
     }
     return 10*log(1 + score);       // multiply by 10 for a better range of [0,250) or so
 }
+
+typedef struct
+{
+    char *seq;
+    int beg;
+    double score;
+    site_t *site;
+}
+prn_site_t;
+static void print_scores(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf, kstring_t *str)
+{
+    double max_score = 0;
+    int i,j;
+    for (i=0; i<nbuf; i++)
+        if ( max_score < buf[i].score ) max_score = buf[i].score;
+
+    for (i=0; i<nbuf; i++)
+    {
+        // ad-hoc rule: increase the lower score by 75% of the difference to the max score
+        double score = (max_score - buf[i].score)*0.75 + buf[i].score;
+
+        str->l = 0;
+        ksprintf(str,"SITE\t%s\t%d\t%c\t%c\t%d\t%e\t", buf[i].seq, buf[i].beg+1, buf[i].site->ref, buf[i].site->alt, (int)buf[i].site->is_good, score);
+        for (j=0; j<batch->nbins; j++) ksprintf(str,"%s%d",j==0?"":"-",buf[i].site->dist[j]);
+        ksprintf(str,"\n");
+        if ( bgzf_write(args->out_fh,str->s,str->l)!=str->l ) error("Failed to write to %s\n",args->output_fname);
+    }
+}
+
 static int write_batch(args_t *args, batch_t *batch)
 {
     // output the site profiles
@@ -443,17 +472,27 @@ static int write_batch(args_t *args, batch_t *batch)
     kstring_t str = {0,0,0};
     if ( batch->idx )
     {
+        // Duplicate positions need to be re-scored, when one alt looks good while another bad, it is still a noisy site.
+        int nbuf = 0;
+        prn_site_t buf[100];
+
         regitr_t *itr = regitr_init(batch->idx);
         while ( regitr_loop(itr) )
         {
             site_t *site = &regitr_payload(itr,site_t);
-            double score = score_site(batch,site);
-            str.l = 0;
-            ksprintf(&str,"SITE\t%s\t%d\t%c\t%c\t%d\t%e\t", itr->seq, itr->beg+1,site->ref,site->alt,(int)site->is_good,score);
-            for (i=0; i<batch->nbins; i++) ksprintf(&str,"%s%d",i==0?"":"-",site->dist[i]);
-            ksprintf(&str,"\n");
-            if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
+            if ( nbuf && (buf[nbuf-1].seq!=itr->seq || buf[nbuf-1].beg!=itr->beg) )
+            {
+                print_scores(args,batch,buf,nbuf,&str);
+                nbuf = 0;
+            }
+            assert( nbuf+1 < 100 );
+            prn_site_t *tmp = &buf[nbuf++];
+            tmp->beg = itr->beg;
+            tmp->seq = itr->seq;
+            tmp->score = score_site(batch,site);
+            tmp->site  = site;
         }
+        print_scores(args,batch,buf,nbuf,&str);
         regitr_destroy(itr);
     }
 
@@ -668,6 +707,8 @@ static int batch_merge(batch_t *tgt, batch_t *src)
         while ( regitr_overlap(tgt_itr) )
         {
             site_t *tgt_site = &regitr_payload(tgt_itr,site_t);
+            if ( src_site->ref!=tgt_site->ref ) continue;
+            if ( src_site->alt!=tgt_site->alt ) continue;
             tgt_site->is_good &= src_site->is_good;
             for (i=0; i<tgt->nbins; i++) tgt_site->dist[i] += src_site->dist[i];
             tgt_site->nval += src_site->nval;
