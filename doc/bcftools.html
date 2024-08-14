@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2024-04-15</strong> and refers to bcftools git version <strong>1.20</strong>.</p>
+<p>This manual page was last updated <strong>2024-08-14 08:21 BST</strong> and refers to bcftools git version <strong>1.20-51-g5117d338+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -490,7 +490,7 @@ See also <strong>-c, --columns</strong> and <strong>-h, --header-lines</strong>.
 <p>Comma-separated list of columns or tags to carry over from the annotation file
 (see also <strong>-a, --annotations</strong>). If the annotation file is not a VCF/BCF,
 <em>list</em> describes the columns of the annotation file and must include CHROM,
-POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
+POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "-".
 &#160;<br>
 &#160;<br>
@@ -514,16 +514,50 @@ exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "-TAG".
+As a special case of this, if position needs to be replaced, mark the column with the new coordinate as "-POS".
+(Note that in previous releases this used to be "~POS", now deprecated.)
+&#160;<br>
+&#160;<br>
 To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
-If position needs to be replaced, mark the column with the new position as "~POS".
+Note that this works only for ID and POS, for other fields see the description of <strong>-i</strong> below.
 &#160;<br>
 &#160;<br>
 If the annotation file is not a VCF/BCF, all new annotations must be
 defined via <strong>-h, --header-lines</strong>.
 &#160;<br>
 &#160;<br>
-See also the <strong>-l, --merge-logic</strong> option.</p>
+See also the <strong>-l, --merge-logic</strong> option.
+&#160;<br>
+&#160;<br>
+<strong>Summary of <code>-c, --columns</code>:</strong></p>
 </dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    CHROM,POS,TAG       .. match by chromosome and position, transfer annotation from TAG
+    CHROM,POS,-,TAG     .. same as above, but ignore the third column of the annotation file
+    CHROM,BEG,END,TAG   .. match by region (BEG,END are synonymous to FROM,TO)
+    CHROM,POS,REF,ALT   .. match by CHROM, POS, REF and ALT
+
+    DST_TAG:=SRC_TAG    .. transfer the SRC_TAG using the new name DST_TAG
+    INFO                .. transfer all INFO annotations
+    ^INFO/TAG           .. transfer all INFO annotations except "TAG"
+
+    TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
+    +TAG      .. add or overwrite existing target value only it is "."
+    .TAG      .. add or overwrite existing target value even if source is "."
+    .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
+    -TAG      .. overwrite existing value, never add new if target does not exist
+    =TAG      .. do not overwrite but append value to existing tags
+
+    ~FIELD    .. use this column to match lines with -i/-e expression (see the description of -i below)
+    ~ID       .. in addition to CHROM,POS,REF,ALT match by also ID
+    ~INFO/END .. in addition to CHROM,POS,REF,ALT match by also INFO/END</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
 <dt class="hdlist1"><strong>-C, --columns-file</strong> <em>file</em></dt>
 <dd>
 <p>Read the list of columns from a file (normally given via the <strong>-c, --columns</strong> option).
@@ -535,7 +569,7 @@ This is useful when many annotations are added at once.</p>
 <dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
 <dd>
 <p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
-<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+<strong><a href="#expressions">EXPRESSIONS</a></strong> and the extension described in <strong>-i, --include</strong> below.</p>
 </dd>
 <dt class="hdlist1"><strong>--force</strong></dt>
 <dd>
@@ -576,8 +610,27 @@ one can use</p>
 <dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
 <dd>
 <p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
-<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.
+&#160;<br>
+&#160;<br>
+Additionally, the command <strong>bcftools annotate</strong> supports expressions updated from the annotation
+file dynamically for each record:</p>
 </dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    # The field 'STR' from the -a file is required to match INFO/TAG in VCF. In the first example
+    # the alleles REF,ALT must match, in the second example they are ignored. The option -k is required
+    # to output also records that are not annotated. The third example shows the same concept with
+    # a numerical expression.
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~INT     -i'TAG&gt;{INT}' -k input.vcf</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
 <dt class="hdlist1"><strong>-k, --keep-sites</strong></dt>
 <dd>
 <p>keep sites which do not pass <strong>-i</strong> and <strong>-e</strong> expressions instead of discarding them</p>
@@ -882,11 +935,15 @@ given instead, no HWE assumption is made at all and single-sample calling is per
 in low coverage data this inflates the rate of false positives.) The <strong>-G</strong> option requires the presence of
 per-sample FORMAT/QS or FORMAT/AD tag generated with <strong>bcftools mpileup -a QS</strong> (or <strong>-a AD</strong>).</p>
 </dd>
-<dt class="hdlist1"><strong>-g, --gvcf</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-g, --gvcf</strong> <em>INT</em>[,&#8230;&#8203;]</dt>
 <dd>
-<p>output also gVCF blocks of homozygous REF calls. The parameter <em>INT</em> is the
-minimum per-sample depth required to include a site in the non-variant
-block.</p>
+<p>output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+specified by the list of integers. For example, passing <em>5,15</em> will
+group sites into two types of gVCF blocks, the first with minimum
+per-sample DP from the interval [5,15) and the latter with minimum
+depth 15 or more. In this example, sites with minimum per-sample
+depth less than 5 will be printed as separate records, outside of
+gVCF blocks.</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --insert-missed</strong> <em>INT</em></dt>
 <dd>
@@ -1814,7 +1871,7 @@ transcripts in malformatted GFFs with incorrect phase</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --gff-annot</strong> <em>FILE</em></dt>
 <dd>
-<p>GFF3 annotation file (required), such as <a href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" class="bare">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens</a>.
+<p>GFF3 annotation file (required), such as <a href="http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/" class="bare">http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/</a>.
 The script <strong><a href="#gff2gff">gff2gff</a></strong> can help with conversion from non-standard GFF formats.
 An example of a minimal working GFF file:</p>
 </dd>
@@ -1965,6 +2022,10 @@ plain text output can be printed (<em>t</em>).</p>
 <p>Automatically detect and unify chromosome naming conventions in the GFF, fasta
 and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
 that of the input VCF. The default is to attempt the automatic translation.</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dd>
+<p>verbosity level (0-2)</p>
 </dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
@@ -2203,7 +2264,7 @@ Without the <strong>-g</strong> option, multi-sample cross-check of samples in <
 <div class="paragraph">
 <p>Note that the interpretation of the discordance score depends on the options provided (specifically <strong>-e</strong> and
 <strong>-u</strong>) and on the available annotations (FORMAT/PL vs FORMAT/GT).
-The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.</p>
+The discordance score can be interpreted as the number of mismatching genotypes only if GT-vs-GT matching is performed.</p>
 </div>
 <div class="dlist">
 <dl>
@@ -2806,7 +2867,8 @@ multiple regions and many alignment files are processed.</p>
 </dd>
 <dt class="hdlist1"><strong>-A, --count-orphans</strong></dt>
 <dd>
-<p>Do not skip anomalous read pairs in variant calling.</p>
+<p>Include anomalous read pairs in variant calling, i.e. reads with
+flag PAIRED but not PROPER_PAIR set. By default such reads are discarded.</p>
 </dd>
 <dt class="hdlist1"><strong>-b, --bam-list</strong> <em>FILE</em></dt>
 <dd>
@@ -2821,10 +2883,69 @@ by misalignments.</p>
 </dd>
 <dt class="hdlist1"><strong>-C, --adjust-MQ</strong> <em>INT</em></dt>
 <dd>
-<p>Coefficient  for  downgrading mapping quality for reads containing
-excessive mismatches. Given a read with a phred-scaled probability q of
-being generated from the mapped position, the new mapping quality is
-about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.</p>
+<p>Coefficient for downgrading mapping quality for reads containing
+excessive mismatches.  Mismatches are counted as a proportion of the
+number of aligned bases ("M", "X" or "=" CIGAR operations), along with
+their quality, to derive an upper-bound of the mapping quality.
+Original mapping qualities lower than this are left intact, while
+higher ones are capped at the new adjusted score.</p>
+<div class="paragraph">
+<p>The exact formula is complex and likely tuned to specific instruments
+and specific alignment tools, so this option is disabled by default
+(indicated as having a zero value).  Variables in the formulae and
+their meaning are defined below.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Variable    Meaning / formula
+M           The number of matching CIGAR bases (operation "M", "X" or "=").
+X           The number of substitutions with quality &gt;= 13.
+SubQ        The summed quality of substitution bases included in X, capped
+            at a maximum of quality 33 per mismatching base.
+ClipQ       The summed quality of soft-clipped or hard-clipped bases. This
+            has no minimum or maximum quality threshold per base.  For
+            hard-clipped bases the per-base quality is taken as 13.
+
+T           SubQ - 10 * log10(M^X / X!) + ClipQ/5
+Cap         MAX(0, INT * sqrt((INT - T) / INT))</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Some notes on the impact of this.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>As the number of mismatches increases, the mapping quality cap
+reduces, eventually resulting in discarded alignments.</p>
+</li>
+<li>
+<p>High quality mismatches reduces the cap faster than low quality
+mismatches.</p>
+</li>
+<li>
+<p>The starting INT value also acts as a hard cap on mapping quality,
+even when zero mismatches are observed.</p>
+</li>
+<li>
+<p>Indels have no impact on the mapping quality.</p>
+<div class="paragraph">
+<p>The intent of this option is to work around aligners that compute a
+mapping quality using a local alignment without having any regard to
+the degree of clipping required or consideration of potential
+contamination or large scale insertions with respect to the reference.
+A record may align uniquely and have no close second match, but having
+a high number of mismatches may still imply that the reference is not
+the correct site.</p>
+</div>
+<div class="paragraph">
+<p>However we do not recommend use of this parameter unless you fully
+understand the impact of it and have determined that it is appropriate
+for your sequencing technology.</p>
+</div>
+</li>
+</ul>
+</div>
 </dd>
 <dt class="hdlist1"><strong>-D, --full-BAQ</strong></dt>
 <dd>
@@ -3358,7 +3479,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -3369,6 +3490,11 @@ See also <strong>--collapse</strong> in <strong><a href="#common_options">Common
 <dd>
 <p>If a record is present in multiple files, output only the first instance.
 Alias for <strong>-d none</strong>, deprecated.</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>do not normalize input records for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>. Note that duplicate removal ignores this option.</p>
 </dd>
 <dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em><a id="fasta_ref"></a></dt>
 <dd>
@@ -3386,6 +3512,11 @@ are encountered, discarding such tags. (Experimental, use at your own risk.)</p>
 <p>when a GFF file is provided, follow HGVS 3&#8217;rule and right-align variants in transcripts on the forward
 strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
 description of the supported GFF3 file format see <strong><a href="#csq">bcftools csq</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>normalize only input records for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>. Note that duplicate removal ignores this option.</p>
 </dd>
 <dt class="hdlist1"><strong>--keep-sum</strong> <em>TAG</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -3450,6 +3581,11 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dd>
 <p>when merging (<em>-m+</em>), merged site is PASS only if all sites being merged PASS</p>
 </dd>
+<dt class="hdlist1"><strong>-S, --sort</strong> <em>pos</em>|<em>lex</em></dt>
+<dd>
+<p>when splitting sites or processing duplicates, sort records on output by
+POS only (<em>pos</em>, the default) or by POS and lexicographically by REF+ALT (<em>lex</em>)</p>
+</dd>
 <dt class="hdlist1"><strong>-t, --targets</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3465,6 +3601,10 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dd>
+<p>verbosity level of GFF parsing (0-2)</p>
 </dd>
 <dt class="hdlist1"><strong>-w, --site-win</strong> <em>INT</em></dt>
 <dd>
@@ -4027,7 +4167,8 @@ fields will be still printed but instead of their actual value, <em>STR</em> wil
 </dd>
 <dt class="hdlist1"><strong>-H, --print-header</strong></dt>
 <dd>
-<p>print header</p>
+<p>print header. By default, the header is printed with column indices, e.g. "#[1]CHROM".
+These can be suppressed by giving the option twice, "<code>-HH</code>".</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -4116,6 +4257,7 @@ print "." instead</p>
 %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
 %TGT            Translated genotype (e.g. C/A)
 %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+%VKX            VariantKey, biallelic hexadecimal encoding of CHROM,POS,REF,ALT (https://github.com/tecnickcom/variantkey)
 []              Format fields must be enclosed in brackets to loop over all samples
 \n              new line
 \t              tab character</pre>
@@ -5211,7 +5353,7 @@ number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-indel length (deletions negative, insertions positive)</p>
+indel length (deletions negative, insertions positive, balanced substitutions zero)</p>
 <div class="literalblock">
 <div class="content">
 <pre>N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN</pre>
@@ -5508,7 +5650,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-04-15 15:10:13 +0100
+Last updated 2024-08-14 08:21:31 +0100
 </div>
 </div>
 </body>
