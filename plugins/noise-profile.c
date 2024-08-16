@@ -47,12 +47,19 @@
 #include "regidx.h"
 
 
+// Variance at good sites as found in real data (~2000 samples). Originally, the code would attempt to
+// identify good sites with an automatic heuristic, but that did not always work. A more robust way is
+// to use a pre-computed profile and allow the user to override (todo)
+#define N_BINS 20
+const double var2[N_BINS] = {1,1.441327e-03,4.382657e-05,6.160600e-07,1.414270e-08,2.828540e-09,2.357117e-09,
+    2.020386e-09,1.767838e-09,1.571411e-09,1.414270e-09,1.285700e-09,1.178558e-09,1.087900e-09,1.010193e-09,
+    9.428468e-10,8.839188e-10,8.319236e-10,7.857056e-10,7.443527e-10};
+
 // VAF profile across many samples at a single site. Used as a regidx payload
 typedef struct
 {
     char *ref, *alt;    // note indels are preserved, but internally all treated as a single type
-    uint32_t is_good:1, // is the site suitable for training? 0:no, (1 && nval>0):yes, (1 && !nval):no data
-             nval:31,   // number of values
+    uint32_t nval,      // number of values
             *dist;      // histogram of VAF frequencies
 }
 site_t;
@@ -60,11 +67,10 @@ site_t;
 typedef struct
 {
     char *fname;
-    int nbins;          // number of VAF bins
-    int nval;           // number of values contributing to the computed profile (ie number of good sites)
-    double *mean, *var; // mean and variance of each VAF bin across good sites indexed by regidx
-    regidx_t *idx;      // sites in the batch; all batches should have the same set of sites
-    site_t good_calls;  // cumulative VAF histogram from good calls, ie binom(VAF)<=binom_th
+    int nbins;              // number of VAF bins
+    int nval;               // number of values contributing to the computed profile
+    double *mean, *var2;    // mean and variance of each VAF bin across all sites indexed by regidx
+    regidx_t *idx;          // sites in the batch; all batches should have the same set of sites
 }
 batch_t;
 
@@ -72,7 +78,7 @@ typedef struct
 {
     int argc, output_type, record_cmd_line, clevel, use_bam_idx, verbose;
     char **argv, *output_fname, *sites_fname, *aln_fname, *fasta_fname, *batch_fname, *batch;
-    char **bams, **batch_fnames;
+    char **bams, **batch_fnames, *recalc_type;
     int nbams, nbatch_fnames;
     double binom_th;    // include in the profile only calls with binom(VAF)<=binom_th
     BGZF *out_fh;
@@ -102,12 +108,16 @@ static const char *usage_text(void)
         "Model options:\n"
         "   -B, --binom-th FLOAT          Maximum p-value of calls included in the expected profile [1e-4]\n"
         "   -n, --nbins INT               Number of VAF bins [20]\n"
+        "   -r, --recalc TYPE             Recalculate scores based on provided variances [hc]\n"
+        "                                   data .. as observed in the data\n"
+        "                                   file .. read profile from file (-r file:/path/to/file.txt)\n"
+        "                                   hc   .. hard-coded profile\n"
         "\n"
         "Other options:\n"
         "   -b, --batch I/N               Run I-th batch out of N, 1-based\n"
         "   -i, --use-index               Use index to jump the alignments, rather than stream\n"
         "   -m, --merge-batches FILE      Merge files produced with -b, --batch, FILE is a list of batch files\n"
-        "   -M, --merge-files FILE ...    Same as -m, FILE is one or more btch files\n"
+        "   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files\n"
         "   -o, --output FILE             Output file name [stdout]\n"
         "   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]\n"
         "   -v, --verbose                 Print the elapsed and estimated total running time\n"
@@ -165,7 +175,6 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     strncpy(site->ref,ss,ref_len);
     site->ref[ref_len] = 0;
     site->dist = calloc(args->profile.nbins,sizeof(*site->dist));
-    site->is_good = 1;  // presume the site is good
 
     // ALT part
     ss = ++se;
@@ -196,9 +205,8 @@ static void batch_profile_destroy(args_t *args)
     if ( args->mplp ) mpileup_destroy(args->mplp);
     if ( args->sites_idx ) regidx_destroy(args->sites_idx);
     if ( args->sites_itr ) regitr_destroy(args->sites_itr);
-    free(args->profile.good_calls.dist);
     free(args->profile.mean);
-    free(args->profile.var);
+    free(args->profile.var2);
     free(args);
 }
 static int batch_profile_init(args_t *args)
@@ -261,7 +269,6 @@ static int batch_profile_init(args_t *args)
     args->sites_idx = regidx_init(args->sites_fname,parse_sites,free_sites,sizeof(site_t),args);
     args->sites_itr = regitr_init(args->sites_idx);
     args->out_fh = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
-    args->profile.good_calls.dist = calloc(args->profile.nbins,sizeof(*args->profile.good_calls.dist));
     return 0;
 }
 inline static int nn2bin(int nbin, int nref, int nalt)
@@ -334,7 +341,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
         for (i=0; i<nsmpl; i++)
         {
             // Collect counts: the number of reads in total, alt alleles total, and each alt separately
-            int ntot = 0, nalt[5] = {0,0,0,0,0}, nalt_tot = 0;
+            int ntot = 0, nalt[5] = {0,0,0,0,0};
             for (j=0; j<n_plp[i]; j++)
             {
                 const bam_pileup1_t *plp1 = plp[i] + j;
@@ -348,32 +355,21 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                     if ( bc!=ref[0] )
                         ialt = seq_nt16_int[seq_nt16_table[(int)bc]];
                 }
-                ntot++;
                 if ( ialt>=0 )
                 {
                     nalt[ialt]++;
-                    nalt_tot++;
+                    ntot++;
                 }
             }
             if ( !ntot ) continue;
 
-            // Mark good sites: ref must be the major allele, good coverage, and low VAF
-            int nref = ntot - nalt_tot;
-            int is_good = 0;
-            if ( nref > nalt_tot && calc_binom_two_sided(nref,nalt_tot,0.5) <= args->binom_th )
-            {
-                int ifreq = nn2bin(args->profile.nbins,nref,nalt_tot);
-                args->profile.good_calls.nval++;
-                args->profile.good_calls.dist[ifreq]++;
-                is_good = 1;
-            }
+            // Increment site counters
             for (j=0; j<5; j++)
             {
                 site_t *site = ialt2site[j];
                 if ( !site ) continue;
                 int ifreq = nn2bin(args->profile.nbins,ntot-nalt[j],nalt[j]);
                 assert( ifreq>=0 );
-                site->is_good &= is_good;
                 site->nval++;
                 site->dist[ifreq]++;
             }
@@ -381,22 +377,27 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     }
     return 0;
 }
-static void batch_profile_set_mean_var(batch_t *batch)
+static void batch_profile_set_mean_var2(batch_t *batch)
 {
     // this is to calculate the mean and variance for each VAF bin
     free(batch->mean);
-    free(batch->var);
     batch->mean = calloc(batch->nbins,sizeof(*batch->mean));
-    batch->var  = calloc(batch->nbins,sizeof(*batch->var));
+
+    double *var2 = NULL;
+    if ( !batch->var2 )
+    {
+        batch->var2 = calloc(batch->nbins,sizeof(*batch->var2));
+        var2 = batch->var2;
+    }
     batch->nval = 0;
 
-    // calculate profile from all good sites
+    // calculate profile from all sites
     int i;
     regitr_t *itr = regitr_init(batch->idx);
     while ( regitr_loop(itr) )
     {
         site_t *site = &regitr_payload(itr,site_t);
-        if ( !site->is_good || !site->nval ) continue;
+        if ( !site->nval ) continue;
 
         // normalize the site and add to the mean and variance calculation
         double max_val = site->dist[0];
@@ -406,23 +407,29 @@ static void batch_profile_set_mean_var(batch_t *batch)
         {
             double val = site->dist[i]/max_val;
             batch->mean[i] += val;
-            batch->var[i]  += val*val;
+            if ( var2 ) var2[i] += val*val;
         }
         batch->nval++;
     }
     if ( batch->nval )
     {
-        double min_nonzero_var = HUGE_VAL;
+        double min_nonzero_var2 = HUGE_VAL;
         for (i=0; i<batch->nbins; i++)
         {
             batch->mean[i] = batch->mean[i]/batch->nval;
-            batch->var[i]  = batch->var[i]/batch->nval - batch->mean[i]*batch->mean[i];
-            if ( batch->var[i]>0 && batch->var[i] < min_nonzero_var ) min_nonzero_var = batch->var[i];
+            if ( var2 )
+            {
+                var2[i] = var2[i]/batch->nval - batch->mean[i]*batch->mean[i];
+                if ( var2[i]>0 && var2[i] < min_nonzero_var2 ) min_nonzero_var2 = var2[i];
+            }
         }
         // to avoid infinite scores, make sure we never see zero variance,
         // but make it ever decreasing to penalize higher VAF bins
-        for (i=0; i<batch->nbins; i++)
-            if ( batch->var[i]==0 ) batch->var[i] = min_nonzero_var/i;
+        if ( var2 )
+        {
+            for (i=0; i<batch->nbins; i++)
+                if ( var2[i]==0 ) var2[i] = min_nonzero_var2/i;
+        }
     }
     regitr_destroy(itr);
 }
@@ -433,19 +440,12 @@ static double score_site(batch_t *batch, site_t *site)
     for (i=1; i<batch->nbins; i++)
         if ( max_val < site->dist[i] ) max_val = site->dist[i];
 
-    // Only count excesses in non-zero VAF bins, don't penalize cleaner sites.
-    // Take average of a noise profile with normal mean and an idealized profile
-    // where mean is zero - this is to prioritize sites with exceptionally clean
-    // profiles
+    // This naturally counts excesses in non-zero VAF bins, cleaner sites are not penalized.
     double score = 0;
     for (i=1; i<batch->nbins; i++)
     {
         double tmp = site->dist[i]/max_val;
-        double val1 = tmp - batch->mean[i];
-        val1 = val1 > 0 ? val1*val1 : 0;        // normal mean, add only if the value exceeds it
-
-        double val2 = tmp*tmp;                  // idealized mean of 0, always add
-        score += 0.5*(val1 + val2)/batch->var[i];
+        score += tmp*tmp / batch->var2[i];
     }
     return 10*log(1 + score);       // multiply by 10 for a better range of [0,250) or so
 }
@@ -465,7 +465,7 @@ typedef struct
     site_t *site;
 }
 prn_site_t;
-static void print_scores(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf, kstring_t *str)
+static void print_buffered_sites(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf, kstring_t *str)
 {
     double max_score = 0;
     int i,j;
@@ -481,18 +481,16 @@ static void print_scores(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf
         double score = (max_score - buf[i].score)*0.75 + buf[i].score;
 
         site_t *site = buf[i].site;
-        int is_good = site->is_good;
         uint32_t *dist = buf[i].site->dist;
 
         if ( site->ref[1] || site->alt[1] )
         {
             if ( !fst_indel ) fst_indel = site;
             dist = fst_indel->dist;
-            is_good = fst_indel->is_good;
         }
 
         str->l = 0;
-        ksprintf(str,"SITE\t%s\t%d\t%s\t%s\t%d\t%e\t", buf[i].seq, buf[i].beg+1, site->ref, site->alt, is_good, score);
+        ksprintf(str,"SITE\t%s\t%d\t%s\t%s\t%e\t", buf[i].seq, buf[i].beg+1, site->ref, site->alt, score);
         for (j=0; j<batch->nbins; j++) ksprintf(str,"%s%d",j==0?"":"-",dist[j]);
         ksprintf(str,"\n");
         if ( bgzf_write(args->out_fh,str->s,str->l)!=str->l ) error("Failed to write to %s\n",args->output_fname);
@@ -516,7 +514,7 @@ static int write_batch(args_t *args, batch_t *batch)
             site_t *site = &regitr_payload(itr,site_t);
             if ( nbuf && (buf[nbuf-1].seq!=itr->seq || buf[nbuf-1].beg!=itr->beg) )
             {
-                print_scores(args,batch,buf,nbuf,&str);
+                print_buffered_sites(args,batch,buf,nbuf,&str);
                 nbuf = 0;
             }
             assert( nbuf+1 < 100 );
@@ -526,29 +524,19 @@ static int write_batch(args_t *args, batch_t *batch)
             tmp->score = score_site(batch,site);
             tmp->site  = site;
         }
-        print_scores(args,batch,buf,nbuf,&str);
+        print_buffered_sites(args,batch,buf,nbuf,&str);
         regitr_destroy(itr);
     }
 
-    // output the good calls' profile
-    if ( batch->good_calls.dist )
-    {
-        str.l = 0;
-        ksprintf(&str,"GOOD_COUNTS\t");
-        for (i=0; i<batch->nbins; i++) ksprintf(&str,"%s%d",i==0?"":"-",batch->good_calls.dist[i]);
-        ksprintf(&str,"\n");
-        if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
-    }
-
-    // output the mean and variation at good calls
+    // output the mean and variance
     if ( batch->mean )
     {
         str.l = 0;
-        ksprintf(&str,"GOOD_MEAN\t");
+        ksprintf(&str,"MEAN\t");
         for (i=0; i<batch->nbins; i++) ksprintf(&str," %e",batch->mean[i]);
         ksprintf(&str,"\n");
-        ksprintf(&str,"GOOD_VAR2\t");
-        for (i=0; i<batch->nbins; i++) ksprintf(&str," %e",batch->var[i]);
+        ksprintf(&str,"VAR2\t");
+        for (i=0; i<batch->nbins; i++) ksprintf(&str," %e",batch->var2[i]);
         ksprintf(&str,"\n");
         if ( bgzf_write(args->out_fh,str.s,str.l)!=str.l ) error("Failed to write to %s\n",args->output_fname);
     }
@@ -613,7 +601,7 @@ static int batch_profile_run(args_t *args)
     free(str.s);
 
     args->profile.idx = args->sites_idx;
-    batch_profile_set_mean_var(&args->profile);
+    batch_profile_set_mean_var2(&args->profile);
     write_batch(args, &args->profile);
     args->profile.idx = NULL;   // otherwise it would be destroyed twice
 
@@ -643,21 +631,39 @@ static uint32_t *parse_bins(const char *line, uint32_t *nbins, uint32_t *nval)
     *nbins = n;
     return bins;
 }
+static double *parse_float_array(const char *line, int *narray)
+{
+    int i, n = 0;
+    const char *ptr = line;
+    while ( *ptr )
+    {
+        while ( *ptr && !isspace(*ptr) ) ptr++;
+        n++;
+        if ( *ptr ) ptr++;
+    }
+    ptr = line;
+    double *array = calloc(n,sizeof(*array));
+    for (i=0; i<n; i++)
+    {
+        char *tmp;
+        array[i] = strtod(ptr,&tmp);
+        if ( *tmp && !isspace(*tmp) ) error("Could not parse the float array: %s\n",line);
+        ptr = tmp+1;
+    }
+    *narray = n;
+    return array;
+}
 static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
 {
     // parses lines like this:
     //  SITE	chr	3	A	C	1	7.194245e-02	 1-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0
     batch_t *batch = (batch_t*) usr;
 
-    uint32_t nbins, *bins, nval;
-    if ( !strncmp(line,"GOOD_COUNTS\t",12) )
+    if ( !strncmp(line,"MEAN\t",5) )
     {
-        int i;
-        batch->good_calls.dist = parse_bins(line+13, &nbins, &nval);
-        if ( batch->nbins && batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line+8);
-        batch->nval = nval;
-        for (i=0; i<nbins; i++)
-            batch->good_calls.nval += batch->good_calls.dist[i];
+        int nbins;
+        batch->mean = parse_float_array(line+6, &nbins);
+        if ( batch->nbins && batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line);
         return -1;
     }
     if ( strncmp(line,"SITE\t",5) ) return -1;     // skip
@@ -701,15 +707,8 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     strncpy(site->alt,ss,alt_len);
     site->alt[alt_len] = 0;
 
-    // IS_GOOD part
-    if ( *se!='\t' ) error("Could not parse the IS_GOOD part of the line: %s\n",line);
-    se++;
-    if ( *se!='1' && *se!='0' ) error("Could not parse the IS_GOOD part of the line: %s\n",line);
-    site->is_good = *se=='0' ? 0 : 1;
-    se++;
-    while ( *se && isspace(*se) ) se++;
-
     // skip the SCORE part
+    while ( *se && isspace(*se) ) se++;
     ss = se;
     while ( *se && !isspace(*se) ) se++;
     if ( !*se ) error("Could not parse the SCORE part of the line: %s\n",line);
@@ -717,7 +716,7 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
     if ( !*se ) error("Could not parse the SCORE part of the line: %s\n",line);
 
     // read the PROFILE part
-    bins = parse_bins(se, &nbins,&nval);
+    uint32_t nbins, nval, *bins = parse_bins(se, &nbins,&nval);
     if ( !batch->nbins ) batch->nbins = nbins;
     if ( batch->nbins!=nbins ) error("Different number of bins, %d vs %d: %s\n",batch->nbins,nbins,line);
     site->dist = bins;
@@ -749,7 +748,6 @@ static int batch_merge(batch_t *tgt, batch_t *src)
             site_t *tgt_site = &regitr_payload(tgt_itr,site_t);
             if ( strcmp(src_site->ref,tgt_site->ref) ) continue;
             if ( strcmp(src_site->alt,tgt_site->alt) ) continue;
-            tgt_site->is_good &= src_site->is_good;
             for (i=0; i<tgt->nbins; i++) tgt_site->dist[i] += src_site->dist[i];
             tgt_site->nval += src_site->nval;
             break;
@@ -758,17 +756,14 @@ static int batch_merge(batch_t *tgt, batch_t *src)
     regitr_destroy(src_itr);
     regitr_destroy(tgt_itr);
     tgt->nval += src->nval;
-    for (i=0; i<tgt->nbins; i++)
-        tgt->good_calls.dist[i] += src->good_calls.dist[i];
     return 0;
 }
 static void batch_destroy(batch_t *batch)
 {
-    free(batch->good_calls.dist);
     if ( batch->idx ) regidx_destroy(batch->idx);
     free(batch->fname);
     free(batch->mean);
-    free(batch->var);
+    free(batch->var2);
     free(batch);
 }
 static void merge_add_batch(args_t *args, const char *fname)
@@ -776,6 +771,23 @@ static void merge_add_batch(args_t *args, const char *fname)
     args->nbatch_fnames++;
     args->batch_fnames = (char**)realloc(args->batch_fnames,sizeof(*args->batch_fnames)*args->nbatch_fnames);
     args->batch_fnames[args->nbatch_fnames - 1] = strdup(fname);
+}
+static void init_var2(args_t *args, batch_t *batch)
+{
+    if ( !strcmp(args->recalc_type,"hc") )
+    {
+        if ( batch->nbins!=N_BINS ) error("todo: --nbins %d != %d\n",batch->nbins,N_BINS);
+        batch->var2 = malloc(sizeof(*batch->var2)*batch->nbins);
+        int i;
+        for (i=0; i<batch->nbins; i++) batch->var2[i] = var2[i];
+        return;
+    }
+    if ( !strcmp(args->recalc_type,"data") )
+    {
+        // variance will be calculated from the data
+        return;
+    }
+     error("todo: --recalc %s\n",args->recalc_type);
 }
 static int merge(args_t *args)
 {
@@ -798,19 +810,23 @@ static int merge(args_t *args)
             batch_destroy(tmp);
             continue;
         }
-        if ( !batch ) { batch = tmp; continue; }
+        if ( !batch )
+        {
+            batch = tmp;
+            init_var2(args,batch);
+            continue;
+        }
         batch_merge(batch,tmp);
         batch_destroy(tmp);
     }
     if ( !batch ) error("Error: failed to merge the files, no usable data found\n");
 
-    batch_profile_set_mean_var(batch);
+    batch_profile_set_mean_var2(batch);
     write_batch(args,batch);
 
-    if ( args->out_fh && bgzf_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
-    batch_destroy(batch);
     free(args->batch_fnames);
-    free(args);
+    batch_destroy(batch);
+    batch_profile_destroy(args);
     return 0;
 }
 int run(int argc, char **argv)
@@ -822,9 +838,11 @@ int run(int argc, char **argv)
     args->record_cmd_line = 1;
     args->clevel = -1;
     args->binom_th = 1e-4;
-    args->profile.nbins = 20;
+    args->profile.nbins = N_BINS;
+    args->recalc_type = "hc";
     static struct option loptions[] =
     {
+        {"recalc",required_argument,NULL,'r'},
         {"batch",required_argument,NULL,'b'},
         {"merge-batches",required_argument,NULL,'m'},
         {"merge-files",required_argument,NULL,'M'},
@@ -841,7 +859,7 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:B:n:ib:m:M:v",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:B:n:ib:m:M:vr:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -854,6 +872,7 @@ int run(int argc, char **argv)
                 if ( *tmp || args->profile.nbins<10 ) error("Could not parse argument: --nbins %s; the minimum value is 10\n", optarg);
                 break;
             case 'i': args->use_bam_idx = 1; break;
+            case 'r': args->recalc_type = optarg; break;
             case 'f': args->fasta_fname = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -894,6 +913,7 @@ int run(int argc, char **argv)
     int do_profile = args->aln_fname ? 1 : 0;
     if ( !do_merge && !do_profile ) error("%s", usage_text());
     if ( do_merge && do_profile ) error("%s", usage_text());
+    if ( args->recalc_type ) init_var2(args,&args->profile);
 
     if ( do_profile )
     {
