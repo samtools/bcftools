@@ -41,6 +41,7 @@
 #include <htslib/kstring.h>
 #include <htslib/kfunc.h>
 #include <htslib/khash_str2int.h>
+#include <htslib/hts_defs.h>
 #include "bcftools.h"
 #include "HMM.h"
 #include "rbuf.h"
@@ -105,7 +106,7 @@ typedef struct _args_t
 }
 args_t;
 
-FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
+FILE *open_file(char **fname, const char *mode, const char *fmt, ...) HTS_FORMAT(HTS_PRINTF_FMT, 3, 4);
 
 static inline void hmm2cn_state(int nstates, int i, int *a, int *b)
 {

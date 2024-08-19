@@ -711,15 +711,13 @@ static void parse_column_str(args_t *args)
         ann->idx = j = column[i];
         ann->field = strdup(args->field[j]);
         ann->tag = strdup(args->field[j]);
-        args->kstr.l = 0;
         const char *type = "String";
         if ( ann->type==BCF_HT_REAL ) type = "Float";
         else if ( ann->type==BCF_HT_INT ) type = "Integer";
         else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
         else if ( ann->type==BCF_HT_STR ) type = "String";
         else if ( ann->type==-1 ) type = get_column_type(args, args->field[j], &ann->type);
-        ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
-        bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
+        bcf_hdr_printf(args->hdr_out, "##INFO=<ID=%s,Number=.,Type=%s,Description=\"The %s field from INFO/%s\">", ann->tag,type,ann->field,args->vep_tag);
         if ( str.l ) kputc(',',&str);
         kputs(ann->tag,&str);
     }
