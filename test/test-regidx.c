@@ -33,12 +33,14 @@
 #include <getopt.h>
 #include <htslib/kstring.h>
 #include <htslib/hts_os.h>
+#include <htslib/hts_defs.h>
 #include <time.h>
 #include "regidx.h"
 
 static int verbose = 0;
 
-void debug(const char *format, ...)
+void HTS_FORMAT(HTS_PRINTF_FMT, 1, 2)
+debug(const char *format, ...)
 {
     if ( verbose<2 ) return;
     va_list ap;
@@ -46,7 +48,8 @@ void debug(const char *format, ...)
     vfprintf(stderr, format, ap);
     va_end(ap);
 }
-void info(const char *format, ...)
+void HTS_FORMAT(HTS_PRINTF_FMT, 1, 2)
+info(const char *format, ...)
 {
     if ( verbose<1 ) return;
     va_list ap;
@@ -54,7 +57,8 @@ void info(const char *format, ...)
     vfprintf(stderr, format, ap);
     va_end(ap);
 }
-void error(const char *format, ...)
+void HTS_FORMAT(HTS_PRINTF_FMT, 1, 2) HTS_NORETURN
+error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);

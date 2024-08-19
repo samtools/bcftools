@@ -1529,7 +1529,7 @@ static void print_stats(args_t *args)
             {
                 if ( usr->vals_ts[j]+usr->vals_tv[j] == 0 ) continue;   // skip empty bins
                 float val = usr->min + (usr->max - usr->min)*j/(usr->nbins-1);
-                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n" : "USR:%s/%d\t%d\t%.0f\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n";
+                const char * const fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n" : "USR:%s/%d\t%d\t%.0f\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n";
                 printf(fmt,usr->tag,usr->idx,id,val,usr->vals_ts[j]+usr->vals_tv[j],usr->vals_ts[j],usr->vals_tv[j]);
             }
         }

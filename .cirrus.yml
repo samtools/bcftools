@@ -84,6 +84,7 @@ ubuntu_task:
 
   environment:
     CC: clang
+    CFLAGS: -g -O2 -Werror -Wall -Wformat -Wformat=2
     LC_ALL: C
     CIRRUS_CLONE_DEPTH: 1
     HTSDIR: ./htslib

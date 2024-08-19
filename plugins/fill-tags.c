@@ -342,12 +342,17 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
         error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
     return 0;
 }
-void hdr_append(args_t *args, char *fmt)
-{
-    int i;
-    for (i=0; i<args->npop; i++)
-        bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
-}
+
+// This is implemented as a macro so the compiler can properly validate the
+// printf format string.
+#define hdr_append(args, fmt) \
+do { \
+    int i; \
+    for (i=0; i<args->npop; i++) \
+        bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name); \
+} while (0)
+
+
 int parse_func_pop(args_t *args, pop_t *pop, char *tag_expr, char *expr)
 {
     pop->nftf++;
