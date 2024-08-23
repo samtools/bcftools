@@ -105,9 +105,12 @@ static void init_data(args_t *args)
             error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
         int j;
-        for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+        for (j=0; j<bcf_hdr_nsamples(hdr); j++) {
+            fprintf(stderr, "%s %s\n", args->out_hdr->samples[j], hdr->samples[j]);
+
             if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
                 error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
+        }
 
         if ( args->phased_concat )
         {
@@ -257,7 +260,6 @@ static void destroy_data(args_t *args)
     free(args->fnames);
 }
 
-int vcf_write_line(htsFile *fp, kstring_t *line);
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void phase_update(args_t *args, bcf_hdr_t *hdr, bcf1_t *rec)
@@ -476,6 +478,7 @@ static int _get_active_index(bcf_srs_t *sr)
     return -1;
 }
 
+
 static void concat(args_t *args)
 {
     static int site_drop_warned = 0;
@@ -683,7 +686,23 @@ static void concat(args_t *args)
                     args->seen_seq[chr_id] = 1;
                     prev_chr_id = chr_id;
 
-                    if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("\nFailed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
+                    if (!args->out_fh->idx) {
+                        if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("\nFailed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
+                    } else {
+                        // need to find reflen
+                        str = end + 1; // should be the beginning of the ref
+                        while (*str && *str != '\t') str++; // Get past the ID entry
+                        char *beg = str + 1;
+                        str++;
+
+                        while (*str && *str != '\t') {
+                            str++; // Get past the REF entry
+                        }
+
+                        if (vcf_write_line_with_index(args->out_fh, args->out_hdr, &fp->line, chr_id, tmp.s, pos, (str - beg)) < 0) {
+                            error("\nFailed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
+                        }
+                    }
                 }
             }
             else
