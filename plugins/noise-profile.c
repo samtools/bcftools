@@ -80,7 +80,7 @@ typedef struct
     char **argv, *output_fname, *sites_fname, *aln_fname, *fasta_fname, *batch_fname, *batch;
     char **bams, **batch_fnames, *recalc_type;
     int nbams, nbatch_fnames;
-    double binom_th;    // include in the profile only calls with binom(VAF)<=binom_th
+    int min_dp;    // minimum read depth to consider
     BGZF *out_fh;
     regidx_t *sites_idx;
     regitr_t *sites_itr;
@@ -106,7 +106,7 @@ static const char *usage_text(void)
         "   -s, --sites FILE              A tab-delimited file name of sites to assess (chr,pos,ref,alt)\n"
         "\n"
         "Model options:\n"
-        "   -B, --binom-th FLOAT          Maximum p-value of calls included in the expected profile [1e-4]\n"
+        "   -d, --min-depth INT           Minimum depth of calls to include in the profile [10]\n"
         "   -n, --nbins INT               Number of VAF bins [20]\n"
         "   -r, --recalc TYPE             Recalculate scores based on provided variances [hc]\n"
         "                                   data .. as observed in the data\n"
@@ -115,7 +115,7 @@ static const char *usage_text(void)
         "\n"
         "Other options:\n"
         "   -b, --batch I/N               Run I-th batch out of N, 1-based\n"
-        "   -i, --use-index               Use index to jump the alignments, rather than stream\n"
+        "   -i, --use-index               Use index to jump the alignments, rather than stream (faster with few sites)\n"
         "   -m, --merge-batches FILE      Merge files produced with -b, --batch, FILE is a list of batch files\n"
         "   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files\n"
         "   -o, --output FILE             Output file name [stdout]\n"
@@ -164,9 +164,11 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     (*beg)--;
 
     // REF part and REF length
-    ss = ++se;
+    while ( *se && isspace(*se) ) se++;
+    ss = se;
     while ( *se && !isspace(*se) ) se++;
     int ref_len = se - ss;
+    if ( !ref_len ) error("Could not parse the REF part of the line: %s\n",line);
     *end = *beg;    // we are interested in overlaps at the POS only, not variant length
 
     site_t *site = (site_t*)payload;
@@ -177,16 +179,17 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     site->dist = calloc(args->profile.nbins,sizeof(*site->dist));
 
     // ALT part
-    ss = ++se;
+    while ( *se && isspace(*se) ) se++;
+    ss = se;
     while ( *se && !isspace(*se) ) se++;
     int alt_len = se - ss;
+    if ( !alt_len ) error("Could not parse the ALT part of the line: %s\n",line);
     site->alt = malloc(alt_len+1);
     strncpy(site->alt,ss,alt_len);
     site->alt[alt_len] = 0;
 
     if ( ref_len==alt_len )     // whatever this is, treat it as SNV, not MNP, should have been split
         site->ref[1] = site->alt[1] = 0;
-
     return 0;
 }
 static void free_sites(void *payload)
@@ -330,7 +333,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
             site_t *site = &regitr_payload(args->sites_itr,site_t);
             if ( ref[0]!=site->ref[0] )
             {
-                fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs %s\n",chr,pos+1,ref[0],site->ref);
+                fprintf(stderr,"No ref match at %s:%"PRIhts_pos" ... %c vs \"%s\"\n",chr,pos+1,ref[0],site->ref);
                 continue;
             }
             int ialt = site->ref[1] || site->alt[1] ? 4 : seq_nt16_int[seq_nt16_table[(int)site->alt[0]]];  // indel or SNV?
@@ -354,6 +357,8 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                     char bc = seq_nt16_str[bi];
                     if ( bc!=ref[0] )
                         ialt = seq_nt16_int[seq_nt16_table[(int)bc]];
+                    else
+                        ntot++;
                 }
                 if ( ialt>=0 )
                 {
@@ -361,7 +366,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                     ntot++;
                 }
             }
-            if ( !ntot ) continue;
+            if ( ntot < args->min_dp ) continue;
 
             // Increment site counters
             for (j=0; j<5; j++)
@@ -401,7 +406,7 @@ static void batch_profile_set_mean_var2(batch_t *batch)
 
         // normalize the site and add to the mean and variance calculation
         double max_val = site->dist[0];
-        for (i=1; i<batch->nbins; i++)
+        for (i=0; i<batch->nbins; i++)
             if ( max_val < site->dist[i] ) max_val = site->dist[i];
         for (i=0; i<batch->nbins; i++)
         {
@@ -437,7 +442,7 @@ static double score_site(batch_t *batch, site_t *site)
 {
     int i;
     double max_val = site->dist[0];
-    for (i=1; i<batch->nbins; i++)
+    for (i=0; i<batch->nbins; i++)
         if ( max_val < site->dist[i] ) max_val = site->dist[i];
 
     // This naturally counts excesses in non-zero VAF bins, cleaner sites are not penalized.
@@ -837,7 +842,7 @@ int run(int argc, char **argv)
     args->output_type = -1;
     args->record_cmd_line = 1;
     args->clevel = -1;
-    args->binom_th = 1e-4;
+    args->min_dp = 10;
     args->profile.nbins = N_BINS;
     args->recalc_type = "hc";
     static struct option loptions[] =
@@ -848,7 +853,7 @@ int run(int argc, char **argv)
         {"merge-files",required_argument,NULL,'M'},
         {"use-index",required_argument,NULL,'i'},
         {"nbins",required_argument,NULL,'n'},
-        {"binom-th",required_argument,NULL,'B'},
+        {"min-depth",required_argument,NULL,'d'},
         {"fasta-ref",required_argument,NULL,'f'},
         {"alns",required_argument,NULL,'a'},
         {"sites",required_argument,NULL,'s'},
@@ -859,13 +864,13 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:B:n:ib:m:M:vr:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:d:n:ib:m:M:vr:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
-            case 'B':
-                args->binom_th = strtod(optarg,&tmp);
-                if ( *tmp || args->binom_th<=0 || args->binom_th>1 ) error("Could not parse argument: --binom-th %s, expecting value (0,1]\n", optarg);
+            case 'd':
+                args->min_dp = strtol(optarg,&tmp,10);
+                if ( *tmp || args->min_dp<0 ) error("Could not parse argument: --min-depth %s\n", optarg);
                 break;
             case 'n':
                 args->profile.nbins = strtol(optarg,&tmp,10);
