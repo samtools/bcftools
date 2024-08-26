@@ -120,7 +120,7 @@ static const char *usage_text(void)
         "   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files\n"
         "   -o, --output FILE             Output file name [stdout]\n"
         "   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]\n"
-        "   -v, --verbose                 Print the elapsed and estimated total running time\n"
+        "   -v, --verbose                 Increase verbosity, eg print the elapsed and estimated total running time\n"
         "\n"
         "Example:\n"
         "   # Typical run\n"
@@ -377,6 +377,8 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                 assert( ifreq>=0 );
                 site->nval++;
                 site->dist[ifreq]++;
+                if ( args->verbose >= 3 )
+                    fprintf(stderr,"%s\t%s:%"PRIhts_pos"\t%s\t%s\t%d\t%d\t%d\n",aln_fname,chr,pos+1,site->ref,site->alt,ntot-nalt[j],nalt[j],ifreq);
             }
         }
     }
