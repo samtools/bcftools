@@ -446,6 +446,7 @@ static double score_site(batch_t *batch, site_t *site)
     double max_val = site->dist[0];
     for (i=0; i<batch->nbins; i++)
         if ( max_val < site->dist[i] ) max_val = site->dist[i];
+    if ( !max_val ) max_val = 1;
 
     // This naturally counts excesses in non-zero VAF bins, cleaner sites are not penalized.
     double score = 0;
@@ -481,7 +482,7 @@ static void print_buffered_sites(args_t *args, batch_t *batch, prn_site_t *buf, 
 
     // For technical reasons we keep stats on a generic indel, specifically, the first indel record.
     // We use its distribution and score for all indel types
-    site_t *fst_indel = NULL;
+    prn_site_t *fst_indel = NULL;
     for (i=0; i<nbuf; i++)
     {
         // ad-hoc rule: increase the lower score by 75% of the difference to the max score
@@ -492,8 +493,9 @@ static void print_buffered_sites(args_t *args, batch_t *batch, prn_site_t *buf, 
 
         if ( site->ref[1] || site->alt[1] )
         {
-            if ( !fst_indel ) fst_indel = site;
-            dist = fst_indel->dist;
+            if ( !fst_indel ) fst_indel = &buf[i];
+            dist  = fst_indel->site->dist;
+            score = fst_indel->score;
         }
 
         str->l = 0;
