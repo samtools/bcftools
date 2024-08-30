@@ -312,6 +312,7 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len, int freq) {
  * different locations.  Ideally we'd like to consider these as all
  * the same insertion if the size is the same and it's comparable seq.
  */
+#define MAX_INS 8192
 static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int pos, bcf_callaux_t *bca, const char *ref,
                                 int ref_len, int left, int right,
@@ -406,13 +407,13 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                         local_band_max = local_band;
                 }
 
-                char ins[1024];
+                char ins[MAX_INS];
                 for (j = 0; j < len; j++, y++) {
                     if (x < left) continue;
                     if (x >= right)
                         break;
                     base = bam_seqi(seq, y);
-                    if (j < 1024)
+                    if (j < MAX_INS)
                         ins[j] = seq_nt16_int[base];
                 }
 
@@ -421,7 +422,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 // {IIIII,M} M M M M choice.  So we need to include the
                 // next match in our sequence when choosing the consensus.
                 if (x >= left && x < right) {
-                    int ilen = j<1024?j:1024;
+                    int ilen = j<MAX_INS?j:MAX_INS;
                     if (p->indel == type /*&& x == pos+1*/) {
                         // Assume any ins of the same size is the same ins.
                         // (This rescues misaligned insertions.)
@@ -581,7 +582,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     // instead of storing separately and merging later (here).
     // Ie str_freq.str is [NI][5] instead.
     for (i = 0; i < right-left; i++) {
-        int ins[1024][5];
+        int ins[MAX_INS][5];
         for (j = 0; j < NI; j++) {
             if (!cons_ins[i].str[j])
                 break;
@@ -652,7 +653,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
     // Het call filled out in cnum==0 (+ve or -ve).
     // Used in cnum==1 to do the opposite of whichever way we did before.
-    int heti[1024] = {0}, hetd[1024] = {0};
+    int heti[MAX_INS] = {0}, hetd[MAX_INS] = {0};
 
     *cpos_pos = -1;
     for (cnum = 0; cnum < 2; cnum++) {
@@ -684,7 +685,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (!cons_ins[i].str[j])
                         goto err;
                     memset(cons_ins[i].str[j] + cons_ins[i].len[j],
-                           'N', type - cons_ins[i].len[j]);
+                           4, type - cons_ins[i].len[j]);
                     cons_ins[i].len[j] = type;
                 }
                 if (!cons_ins[i].str[j])
@@ -709,12 +710,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 // Candidate HET ins.
                 if (cnum == 0) {
                     het_ins = max_v_ins > CONS_CUTOFF_INC * tot_sum;
-                    if (i < 1024) heti[i] = het_ins
+                    if (i < MAX_INS) heti[i] = het_ins
                                       ? 1
                                       : (max_v_ins > .3*tot_sum ? -1:0);
                 } else {
                     // HET but uncalled before
-                    het_ins = i < 1024 ? (heti[i] == -1) : 0;
+                    het_ins = i < MAX_INS ? (heti[i] == -1) : 0;
                 }
             }
 
@@ -748,7 +749,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                         tot2 = total_span_str - type_depth;
                     het_del = cons_base[i][5] >= CONS_CUTOFF_DEL * tot2;
 
-                    if (i < 1024) {
+                    if (i < MAX_INS) {
                         if (i > pos-left && i <= pos-left-biggest_del)
                             hetd[i] = 0;
                         else
@@ -758,7 +759,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     }
                 } else {
                     // HET del uncalled on cnum 0
-                    het_del = i < 1024 ? (hetd[i] == -1) : 0;
+                    het_del = i < MAX_INS ? (hetd[i] == -1) : 0;
                     if (max_j == 5 && het_del == 0) {
                         max_v = max_v2;
                         max_j = max_j2;
