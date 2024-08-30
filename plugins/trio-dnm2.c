@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2023 Genome Research Ltd.
+   Copyright (c) 2018-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -515,11 +515,13 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
     int is_novel;
     if ( args->strictly_novel )
     {
-        // account for LoH sites, see trio-dnm.11.vcf
-        //  chr1:10000057   child=1/1 father=1/1 mother=0/0 .. LoH region
-        //  chr1:10697377   child=0/1 father=1/1 mother=1/1 .. usually these are indel ambiguities
+        // Consider as DNMs only variants with a novel allele. For example, if heterozygosity is lost and
+        // Mendelian inheritance is violated (11+00=11), don't consider this to be a novel allele
+        // (see trio-dnm.11.vcf)
+        //      chr1:10000057   f,m,c 11+00=11 .. LoH region
+        //      chr1:10697377   f,m,c 11+11=01 .. usually these are indel ambiguities
         is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
-        if ( is_novel && *denovo_allele==0 ) is_novel = 0;
+        if ( is_novel && *denovo_allele==0 ) is_novel = 0;  // never count reference allele as novel
     }
     else
     {
@@ -618,7 +620,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
 
                 if ( args->use_dng_priors )
                     init_DNG_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
-                else if ( type==autosomal || args->strictly_novel )
+                else if ( type==autosomal )
                     init_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrX )
                     init_tprob_mprob_chrX(args,mi,ci,&tprob,&mprob,&allele);
@@ -843,7 +845,7 @@ static inline double subtract_num_log(double a_num, double b_log)
     return log(a_num - exp(b_log));
 }
 #endif
-static inline double subtract_log(double a_log, double b_log)
+static inline double subtract_log(double a_log, double b_log)   // log(exp(a_log)-exp(b_log))
 {
     return a_log + log(1 - exp(b_log - a_log));
 }
@@ -863,18 +865,21 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
 
     double sum = -HUGE_VAL, max = -HUGE_VAL;
     int i, ca,cb, fa,fb, ma,mb, ci=0;
-    for (ca=0; ca<nals; ca++)
+    for (ca=0; ca<nals; ca++)               // ca,cb: iterate over all possible child's genotypes
     {
         for (cb=0; cb<=ca; cb++)
         {
             int cals = (1<<ca)|(1<<cb);
-            double cpl = pl[iCHILD][ci];
+            double cpl = pl[iCHILD][ci];    // genotype likelihood of this allele combination, this is the FORMAT/PL
             int fi = 0;
-            for (fa=0; fa<nals; fa++)
+            for (fa=0; fa<nals; fa++)       // fa,fb: father's genotypes
             {
                 for (fb=0; fb<=fa; fb++)
                 {
                     int fals = (1<<fa)|(1<<fb);
+
+                    // Father and mother genotype likelihood can be either FORMAT/PL (with --with-pPL), FORMAT/QS, or
+                    // fake QS calculated from FORMAT/AD (with --with-pAD)
                     double fpl;
                     if ( args->with_ppl ) fpl = pl[iFATHER][fi];
                     else
@@ -882,10 +887,18 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                         fpl = 0;
                         for (i=0; i<nals; i++)
                         {
+                            // Is the i-th allele expected in the tested paternal fa|fb genotype? Strong presence
+                            // of the allele will add little to fpl -> strong genotype fa|fb
                             if ( fals&(1<<i) )
                                 fpl += subtract_log(0,qs[iFATHER][i]);
+
+                            // Not part of the tested paternal genotype, but of the tested proband ca|cb genotype:
+                            // penalize by increasing fpl -> weaker genotype fa|fb
                             else if ( cals&(1<<i) )
                                 fpl += qs[iFATHER][i];
+
+                            // Not part of the tested paternal or proband genotypes, and the tested paternal genotype
+                            // is a hom: penalize presence of different allles
                             else if ( fa==fb )
                                 fpl += qs[iFATHER][i];
                         }
@@ -911,14 +924,15 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                                         mpl += qs[iMOTHER][i];
                                 }
                             }
-                            double val = cpl + fpl + mpl + priors->pprob[fi][mi][ci];
-                            sum = sum_log(sum,val);
+                            double val = cpl + fpl + mpl + priors->pprob[fi][mi][ci];   // L_{p,f,m}
+                            sum = sum_log(sum,val);                                     // this is the denominator, adding to \sum L_{p,f,m}
 #define DEBUG 0
 #if DEBUG
                             if(val!=-HUGE_VAL)
                                 fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
                                     mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],fi,mi,ci,mpl,fpl,cpl,priors->pprob[fi][mi][ci], val,sum,(priors->denovo[fi][mi][ci] && max < val)?'*':'-');
 #endif
+                            // Is this a valid de novo combination of p,f,m genotypes (ie not inherited), and is it most likely thus far?
                             if ( priors->denovo[fi][mi][ci] && max < val )
                             {
                                 max = val;
@@ -939,6 +953,18 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
 #if DEBUG
     fprintf(stderr,"max=%e sum=%e   ret=%e\n",max,sum,max-sum);
 #endif
+
+    if ( args->strictly_novel )
+    {
+        // Downplay de novo calls with alleles present in the parents
+        int ial = *al1;
+        sum = sum_log(sum,qs[iMOTHER][ial] + qs[iFATHER][ial]);
+        max += qs[iMOTHER][ial] + qs[iFATHER][ial];
+    }
+
+    // This is the log( 1 - (\max L_pfm) / (\sum L_pfm) ). The default output (DNM:log) prints the inverse. Note log
+    // values smaller than ~40 will be output as -inf due to a loss of precision. That's OK, we are interested
+    // in values very close to 0, bigger than, say, -8
     return log2phred(subtract_log(0,max-sum));
 }
 static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double *pl[3], int npl, int *al0, int *al1)
@@ -1371,7 +1397,7 @@ static void process_record(args_t *args, bcf1_t *rec)
                 return;
             }
 
-            // fake QS from AD assuming average BQ=30
+            // fake QS from AD assuming average BQ=30, used by --with-pAD
             nret = n_ad * nsmpl;
             hts_expand(int32_t,nret,args->mqs,args->qs);
             for (i=0; i<nret; i++)
