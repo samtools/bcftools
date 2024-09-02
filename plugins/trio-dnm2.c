@@ -958,8 +958,15 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
     {
         // Downplay de novo calls with alleles present in the parents
         int ial = *al1;
-        sum = sum_log(sum,qs[iMOTHER][ial] + qs[iFATHER][ial]);
-        max += qs[iMOTHER][ial] + qs[iFATHER][ial];
+        if ( qs[iMOTHER][ial] + qs[iFATHER][ial] != 0 )
+        {
+            double tmp = subtract_log(0,qs[iMOTHER][ial]) + subtract_log(0,qs[iFATHER][ial]);
+            sum = sum_log(sum,tmp);
+            max += tmp;
+#if DEBUG
+            fprintf(stderr,"max=%e sum=%e   ret=%e  after adjusting with --strictly-novel\n",max,sum,max-sum);
+#endif
+        }
     }
 
     // This is the log( 1 - (\max L_pfm) / (\sum L_pfm) ). The default output (DNM:log) prints the inverse. Note log

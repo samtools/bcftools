@@ -7,6 +7,7 @@
 ##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Phred-score allele quality sum used by `call -mG` and `+trio-dnm`">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	proband	father	mother
+chr1	193463	.	G	A	.	.	.	PL:AD:QS	234,0,84:2,7:120,420	0,9,92:3,0:111,0	0,15,129:5,0:185,0
 chr1	10000057	.	C	T	.	.	.	PL:AD:QS	90,0,255:30,30:1116,1116	255,78,0:0,26:0,921	255,78,0:0,26:0,921
 chr1	10000057	.	C	T	.	.	.	PL:AD:QS	255,90,0:0,30:0,1116	255,78,0:0,26:0,921	0,114,255:38,0:1364,0
 chr1	10697377	.	C	T	.	.	.	PL:AD:QS	255,0,173:4,10:240,566	255,184,0:0,61:0,3553	255,208,0:0,69:0,409
