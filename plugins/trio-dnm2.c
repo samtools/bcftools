@@ -974,7 +974,9 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
         int ial = *al1;
         if ( qs[iMOTHER][ial] + qs[iFATHER][ial] != 0 )
         {
-            double tmp = subtract_log(0,qs[iMOTHER][ial]) + subtract_log(0,qs[iFATHER][ial]);
+            double tmp = 0;
+            if ( qs[iMOTHER][ial] ) tmp += subtract_log(0,qs[iMOTHER][ial]);
+            if ( qs[iFATHER][ial] ) tmp += subtract_log(0,qs[iFATHER][ial]);
             sum = sum_log(sum,tmp);
             max += tmp;
 #if DEBUG
