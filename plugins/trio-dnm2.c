@@ -510,7 +510,7 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
     *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
 
     // tprob .. genotype transmission probability L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
-    // mprob .. probability of mutation
+    // mprob .. probability of mutation, 0 if this case is forbidden and not considered at all
 
     int is_novel;
     if ( args->strictly_novel )
@@ -542,8 +542,10 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
         else *mprob = args->mrate * args->mrate;
     }
 }
-static void init_tprob_mprob_chrX(args_t *args, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
+static void init_tprob_mprob_chrX(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
 {
+    int fa = seq1[fi];
+    int fb = seq2[fi];
     int ma = seq1[mi];
     int mb = seq2[mi];
     int ca = seq1[ci];
@@ -551,8 +553,17 @@ static void init_tprob_mprob_chrX(args_t *args, int mi, int ci, double *tprob, d
 
     *denovo_allele = ca!=ma && ca!=mb ? ca : cb;
 
-    if ( ca!=cb )                   // male cannot be heterozygous in X
-        *mprob = 0, *tprob = 0;
+    // tprob .. genotype transmission probability L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
+    // mprob .. probability of mutation, 0 if this case is forbidden and not considered at all
+
+    if ( ca!=cb )   // male cannot be heterozygous in X, but it can be mosaic
+    {
+        int is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
+        if ( is_novel )
+            *mprob = args->mrate, *tprob = 0;
+        else
+            *mprob = 0, *tprob = 0;
+    }
     else if ( ca==ma || ca==mb )    // inherited
     {
         if ( ma==mb ) *tprob = 1;
@@ -572,6 +583,9 @@ static void init_tprob_mprob_chrXX(args_t *args, int fi, int mi, int ci, double 
     int cb = seq2[ci];
 
     *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
+
+    // tprob .. genotype transmission probability L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
+    // mprob .. probability of mutation, 0 if this case is forbidden and not considered at all
 
     if ( fa!=fb )
     {
@@ -623,7 +637,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
                 else if ( type==autosomal )
                     init_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrX )
-                    init_tprob_mprob_chrX(args,mi,ci,&tprob,&mprob,&allele);
+                    init_tprob_mprob_chrX(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrXX )
                     init_tprob_mprob_chrXX(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else
@@ -1184,6 +1198,24 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
                 if ( pns < pnoise->abs1 * sum_qs / sum_ad ) pns = pnoise->abs1 * sum_qs / sum_ad;
             }
         }
+        // Reduce QS for all alleles to account for noise. Note this has one caveat: low-VAF proband and
+        // parental sites (13% and 8%) leave the het genotype in the proband very likely (since PL is used in
+        // child, not QS), but shift parental genotype toward hom. For example, if AD_c=53,8 and AD_f=128,7
+        // the DNM score can be still DNM=-5.98923 (see chrX:141907033 in test/trio-dnm/trio-dnm.11.vcf)
+        for (k=0; k<nqs1; k++)
+        {
+            double val = qs[k];
+            if ( n_ad && (!ad_f[k] || !ad_m[k]) ) val -= pns;
+            else val -= pn;
+            if ( val < 0 ) val = 0;
+            pqs[j][k] = phred2log(val);
+        }
+    }
+#if 0
+        // This worked well with one caveat: low-VAF proband and parental sites (13% and 8%) leave
+        // the het genotype in the proband very likely (since PL is used in child, not QS), but shift
+        // parental genotype toward hom.
+
         // Reduce QS for all alleles to account for noise
         for (k=0; k<nqs1; k++)
         {
@@ -1193,6 +1225,7 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
             if ( val < 0 ) val = 0;
             pqs[j][k] = phred2log(val);
         }
+#endif
 #if 0
         // The original code, don't like the capping at 255
         // Reduce QS for all alleles to account for noise
@@ -1230,7 +1263,6 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
             //      pqs[j][k] = log(1 - exp(phred2log(tmp)));
         }
 #endif
-    }
 }
 static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts, int ignore_father)
 {
