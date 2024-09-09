@@ -37,6 +37,9 @@ Changes affecting specific commands:
     - Allow to apply a reference allele which overlaps a previous deletion, there is no
       need to complain about overlapping alleles in such case
 
+    - Fix a bug which required `-s -` to be present even when there were no samples in the VCF
+      (#2260)
+
 * bcftools csq
 
     - Fix a rare bug where indel combined with a substitution ending at exon boundary is
