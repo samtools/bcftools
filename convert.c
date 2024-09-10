@@ -79,6 +79,7 @@ THE SOFTWARE.  */
 #define T_VKX          31   // VARIANTKEY HEX
 #define T_PBINOM       32
 #define T_NPASS        33
+#define T_FILTER_EXPR  34
 
 typedef struct _fmt_t
 {
@@ -122,6 +123,8 @@ typedef struct
     int n, m;
 }
 bcsq_t;
+
+static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type);
 
 static void process_chrom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(convert->header->id[BCF_DT_CTG][line->rid].key, str); }
 static void process_pos(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
@@ -1157,6 +1160,18 @@ static void destroy_npass(void *usr)
 {
     filter_destroy((filter_t*)usr);
 }
+static void process_filter_expr(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    filter_t *flt = (filter_t*) fmt->usr;
+    filter_test(flt,line,NULL);
+    int nval, nval1;
+    const double *val = filter_get_doubles(flt,&nval,&nval1);
+    kputd(val[0], str);
+}
+static void destroy_filter_expr(void *usr)
+{
+    filter_destroy((filter_t*)usr);
+}
 
 static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -1249,6 +1264,49 @@ static void _used_tags_add(convert_t *convert, int type, char *key)
     else if ( !strcmp("MASK",key) ) { function(__VA_ARGS__, T_MASK); } \
     else if ( !strcmp("LINE",key) ) { function(__VA_ARGS__, T_LINE); }
 
+// This invokes the functionality of -i/-e expressions
+static char *set_filter_expr(convert_t *convert, char *key)
+{
+    kstring_t str = {0,0,0};
+    char *ptr = key;
+    while ( *ptr && *ptr!=')' ) ptr++;
+    if ( !*ptr ) error("Could not parse format string: %s\n",convert->format_str);
+    kputsn(key, ptr-key+1, &str);
+    register_tag(convert, str.s, 0, T_FILTER_EXPR);
+    free(str.s);
+    return key+str.l;
+}
+
+#define _SET_FILTER_EXPR(convert,function,key,ptr,...) \
+    if ( !strncasecmp(key,"MAX(",4) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"MIN(",4) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"MEAN(",5) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"MEDIAN(",7) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"AVG(",4) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"SUM(",4) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"ABS(",4) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"COUNT(",6) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"STDEV(",6) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"STRLEN(",7) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"BINOM(",6) ) { ptr = function(convert,key); } \
+    else if ( !strncasecmp(key,"PHRED(",6) ) { ptr = function(convert,key); } \
+
+    // else if ( !strcmp(tmp,"SMPL_MAX(",9) ) {
+    // else if ( !strcmp(tmp,"SMPL_MIN(",9) ) {
+    // else if ( !strcmp(tmp,"SMPL_MEAN(",10) ) {
+    // else if ( !strcmp(tmp,"SMPL_MEDIAN(",12) ) {
+    // else if ( !strcmp(tmp,"SMPL_AVG(",9) ) {
+    // else if ( !strcmp(tmp,"SMPL_STDEV(",11) ) { (*str) += 10; return TOK_sSTDEV; }
+    // else if ( !strcmp(tmp,"SMPL_SUM(",9) ) { (*str) += 8; return TOK_sSUM; }
+    // else if ( !strcmp(tmp,"sMAX(",5) ) { (*str) += 4; return TOK_sMAX; }
+    // else if ( !strcmp(tmp,"sMIN(",5) ) { (*str) += 4; return TOK_sMIN; }
+    // else if ( !strcmp(tmp,"sMEAN(",6) ) { (*str) += 5; return TOK_sAVG; }
+    // else if ( !strcmp(tmp,"sMEDIAN(",8) ) { (*str) += 7; return TOK_sMEDIAN; }
+    // else if ( !strcmp(tmp,"sAVG(",5) ) { (*str) += 4; return TOK_sAVG; }
+    // else if ( !strcmp(tmp,"sSTDEV(",7) ) { (*str) += 6; return TOK_sSTDEV; }
+    // else if ( !strcmp(tmp,"sSUM(",5) ) { (*str) += 4; return TOK_sSUM; }
+
+
 static void set_type(fmt_t *fmt, int type) { fmt->type = type; }
 static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)
 {
@@ -1273,8 +1331,8 @@ static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)
         if ( fmt->type==T_FORMAT && !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,id) )
         {
             _SET_NON_FORMAT_TAGS(set_type,key,fmt)
-           else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
-           else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
+            else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
+            else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
             else if ( !strcmp("RSX",key) ) { fmt->type = T_RSX; }
             else if ( !strcmp("VKX",key) ) { fmt->type = T_VKX; }
             else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
@@ -1289,7 +1347,7 @@ static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)
             if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT, fmt->id)  ) error("No such FORMAT tag defined in the header: %s\n", fmt->key);
             _used_tags_add(convert,T_FORMAT,key);
         }
-        else if ( fmt->type==T_NPASS )
+        else if ( fmt->type==T_NPASS || fmt->type==T_FILTER_EXPR )
         {
             filter_t *flt = filter_init(convert->header,key);
             convert->max_unpack |= filter_max_unpack(flt);
@@ -1332,6 +1390,7 @@ static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)
         case T_VKX: fmt->handler = &process_variantkey_hex; break;
         case T_PBINOM: fmt->handler = &process_pbinom; convert->max_unpack |= BCF_UN_FMT; break;
         case T_NPASS: fmt->handler = &process_npass; fmt->destroy = &destroy_npass; break;
+        case T_FILTER_EXPR: fmt->handler = &process_filter_expr; fmt->destroy = &destroy_filter_expr; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
     if ( key && fmt->type==T_INFO )
@@ -1422,6 +1481,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
     else
     {
         _SET_NON_FORMAT_TAGS(register_tag, str.s, convert, str.s, is_gtf)
+        else _SET_FILTER_EXPR(convert,set_filter_expr,p,q)
         else if ( !strcmp(str.s, "ALT") )
         {
             fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_ALT);
