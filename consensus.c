@@ -229,7 +229,14 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->isample = -1;
     if ( !args->sample )
+    {
         args->smpl = smpl_ilist_init(args->hdr,NULL,0,SMPL_NONE|SMPL_VERBOSE);
+        if ( !args->smpl->n )
+        {
+            smpl_ilist_destroy(args->smpl);
+            args->smpl = NULL;
+        }
+    }
     else if ( args->sample && strcmp("-",args->sample) )
     {
         args->smpl = smpl_ilist_init(args->hdr,args->sample,0,SMPL_NONE|SMPL_VERBOSE);
@@ -244,12 +251,22 @@ static void init_data(args_t *args)
     {
         if ( args->haplotype || args->allele )
         {
-            if ( args->smpl->n > 1 ) error("Too many samples, only one can be used with -H\n");
+            if ( args->smpl->n > 1 ) error("Too many samples, only one can be used with -H; check the -s,-S options\n");
             args->isample = args->smpl->idx[0];
         }
         else
+        {
             args->iupac_GTs = 1;
+            if ( args->smpl->n==1 )
+                fprintf(stderr,"Note: applying IUPAC codes based on FORMAT/GT in sample %s\n",bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,args->smpl->idx[0]));
+            else
+                fprintf(stderr,"Note: applying IUPAC codes based on FORMAT/GT in %d samples\n",args->smpl->n);
+        }
     }
+    else if ( args->output_iupac )
+        fprintf(stderr,"Note: applying IUPAC codes based on REF,ALT%s\n",bcf_hdr_nsamples(args->hdr)?", ignoring samples":"");
+    else
+        fprintf(stderr,"Note: applying REF,ALT variants%s\n",bcf_hdr_nsamples(args->hdr)?", ignoring samples":"");
     int i;
     for (i=0; i<args->nmask; i++)
     {
@@ -272,7 +289,6 @@ static void init_data(args_t *args)
         if ( ! args->fp_out ) error("Failed to create %s: %s\n", args->output_fname, strerror(errno));
     }
     else args->fp_out = stdout;
-    if ( args->isample<0 && !args->iupac_GTs ) fprintf(stderr,"Note: the --samples option not given, applying all records regardless of the genotype\n");
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
     args->rid = -1;
@@ -781,6 +797,19 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     else if ( (var_type & VCF_OTHER) && !strncasecmp(rec->d.allele[ialt],"<INS",4) ) trim_beg = 1;
 
     // Overlapping variant?
+    if ( ialt==0 && rec->pos <= args->fa_frz_pos && rec->pos + rec->rlen - 1 > args->fa_frz_pos )
+    {
+        // Applying the reference allele which overlaps a previous deletion. If we are here, it
+        // means it goes beyond the freezed position, hence the record can be trimmed and moved
+        // forward
+        int ntrim = args->fa_frz_pos - rec->pos + 1;
+        int nref  = strlen(rec->d.allele[0]);
+        assert( ntrim < nref );
+        rec->pos  += ntrim;
+        rec->rlen -= ntrim;
+        memmove(rec->d.allele[0],rec->d.allele[0]+ntrim,nref-ntrim);
+        rec->d.allele[0][nref-ntrim] = 0;
+    }
     if ( rec->pos <= args->fa_frz_pos )
     {
         // Can be still OK iff this is an insertion (and which does not follow another insertion, see #888).
@@ -795,7 +824,6 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             fprintf(stderr,"The site %s:%"PRId64" overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
             return;
         }
-
     }
 
     char *ref_allele = rec->d.allele[0];
@@ -848,8 +876,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
         }
     }
-    if ( idx>0 && idx>=args->fa_buf.l )
-        error("FIXME: %s:%"PRId64" .. idx=%d, ori_pos=%d, len=%"PRIu64", off=%d\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,idx,args->fa_ori_pos,(uint64_t)args->fa_buf.l,args->fa_mod_off);
+
+    // the variant is beyond the available fasta sequence
+    if ( idx>0 && idx>=args->fa_buf.l ) return;
 
     // sanity check the reference base
     if ( alt_allele[0]=='<' )
@@ -983,7 +1012,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         ks_resize(&args->fa_buf, args->fa_buf.l + len_diff);
         memmove(args->fa_buf.s + idx + rec->rlen + len_diff, args->fa_buf.s + idx + rec->rlen, args->fa_buf.l - idx - rec->rlen);
 
-        // This can get tricky, make sure the bases unchanged by the insertion do not overwrite preceeding variants.
+        // This can get tricky, make sure the bases unchanged by the insertion do not overwrite preceding variants.
         // For example, here we want to get TAA:
         //      POS REF ALT
         //      1   C   T

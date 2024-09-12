@@ -88,7 +88,8 @@ void set_wmode(char dst[8], int file_type, const char *fname, int clevel)
     const char *end = fname ? strstr(fname, HTS_IDX_DELIM) : NULL;
     if ( !end ) end = fname ? fname + strlen(fname) : fname;
     int len = end - fname;
-    if ( len >= 4 && !strncasecmp(".bcf",fname+len-4,4) ) ret = hts_bcf_wmode(FT_BCF|FT_GZ);
+    if ( len >= 4 && !strncasecmp(".bcf",fname+len-4,4) )
+        ret = hts_bcf_wmode(file_type & FT_BCF ? file_type : FT_BCF|FT_GZ);
     else if ( len >= 4 && !strncasecmp(".vcf",fname+len-4,4) ) ret = hts_bcf_wmode(FT_VCF);
     else if ( len >= 7 && !strncasecmp(".vcf.gz",fname+len-7,7) ) ret = hts_bcf_wmode(FT_VCF|FT_GZ);
     else if ( len >= 8 && !strncasecmp(".vcf.bgz",fname+len-8,8) ) ret = hts_bcf_wmode(FT_VCF|FT_GZ);

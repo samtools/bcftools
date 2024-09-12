@@ -7,6 +7,7 @@ sites_missing	6	# number of sites with at least one trio GT missing
 sites_merr	12	# number of sites with at least one Mendelian error
 sites_good	14	# number of sites with at least one good trio
 ngood	14
+ngood_alt	11
 nmerr	12
 nmissing	6
 nfail	0

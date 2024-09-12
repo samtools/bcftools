@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <string.h>
+#include <strings.h>
 #include <htslib/hts.h>
 #include <htslib/khash.h>
 #include <htslib/khash_str2int.h>
@@ -521,8 +522,8 @@ static void gff_parse_gene(gff_t *gff, const char *line, ftr_t *ftr)
         gene->name = strdup(aux->gene_ids.str[gene_id]); // Name=<GeneName> field is not present, use the gene ID instead
 }
 
-// Returns 0 for exons,CDS,UTRs to indiciate these need to be pruned later and regidx built on them,
-// or -1 to indiciate the structure needs not be saved (either because of an error or because saved
+// Returns 0 for exons,CDS,UTRs to indicate these need to be pruned later and regidx built on them,
+// or -1 to indicate the structure needs not be saved (either because of an error or because saved
 // as transcript or gene.)
 static int gff_parse_line(gff_t *gff, char *line, ftr_t *ftr)
 {
@@ -1063,7 +1064,7 @@ int gff_parse(gff_t *gff)
         INC_NWARN(wrong_phase);
         INC_NWARN(overlapping_cds);
         if ( nwarn > 0 )
-            fprintf(stderr,"Warning: %d warnings were suppressed, run with `--verbose 2` to see them all\n",nwarn);
+            fprintf(stderr,"Warning: %d warnings were suppressed, increase verbosity to see them all\n",nwarn);
     }
 
     if ( gff->dump_fname ) gff_dump(gff, gff->dump_fname);

@@ -1,0 +1,7 @@
+##fileformat=VCFv4.3
+##INFO=<ID=ISTR,Number=1,Type=String,Description="string">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="string">
+##contig=<ID=chr1>
+##reference=ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+chr1	101	.	C	G	.	.	.	.	.

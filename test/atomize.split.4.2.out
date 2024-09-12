@@ -1,0 +1,9 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=11,length=135006516>
+##INFO=<ID=OLD_REC,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+11	100	.	C	G	.	.	OLD_REC=11|100|CC|GG|1
+11	101	.	C	G	.	.	OLD_REC=11|100|CC|GG|1
+11	200	.	CC	GGGG	.	.	.
+11	300	.	C	GGGG	.	.	.

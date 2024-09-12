@@ -5,5 +5,5 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
 1	511	.	CAGCA	CAG	.	.	.	GT	1|0	.|1
-1	511	.	CAGCA	CAA	.	.	.	GT	.|.	1|.
-1	511	.	CAGCA	CCA	.	.	.	GT	.|.	.|.
+1	511	.	CAGCA	CAA	.	.	.	GT	.|0	1|.
+1	511	.	CAGCA	CCA	.	.	.	GT	.|0	.|.

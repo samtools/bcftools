@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015-2023 Genome Research Ltd.
+    Copyright (C) 2015-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -401,19 +401,6 @@ static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
     return changed;
 }
 
-static inline double calc_binom(int na, int nb)
-{
-    if ( na + nb == 0 ) return 1;
-
-    /*
-        kfunc.h implements kf_betai, which is the regularized beta function I_x(a,b) = P(X<=a/(a+b))
-    */
-    double prob = na > nb ? 2*kf_betai(na, nb + 1, 0.5) : 2*kf_betai(nb, na + 1, 0.5);
-    if ( prob > 1 ) prob = 1;
-
-    return prob;
-}
-
 static inline int random_draw(args_t *args)
 {
     return hts_drand48() > args->rand_frac ? 1 : 0; // reversed random draw
@@ -538,7 +525,7 @@ bcf1_t *process(bcf1_t *rec)
                 error("The sample %s has incorrect number of %s fields at %s:%"PRId64"\n",
                         args->in_hdr->samples[i],args->binom_tag,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
 
-            double prob = calc_binom(args->iarr[i*nbinom+ia],args->iarr[i*nbinom+ib]);
+            double prob = calc_binom_two_sided(args->iarr[i*nbinom+ia],args->iarr[i*nbinom+ib],0.5);
             if ( !args->binom_cmp(prob,args->binom_val) ) continue;
             if ( args->tgt_mask&GT_RAND && random_draw(args) ) continue;
 

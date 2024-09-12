@@ -1,0 +1,15 @@
+##fileformat=VCFv4.1
+##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10	.	C	<DEL>	.	.	SVLEN=-1000
+1	10	.	C	<DEL>	.	.	SVLEN=-1000
+1	10	.	C	<DEL>	.	.	SVLEN=-2000
+1	10	.	C	<DEL>	.	.	SVLEN=-1000
+1	10	.	C	<DEL>	.	.	SVLEN=-3000
+1	10	.	C	<DEL>	.	.	SVLEN=-2000
+1	10	.	C	<DEL>	.	.	SVLEN=-1000
+1	10	.	C	<DEL>	.	.	SVLEN=-3000
+1	10	.	C	<DEL>	.	.	SVLEN=-2000
+1	20	.	CCC	CC	.	.	.
+1	20	.	CC	C	.	.	.

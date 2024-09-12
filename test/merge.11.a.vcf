@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##reference=file://ref/Zmays_493_APGv4.fa
+##contig=<ID=1,length=307041717>
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	1	2	3	4	5	6
+1	5695120	.	C	T	665.34	.	.	GT:AD	./.:0,0	0/0:389,0	0/0:475,0	0/0:597,0	0/0:262,0	0/0:1428,0
+1	6070233	.	G	C,A	10355.5	.	.	GT:AD	0/0:918,1,0	1/1:0,19,0	1/1:1,355,0	0/2:181,1,136	1/1:0,634,0	0/0:1219,0,0
+1	7988614	.	C	.	22.0485	.	.	GT:AD	0/0:441	0/0:278	0/0:722	0/0:614	0/0:321	0/0:515
+1	11301504	.	C	.	22.0947	.	.	GT:AD	0/0:81	0/0:136	./.:0	0/0:161	0/0:417	0/0:241

@@ -1,0 +1,4 @@
+7	ensembl_havana	gene	100	49960	.	+	.	ID=gene:ENSG00000263001;Name=GTF2I;biotype=protein_coding
+7	ensembl_havana	mRNA	100	49960	.	+	.	ID=transcript:ENST00000573035;Parent=gene:ENSG00000263001;Name=GTF2I-212;biotype=protein_coding
+7	ensembl_havana	CDS	300	377	.	+	2	Parent=transcript:ENST00000573035
+7	ensembl_havana	CDS	4125	4184	.	+	2	Parent=transcript:ENST00000573035

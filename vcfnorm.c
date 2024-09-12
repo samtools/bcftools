@@ -42,6 +42,7 @@ THE SOFTWARE.  */
 #include "abuf.h"
 #include "gff.h"
 #include "regidx.h"
+#include "filter.h"
 
 #define CHECK_REF_EXIT 1
 #define CHECK_REF_WARN 2
@@ -50,6 +51,10 @@ THE SOFTWARE.  */
 
 #define MROWS_SPLIT 1
 #define MROWS_MERGE  2
+
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
 
 // for -m+, mapping from allele indexes of a single input record
 // to allele indexes of output record
@@ -64,7 +69,7 @@ typedef struct
 {
     int n;  // number of alleles
     char *ref, *alt;
-    void *hash;
+    void *hash; // str2int hash
 }
 cmpals1_t;
 
@@ -88,8 +93,8 @@ typedef struct
     int32_t *int32_arr;
     int ntmp_arr1, ntmp_arr2, nint32_arr;
     kstring_t *tmp_str;
-    kstring_t *tmp_als, *tmp_del, tmp_kstr;
-    int ntmp_als, ntmp_del;
+    kstring_t *tmp_als, *tmp_sym, tmp_kstr;
+    int ntmp_als, ntmp_sym;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
     int aln_win;            // the realignment window size (maximum repeat size)
@@ -100,7 +105,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, njoined, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, njoined, ntotal, nfilter, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -108,12 +113,17 @@ typedef struct
     char *old_rec_tag;
     htsFile *out;
     char *index_fn;
-    int write_index;
+    int write_index, gff_verbosity;
     int right_align;
     char *gff_fname;
     gff_t *gff;
     regidx_t *idx_tscript;
     regitr_t *itr_tscript;
+    int (*cmp_func)(const void *aptr, const void *bptr);
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    int filter_pass;
+    filter_t *filter;
 }
 args_t;
 
@@ -555,32 +565,54 @@ static int realign(args_t *args, bcf1_t *line)
     if ( bcf_get_variant_types(line)==VCF_BND ) return ERR_SYMBOLIC;   // breakend, not an error
 
     // make a copy of each allele for trimming
-    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
-    hts_expand0(kstring_t,line->n_allele,args->ntmp_del,args->tmp_del);
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als); // the actual sequence to realign
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_sym,args->tmp_sym); // the original symbolic allele strings to output
     kstring_t *als = args->tmp_als;
-    kstring_t *del = args->tmp_del;
+    kstring_t *sym = args->tmp_sym;
     int symbolic_alts = 1;
     for (i=0; i<line->n_allele; i++)
     {
-        del[i].l = 0;
+        sym[i].l = 0;
         if ( line->d.allele[i][0]=='<' )
         {
-            // symbolic allele, only <DEL.*> will be realigned
-            if ( strncmp("<DEL",line->d.allele[i],4) ) return ERR_SYMBOLIC;
-            if ( nref < line->rlen )
+            // symbolic allele, only <DEL.*> and <DUP.*> will be realigned
+            // TODO: there should be check for symbolic allele length. If too big, perhaps should not attempt realignment
+            int32_t sv_len = 0;
+            if ( !strncmp("<DEL",line->d.allele[i],4) ) sv_len = -line->rlen;
+            else if ( !strncmp("<DUP",line->d.allele[i],4) )
             {
+                if ( bcf_get_info_int32(args->hdr,line,"SVLEN",&args->int32_arr,&args->nint32_arr)==1 ) sv_len = args->int32_arr[0];
+            }
+            if ( !sv_len ) return ERR_SYMBOLIC;
+
+            als[i].l = 0;
+            if ( sv_len<0 )
+            {
+                // del, expand REF and replace ALT, for example, replace "REF=C ALT=<DEL>" with "REF=CAT ALT=C"
+                if ( nref < line->rlen )
+                {
+                    free(ref);
+                    reflen = line->rlen;
+                    ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+                    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
+                    seq_to_upper(ref,0);
+                    replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+                    als[0].l = 0;
+                    kputs(ref, &als[0]);
+                }
+                kputsn(als[0].s,1,&als[i]);
+            }
+            else // sv_len>0
+            {
+                // dup, replace "REF=C ALT=<DUP>" with "REF=C ALT=CAT"
                 free(ref);
-                reflen = line->rlen;
-                ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+                ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+sv_len, &nref);
                 if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
                 seq_to_upper(ref,0);
                 replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
-                als[0].l = 0;
-                kputs(ref, &als[0]);
+                kputs(ref,&als[i]);
             }
-            als[i].l = 0;
-            kputsn(als[0].s,1,&als[i]);
-            kputs(line->d.allele[i],&del[i]);
+            kputs(line->d.allele[i],&sym[i]);   // preserve the symbolic allele string
             continue;
         }
         if ( i>0 ) symbolic_alts = 0;
@@ -630,7 +662,7 @@ static int realign(args_t *args, bcf1_t *line)
     for (i=0; i<line->n_allele; i++)
     {
         if (i>0) kputc(',',&args->tmp_kstr);
-        if ( del[i].l ) kputs(del[i].s,&args->tmp_kstr);
+        if ( sym[i].l ) kputs(sym[i].s,&args->tmp_kstr);
         else kputsn(als[i].s,als[i].l,&args->tmp_kstr);
     }
     args->tmp_kstr.s[ args->tmp_kstr.l ] = 0;
@@ -872,7 +904,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
         {
             if ( gt[j]==bcf_int32_vector_end ) break;
             if ( bcf_gt_is_missing(gt[j]) ) continue; // missing allele: leave as is
-            if ( (ialt==0 || args->ma_use_ref_allele) && bcf_gt_allele(gt[j])==0 ) continue; // ref && `--multi-overlaps 0`: leave as is
+            if ( bcf_gt_allele(gt[j])==0 ) continue; // ref && `--multi-overlaps 0`: leave as is
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
             else if ( args->ma_use_ref_allele )
@@ -1440,6 +1472,23 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
         bcf_update_info_string(args->out_hdr,dst,tag,args->tmp_arr1);
     }
 }
+static int gt_array_grow_ploidy(args_t *args, uint8_t **tmp_arr, int *ntmp_arr, int ngt_ori, int ngt_new, int nsmpl)
+{
+    *ntmp_arr = 4*ngt_new*nsmpl;
+    int32_t *ptr = (int32_t*)realloc(*tmp_arr,*ntmp_arr);
+    if ( !ptr ) error("Error: failed to allocate %d bytes\n",*ntmp_arr);
+    *tmp_arr = (uint8_t*) ptr;
+
+    int i,j;
+    for (i=nsmpl-1; i>=0; i--)
+    {
+        int32_t *src = ptr + i*ngt_ori;
+        int32_t *dst = ptr + i*ngt_new;
+        for (j=ngt_new; j>ngt_ori; j--) dst[j-1] = bcf_int32_vector_end;
+        for (j=ngt_ori; j>0; j--) dst[j-1] = src[j-1];
+    }
+    return ngt_new;
+}
 static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_fmt_t *fmt, bcf1_t *dst)
 {
     // reusing int8_t arrays as int32_t arrays
@@ -1458,7 +1507,9 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
         int ngts2 = bcf_get_genotypes(args->hdr,lines[i],&args->tmp_arr2,&ntmp2);
         args->ntmp_arr2 = ntmp2 * 4;
         ngts2 /= nsmpl;
-        if ( ngts!=ngts2 ) error("Error at %s:%"PRId64": cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1);
+        int ploidy_changed = ngts - ngts2;
+        if ( ngts < ngts2 ) ngts = gt_array_grow_ploidy(args,&args->tmp_arr1,&args->ntmp_arr1,ngts,ngts2,nsmpl);
+        if ( ngts > ngts2 ) ngts2 = gt_array_grow_ploidy(args,&args->tmp_arr2,&args->ntmp_arr2,ngts2,ngts,nsmpl);
 
         int32_t *gt  = (int32_t*) args->tmp_arr1;       // the first, destination line
         int32_t *gt2 = (int32_t*) args->tmp_arr2;       // one of the subsequent lines, i.e. the source line
@@ -1468,16 +1519,22 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
             // never overwrite with ref allele
             for (k2=0; k2<ngts2; k2++)
             {
-                if ( gt2[k2]==bcf_int32_vector_end ) break;
-                if ( bcf_gt_is_missing(gt2[k2]) ) continue;
+                if ( gt2[k2]==bcf_int32_vector_end )
+                {
+                    if ( ploidy_changed && bcf_gt_is_missing(gt[k2]) ) gt[k2] = bcf_int32_vector_end;
+                    break;
+                }
+                if ( bcf_gt_is_missing(gt2[k2]) ) continue;     // don't overwrite with missing
+
+                // don't overwrite with ref, unless the destination is missing, e.g. "./. + 0/1"
                 int ial2 = bcf_gt_allele(gt2[k2]);
-                if ( ial2==0 ) continue;    // never overwrite with ref
+                if ( ial2==0 && !bcf_gt_is_missing(gt[k2]) && gt[k2]!=bcf_int32_vector_end ) continue;
                 if ( ial2>=args->maps[i].nals ) error("Error at %s:%"PRId64": incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1,ial2);
 
                 // The destination allele
                 int ial = args->maps[i].map[ial2];
                 if ( gt[k2]==bcf_int32_vector_end || bcf_gt_is_missing(gt[k2]) || !bcf_gt_allele(gt[k2]) )
-                    gt[k2] = bcf_gt_is_phased(gt[k2]) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
+                    gt[k2] = (gt[k2]!=bcf_int32_vector_end && bcf_gt_is_phased(gt[k2])) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
                 else
                 {
                     // conflict, the first line has non-zero allele, use the old way, possibly disrupt the phasing
@@ -1967,7 +2024,32 @@ static bcf1_t *mrows_flush(args_t *args)
     args->mrows_first++;
     return args->mrows[ibeg];
 }
-static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
+static char *strdup_alt_svlen(args_t *args, bcf1_t *rec, int ial)
+{
+    if ( rec->d.allele[ial][0]!='<' ) return strdup(rec->d.allele[ial]);
+
+    int ntmp = args->ntmp_arr1 / sizeof(int32_t);
+    int n = bcf_get_info_int32(args->hdr, rec, "SVLEN", &args->tmp_arr1, &ntmp);
+    args->ntmp_arr1 = ntmp * sizeof(int32_t);
+    int32_t *svlen = (int32_t *) args->tmp_arr1;
+    if ( n<=0 ) return strdup(rec->d.allele[ial]);
+
+    if ( n+1 != rec->n_allele )
+    {
+        // there should be as many SVLEN numbers as there are ALT alleles
+        static int warned = 0;
+        if ( !warned )
+        {
+            fprintf(stderr,"TODO: different number of ALT alleles and SVLEN fields %s:%"PRIhts_pos"\n",bcf_seqname(args->hdr,rec),rec->pos+1);
+            warned = 1;
+        }
+    }
+
+    kstring_t str = {0,0,0};
+    ksprintf(&str,"%s.%d",rec->d.allele[ial],svlen[ial-1]);
+    return str.s;
+}
+static void cmpals_add(args_t *args, cmpals_t *ca, bcf1_t *rec)
 {
     ca->ncmpals++;
     hts_expand0(cmpals1_t, ca->ncmpals, ca->mcmpals, ca->cmpals);
@@ -1975,10 +2057,11 @@ static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
     free(cmpals->ref);
     cmpals->ref = strdup(rec->d.allele[0]);
     cmpals->n   = rec->n_allele;
+
     if ( rec->n_allele==2 )
     {
         free(cmpals->alt);
-        cmpals->alt = strdup(rec->d.allele[1]);
+        cmpals->alt = strdup_alt_svlen(args,rec,1);
     }
     else
     {
@@ -1989,9 +2072,10 @@ static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
             khash_str2int_inc(cmpals->hash, strdup(rec->d.allele[i]));
     }
 }
-static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
+static int cmpals_match(args_t *args, cmpals_t *ca, bcf1_t *rec)
 {
     int i, j;
+    char *alt_svlen = rec->n_allele==2 ? strdup_alt_svlen(args,rec,1) : NULL;
     for (i=0; i<ca->ncmpals; i++)
     {
         cmpals1_t *cmpals = ca->cmpals + i;
@@ -2003,7 +2087,8 @@ static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
         // the most frequent case
         if ( rec->n_allele==2 )
         {
-            if ( strcasecmp(rec->d.allele[1], cmpals->alt) ) continue;
+            if ( strcasecmp(alt_svlen, cmpals->alt) ) continue;
+            free(alt_svlen);
             return 1;
         }
 
@@ -2013,6 +2098,7 @@ static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
         if ( j<rec->n_allele ) continue;
         return 1;
     }
+    free(alt_svlen);
     return 0;
 }
 static void cmpals_reset(cmpals_t *ca) { ca->ncmpals = 0; }
@@ -2055,7 +2141,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 if ( args->rmdup & BCF_SR_PAIR_ANY ) continue;    // rmdup by position only
                 if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
                 if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(&args->cmpals_out, args->lines[k]) ) continue;
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k]) ) continue;
             }
             else
             {
@@ -2065,7 +2151,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(&args->cmpals_out);
             }
             prev_type |= line_type;
-            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(&args->cmpals_out, args->lines[k]);
+            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k]);
         }
         if ( bcf_write1(file, args->out_hdr, args->lines[k])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
@@ -2118,17 +2204,22 @@ static void init_data(args_t *args)
     if ( args->gff_fname )
     {
         args->gff = gff_init(args->gff_fname);
-        gff_set(args->gff,verbosity,1);
+        gff_set(args->gff,verbosity,args->gff_verbosity);
         gff_set(args->gff,strip_chr_names,1);
         gff_parse(args->gff);
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);
     }
+    if ( args->filter_str )
+        args->filter = filter_init(args->hdr, args->filter_str);
+    args->filter_pass = 1;
+
     args->out_hdr = bcf_hdr_dup(args->out_hdr);
 }
 
 static void destroy_data(args_t *args)
 {
+    if ( args->filter ) filter_destroy(args->filter);
     if ( args->gff )
     {
         gff_destroy(args->gff);
@@ -2150,10 +2241,10 @@ static void destroy_data(args_t *args)
         free(args->maps[i].map);
     for (i=0; i<args->ntmp_als; i++)
         free(args->tmp_als[i].s);
-    for (i=0; i<args->ntmp_del; i++)
-        free(args->tmp_del[i].s);
+    for (i=0; i<args->ntmp_sym; i++)
+        free(args->tmp_sym[i].s);
     free(args->tmp_als);
-    free(args->tmp_del);
+    free(args->tmp_sym);
     free(args->tmp_kstr.s);
     if ( args->tmp_str )
     {
@@ -2178,10 +2269,10 @@ static void normalize_line(args_t *args, bcf1_t *line)
 {
     if ( args->fai )
     {
-        if ( args->check_ref & CHECK_REF_FIX ) fix_ref(args, line);
+        if ( args->filter_pass && (args->check_ref & CHECK_REF_FIX) ) fix_ref(args, line);
         if ( args->do_indels )
         {
-            int ret = realign(args, line);
+            int ret = args->filter_pass ? realign(args, line) : ERR_OK;
 
             // exclude broken VCF lines
             if ( ret==ERR_REF_MISMATCH && args->check_ref & CHECK_REF_SKIP )
@@ -2201,10 +2292,10 @@ static void normalize_line(args_t *args, bcf1_t *line)
         }
     }
 
-    if ( args->atomize==SPLIT ) abuf_push(args->abuf,line);
+    if ( args->filter_pass && args->atomize==SPLIT ) abuf_push(args->abuf,line);
     while (1)
     {
-        if ( args->atomize==SPLIT )
+        if ( args->filter_pass && args->atomize==SPLIT )
         {
             line = abuf_flush(args->abuf, 0);
             if ( !line ) break;
@@ -2218,10 +2309,15 @@ static void normalize_line(args_t *args, bcf1_t *line)
         args->lines[i] = bcf_dup(line);
         while ( rbuf_prev(&args->rbuf,&i) )
         {
-            if ( args->lines[i]->rid==args->lines[j]->rid && args->lines[i]->pos > args->lines[j]->pos ) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+            if ( args->lines[i]->rid==args->lines[j]->rid )
+            {
+                bcf_unpack(args->lines[i], BCF_UN_STR);
+                bcf_unpack(args->lines[j], BCF_UN_STR);
+                if ( args->cmp_func(&args->lines[i], &args->lines[j]) > 0) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+            }
             j = i;
         }
-        if ( args->atomize!=SPLIT ) break;
+        if ( !args->filter_pass || args->atomize!=SPLIT ) break;
     }
 }
 
@@ -2233,7 +2329,14 @@ static int split_and_normalize(args_t *args)
     bcf1_t *line = bcf_sr_get_line(args->files,0);
     args->ntotal++;
 
-    if ( args->mrows_op!=MROWS_SPLIT || line->n_allele<=2 )
+    if ( args->filter )
+    {
+        args->filter_pass = filter_test(args->filter,line,NULL);
+        if ( args->filter_logic==FLT_EXCLUDE ) args->filter_pass = args->filter_pass ? 0 : 1;
+        if ( !args->filter_pass ) args->nfilter++;
+    }
+
+    if ( args->mrows_op!=MROWS_SPLIT || line->n_allele<=2 || !args->filter_pass )
     {
         // normal operation, no splitting
         normalize_line(args, line);
@@ -2322,7 +2425,8 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/joined/realigned/skipped:\t%d/%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/split/joined/realigned/removed/skipped:\t%d/%d/%d/%d/%d/%d\n",
+        args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nfilter);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
@@ -2341,9 +2445,11 @@ static void usage(void)
     fprintf(stderr, "    -c, --check-ref e|w|x|s         Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates         Remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -d, --rm-dup TYPE               Remove duplicate snps|indels|both|all|exact\n");
+    fprintf(stderr, "    -e, --exclude EXPR              Do not normalize records for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -f, --fasta-ref FILE            Reference sequence\n");
     fprintf(stderr, "        --force                     Try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
     fprintf(stderr, "    -g, --gff-annot FILE            Follow HGVS 3'rule and right-align variants in transcripts on the forward strand\n");
+    fprintf(stderr, "    -i, --include EXPR              Normalize only records for which the expression is true (see man page for details)\n");
     fprintf(stderr, "        --keep-sum TAG,..           Keep vector sum constant when splitting multiallelics (see github issue #360)\n");
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
@@ -2356,10 +2462,12 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE         Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "    -s, --strict-filter             When merging (-m+), merged site is PASS only if all sites being merged PASS\n");
+    fprintf(stderr, "    -S, --sort METHOD               Sort order: chr_pos,lex [chr_pos]\n");
     fprintf(stderr, "    -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
+    fprintf(stderr, "    -v, --verbose INT               Verbosity level (0-2) of GFF parsing [1]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "    -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
@@ -2392,8 +2500,10 @@ int main_vcfnorm(int argc, char *argv[])
     int region_is_file  = 0;
     int targets_is_file = 0;
     args->use_star_allele = 1;
+    args->gff_verbosity = 1;
     int regions_overlap = 1;
     int targets_overlap = 0;
+    args->cmp_func = cmp_bcf_pos;
 
     static struct option loptions[] =
     {
@@ -2401,9 +2511,12 @@ int main_vcfnorm(int argc, char *argv[])
         {"force",no_argument,NULL,7},
         {"atomize",no_argument,NULL,'a'},
         {"atom-overlaps",required_argument,NULL,11},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
         {"old-rec-tag",required_argument,NULL,12},
         {"keep-sum",required_argument,NULL,10},
         {"fasta-ref",required_argument,NULL,'f'},
+        {"sort",required_argument,NULL,'S'},
         {"gff-annot",required_argument,NULL,'g'},
         {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
         {"do-not-normalize",no_argument,NULL,'N'},
@@ -2425,10 +2538,11 @@ int main_vcfnorm(int argc, char *argv[])
         {"strict-filter",no_argument,NULL,'s'},
         {"no-version",no_argument,NULL,8},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbose",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2437,7 +2551,22 @@ int main_vcfnorm(int argc, char *argv[])
                 args->keep_sum_ad = 1;  // this will be set to the header id or -1 in init_data
                 break;
             case 'g': args->gff_fname = optarg; break;
+            case 'v':
+                args->gff_verbosity = atoi(optarg);
+                if ( args->gff_verbosity<0 || args->gff_verbosity>2 ) error("Error: expected integer 0-2 with -v, --verbose\n");
+                break;
             case 'a': args->atomize = SPLIT; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'S':
+                if ( !strcasecmp(optarg,"pos") ) args->cmp_func = cmp_bcf_pos;
+                else if ( !strcasecmp(optarg,"lex") ) args->cmp_func = cmp_bcf_pos_ref_alt;
+                else error("Error: the sort order --sort %s is not recognised\n",optarg);
+                break;
             case 11 :
                 if ( optarg[0]=='*' ) args->use_star_allele = 1;
                 else if ( optarg[0]=='.' ) args->use_star_allele = 0;

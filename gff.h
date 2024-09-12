@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2023 Genome Research Ltd.
+   Copyright (c) 2023-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -36,7 +36,7 @@
 
     Read about transcript types here
         http://vega.sanger.ac.uk/info/about/gene_and_transcript_types.html
-        http://www.ensembl.org/info/genome/variation/predicted_data.html
+        https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html
         https://www.gencodegenes.org/pages/biotypes.html
 
     List of supported biotypes

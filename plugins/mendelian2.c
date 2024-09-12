@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2023 Genome Research Ltd.
+   Copyright (c) 2015-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -70,7 +70,9 @@ typedef struct
         nfail,          // number of -i/-e filters failed
         nmiss,          // number of genotypes with a missing allele in the trio
         ngood,          // number of good genotypes (after any -i/-e filters applied)
-        nmerr;          // number of mendelian errors
+        nmerr,          // number of mendelian errors
+        ngood_alt,      // number of error-free non-ref genotypes
+        nrule;          // number of genotypes with no rule to apply
 }
 stats_t;
 
@@ -425,7 +427,7 @@ static void init_data(args_t *args)
         args->rules = regidx_init(args->rules_fname, parse_rules, NULL, sizeof(rule_t), args);
     else
         args->rules = init_rules(args, args->rules_str);
-    if ( !args->rules ) error("Coud not parse the Mendelian rules\n");
+    if ( !args->rules ) error("Could not parse the Mendelian rules\n");
     args->itr  = regitr_init(args->rules);
     args->rule = (rule_t*) malloc(sizeof(*args->rule)*args->nsex_id);
 
@@ -437,9 +439,9 @@ static void init_data(args_t *args)
         args->trio  = (trio_t*) calloc(1,sizeof(trio_t));
         list = hts_readlist(args->pfm, 0, &n);
         if ( n!=3 ) error("Expected three sample names with -t\n");
-        args->trio[0].idx[iKID] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[0]);
-        args->trio[0].idx[iDAD] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[1]);
-        args->trio[0].idx[iMOM] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[2]);
+        const int ped_idx[3] = {2,1,0};  // sample order is different on the command line (P,F,M) and in the code (M,F,P)
+        for (i=0; i<3; i++)
+            args->trio[0].idx[i] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[ped_idx[i]]);
         if ( args->trio[0].idx[iKID] < 0 )
         {
             if ( strlen(list[0])>3 && !strncasecmp(list[0],"1X:",3) )
@@ -453,10 +455,10 @@ static void init_data(args_t *args)
                 args->trio[0].sex_id = iMOM;
             }
         }
-        for (i=0; i<n; i++)
+        for (i=0; i<3; i++)
         {
-            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[i]);
-            free(list[i]);
+            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[ped_idx[i]]);
+            free(list[ped_idx[i]]);
         }
         free(list);
     }
@@ -627,7 +629,7 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             continue;
         }
         rule_t *rule = &args->rule[trio->sex_id];
-        if ( !rule->inherits ) continue; // should have some stats for this?
+        if ( !rule->inherits ) { trio->stats.nrule++; continue; }
         uint64_t kid1, kid2, parent, mom, dad;
         int nal = parse_gt(&args->gt_arr[ngt*trio->idx[iKID]],ngt,&kid1,&kid2);
         if ( nal < rule->ploidy ) { ret |= HAS_MISS; trio->stats.nmiss++; continue; }
@@ -639,7 +641,13 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             }
             nal = parse_gt(&args->gt_arr[ngt*trio->idx[j]],ngt,&parent,&parent);
             if ( !nal ) { ret |= HAS_MISS; trio->stats.nmiss++; continue; }
-            if ( parent&kid1 ) { ret |= HAS_GOOD; trio->stats.ngood++; continue; }
+            if ( parent&kid1 )
+            {
+                ret |= HAS_GOOD;
+                trio->stats.ngood++;
+                if ( parent!=1 || parent!=kid1 ) trio->stats.ngood_alt++;
+                continue;
+            }
             ret |= HAS_MERR;
             trio->stats.nmerr++;
             trio->has_merr = 1;
@@ -648,7 +656,14 @@ static int collect_stats(args_t *args, bcf1_t *rec)
         }
         int nal_mom = parse_gt(&args->gt_arr[ngt*trio->idx[iMOM]],ngt,&mom,&mom);
         int nal_dad = parse_gt(&args->gt_arr[ngt*trio->idx[iDAD]],ngt,&dad,&dad);
-        if ( (kid1&dad && kid2&mom) || (kid1&mom && kid2&dad) ) { ret |= HAS_GOOD; trio->stats.ngood++; continue; }   // both children's alleles phased
+        if ( (kid1&dad && kid2&mom) || (kid1&mom && kid2&dad) )
+        {
+            // both children's alleles phased
+            ret |= HAS_GOOD;
+            trio->stats.ngood++;
+            if ( dad!=1 || mom!=1 || (kid1|kid2)!=1 ) trio->stats.ngood_alt++;
+            continue;
+        }
         if ( !nal_mom || !nal_dad ) { ret |= HAS_MISS; trio->stats.nmiss++; }       // one or both parents missing
         if ( !nal_mom && !nal_dad ) continue;                                       // both parents missing
         if ( !nal_mom && ((kid1|kid2)&dad) ) continue;                              // one parent missing but the kid is consistent with the other
@@ -738,8 +753,15 @@ static void print_stats(args_t *args)
 
     int i;
     fprintf(log_fh,"# Per-trio stats, each column corresponds to one trio. List of trios is below.\n");
+    fprintf(log_fh,"# The meaning of per-trio stats is the same as described above, ngood_alt is\n");
+    fprintf(log_fh,"# the number of good genotypes with at least one non-reference allele, and is\n");
+    fprintf(log_fh,"# included in the ngood counter\n");
     fprintf(log_fh,"ngood");
     for (i=0; i<args->ntrio; i++) fprintf(log_fh,"\t%d",args->trio[i].stats.ngood);
+    fprintf(log_fh,"\n");
+
+    fprintf(log_fh,"ngood_alt");
+    for (i=0; i<args->ntrio; i++) fprintf(log_fh,"\t%d",args->trio[i].stats.ngood_alt);
     fprintf(log_fh,"\n");
 
     fprintf(log_fh,"nmerr");

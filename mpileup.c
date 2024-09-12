@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2023 Genome Research Ltd.
+    Copyright (C) 2008-2024 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -612,7 +612,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
             }
         }
     }
-    return 0;
+    return ret;
 }
 
 static int mpileup(mplp_conf_t *conf)
@@ -652,8 +652,12 @@ static int mpileup(mplp_conf_t *conf)
             }
         }
         nregs = regidx_nregs(conf->reg);
-        conf->reg_itr = regitr_init(conf->reg);
-        regitr_loop(conf->reg_itr);   // region iterator now positioned at the first region
+        if ( nregs )
+        {
+            // the regions list can be empty, see #2250
+            conf->reg_itr = regitr_init(conf->reg);
+            regitr_loop(conf->reg_itr);   // region iterator now positioned at the first region
+        }
     }
 
     // read the header of each file in the list and initialize data
@@ -699,7 +703,7 @@ static int mpileup(mplp_conf_t *conf)
             i--;
             continue;
         }
-        if (conf->reg) {
+        if (conf->reg && nregs) {
             hts_idx_t *idx = sam_index_load(conf->mplp_data[i]->fp, conf->files[i]);
             if (idx == NULL) {
                 fprintf(stderr, "[%s] fail to load index for %s\n", __func__, conf->files[i]);
@@ -938,6 +942,7 @@ static int mpileup(mplp_conf_t *conf)
 
 
     // Run mpileup for multiple regions
+    int ret = 0;
     if ( nregs )
     {
         int ireg = 0;
@@ -966,12 +971,18 @@ static int mpileup(mplp_conf_t *conf)
                     bam_mplp_reset(conf->iter);
                 }
             }
-            mpileup_reg(conf,conf->reg_itr->beg,conf->reg_itr->end);
+            ret = mpileup_reg(conf,conf->reg_itr->beg,conf->reg_itr->end);
+            if ( ret<0 ) break;
         }
         while ( regitr_loop(conf->reg_itr) );
     }
-    else
-        mpileup_reg(conf,0,UINT32_MAX);
+    else if ( !conf->reg )
+        ret = mpileup_reg(conf,0,UINT32_MAX);
+    if ( ret<0 )
+    {
+        fprintf(stderr, "[%s] failed to read from input file\n", __func__);
+        exit(EXIT_FAILURE);
+    }
 
     flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, NULL);
 
@@ -1163,7 +1174,7 @@ static void list_annotations(FILE *fp)
         "\n"
         "FORMAT annotation tags available (\"FORMAT/\" prefix is optional):\n"
         "\n"
-        "  FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)\n"
+        "* FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)\n"
         "  FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)\n"
         "  FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)\n"
         "  FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)\n"
@@ -1213,7 +1224,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "\n"
         "Input options:\n"
         "  -6, --illumina1.3+      Quality is in the Illumina-1.3+ encoding\n"
-        "  -A, --count-orphans     Do not discard anomalous read pairs\n"
+        "  -A, --count-orphans     Include anomalous read pairs, with flag PAIRED but not PROPER_PAIR set\n"
         "  -b, --bam-list FILE     List of input BAM filenames, one per line\n"
         "  -B, --no-BAQ            Disable BAQ (per-Base Alignment Quality)\n"
         "  -C, --adjust-MQ INT     Adjust mapping quality [0]\n"
@@ -1367,7 +1378,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
-    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB;
+    mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB|B2B_FMT_AD;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;

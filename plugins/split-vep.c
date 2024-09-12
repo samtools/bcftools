@@ -162,7 +162,7 @@ static const char *default_severity(void)
     return
         "# Default consequence substrings ordered in ascending order by severity.\n"
         "# Consequences with the same severity can be put on the same line in arbitrary order.\n"
-        "# See also https://m.ensembl.org/info/genome/variation/prediction/predicted_data.htm\n"
+        "# See also https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html\n"
         "intergenic\n"
         "feature_truncation feature_elongation\n"
         "regulatory\n"
@@ -233,7 +233,7 @@ static const char *usage_text(void)
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
         "   -g, --gene-list [+]FILE         Consider only features listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
         "       --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene]\n"
-        "   -H, --print-header              Print header\n"
+        "   -H, --print-header              Print header, -HH to omit column indices\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -623,7 +623,7 @@ static void parse_column_str(args_t *args)
             // either the original or sanitized version of the tag exists
             idx_end = idx_beg;
         }
-        else if ( (tp=strrchr(bp,':')) )    // notice this requests the last occurence of ':'
+        else if ( (tp=strrchr(bp,':')) )    // notice this requests the last occurrence of ':'
         {
             // there is a colon in the original string, expecting type specification
             *tp = 0;
@@ -711,15 +711,13 @@ static void parse_column_str(args_t *args)
         ann->idx = j = column[i];
         ann->field = strdup(args->field[j]);
         ann->tag = strdup(args->field[j]);
-        args->kstr.l = 0;
         const char *type = "String";
         if ( ann->type==BCF_HT_REAL ) type = "Float";
         else if ( ann->type==BCF_HT_INT ) type = "Integer";
         else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
         else if ( ann->type==BCF_HT_STR ) type = "String";
         else if ( ann->type==-1 ) type = get_column_type(args, args->field[j], &ann->type);
-        ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
-        bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
+        bcf_hdr_printf(args->hdr_out, "##INFO=<ID=%s,Number=.,Type=%s,Description=\"The %s field from INFO/%s\">", ann->tag,type,ann->field,args->vep_tag);
         if ( str.l ) kputc(',',&str);
         kputs(ann->tag,&str);
     }
@@ -1001,6 +999,7 @@ static void init_data(args_t *args)
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
         if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
+        if ( args->print_header>1 ) convert_set_option(args->convert, no_hdr_indices, 1);
         convert_set_option(args->convert, force_newline, 1);
     }
     if ( args->genes_fname ) init_gene_list(args);
@@ -1350,7 +1349,7 @@ static void restrict_csqs_to_genes(args_t *args)
 // Split the VEP annotation by transcript and by field, then check if the number of subfields looks alright.
 // Unfortunately, we cannot enforce the number of subfields to match the header definition because that can
 // be variable: `bcftools csq` outputs different number of fields for different consequence types.
-// So we need to distinguish between this reasonable case and incorrectly formated consequences such
+// So we need to distinguish between this reasonable case and incorrectly formatted consequences such
 // as those reported for LoF_info subfield here https://github.com/Ensembl/ensembl-vep/issues/1351.
 static void split_csq_fields(args_t *args, bcf1_t *rec, int csq_str_len)
 {
@@ -1541,7 +1540,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
-            case 'H': args->print_header = 1; break;
+            case 'H': args->print_header++; break;
             case 'x': drop_sites = 1; break;
             case 'X': drop_sites = 0; break;
             case 'd': args->duplicate = 1; break;

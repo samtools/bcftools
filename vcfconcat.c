@@ -785,7 +785,7 @@ static void _check_hrecs(const bcf_hdr_t *hdr0, const bcf_hdr_t *hdr, char *fnam
     for (j=0; j<hdr0->nhrec; j++)
     {
         bcf_hrec_t *hrec0 = hdr0->hrec[j];
-        if ( hrec0->type!=BCF_HL_FLT && hrec0->type!=BCF_HL_INFO && hrec0->type!=BCF_HL_FMT && hrec0->type!=BCF_HL_CTG ) continue;    // skip fiels w/o IDX
+        if ( hrec0->type!=BCF_HL_FLT && hrec0->type!=BCF_HL_INFO && hrec0->type!=BCF_HL_FMT && hrec0->type!=BCF_HL_CTG ) continue;    // skip fields w/o IDX
         int itag = bcf_hrec_find_key(hrec0, "ID");
         bcf_hrec_t *hrec = bcf_hdr_get_hrec(hdr, hrec0->type, "ID", hrec0->vals[itag], NULL);
 

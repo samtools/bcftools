@@ -1,0 +1,22 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100000	.	CC	G	.	.	.
+1	100001	.	C	G	.	.	.
+1	789242	.	C	G	.	.	.
+1	789242	.	C	A	.	.	.
+1	789243	.	C	CCA	.	.	.
+1	789244	.	C	A	.	.	.
+1	789244	.	C	CA	.	.	.
+1	789244	.	C	T	.	.	.
+1	789244	.	C	CCA	.	.	.
+1	789245	.	C	T,CA,TTT	.	.	.
+1	789245	.	C	T,A	.	.	.
+1	789245	.	C	T	.	.	.
+1	789245	.	C	A,T	.	.	.
+1	789245	.	C	T	.	.	.
+1	789245	.	C	CA,TTT,T	.	.	.
+1	800000	.	CC	G	.	.	.
+1	800001	.	C	G	.	.	.

@@ -200,7 +200,7 @@ extern "C" {
          * 1 stands for insertion to target.
          * 2 stands for insertion to query.
          * 3 stands for mismatch.
-         * Alignment aligns query to target from begining of query till end of query.
+         * Alignment aligns query to target from beginning of query till end of query.
          * If gaps are not penalized, they are not in alignment.
          * If you do not free whole result object using edlibFreeAlignResult(), do not forget to use free().
          */

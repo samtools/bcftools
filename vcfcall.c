@@ -1,6 +1,6 @@
 /*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -696,7 +696,10 @@ static void init_data(args_t *args)
     }
 
     if ( args->aux.flag & CALL_CONSTR_ALLELES )
+    {
         args->vcfbuf = vcfbuf_init(args->aux.hdr, 0);
+        vcfbuf_set(args->vcfbuf,VCFBUF_DUMMY,1);
+    }
 
     char wmode[8];
     set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
@@ -941,7 +944,7 @@ static void usage(args_t *args)
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");
     // fprintf(stderr, "       -1 INT    number of group-1 samples [0]\n");
-    // fprintf(stderr, "       -C FLOAT  posterior constrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
+    // fprintf(stderr, "       -C FLOAT  posterior contrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
     // fprintf(stderr, "       -U INT    number of permutations for association testing (effective with -1) [0]\n");
     // fprintf(stderr, "       -X FLOAT  only perform permutations for P(chi^2)<FLOAT [%g]\n", args->aux.min_perm_p);
     fprintf(stderr, "\n");

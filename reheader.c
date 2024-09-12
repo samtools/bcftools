@@ -415,7 +415,7 @@ static void reheader_vcf_gz(args_t *args)
     if ( bgzf_write(bgzf_out, hdr.s, hdr.l) < 0 ) error("Can't write BGZF header (code %d)\n", bgzf_out->errcode);
     free(hdr.s);
 
-    // Output all remainig data read with the header block
+    // Output all remaining data read with the header block
     if ( fp->block_length - skip_until > 0 )
     {
         if ( bgzf_write(bgzf_out, buffer+skip_until, fp->block_length-skip_until)<0 ) error("Error: %d\n",fp->errcode);

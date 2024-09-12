@@ -354,7 +354,7 @@ Add or remove annotations.
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
-    POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
+    POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-".
     {nbsp} +
     {nbsp} +
@@ -378,8 +378,12 @@ Add or remove annotations.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    As a special case of this, if position needs to be replaced, mark the column with the new coordinate as "-POS".
+    (Note that in previous releases this used to be "~POS", now deprecated.)
+    {nbsp} +
+    {nbsp} +
     To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
-    If position needs to be replaced, mark the column with the new position as "~POS".
+    Note that this works only for ID and POS, for other fields see the description of *-i* below.
     {nbsp} +
     {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
@@ -387,6 +391,30 @@ Add or remove annotations.
     {nbsp} +
     {nbsp} +
     See also the *-l, --merge-logic* option.
+    {nbsp} +
+    {nbsp} +
+    *Summary of `-c, --columns`:*
+----
+    CHROM,POS,TAG       .. match by chromosome and position, transfer annotation from TAG
+    CHROM,POS,-,TAG     .. same as above, but ignore the third column of the annotation file
+    CHROM,BEG,END,TAG   .. match by region (BEG,END are synonymous to FROM,TO)
+    CHROM,POS,REF,ALT   .. match by CHROM, POS, REF and ALT
+
+    DST_TAG:=SRC_TAG    .. transfer the SRC_TAG using the new name DST_TAG
+    INFO                .. transfer all INFO annotations
+    ^INFO/TAG           .. transfer all INFO annotations except "TAG"
+
+    TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
+    +TAG      .. add or overwrite existing target value only it is "."
+    .TAG      .. add or overwrite existing target value even if source is "."
+    .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
+    -TAG      .. overwrite existing value, never add new if target does not exist
+    =TAG      .. do not overwrite but append value to existing tags
+
+    ~FIELD    .. use this column to match lines with -i/-e expression (see the description of -i below)
+    ~ID       .. in addition to CHROM,POS,REF,ALT match by also ID
+    ~INFO/END .. in addition to CHROM,POS,REF,ALT match by also INFO/END
+----
 
 *-C, --columns-file* 'file'::
     Read the list of columns from a file (normally given via the *-c, --columns* option).
@@ -397,7 +425,7 @@ Add or remove annotations.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
-    *<<expressions,EXPRESSIONS>>*.
+    *<<expressions,EXPRESSIONS>>* and the extension described in *-i, --include* below.
 
 *--force*::
     continue even when parsing errors, such as undefined tags, are encountered. Note
@@ -423,6 +451,19 @@ Add or remove annotations.
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
+    {nbsp} +
+    {nbsp} +
+    Additionally, the command *bcftools annotate* supports expressions updated from the annotation
+    file dynamically for each record:
+----
+    # The field 'STR' from the -a file is required to match INFO/TAG in VCF. In the first example
+    # the alleles REF,ALT must match, in the second example they are ignored. The option -k is required
+    # to output also records that are not annotated. The third example shows the same concept with
+    # a numerical expression.
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,REF,ALT,SCORE,~STR -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~STR     -i'TAG={STR}' -k input.vcf
+    bcftools annotate -a annots.tsv.gz -c CHROM,POS,-,-,SCORE,~INT     -i'TAG>{INT}' -k input.vcf
+----
 
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
@@ -666,10 +707,15 @@ demand. The original calling model can be invoked with the *-c* option.
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
     per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*).
 
-*-g, --gvcf* 'INT'::
-    output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
-    minimum per-sample depth required to include a site in the non-variant
-    block.
+*-g, --gvcf* 'INT'[,...]::
+    output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+    specified by the list of integers. For example, passing '5,15' will
+    group sites into two types of gVCF blocks, the first with minimum
+    per-sample DP from the interval [5,15) and the latter with minimum
+    depth 15 or more. In this example, sites with minimum per-sample
+    depth less than 5 will be printed as separate records, outside of
+    gVCF blocks.
+
 
 *-i, --insert-missed* 'INT'::
     output also sites missed by mpileup but present in *-T, --targets-file*.
@@ -1339,7 +1385,7 @@ output VCF and are ignored for the prediction analysis.
     transcripts in malformatted GFFs with incorrect phase
 
 *-g, --gff-annot* 'FILE'::
-    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    GFF3 annotation file (required), such as http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/.
     The script *<<gff2gff,gff2gff>>* can help with conversion from non-standard GFF formats.
     An example of a minimal working GFF file:
 ----
@@ -1458,6 +1504,9 @@ output VCF and are ignored for the prediction analysis.
     Automatically detect and unify chromosome naming conventions in the GFF, fasta
     and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
     that of the input VCF. The default is to attempt the automatic translation.
+
+*-v, --verbose* 'INT'::
+    verbosity level (0-2)
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -1645,7 +1694,7 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 
 Note that the interpretation of the discordance score depends on the options provided (specifically *-e* and
 *-u*) and on the available annotations (FORMAT/PL vs FORMAT/GT).
-The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.
+The discordance score can be interpreted as the number of mismatching genotypes only if GT-vs-GT matching is performed.
 
 *--distinctive-sites* 'NUM[,MEM[,DIR]]'::
     Find sites that can distinguish between at least NUM sample pairs. If the number is smaller or equal to 1,
@@ -2128,7 +2177,8 @@ multiple regions and many alignment files are processed.
     Assume the quality is in the Illumina 1.3+ encoding.
 
 *-A, --count-orphans*::
-    Do not skip anomalous read pairs in variant calling.
+    Include anomalous read pairs in variant calling, i.e. reads with
+    flag PAIRED but not PROPER_PAIR set. By default such reads are discarded.
 
 *-b, --bam-list* 'FILE'::
     List of input alignment files, one file per line [null]
@@ -2140,10 +2190,53 @@ multiple regions and many alignment files are processed.
     by misalignments.
 
 *-C, --adjust-MQ* 'INT'::
-    Coefficient  for  downgrading mapping quality for reads containing
-    excessive mismatches. Given a read with a phred-scaled probability q of
-    being generated from the mapped position, the new mapping quality is
-    about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
+    Coefficient for downgrading mapping quality for reads containing
+    excessive mismatches.  Mismatches are counted as a proportion of the
+    number of aligned bases ("M", "X" or "=" CIGAR operations), along with
+    their quality, to derive an upper-bound of the mapping quality.
+    Original mapping qualities lower than this are left intact, while
+    higher ones are capped at the new adjusted score.
++
+The exact formula is complex and likely tuned to specific instruments
+and specific alignment tools, so this option is disabled by default
+(indicated as having a zero value).  Variables in the formulae and
+their meaning are defined below.
++
+----
+Variable    Meaning / formula
+M           The number of matching CIGAR bases (operation "M", "X" or "=").
+X           The number of substitutions with quality >= 13.
+SubQ        The summed quality of substitution bases included in X, capped
+            at a maximum of quality 33 per mismatching base.
+ClipQ       The summed quality of soft-clipped or hard-clipped bases. This
+            has no minimum or maximum quality threshold per base.  For
+            hard-clipped bases the per-base quality is taken as 13.
+
+T           SubQ - 10 * log10(M^X / X!) + ClipQ/5
+Cap         MAX(0, INT * sqrt((INT - T) / INT))
+----
++
+Some notes on the impact of this.
++
+- As the number of mismatches increases, the mapping quality cap
+  reduces, eventually resulting in discarded alignments.
+- High quality mismatches reduces the cap faster than low quality
+  mismatches.
+- The starting INT value also acts as a hard cap on mapping quality,
+  even when zero mismatches are observed.
+- Indels have no impact on the mapping quality.
++
+The intent of this option is to work around aligners that compute a
+mapping quality using a local alignment without having any regard to
+the degree of clipping required or consideration of potential
+contamination or large scale insertions with respect to the reference.
+A record may align uniquely and have no close second match, but having
+a high number of mismatches may still imply that the reference is not
+the correct site.
++
+However we do not recommend use of this parameter unless you fully
+understand the impact of it and have determined that it is appropriate
+for your sequencing technology.
 
 *-D, --full-BAQ*::
     Run the BAQ algorithm on all reads, not just those in problematic
@@ -2564,6 +2657,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     If a record is present in multiple files, output only the first instance.
     Alias for *-d none*, deprecated.
 
+*-e, --exclude* 'EXPRESSION'::
+    do not normalize input records for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*. Note that duplicate removal ignores this option.
+
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
     and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
@@ -2577,6 +2674,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     when a GFF file is provided, follow HGVS 3'rule and right-align variants in transcripts on the forward
     strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
     description of the supported GFF3 file format see *<<csq,bcftools csq>>*.
+
+*-i, --include* 'EXPRESSION'::
+    normalize only input records for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*. Note that duplicate removal ignores this option.
 
 *--keep-sum* 'TAG'[,...]::
     keep vector sum constant when splitting multiallelic sites. Only AD tag
@@ -2629,6 +2730,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-s, --strict-filter*::
     when merging ('-m+'), merged site is PASS only if all sites being merged PASS
 
+*-S, --sort* 'pos'|'lex'::
+    when splitting sites or processing duplicates, sort records on output by
+    POS only ('pos', the default) or by POS and lexicographically by REF+ALT ('lex')
+
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2640,6 +2745,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*-v, --verbose* 'INT'::
+    verbosity level of GFF parsing (0-2)
 
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
@@ -3029,7 +3137,8 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     fields will be still printed but instead of their actual value, 'STR' will be used.
 
 *-H, --print-header*::
-    print header
+    print header. By default, the header is printed with column indices, e.g. "#[1]CHROM".
+    These can be suppressed by giving the option twice, "`-HH`".
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
@@ -3100,6 +3209,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
     %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+    %VKX            VariantKey, biallelic hexadecimal encoding of CHROM,POS,REF,ALT (https://github.com/tecnickcom/variantkey)
     []              Format fields must be enclosed in brackets to loop over all samples
     \n              new line
     \t              tab character
@@ -3876,7 +3986,7 @@ number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-indel length (deletions negative, insertions positive)
+indel length (deletions negative, insertions positive, balanced substitutions zero)
 
         N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN
 

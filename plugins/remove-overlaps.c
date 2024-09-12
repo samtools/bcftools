@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2017-2023 Genome Research Ltd.
+    Copyright (C) 2017-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -34,6 +34,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/bgzf.h>
 #include "bcftools.h"
 #include "vcfbuf.h"
 #include "filter.h"
@@ -47,45 +48,62 @@ typedef struct
     char *filter_str;
     int filter_logic;   // one of FLT_INCLUDE/FLT_EXCLUDE (-i or -e)
     vcfbuf_t *vcfbuf;
-    int argc, region_is_file, target_is_file, output_type, verbose, nrm, ntot, print_overlaps, rmdup, clevel;
-    char **argv, *region, *target, *fname, *output_fname;
+    int argc, region_is_file, target_is_file, output_type, verbose, nrm, ntot, clevel;
+    int reverse;
+    char **argv, *region, *target, *fname, *output_fname, *mark_expr, *mark_tag, *missing_expr;
     htsFile *out_fh;
+    BGZF *fh_bgzf;
     bcf_hdr_t *hdr;
     bcf_srs_t *sr;
     char *index_fn;
-    int write_index;
+    int write_index, record_cmd_line;
+    kstring_t kstr;
 }
 args_t;
 
 const char *about(void)
 {
-    return "Remove overlapping variants\n";
+    return "Remove, list or mark overlapping variants\n";
 }
 
 static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Remove overlapping variants.\n"
+        "About: Remove, list or mark overlapping variants.\n"
         "\n"
-        "Usage: bcftools +remove-overlaps [Options]\n"
+        "Usage: bcftools +remove-overlaps [OPTIONS]\n"
         "Plugin options:\n"
-        "   -d, --rm-dup                    remove only duplicate sites and remove them completely\n"
-        "   -p, --print-overlaps            do the opposite and print only overlapping sites\n"
-        "   -v, --verbose                   print a list of removed sites\n"
+        "   -M, --mark-tag TAG          Mark -m sites with INFO/TAG\n"
+        "   -m, --mark EXPR             Mark (if also -M is present) or remove sites [overlap]\n"
+        "                                   dup       .. all duplicate sites\n"
+        "                                   overlap   .. overlapping sites\n"
+        "                                   min(QUAL) .. sites with lowest QUAL until overlaps are resolved\n"
+        "       --missing EXPR          Value to use for missing tags with -m 'min(QUAL)'\n"
+        "                                   0   .. the default\n"
+        "                                   DP  .. heuristics, scale maximum QUAL value proportionally to INFO/DP\n"
+        "       --reverse               Apply the reverse logic, for example preserve duplicates instead of removing\n"
         "Standard options:\n"
-        "   -e, --exclude EXPR              exclude sites for which the expression is true\n"
-        "   -i, --include EXPR              include only sites for which the expression is true\n"
-        "   -o, --output FILE               write output to the FILE [standard output]\n"
-        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
-        "   -r, --regions REGION            restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
+        "   -e, --exclude EXPR          Exclude sites for which the expression is true\n"
+        "   -i, --include EXPR          Include only sites for which the expression is true\n"
+        "   -o, --output FILE                 Write output to the FILE [standard output]\n"
+        "   -O, --output-type u|b|v|z|t[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level\n"
+        "                                       t: plain list of sites (chr,pos), tz: compressed list [v]\n"
+        "   -r, --regions REGION              Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE           Restrict to regions listed in a file\n"
+        "   -t, --targets REGION              Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE           Similar to -R but streams rather than index-jumps\n"
+        "       --no-version                  Do not append version and command line to the header\n"
+        "   -W, --write-index[=FMT]           Automatically index the output files [off]\n"
         "\n";
 }
 
+// duh: FT_TAB_TEXT is 0 :-/
+static int is_text(int flag)
+{
+    if ( flag==FT_TAB_TEXT || flag==FT_GZ ) return 1;
+    return 0;
+}
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -100,18 +118,30 @@ static void init_data(args_t *args)
 
     char wmode[8];
     set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
-    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
-    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( init_index2(args->out_fh,args->hdr,args->output_fname,&args->index_fn,
-                     args->write_index)<0 )
-      error("Error: failed to initialise index for %s\n",args->output_fname);
+    if ( is_text(args->output_type) )
+    {
+        args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
+    }
+    else
+    {
+        args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
+        if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+
+        // todo: allow both INFO vs FILTER?
+        if ( args->mark_tag )
+        {
+            int ret = bcf_hdr_printf(args->hdr, "##INFO=<ID=%s,Type=Flag,Number=0,Description=\"Marked by +remove-overlaps\">",args->mark_tag);
+            if ( ret!=0 ) error("Error adding the header tag INFO/%s\n",args->mark_tag);
+        }
+        if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_remove-overlaps");
+        if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        if ( init_index2(args->out_fh,args->hdr,args->output_fname,&args->index_fn, args->write_index)<0 )
+            error("Error: failed to initialise index for %s\n",args->output_fname);
+    }
 
     args->vcfbuf = vcfbuf_init(args->hdr, 0);
-    if ( args->rmdup )
-        vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_RMDUP,1)
-    else
-        vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_OVERLAP_WIN,1)
+    vcfbuf_set(args->vcfbuf,MARK,args->mark_expr);
+    if ( args->missing_expr ) vcfbuf_set(args->vcfbuf,MARK_MISSING_EXPR,args->missing_expr);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -129,25 +159,40 @@ static void destroy_data(args_t *args)
         }
         free(args->index_fn);
     }
-    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    if ( args->out_fh && hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    if ( args->fh_bgzf && bgzf_close(args->fh_bgzf)!=0 ) error("[%s] Error: close failed .. %s\n",__func__,args->output_fname);
     vcfbuf_destroy(args->vcfbuf);
     bcf_sr_destroy(args->sr);
+    free(args->kstr.s);
     free(args);
 }
 static void flush(args_t *args, int flush_all)
 {
-    int nbuf = vcfbuf_nsites(args->vcfbuf);
     bcf1_t *rec;
-    while ( (rec = vcfbuf_flush(args->vcfbuf, flush_all)) )
+    while ( (rec=vcfbuf_flush(args->vcfbuf,flush_all)) )
     {
-        if ( nbuf>2 || (nbuf>1 && flush_all) )
+        int keep = vcfbuf_get_val(args->vcfbuf,int,MARK) ? 0 : 1;
+        if ( args->reverse ) keep = keep ? 0 : 1;
+        if ( !keep )
         {
             args->nrm++;
-            if ( args->verbose ) printf("%s\t%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-            if ( args->print_overlaps && bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-            continue;     // skip overlapping variants
+            if ( !args->mark_tag ) continue;
+            bcf_update_info_flag(args->hdr,rec,args->mark_tag,NULL,1);
         }
-        if ( !args->print_overlaps && bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+
+        int ret;
+        if ( is_text(args->output_type) )
+        {
+            args->kstr.l = 0;
+            ksprintf(&args->kstr,"%s\t%"PRIhts_pos"\n",bcf_seqname(args->hdr,rec),rec->pos+1);
+            if ( args->kstr.l && bgzf_write(args->fh_bgzf, args->kstr.s, args->kstr.l)!=args->kstr.l )
+                error("Failed to write to %s\n", args->output_fname);
+        }
+        else
+        {
+            ret = bcf_write1(args->out_fh, args->hdr, rec);
+            if ( ret!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        }
     }
 }
 static void process(args_t *args)
@@ -171,30 +216,36 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_type  = FT_VCF;
     args->output_fname = "-";
+    args->mark_expr = "overlap";
     args->clevel = -1;
+    args->record_cmd_line = 1;
     static struct option loptions[] =
     {
-        {"rm-dup",no_argument,NULL,'d'},
-        {"print-overlaps",no_argument,NULL,'p'},
+        {"mark-tag",required_argument,NULL,'M'},
+        {"mark",required_argument,NULL,'m'},
+        {"reverse",no_argument,NULL,1},
+        {"no-version",no_argument,NULL,2},
+        {"missing",required_argument,NULL,3},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
-        {"verbose",no_argument,NULL,'v'},
         {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:i:e:vpdW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "m:M:r:R:t:T:o:O:i:e:dW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
-            case 'd': args->rmdup = 1; break;
-            case 'p': args->print_overlaps = 1; break;
-            case 'v': args->verbose = 1; break;
+            case 'm': args->mark_expr = optarg; break;
+            case 'M': args->mark_tag = optarg; break;
+            case  1 : args->reverse = 1; break;
+            case  2 : args->record_cmd_line = 0; break;
+            case  3 : args->missing_expr = optarg; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
@@ -212,11 +263,17 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
+                          case 't': args->output_type = FT_TAB_TEXT; break;
                           default:
                           {
                               args->clevel = strtol(optarg,&tmp,10);
                               if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
                           }
+                      }
+                      if ( optarg[1]=='z' )
+                      {
+                          optarg++;
+                          args->output_type |= FT_GZ;
                       }
                       if ( optarg[1] )
                       {
@@ -233,6 +290,7 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
+    if ( args->write_index && is_text(args->output_type) ) error("Cannot index text output\n");
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
     if ( optind==argc )
     {

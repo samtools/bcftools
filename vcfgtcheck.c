@@ -1,6 +1,6 @@
 /*  vcfgtcheck.c -- Check sample identity.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -74,7 +74,7 @@ typedef struct
     pair_t *pairs;
     double *hwe_prob, dsg2prob[8][3], pl2prob[256];
     double min_inter_err, max_intra_err;
-    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run, use_PLs;
+    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run, gt_err;
     BGZF *out_fh;
     unsigned int nskip_no_match, nskip_not_ba, nskip_mono, nskip_no_data, nskip_dip_GT, nskip_dip_PL, nskip_filter;
     kstring_t kstr;
@@ -141,7 +141,7 @@ static int cmp_pair(const void *_a, const void *_b)
 
 typedef struct
 {
-    uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosoms
+    uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosomes
     unsigned long kbs_dat[1];
 }
 diff_sites_t;
@@ -389,7 +389,7 @@ static void init_data(args_t *args)
         args->qry_dsg = (uint8_t*) malloc(args->nqry_smpl);
         args->gt_dsg  = args->cross_check ? args->qry_dsg : (uint8_t*) malloc(args->ngt_smpl);
     }
-    if ( args->use_PLs )
+    if ( args->gt_err )
     {
         args->pdiff = (double*) calloc(args->npairs,sizeof(*args->pdiff));      // log probability of pair samples being the same
         args->qry_prob = (double*) malloc(3*args->nqry_smpl*sizeof(*args->qry_prob));
@@ -412,7 +412,7 @@ static void init_data(args_t *args)
         for (i=0; i<8; i++)
             for (j=0; j<3; j++)
                 args->dsg2prob[i][j] = HUGE_VAL;
-        double eprob = pow(10,-0.1*args->use_PLs);      // convert from phred score to probability
+        double eprob = pow(10,-0.1*args->gt_err);      // convert from phred score to probability
         args->dsg2prob[1][0] = 0;               // P(00|0) = 1
         args->dsg2prob[1][1] = -log(eprob);     // P(01|0) = e
         args->dsg2prob[1][2] = -2*log(eprob);   // P(11|0) = e^2
@@ -658,7 +658,7 @@ static void process_line(args_t *args)
     // The sample pairs were given explicitly via -p/-P options
     if ( args->pairs )
     {
-        if ( !args->use_PLs )
+        if ( !args->gt_err )
         {
             int ndiff = 0;
             if ( args->kbs_diff ) diff_sites_reset(args);
@@ -693,7 +693,7 @@ static void process_line(args_t *args)
 
             if ( ndiff ) diff_sites_push(args, ndiff, qry_rec->rid, qry_rec->pos);
         }
-        else    // use_PLs set
+        else    // gt_err set
         {
             for (i=0; i<args->npairs; i++)
             {
@@ -721,7 +721,7 @@ static void process_line(args_t *args)
                 {
                     int match = qry_dsg & gt_dsg;
                     args->hwe_prob[i] += hwe_dsg[match];
-                    args->nmatch[i]++;
+                    if ( match ) args->nmatch[i]++;
                 }
                 args->ncnt[i]++;
             }
@@ -730,7 +730,7 @@ static void process_line(args_t *args)
     }
 
     int idx=0;
-    if ( !args->use_PLs )
+    if ( !args->gt_err )
     {
         for (i=0; i<args->nqry_smpl; i++)
         {
@@ -767,7 +767,7 @@ static void process_line(args_t *args)
             }
         }
     }
-    else    // use_PLs set
+    else    // gt_err set
     {
         for (i=0; i<args->nqry_smpl; i++)
         {
@@ -802,7 +802,7 @@ static void process_line(args_t *args)
                 {
                     int match = args->qry_dsg[i] & args->gt_dsg[j];
                     args->hwe_prob[idx] += hwe_dsg[match];
-                    args->nmatch[idx]++;
+                    if ( match ) args->nmatch[idx]++;
                 }
                 args->ncnt[idx]++;
                 idx++;
@@ -895,7 +895,7 @@ static void report(args_t *args)
                          "#       match, the observed concordance was less likely to occur by chance)\n");
     ksprintf(&args->kstr,"#     - Number of sites compared for this pair of samples (bigger = more informative)\n");
     ksprintf(&args->kstr,"#     - Number of matching genotypes\n");
-    ksprintf(&args->kstr,"#DCv2\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]Average -log P(HWE)\t[6]Number of sites compared\t[6]Number of matching genotypes\n");
+    ksprintf(&args->kstr,"#DCv2\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]Average -log P(HWE)\t[6]Number of sites compared\t[7]Number of matching genotypes\n");
     if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
 
     int trim = args->ntop;
@@ -955,7 +955,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -965,7 +965,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
                 idx++;
@@ -1006,7 +1006,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -1016,7 +1016,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }
@@ -1073,7 +1073,7 @@ static void report(args_t *args)
                             args->ndiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 else
                 {
@@ -1083,7 +1083,7 @@ static void report(args_t *args)
                             args->pdiff[idx],
                             (args->calc_hwe_prob && args->nmatch[idx]) ? args->hwe_prob[idx]/args->nmatch[idx] : 0,
                             args->ncnt[idx],
-                            args->nmatch[idx]);
+                            args->calc_hwe_prob ? args->nmatch[idx] : 0);
                 }
                 if ( bgzf_write(args->out_fh, args->kstr.s, args->kstr.l)!=args->kstr.l ) error("Failed to write to %s\n", args->output_fname);
             }
@@ -1197,7 +1197,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->qry_use_GT = -1;
     args->gt_use_GT  = -1;
     args->calc_hwe_prob = 1;
-    args->use_PLs = 40;
+    args->gt_err = 40;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
     args->output_fname = "-";
@@ -1285,7 +1285,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 else
                 {
                     // this could be the old -e, --error-probability option
-                    args->use_PLs = strtol(optarg,&tmp,10);
+                    args->gt_err = strtol(optarg,&tmp,10);
                     if ( !tmp || *tmp )
                     {
                         // it is not
@@ -1322,7 +1322,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 }
                 break;
             case 'E':
-                args->use_PLs = strtol(optarg,&tmp,10);
+                args->gt_err = strtol(optarg,&tmp,10);
                 if ( !tmp || *tmp ) error("Could not parse: --error-probability %s\n", optarg);
                 break;
             case 'u':
@@ -1367,7 +1367,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                     while ( *tmp && *tmp!=',' ) tmp++;
                     if ( *tmp ) { *tmp = 0; args->es_tmp_prefix = tmp+1; }
                 }
-                args->use_PLs = 0;
+                args->gt_err = 0;
                 break;
             case 'c':
                 error("The -c option is to be implemented, please open an issue on github\n");
@@ -1427,7 +1427,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     }
     if ( args->distinctive_sites && !args->pair_samples ) error("The experimental option --distinctive-sites requires -p/-P\n");
     if ( args->hom_only && !args->gt_fname ) error("The option --homs-only requires --genotypes\n");
-    if ( args->distinctive_sites && args->use_PLs ) error("The option --distinctive-sites cannot be combined with --error-probability\n");
+    if ( args->distinctive_sites && args->gt_err ) error("The option --distinctive-sites cannot be combined with --error-probability\n");
 
     init_data(args);
 

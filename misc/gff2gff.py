@@ -152,7 +152,7 @@ def main():
     '''
     Ensembl gff should have one gene and one transcript per "feature group"
     Then, can have multiple CDS/exons
-    read in from the input gff, one FeatueGroup instance has one gene, one transcript and (potentially)
+    read in from the input gff, one FeatureGroup instance has one gene, one transcript and (potentially)
     multiple CDS/exon
     Exons aren't printed, as not needed bt bcftools csq
     '''

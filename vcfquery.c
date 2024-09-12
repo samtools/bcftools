@@ -98,6 +98,7 @@ static void init_data(args_t *args)
     if ( args->force_newline ) convert_set_option(args->convert, force_newline, 1);
     convert_set_option(args->convert, subset_samples, &args->smpl_pass);
     if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
+    if ( args->print_header>1 ) convert_set_option(args->convert, no_hdr_indices, 1);
     free(samples);
 
     int max_unpack = convert_max_unpack(args->convert);
@@ -238,7 +239,7 @@ static void usage(void)
     fprintf(stderr, "        --force-samples               Only warn about unknown subset samples\n");
     fprintf(stderr, "    -F, --print-filtered STR          Output STR for samples failing the -i/-e filtering expression\n");
     fprintf(stderr, "    -f, --format STRING               See man page for details\n");
-    fprintf(stderr, "    -H, --print-header                Print header\n");
+    fprintf(stderr, "    -H, --print-header                Print header, -HH to omit column indices\n");
     fprintf(stderr, "    -i, --include EXPR                Select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -l, --list-samples                Print the list of samples and exit\n");
     fprintf(stderr, "    -N, --disable-automatic-newline   Disable automatic addition of newline character when not present\n");
@@ -304,7 +305,7 @@ int main_vcfquery(int argc, char *argv[])
             case 'F': args->print_filtered = optarg; break;
             case 'f': args->format_str = strdup(optarg); break;
             case 'N': args->force_newline = 0; break;
-            case 'H': args->print_header = 1; break;
+            case 'H': args->print_header++; break;
             case 'v': args->vcf_list = optarg; break;
             case 'c':
                 error("The --collapse option is obsolete, pipe through `bcftools norm -c` instead.\n");
