@@ -1,8 +1,15 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools +noise-profile
+
+    - New experimental plugin for scoring variants and assess site noisiness from a large number of unaffected
+      parental samples
+
+
 ## Release 1.21 (12th September 2024)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 
