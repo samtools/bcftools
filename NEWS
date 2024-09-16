@@ -8,6 +8,13 @@ Changes affecting specific commands:
     - New experimental plugin for scoring variants and assess site noisiness from a large number of unaffected
       parental samples
 
+* bcftools +trio-dnm2
+
+    - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
+      allele in the father for male offspring
+
+    - Fix a problem with uncallsed mosaic chrX variants in males
+
 
 ## Release 1.21 (12th September 2024)
 
