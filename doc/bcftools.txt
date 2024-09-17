@@ -2503,6 +2503,14 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     exclude from calling and increment the first value of the AD counter
     ('incAD0') ['drop']
 
+*--ref-skip-reads*::
+    Include reads with CIGAR 'N' (ref-skip) operators in their alignment.
+    By default these are filtered out.  Enabling this option may be
+    necessary for calling on some RNASeq pipelines.  This works with
+    the default caller and --indels-cns.  The experimental -indels-2.0
+    option does not filter out alignments with ref-skips so this option
+    is unnecessary there.
+
 *-e, --ext-prob* 'INT'::
     Phred-scaled gap extension sequencing error probability. Reducing 'INT'
     leads to longer indels [20]
