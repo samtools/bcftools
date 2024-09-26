@@ -18,7 +18,7 @@ ref=''
 [ -z "$ref" ] && repository='https://github.com/samtools/htslib.git'
 
 set -x
-git clone --recurse-submodules --shallow-submodules --depth=1 ${ref:+--branch="$branch"} "$repository" "$localdir"
+git clone --recurse-submodules --shallow-submodules --depth=2 ${ref:+--branch="$branch"} "$repository" "$localdir"
 
 # NB: "samtools" as the owner/organisation, not the repo name
 if [ "x$owner" = "xsamtools" -a -z "$ref" -a "x$htslib_PR" != "x" ]
