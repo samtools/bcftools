@@ -27,11 +27,11 @@ reg=chr20:20000000-21000000
 echo "Getting Illumina $reg"
 samtools view -o illumina_300x.bam --write-index -@8 https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/ChineseTrio/HG005_NA24631_son/HG005_NA24631_son_HiSeq_300x/NHGRI_Illumina300X_Chinesetrio_novoalign_bams/HG005.GRCh38_full_plus_hs38d1_analysis_set_minus_alts.300x.bam $reg
 
-echo "Getting PacBio $reg"
-samtools view -o pacbio_50x.bam --write-index -@8 https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/ChineseTrio/HG005_NA24631_son/NIST_BGIseq_2x150bp_100x/GRCh38/HG005_GRCh38_BGIseq-2x150-100x_NIST_20211126.bam $reg
-
 echo "Getting BGI $reg"
-samtools view -o bgi_100x.bam --write-index -@8 https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/ChineseTrio/HG005_NA24631_son/PacBio_CCS_15kb_20kb_chemistry2/GRCh38/GIAB_5mC_CpG/HG005.GRCh38.deepvariant.haplotagged.bam $reg
+samtools view -o bgi_100x.bam --write-index -@8 https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/ChineseTrio/HG005_NA24631_son/NIST_BGIseq_2x150bp_100x/GRCh38/HG005_GRCh38_BGIseq-2x150-100x_NIST_20211126.bam $reg
+
+echo "Getting PacBio $reg"
+samtools view -o pacbio_50x.bam --write-index -@8 https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/ChineseTrio/HG005_NA24631_son/PacBio_CCS_15kb_20kb_chemistry2/GRCh38/GIAB_5mC_CpG/HG005.GRCh38.deepvariant.haplotagged.bam $reg
 
 # ----------------------------------------------------------------------
 # HG002 for code modification, tuning, tweaking and round-trips.
