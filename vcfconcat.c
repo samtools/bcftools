@@ -641,7 +641,7 @@ static void concat(args_t *args)
                 bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);
                 bcf_hdr_destroy(hdr_ori);
             }
-            if ( !fp->is_bin && args->output_type&FT_VCF )
+            if ( !fp->is_bin && args->output_type&FT_VCF && !args->out_fh->idx)
             {
                 line->max_unpack = BCF_UN_STR;
                 // if VCF is on both input and output, avoid VCF to BCF conversion
