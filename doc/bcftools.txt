@@ -3196,6 +3196,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %FIRST_ALT      Alias for %ALT{0}
     %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
     %GT             Genotype (e.g. 0/1)
+    %FUNCTION       Functions supported by the -i/-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
     %INFO           Prints the whole INFO column
     %INFO/TAG       Any tag in the INFO column
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
