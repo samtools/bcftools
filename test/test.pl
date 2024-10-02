@@ -110,6 +110,10 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'me
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.gvcf.11.c'],out=>'merge.gvcf.11.1.out',args=>'--gvcf -');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.1.out',args=>q[-f '%CHROM:%POS\\t%INFO/AD\\t%SUM(INFO/AD)']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.2.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t%SUM(FORMAT/AD)']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.3.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t[ %SUM(FORMAT/AD)]']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.4.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t[ %sSUM(FORMAT/AD)]']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.2.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" && CLNREVSTAT="_conflicting_interpretations"']);

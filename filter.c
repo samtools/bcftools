@@ -219,7 +219,7 @@ static int filters_next_token(char **str, int *len)
     if ( !strncasecmp(tmp,"STDEV(",6) ) { (*str) += 5; return TOK_STDEV; }
     if ( !strncasecmp(tmp,"SUM(",4) ) { (*str) += 3; return TOK_SUM; }
     if ( !strncasecmp(tmp,"ABS(",4) ) { (*str) += 3; return TOK_ABS; }
-    if ( !strncasecmp(tmp,"COUNT(",4) ) { (*str) += 5; return TOK_CNT; }
+    if ( !strncasecmp(tmp,"COUNT(",6) ) { (*str) += 5; return TOK_CNT; }
     if ( !strncasecmp(tmp,"STRLEN(",7) ) { (*str) += 6; return TOK_LEN; }
     if ( !strncasecmp(tmp,"BINOM(",6) ) { (*str) += 5; return -TOK_BINOM; }
     if ( !strncasecmp(tmp,"PHRED(",6) ) { (*str) += 5; return TOK_PHRED; }
