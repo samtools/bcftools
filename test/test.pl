@@ -49,6 +49,8 @@ run_test(\&test_vcf_stats,$opts,in=>['stats.a','stats.b'],out=>'stats.B.chk',arg
 run_test(\&test_vcf_stats,$opts,in=>['stats.counts'],out=>'stats.counts.chk',args=>'-s -');
 run_test(\&test_vcf_stats,$opts,in=>['stats.counts'],out=>'stats.counts.2.chk',args=>q[-s - -i 'type="snp"']);
 run_test(\&test_vcf_stats,$opts,in=>['stats.vaf'],out=>'stats.vaf.1.chk',args=>q[-s -]);
+run_test(\&test_vcf_isec,$opts,in=>['isec.match-id.1.1','isec.match-id.1.2'],out=>'isec.match-id.1.out',args=>'-n =2 -w 2 --no-version');
+run_test(\&test_vcf_isec,$opts,in=>['isec.match-id.1.1','isec.match-id.1.2'],out=>'isec.match-id.2.out',args=>'-n =2 -w 2 -c id --no-version');
 run_test(\&test_vcf_isec,$opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 run_test(\&test_vcf_isec,$opts,in=>['isec.a','isec.b'],out=>'isec.ab.flt.out',args=>'-n =2 -i"STRLEN(REF)==2"');
 run_test(\&test_vcf_isec,$opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -520,6 +522,8 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--s
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate35',vcf=>'annots35',out=>'annotate35.1.out',args=>q[-c CHROM,POS,~ID,REF,ALT,INFO/src]);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate35',tab=>'annots35',out=>'annotate35.2.out',args=>q[-c CHROM,POS,~ID,REF,ALT,dst:=src]);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.escape.1',tab=>'annotate.escape.1',out=>'annotate.escape.1.1.out',args=>q[-c CHROM,POS,ISTR,FMT/FSTR]);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.1.out',args=>q[-c CHROM,POS,-,-,SCORE,~X,-,- -i'STR={X}']);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.match.1',tab=>'annotate.match.1',out=>'annotate.match.1.2.out',args=>q[-c CHROM,POS,REF,ALT,SCORE,-,~X,- -i'INT={X}']);
@@ -1473,7 +1477,9 @@ sub test_vcf_isec
     my $files = join(' ',@files);
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} $files");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} $files");
+
+    # Either improve or disable completely: the output type does not make sense in all modes
+    #   test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} $files");
 }
 sub test_vcf_isec2
 {

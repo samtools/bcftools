@@ -1,6 +1,6 @@
 /*  vcfisec.c -- Create intersections, unions and complements of VCF files.
 
-    Copyright (C) 2012-2023 Genome Research Ltd.
+    Copyright (C) 2012-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -457,7 +457,7 @@ static void destroy_data(args_t *args)
         {
             if ( !args->fnames[i] ) continue;
             if ( hts_close(args->fh_out[i])!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fnames[i]);
-            int is_tbi = !args->write_index 
+            int is_tbi = !args->write_index
                       || (args->write_index&127) == HTS_FMT_TBI;
             if ( args->output_type==FT_VCF_GZ && is_tbi )
             {
@@ -473,8 +473,8 @@ static void destroy_data(args_t *args)
         free(args->fh_out);
         free(args->fnames);
         if ( args->fh_sites ) fclose(args->fh_sites);
-        if ( args->write ) free(args->write);
     }
+    free(args->write);
 }
 
 static void usage(void)
@@ -594,6 +594,7 @@ int main_vcfisec(int argc, char *argv[])
                 else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else if ( !strcmp(optarg,"none") ) args->files->collapse = COLLAPSE_NONE;
+                else if ( !strcmp(optarg,"id") ) args->files->collapse |= BCF_SR_PAIR_ID;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;

@@ -2313,7 +2313,7 @@ static void init_columns(args_t *args)
                 col->hdr_key_src = strdup(str.s);
                 col->hdr_key_dst = strdup(str.s);
                 col->replace = replace;
-                if ( args->pair_logic==-1 ) bcf_sr_set_opt(args->files,BCF_SR_PAIR_LOGIC,BCF_SR_PAIR_BOTH_REF);
+                if ( args->pair_logic==-1 ) args->pair_logic = BCF_SR_PAIR_ANY;
             }
             else args->alt_idx = icol;
         }
@@ -2321,7 +2321,6 @@ static void init_columns(args_t *args)
         {
             if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
             if ( str.s[0]=='~' ) replace = MATCH_VALUE;
-            if ( args->tgts_is_vcf && (replace & MATCH_VALUE) ) error("todo: -c ~ID with -a VCF?\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2330,7 +2329,11 @@ static void init_columns(args_t *args)
             col->setter = args->tgts_is_vcf ? vcf_setter_id : setter_id;
             col->hdr_key_src = strdup(str.s);
             col->hdr_key_dst = strdup(str.s);
-            if ( replace & MATCH_VALUE ) args->match_id = icol;
+            if ( replace & MATCH_VALUE )
+            {
+                args->match_id = icol;
+                if ( args->tgts_is_vcf ) args->pair_logic = (args->pair_logic==-1) ? BCF_SR_PAIR_ID : args->pair_logic|BCF_SR_PAIR_ID;
+            }
         }
         else if ( !strcasecmp("~INFO/END",str.s) && !args->tgts_is_vcf )
         {
@@ -3122,6 +3125,11 @@ static void init_data(args_t *args)
                          &args->index_fn, args->write_index) < 0 )
             error("Error: failed to initialise index for %s\n",args->output_fname);
     }
+    if ( args->tgts_is_vcf )
+    {
+        if ( args->pair_logic==-1 ) args->pair_logic = BCF_SR_PAIR_SOME;
+        bcf_sr_set_opt(args->files,BCF_SR_PAIR_LOGIC,args->pair_logic);
+    }
 }
 
 static void destroy_data(args_t *args)
@@ -3784,6 +3792,7 @@ int main_vcfannotate(int argc, char *argv[])
                 else if ( !strcmp(optarg,"some") ) args->pair_logic |= BCF_SR_PAIR_SOME;
                 else if ( !strcmp(optarg,"none") ) args->pair_logic = BCF_SR_PAIR_EXACT;
                 else if ( !strcmp(optarg,"exact") ) args->pair_logic = BCF_SR_PAIR_EXACT;
+                else if ( !strcmp(optarg,"id") ) args->pair_logic |= BCF_SR_PAIR_ID;
                 else error("The --pair-logic string \"%s\" not recognised.\n", optarg);
                 break;
             case  3 :
@@ -3829,7 +3838,6 @@ int main_vcfannotate(int argc, char *argv[])
         {
             args->tgts_is_vcf = 1;
             args->files->require_index = 1;
-            bcf_sr_set_opt(args->files,BCF_SR_PAIR_LOGIC,args->pair_logic>=0 ? args->pair_logic : BCF_SR_PAIR_SOME);
             if ( args->min_overlap_str ) error("The --min-overlap option cannot be used when annotating from a VCF\n");
         }
     }
