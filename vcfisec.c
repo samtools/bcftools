@@ -487,7 +487,7 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -c, --collapse STRING          Treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
+    fprintf(stderr, "    -c, --collapse STRING          Treat as identical records with <snps|indels|both|all|some|none|id>, see man page for details [none]\n");
     fprintf(stderr, "    -C, --complement               Output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -e, --exclude EXPR             Exclude sites for which the expression is true\n");
     fprintf(stderr, "    -f, --apply-filters LIST       Require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
