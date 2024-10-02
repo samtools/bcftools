@@ -1,6 +1,23 @@
 ## Release a.b
 
 
+Changes affecting specific commands:
+
+* bcftools +noise-profile
+
+    - New experimental plugin for scoring variants and assess site noisiness from a large number of unaffected
+      parental samples
+
+* bcftools +trio-dnm2
+
+    - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
+      allele in the father for male offspring
+
+    - Fix a problem with uncallsed mosaic chrX variants in males
+
+
+## Release 1.21 (12th September 2024)
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Support multiple semicolon-separated strings when filtering by ID using -i/-e (#2190).
@@ -36,6 +53,9 @@ Changes affecting specific commands:
 
     - Allow to apply a reference allele which overlaps a previous deletion, there is no
       need to complain about overlapping alleles in such case
+
+    - Fix a bug which required `-s -` to be present even when there were no samples in the VCF
+      (#2260)
 
 * bcftools csq
 

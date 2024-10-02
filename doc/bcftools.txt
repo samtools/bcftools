@@ -2940,6 +2940,9 @@ By default, appropriate system directories are searched for installed plugins.
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 
+*noise-profile*::
+    assess site noisiness from a large number of unaffected parental samples
+
 *parental-origin*::
     determine parental origin of a CNV region
 

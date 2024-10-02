@@ -45,6 +45,11 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 
 #if ENABLE_PERL_FILTERS
+// Work around clang warning problems
+#  if defined(__clang__)
+#    define PERL_GCC_BRACE_GROUPS_FORBIDDEN
+#  endif
+
 #  define filter_t perl_filter_t
 #  include <EXTERN.h>
 #  include <perl.h>

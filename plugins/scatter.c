@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <htslib/synced_bcf_reader.h>
+#include <htslib/hts_defs.h>
 #include "bcftools.h"
 #include "htslib/khash_str2int.h"
 #include "regidx.h"
@@ -108,7 +109,7 @@ static const char *usage_text(void)
         "\n";
 }
 
-void mkdir_p(const char *fmt, ...);
+void mkdir_p(const char *fmt, ...) HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
 
 // most of this code was inspired by Petr Danecek's code in regidx.c
 #define MAX_COOR_0 REGIDX_MAX   // CSI and hts_itr_query limit, 0-based

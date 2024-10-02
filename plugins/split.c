@@ -143,7 +143,7 @@ static const char *usage_text(void)
         "\n";
 }
 
-void mkdir_p(const char *fmt, ...);
+void mkdir_p(const char *fmt, ...) HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
 
 static char *create_unique_file_name(args_t *args, const char *template)
 {

@@ -34,6 +34,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/hts_os.h>
+#include <htslib/hts_defs.h>
 #include "bcftools.h"
 #include "filter.h"
 
@@ -69,19 +70,21 @@ args_t;
  *  mkdir_p() - create new directory for a file $fname
  *  @fname:   the file name to create the directory for, the part after last "/" is ignored
  */
-void mkdir_p(const char *fmt, ...)
+void HTS_FORMAT(HTS_PRINTF_FMT, 1, 2)
+mkdir_p(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
     int n = vsnprintf(NULL, 0, fmt, ap) + 2;
     va_end(ap);
 
-    char *path = (char*)malloc(n);
+    char *tmp = (char*)malloc(n);
+    if (!tmp) error("Couldn't allocate space for path: %s\n", strerror(errno));
     va_start(ap, fmt);
-    vsnprintf(path, n, fmt, ap);
+    vsnprintf(tmp, n, fmt, ap);
     va_end(ap);
 
-    char *tmp = strdup(path), *p = tmp+1;
+    char *p = tmp+1;
     while (*p)
     {
         while (*p && *p!='/') p++;
@@ -89,12 +92,11 @@ void mkdir_p(const char *fmt, ...)
         char ctmp = *p;
         *p = 0;
         int ret = mkdir(tmp,S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        if ( ret!=0 && errno!=EEXIST ) error("Error creating directory %s: %s\n", path,strerror(errno));
+        if ( ret!=0 && errno!=EEXIST ) error("Error creating directory %s: %s\n", tmp,strerror(errno));
         *p = ctmp;
         while ( *p && *p=='/' ) p++;
     }
     free(tmp);
-    free(path);
 }
 
 /**
@@ -105,7 +107,8 @@ void mkdir_p(const char *fmt, ...)
  *
  *  Returns open file descriptor or NULL if mode is NULL.
  */
-FILE *open_file(char **fname, const char *mode, const char *fmt, ...)
+FILE * HTS_FORMAT(HTS_PRINTF_FMT, 3, 4)
+open_file(char **fname, const char *mode, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -117,7 +120,7 @@ FILE *open_file(char **fname, const char *mode, const char *fmt, ...)
     vsnprintf(str, n, fmt, ap);
     va_end(ap);
 
-    mkdir_p(str);
+    mkdir_p("%s", str);
     if ( !mode )
     {
         if ( !fname ) error("Uh: expected fname or mode\n");

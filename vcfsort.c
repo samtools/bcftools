@@ -41,6 +41,7 @@
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
 #include <htslib/hts_os.h>
+#include <htslib/hts_defs.h>
 #include <htslib/bgzf.h>
 #include "kheap.h"
 #include "bcftools.h"
@@ -103,7 +104,8 @@ void clean_files(args_t *args)
     }
     rmdir(args->tmp_dir);
 }
-void clean_files_and_throw(args_t *args, const char *format, ...)
+void HTS_FORMAT(HTS_PRINTF_FMT, 2, 3) HTS_NORETURN
+clean_files_and_throw(args_t *args, const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -505,7 +507,7 @@ void sort_blocks(args_t *args)
             bcf_destroy(rec);
             break;
         }
-        if ( rec->errcode ) clean_files_and_throw(args,"Error encountered while parsing the input at %s:%d\n",bcf_seqname(args->hdr,rec),rec->pos+1);
+        if ( rec->errcode ) clean_files_and_throw(args,"Error encountered while parsing the input at %s:%"PRIhts_pos"\n",bcf_seqname(args->hdr,rec),rec->pos+1);
         bcf_unpack(rec, BCF_UN_STR);
         buf_push(args, rec);
     }
@@ -655,12 +657,11 @@ void do_partial_merge(args_t *args)
         to_layer = MERGE_LAYERS - 1;
     }
 
-    char *fname = NULL;
     blk_t tmp = { NULL };
     open_tmp_file(args, &tmp, 1);
     merge_blocks(args, tmp.fh, tmp.fname, 0, args->nblk - to_merge);
     if (hts_close(tmp.fh) != 0)
-        clean_files_and_throw(args, "Close failed: %s\n", fname);
+        clean_files_and_throw(args, "Close failed: %s\n", tmp.fname);
 
     args->nblk -= to_merge;
     assert(args->blk[args->nblk].fh == NULL);
@@ -722,7 +723,6 @@ size_t parse_mem_string(const char *str)
     return mem;
 }
 
-void mkdir_p(const char *fmt, ...);
 static void init(args_t *args)
 {
     size_t i;

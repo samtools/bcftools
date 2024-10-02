@@ -34,6 +34,7 @@
 #include <gsl/gsl_multifit_nlin.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include <htslib/hts_defs.h>
 #include "bcftools.h"
 #include "peakfit.h"
 
@@ -62,7 +63,7 @@ typedef struct
 }
 args_t;
 
-FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
+FILE *open_file(char **fname, const char *mode, const char *fmt, ...) HTS_FORMAT(HTS_PRINTF_FMT, 3, 4);
 
 static void init_dist(args_t *args, dist_t *dist, int verbose)
 {

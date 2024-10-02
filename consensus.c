@@ -229,7 +229,14 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->isample = -1;
     if ( !args->sample )
+    {
         args->smpl = smpl_ilist_init(args->hdr,NULL,0,SMPL_NONE|SMPL_VERBOSE);
+        if ( !args->smpl->n )
+        {
+            smpl_ilist_destroy(args->smpl);
+            args->smpl = NULL;
+        }
+    }
     else if ( args->sample && strcmp("-",args->sample) )
     {
         args->smpl = smpl_ilist_init(args->hdr,args->sample,0,SMPL_NONE|SMPL_VERBOSE);
@@ -244,12 +251,22 @@ static void init_data(args_t *args)
     {
         if ( args->haplotype || args->allele )
         {
-            if ( args->smpl->n > 1 ) error("Too many samples, only one can be used with -H\n");
+            if ( args->smpl->n > 1 ) error("Too many samples, only one can be used with -H; check the -s,-S options\n");
             args->isample = args->smpl->idx[0];
         }
         else
+        {
             args->iupac_GTs = 1;
+            if ( args->smpl->n==1 )
+                fprintf(stderr,"Note: applying IUPAC codes based on FORMAT/GT in sample %s\n",bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,args->smpl->idx[0]));
+            else
+                fprintf(stderr,"Note: applying IUPAC codes based on FORMAT/GT in %d samples\n",args->smpl->n);
+        }
     }
+    else if ( args->output_iupac )
+        fprintf(stderr,"Note: applying IUPAC codes based on REF,ALT%s\n",bcf_hdr_nsamples(args->hdr)?", ignoring samples":"");
+    else
+        fprintf(stderr,"Note: applying REF,ALT variants%s\n",bcf_hdr_nsamples(args->hdr)?", ignoring samples":"");
     int i;
     for (i=0; i<args->nmask; i++)
     {
@@ -272,7 +289,6 @@ static void init_data(args_t *args)
         if ( ! args->fp_out ) error("Failed to create %s: %s\n", args->output_fname, strerror(errno));
     }
     else args->fp_out = stdout;
-    if ( args->isample<0 && !args->iupac_GTs ) fprintf(stderr,"Note: the --samples option not given, applying all records regardless of the genotype\n");
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
     args->rid = -1;

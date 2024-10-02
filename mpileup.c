@@ -652,8 +652,12 @@ static int mpileup(mplp_conf_t *conf)
             }
         }
         nregs = regidx_nregs(conf->reg);
-        conf->reg_itr = regitr_init(conf->reg);
-        regitr_loop(conf->reg_itr);   // region iterator now positioned at the first region
+        if ( nregs )
+        {
+            // the regions list can be empty, see #2250
+            conf->reg_itr = regitr_init(conf->reg);
+            regitr_loop(conf->reg_itr);   // region iterator now positioned at the first region
+        }
     }
 
     // read the header of each file in the list and initialize data
@@ -699,7 +703,7 @@ static int mpileup(mplp_conf_t *conf)
             i--;
             continue;
         }
-        if (conf->reg) {
+        if (conf->reg && nregs) {
             hts_idx_t *idx = sam_index_load(conf->mplp_data[i]->fp, conf->files[i]);
             if (idx == NULL) {
                 fprintf(stderr, "[%s] fail to load index for %s\n", __func__, conf->files[i]);
@@ -972,7 +976,7 @@ static int mpileup(mplp_conf_t *conf)
         }
         while ( regitr_loop(conf->reg_itr) );
     }
-    else
+    else if ( !conf->reg )
         ret = mpileup_reg(conf,0,UINT32_MAX);
     if ( ret<0 )
     {
