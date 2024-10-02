@@ -8,6 +8,17 @@ Changes affecting specific commands:
     - New experimental plugin for scoring variants and assess site noisiness from a large number of unaffected
       parental samples
 
+* bcftools query
+
+    - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
+      now used in formatting expressions (#2271).
+      If the VCF contains INFO/AD and FORMAT/AD, try:
+
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t [ %sSUM(FMT/AD)]'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t [ %SUM(FMT/AD)]'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(FMT/AD)'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(INFO/AD)'
+
 * bcftools +trio-dnm2
 
     - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
