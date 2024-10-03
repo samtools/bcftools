@@ -5,13 +5,25 @@
 # omitted or if there is no branch with that name, checks out origin/HEAD
 # from the samtools/htslib repository.
 
-repository=$1
-localdir=$2
-branch=$3
+echo CLONE: ${@+"$@"}
+
+owner=$1
+repository="https://github.com/$owner/$2"
+localdir=$3
+branch=$4
+htslib_PR=$5
 
 ref=''
 [ -n "$branch" ] && ref=$(git ls-remote --heads "$repository" "$branch" 2>/dev/null)
 [ -z "$ref" ] && repository='https://github.com/samtools/htslib.git'
 
 set -x
-git clone --recurse-submodules --shallow-submodules --depth=1 ${ref:+--branch="$branch"} "$repository" "$localdir"
+git clone --recurse-submodules --shallow-submodules --depth=2 ${ref:+--branch="$branch"} "$repository" "$localdir"
+
+# NB: "samtools" as the owner/organisation, not the repo name
+if [ "x$owner" = "xsamtools" -a -z "$ref" -a "x$htslib_PR" != "x" ]
+then
+    cd "$localdir"
+    git fetch origin "pull/$htslib_PR/head"
+    git checkout FETCH_HEAD
+fi
