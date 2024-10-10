@@ -2655,7 +2655,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
-    Alias for *-d none*, deprecated.
+    Alias for *-d exact*, deprecated.
 
 *-e, --exclude* 'EXPRESSION'::
     do not normalize input records for which 'EXPRESSION' is true. For valid expressions see
