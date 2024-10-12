@@ -68,7 +68,7 @@ typedef struct _mplp_pileup_t mplp_pileup_t;
 // Data shared by all bam files
 typedef struct {
     int min_mq, flag, min_baseQ, max_baseQ, delta_baseQ, capQ_thres, max_depth,
-        max_indel_depth, max_read_len, ambig_reads;
+        max_indel_depth, max_read_len, ambig_reads, ref_skip_reads;
     uint32_t fmt_flag;
     int rflag_skip_any_unset, rflag_skip_all_unset, rflag_skip_any_set, rflag_skip_all_set, output_type;
     int openQ, extQ, tandemQ, min_support, indel_win_size; // for indels
@@ -882,6 +882,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
     conf->bca->fmt_flag = conf->fmt_flag;
     conf->bca->ambig_reads = conf->ambig_reads;
+    conf->bca->ref_skip_reads = conf->ref_skip_reads;
     conf->bca->indel_win_size = conf->indel_win_size;
     conf->bca->indels_v20 = conf->indels_v20;
     conf->bca->edlib = conf->edlib;
@@ -1292,6 +1293,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -P, --platforms STR     Comma separated list of platforms for indels [all]\n"
         "  --ar, --ambig-reads STR   What to do with ambiguous indel reads: drop,incAD,incAD0 [drop]\n");
     fprintf(fp,
+        "      --ref-skip-reads    Use reads with N CIGAR op [discard by default]\n");
+    fprintf(fp,
         "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n", mplp->indel_bias);
     fprintf(fp,
         "      --del-bias FLOAT    Relative likelihood of insertion to deletion [%.2f]\n", mplp->del_bias);
@@ -1381,6 +1384,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.fmt_flag = B2B_INFO_BQBZ|B2B_INFO_IDV|B2B_INFO_IMF|B2B_INFO_MQ0F|B2B_INFO_MQBZ|B2B_INFO_MQSBZ|B2B_INFO_RPBZ|B2B_INFO_SCBZ|B2B_INFO_SGB|B2B_INFO_VDB|B2B_FMT_AD;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
+    mplp.ref_skip_reads = 0;
     mplp.indel_win_size = 110;
     mplp.poly_mqual = 0;
     mplp.seqQ_offset = 120;
@@ -1458,6 +1462,7 @@ int main_mpileup(int argc, char *argv[])
         {"seed", required_argument, NULL, 13},
         {"ambig-reads", required_argument, NULL, 14},
         {"ar", required_argument, NULL, 14},
+        {"ref-skip-reads", no_argument, NULL, 29},
         {"write-index",optional_argument,NULL,'W'},
         {"del-bias", required_argument, NULL, 23},
         {"poly-mqual", no_argument, NULL, 24},
@@ -1619,6 +1624,9 @@ int main_mpileup(int argc, char *argv[])
                 mplp.seqQ_offset = 100;
             if (mplp.seqQ_offset > 200)
                 mplp.seqQ_offset = 200;
+            break;
+        case 29:
+            mplp.ref_skip_reads = 1;
             break;
         case  23: mplp.del_bias = atof(optarg); break;
         case  24: mplp.poly_mqual = 1; break;
