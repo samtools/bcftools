@@ -309,6 +309,14 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     int *n_plp = mpileup_get_val(args->mplp,int*,N_READS);
     int ret,i,j,len;
 
+    if ( args->verbose>=3 )
+    {
+        static int hdr_printed = 0;
+        if ( !hdr_printed )
+            fprintf(stderr,"# [1]DEBUG_SITE\t[2]file\t[3]chr:pos\t[4]REF\t[5]ALT\t[6]nREF\t[7]nALT\t[8]iAF_Bin\n");
+        hdr_printed = 1;
+    }
+
     // process the entire bam
     while ( (ret=mpileup_next(args->mplp))==1 )
     {
@@ -378,7 +386,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
                 site->nval++;
                 site->dist[ifreq]++;
                 if ( args->verbose >= 3 )
-                    fprintf(stderr,"%s\t%s:%"PRIhts_pos"\t%s\t%s\t%d\t%d\t%d\n",aln_fname,chr,pos+1,site->ref,site->alt,ntot-nalt[j],nalt[j],ifreq);
+                    fprintf(stderr,"DEBUG_SITE\t%s\t%s:%"PRIhts_pos"\t%s\t%s\t%d\t%d\t%d\n",aln_fname,chr,pos+1,site->ref,site->alt,ntot-nalt[j],nalt[j],ifreq);
             }
         }
     }
@@ -579,6 +587,9 @@ static int batch_profile_run(args_t *args)
     gettimeofday(&t0, NULL);
     double delta_prev = 0;
     int i;
+
+    if ( args->verbose )
+        fprintf(stderr,"Note: the -i, --use-index option is not given, streaming the alignment files\n");
 
     // collect the profiles across all bams. This is the I/O intensive part
     for (i=0; i<args->nbams; i++)
