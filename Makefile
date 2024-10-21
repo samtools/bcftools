@@ -196,7 +196,10 @@ libbcftools.a: $(OBJS)
 
 vcfplugin.o: EXTRA_CPPFLAGS += -DPLUGINPATH='"$(pluginpath)"'
 
-%.dll %.cygdll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
+%.dll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS)
+
+%.cygdll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS)
 
 %.so: %.c version.h version.c
