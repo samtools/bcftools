@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <unistd.h>     // for isatty
 #include <inttypes.h>
+#include <assert.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
@@ -606,7 +607,7 @@ static void parse_column_str(args_t *args)
         char keep = *ep;
         *ep = 0;
         int type = -1;
-        int idx_beg, idx_end;
+        int idx_beg = 0, idx_end = -1;
         if ( !strcmp("-",bp) )
         {
             kstring_t str = {0,0,0};
@@ -973,11 +974,12 @@ static void init_data(args_t *args)
     else
     {
         int len = strlen(sel_csq);
-        int severity, modifier = '=';
+        int severity = -1, modifier = '=';
         if ( sel_csq[len-1]=='+' ) { modifier = '+'; sel_csq[len-1] = 0; }
         else if ( sel_csq[len-1]=='-' ) { modifier = '-'; sel_csq[len-1] = 0; }
         if ( khash_str2int_get(args->csq2severity, sel_csq, &severity)!=0 )
             error("Error: the consequence \"%s\" is not recognised. Run \"bcftools +split-vep -S ?\" to see the default list.\n", sel_csq);
+        assert(severity >= 0);
         if ( modifier=='=' ) { args->min_severity = severity; args->max_severity = severity; }
         else if ( modifier=='+' ) { args->min_severity = severity; args->max_severity = INT_MAX; }
         else if ( modifier=='-' ) { args->min_severity = 0; args->max_severity = severity; }
