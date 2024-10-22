@@ -179,7 +179,7 @@ rockylinux_task:
 macosx_task:
   name: macosx + clang
   macos_instance:
-    image: ghcr.io/cirruslabs/macos-ventura-base:latest
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
 
   environment:
     CC: clang
