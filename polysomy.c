@@ -200,17 +200,13 @@ static void init_data(args_t *args)
     for (i=0; i<args->nbins; i++) args->xvals[i] = 1.0*i/(args->nbins-1);
 
     // collect BAF distributions for all chromosomes
-    int idist = -1, nbaf = 0, nprocessed = 0, ntotal = 0, prev_chr = -1;
+    int idist = -1, nbaf = 0, prev_chr = -1;
     float *baf = NULL;
     while ( bcf_sr_next_line(files) )
     {
-        ntotal++;
-
         bcf1_t *line = bcf_sr_get_line(files,0);
         if ( bcf_get_format_float(hdr,line,"BAF",&baf,&nbaf) != 1 ) continue;
         if ( bcf_float_is_missing(baf[0]) ) continue;
-
-        nprocessed++;
 
         if ( prev_chr==-1 || prev_chr!=line->rid )
         {
