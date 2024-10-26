@@ -83,9 +83,10 @@ args_t *args = NULL;
 #define GT_X_VAF    (1<<11)
 #define GT_RAND     (1<<12)
 
-#define MINOR_ALLELE -1
-#define MAJOR_ALLELE -2
-#define X_VAF_ALLELE -3
+#define MINOR_ALLELE   -1
+#define MAJOR_ALLELE   -2
+#define X_VAF_ALLELE   -3
+#define MISSING_ALLELE -4
 
 const char *about(void)
 {
@@ -106,7 +107,7 @@ const char *usage(void)
         "       and the new genotype can be one of:\n"
         "           .       .. missing (\".\" or \"./.\", keeps ploidy)\n"
         "           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
-        "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X overrides ploidy)\n"
+        "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X, ./., .;  overrides ploidy)\n"
         "           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           X       .. allele with bigger read depth as determined from FMT/AD\n"
@@ -279,6 +280,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             if ( *ptr=='m' ) { allele = MINOR_ALLELE; args->new_mask |= GT_MINOR; }
             else if ( *ptr=='M' ) { allele = MAJOR_ALLELE; args->new_mask |= GT_MAJOR; }
             else if ( *ptr=='X' ) { allele = X_VAF_ALLELE; args->new_mask |= GT_X_VAF; }
+            else if ( *ptr=='.' ) allele = MISSING_ALLELE;
             else if ( *ptr=='/' || *ptr=='|' )
             {
                 if ( !args->custom.ploidy ) error("Could not parse the genotype: %s\n",args->custom.gt_str);
@@ -384,6 +386,7 @@ static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
         if ( args->custom.gt[i]==MINOR_ALLELE ) new_allele = args->custom.m_allele;
         else if ( args->custom.gt[i]==MAJOR_ALLELE ) new_allele = args->custom.M_allele;
         else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = args->custom.x_vaf_allele==bcf_gt_missing ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
+        else if ( args->custom.gt[i]==MISSING_ALLELE ) new_allele = nals; // this is to trigger the `new_allele = bcf_gt_missing` branch below
         else new_allele = args->custom.gt[i];
         if ( new_allele >= nals ) // cannot set, the requested index is bigger than there are alleles in ALT
             new_allele = bcf_gt_missing;

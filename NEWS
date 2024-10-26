@@ -19,6 +19,10 @@ Changes affecting specific commands:
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(FMT/AD)'
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(INFO/AD)'
 
+* bcftools +setGT
+
+    - Support for setting missing genotypes with arbitrary ploidy via `-n c:./.` (#2303)
+
 * bcftools +trio-dnm2
 
     - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
