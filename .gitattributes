@@ -10,3 +10,9 @@
 .git*           export-ignore
 .ci_helpers     export-ignore
 README.md       export-ignore
+
+# Prevent Windows cr-lf endings.
+test/**        -text
+test/**.c       text
+test/**.h       text
+test/**.pl      text

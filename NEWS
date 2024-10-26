@@ -1,5 +1,9 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Add support for matching lines by ID (#1739)
+
 
 Changes affecting specific commands:
 

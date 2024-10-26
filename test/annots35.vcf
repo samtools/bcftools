@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##INFO=<ID=src,Number=1,Type=String,Description="">
+##INFO=<ID=dst,Number=1,Type=String,Description="">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	902	ID4	N	<INS>	.	PASS	src=ID4
+chr1	902	ID2	N	<INS>	.	PASS	src=ID2
+chr1	902	ID6	N	<INS>	.	PASS	src=ID6
+chr1	902	ID3	N	<INS>	.	PASS	src=ID3
+chr1	902	ID1	N	<INS>	.	PASS	src=ID1
+chr1	902	ID5	N	<INS>	.	PASS	src=ID5
