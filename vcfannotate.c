@@ -774,6 +774,7 @@ static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, vo
 }
 static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpi)
 {
+    if ( !nals ) error("Cannot fill Number=R,A tags without --columns ..,REF,ALT,..\n");
     if ( col->number==BCF_VL_A && ntmpi!=nals-1 && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
         error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpi,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     else if ( col->number==BCF_VL_R && ntmpi!=nals && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
@@ -855,8 +856,8 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             else
             {
                 args->tmpi[ntmpi-1] = strtol(str, &end, 10);
-                if ( end==str )
-                    error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
+                if ( end==str || (*end && *end!=',') )
+                    error("Could not parse %s (Type=Integer) at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
                 str = end+1;
             }
         }
@@ -938,6 +939,7 @@ static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, voi
 }
 static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpf)
 {
+    if ( !nals ) error("Cannot fill Number=R,A tags without --columns ..,REF,ALT,..\n");
     if ( col->number==BCF_VL_A && ntmpf!=nals-1 && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
         error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpf,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     else if ( col->number==BCF_VL_R && ntmpf!=nals && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
@@ -1124,6 +1126,7 @@ int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst
 static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als)
 {
     assert( col->merge_method==MM_FIRST );
+    if ( !nals ) error("Cannot fill Number=R,A tags without --columns ..,REF,ALT,..\n");
 
     int nsrc = 1, lsrc = 0;
     while ( args->tmps[lsrc] )
@@ -1668,8 +1671,8 @@ static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void 
 
             char *end = str;
             ptr[ival] = strtol(str, &end, 10);
-            if ( end==str )
-                error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
+            if ( end==str || (*end && *end!=',')  )
+                error("Could not parse %s (Type=Integer) at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
 
             ival++;
             str = *end ? end+1 : end;
