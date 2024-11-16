@@ -1191,12 +1191,9 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int type)
 {
+    tok->nvalues = tok->str_value.l = 0;
     bcf_fmt_t *fmt = bcf_get_fmt(flt->hdr, line, "GT");
-    if ( !fmt )
-    {
-        tok->nvalues = tok->str_value.l = 0;
-        return;
-    }
+    if ( !fmt ) return;
 
     int i,j, nsmpl = bcf_hdr_nsamples(flt->hdr), nvals1 = type==2 ? 3 : 4;
     if ( tok->str_value.m <= nvals1*nsmpl )
@@ -1276,12 +1273,10 @@ static void filters_set_genotype4(filter_t *flt, bcf1_t *line, token_t *tok) { _
 
 static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
+    tok->nvalues = tok->str_value.l = 0;
     bcf_fmt_t *fmt = bcf_get_fmt(flt->hdr, line, "GT");
-    if ( !fmt )
-    {
-        tok->nvalues = 0;
-        return;
-    }
+    if ( !fmt ) return;
+
     int i, blen = 4, nsmpl = line->n_sample;
 
 gt_length_too_big:
