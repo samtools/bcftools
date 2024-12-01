@@ -666,6 +666,7 @@ void splice_init(splice_t *splice, bcf1_t *rec)
 }
 static inline void splice_build_hap(splice_t *splice, uint32_t beg, int len)
 {
+    // beg .. the beggining of the splice region
     // len>0 .. beg is the first base, del filled from right
     // len<0 .. beg is the last base, del filled from left
 
@@ -681,8 +682,24 @@ static inline void splice_build_hap(splice_t *splice, uint32_t beg, int len)
     }
     else
     {
-        rbeg = abeg = beg;
-        rlen = alen = len;
+        if ( beg < splice->tr->beg )
+        {
+            // This can happen with very short exons and introns. Not a real biology, but the program
+            // should not crash on it. This is not a real fix, the code would need a revamp to handle
+            // well cases like this, see test/csq/ENSCAFT00000047742
+            //      >chr9:104-110
+            //      ATGTCAGGGCC
+            //      ATGTC-GGGCC
+            //          456
+            //        eee.eee
+            rbeg = abeg = splice->tr->beg;
+            rlen = alen = 0;
+        }
+        else
+        {
+            rbeg = abeg = beg;
+            rlen = alen = len;
+        }
         // check for incomplete del as above??
     }
 
