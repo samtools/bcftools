@@ -1,0 +1,11 @@
+chr9	ensembl	gene	100	8978	.	+	.	ID=gene:ENSCAFG00000028570;Name=DUSP3;biotype=protein_coding;description=dual specificity phosphatase 3 [Source:VGNC Symbol%3BAcc:VGNC:53236];gene_id=ENSCAFG00000028570;logic_name=ensembl;version=2
+chr9	ensembl	mRNA	100	8978	.	+	.	ID=transcript:ENSCAFT00000047742;Parent=gene:ENSCAFG00000028570;Name=DUSP3-201;biotype=protein_coding;transcript_id=ENSCAFT00000047742;version=2
+chr9	ensembl	exon	100	104	.	+	.	Parent=transcript:ENSCAFT00000047742;Name=ENSCAFE00000400429;constitutive=1;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSCAFE00000400429;rank=1;version=1
+chr9	ensembl	CDS	100	104	.	+	0	ID=CDS:ENSCAFP00000041069;Parent=transcript:ENSCAFT00000047742;protein_id=ENSCAFP00000041069
+chr9	ensembl	exon	106	225	.	+	.	Parent=transcript:ENSCAFT00000047742;Name=ENSCAFE00000157884;constitutive=1;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSCAFE00000157884;rank=2;version=4
+chr9	ensembl	CDS	106	225	.	+	1	ID=CDS:ENSCAFP00000041069;Parent=transcript:ENSCAFT00000047742;protein_id=ENSCAFP00000041069
+chr9	ensembl	exon	2976	3202	.	+	.	Parent=transcript:ENSCAFT00000047742;Name=ENSCAFE00000157890;constitutive=1;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSCAFE00000157890;rank=3;version=1
+chr9	ensembl	CDS	2976	3202	.	+	1	ID=CDS:ENSCAFP00000041069;Parent=transcript:ENSCAFT00000047742;protein_id=ENSCAFP00000041069
+chr9	ensembl	CDS	8725	8930	.	+	2	ID=CDS:ENSCAFP00000041069;Parent=transcript:ENSCAFT00000047742;protein_id=ENSCAFP00000041069
+chr9	ensembl	exon	8725	8978	.	+	.	Parent=transcript:ENSCAFT00000047742;Name=ENSCAFE00000307165;constitutive=1;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSCAFE00000307165;rank=4;version=2
+chr9	ensembl	three_prime_UTR	8931	8978	.	+	.	Parent=transcript:ENSCAFT00000047742
