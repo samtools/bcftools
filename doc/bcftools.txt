@@ -2848,6 +2848,9 @@ By default, appropriate system directories are searched for installed plugins.
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
 
+*afs*::
+    assess site noisiness (allelic frequency score) from a large number of unaffected parental samples
+
 *allele-length*::
     count the frequency of the length of REF, ALT and REF+ALT
 
@@ -2938,9 +2941,6 @@ By default, appropriate system directories are searched for installed plugins.
 
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
-
-*noise-profile*::
-    assess site noisiness from a large number of unaffected parental samples
 
 *parental-origin*::
     determine parental origin of a CNV region

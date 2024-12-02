@@ -7,10 +7,10 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
-* bcftools +noise-profile
+* bcftools +afs
 
-    - New experimental plugin for scoring variants and assess site noisiness from a large number of unaffected
-      parental samples
+    - New experimental plugin for scoring variants and assess site noisiness (allelic frequency profiles)
+      from a large number of unaffected parental samples
 
 * bcftools query
 
