@@ -12,6 +12,10 @@ Changes affecting specific commands:
     - New experimental plugin for scoring variants and assess site noisiness (allelic frequency profiles)
       from a large number of unaffected parental samples
 
+* bcftools convert
+
+    - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be

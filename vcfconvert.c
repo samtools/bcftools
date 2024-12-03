@@ -1,6 +1,6 @@
 /*  vcfconvert.c -- convert between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1583,6 +1583,7 @@ static void gvcf_to_vcf(args_t *args)
             char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
             if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_hdr_id2name(hdr,line->rid),(int64_t) line->pos+1);
             strncpy(line->d.allele[0],ref,len);
+            bcf_update_alleles(hdr,line,(const char**)line->d.allele,line->n_allele);
             if ( bcf_write(out_fh,hdr,line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
             free(ref);
         }

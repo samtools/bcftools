@@ -1541,6 +1541,7 @@ sub test_vcf_convert_gvcf
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert --no-version $args{args} -f $$opts{path}/$args{fa} $$opts{tmp}/$args{in}.vcf.gz");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert --no-version $args{args} -f $$opts{path}/$args{fa} $$opts{tmp}/$args{in}.vcf.gz -Ou | $$opts{bin}/bcftools view --no-version");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools convert $args{args} -f $$opts{path}/$args{fa} | grep -v ^##bcftools");
 }
 sub test_vcf_convert_tsv2vcf
