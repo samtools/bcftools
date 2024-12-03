@@ -1,5 +1,12 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools convert
+
+    - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
+
+
 ## Release 1.21 (12th September 2024)
 
 
