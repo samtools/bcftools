@@ -819,6 +819,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.2.out',cmd=>'+variant-distance -d fwd');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.3.out',cmd=>'+variant-distance -d rev');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.4.out',cmd=>'+variant-distance -d both');
+run_test(\&test_plugin_afs,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'afs.1.1.out',tmp=>'afs.1.1',args=>q[-s {PATH}/afs.sites.txt]);
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
@@ -2144,6 +2145,27 @@ sub test_csq_real
         closedir($tmp);
     }
     closedir($dh);
+}
+sub test_plugin_afs
+{
+    my ($opts,%args) = @_;
+    if ( !$$opts{test_plugins} ) { return; }
+
+    my ($package, $filename, $line, $test)=caller(0);
+    $test =~ s/^.+:://;
+    if ( !exists($args{args}) ) { $args{args} = ''; }
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
+    my $ref = exists($args{ref}) ? $args{ref} : "mpileup.ref.fa";
+
+    # make a local copy, create bams, index the bams and the reference
+    open(my $fh,'>',"$$opts{tmp}/mpileup.bam.list") or error("$$opts{tmp}/mpileup.bam.list: $!");
+    for my $file (@{$args{in}})
+    {
+        print $fh "$$opts{path}/mpileup/$file.bam\n";
+    }
+    close($fh);
+
+    test_cmd($opts,%args,cmd =>qq[$$opts{bin}/bcftools +afs -a $$opts{tmp}/mpileup.bam.list -f $$opts{path}/mpileup/$ref $args{args}]);
 }
 sub test_plugin_split
 {

@@ -76,11 +76,22 @@ batch_t;
 
 typedef struct
 {
+    char *seq;
+    int beg;
+    double score;
+    site_t *site;
+}
+prn_site_t;
+
+typedef struct
+{
     int argc, output_type, record_cmd_line, clevel, use_bam_idx, verbose;
     char **argv, *output_fname, *sites_fname, *aln_fname, *fasta_fname, *batch_fname, *batch;
     char **bams, **batch_fnames, *recalc_type;
     int nbams, nbatch_fnames;
     int min_dp;    // minimum read depth to consider
+    prn_site_t *prn_site_buf;
+    int nprn_site_buf;
     BGZF *out_fh;
     regidx_t *sites_idx;
     regitr_t *sites_itr;
@@ -210,6 +221,9 @@ static void batch_profile_destroy(args_t *args)
     if ( args->sites_itr ) regitr_destroy(args->sites_itr);
     free(args->profile.mean);
     free(args->profile.var2);
+    free(args->prn_site_buf);
+    args->prn_site_buf  = NULL;
+    args->nprn_site_buf = 0;
     free(args);
 }
 static int batch_profile_init(args_t *args)
@@ -297,17 +311,20 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     mpileup_set(args->mplp, MAX_REALN_DP, 250);
     mpileup_set(args->mplp, MAX_REALN_LEN, 500);
     mpileup_set(args->mplp, SKIP_ANY_SET, BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP);
+
+    int ret,i,j,len;
     if ( args->use_bam_idx )
-        mpileup_set(args->mplp, REGIONS_FNAME, args->sites_fname);
+        ret = mpileup_set(args->mplp, REGIONS_FNAME, args->sites_fname);
     else
-        mpileup_set(args->mplp, TARGETS_FNAME, args->sites_fname);
+        ret = mpileup_set(args->mplp, TARGETS_FNAME, args->sites_fname);
+    if ( ret ) error("Error: could not initialize site list %s\n",args->sites_fname);
+
     mpileup_set(args->mplp, LEGACY_MODE, 1);
     if ( mpileup_set(args->mplp, FASTA_REF, args->fasta_fname)!=0 ) error("Error: could not read the reference %s\n",args->fasta_fname);
     if ( mpileup_set(args->mplp, BAM, aln_fname)!=0 ) error("Error: could not reat %s\n",aln_fname);
     if ( mpileup_init(args->mplp)!=0 ) error("Error: could not initialize mpileup2\n");
     int nsmpl  = mpileup_get_val(args->mplp,int,N_SAMPLES);
     int *n_plp = mpileup_get_val(args->mplp,int*,N_READS);
-    int ret,i,j,len;
 
     if ( args->verbose>=3 )
     {
@@ -473,14 +490,6 @@ static double score_site(batch_t *batch, site_t *site)
 // therefore we decided to see just a generic 'indel', not individual indel types. We
 // are aware this can lead to missed calls at multiallelic sites, but reducing FDR is
 // a lesser of the two evils.
-typedef struct
-{
-    char *seq;
-    int beg;
-    double score;
-    site_t *site;
-}
-prn_site_t;
 static void print_buffered_sites(args_t *args, batch_t *batch, prn_site_t *buf, int nbuf, kstring_t *str)
 {
     double max_score = 0;
@@ -523,25 +532,24 @@ static int write_batch(args_t *args, batch_t *batch)
     {
         // Duplicate positions need to be re-scored, when one alt looks good while another bad, it is still a noisy site.
         int nbuf = 0;
-        prn_site_t buf[100];
-
         regitr_t *itr = regitr_init(batch->idx);
         while ( regitr_loop(itr) )
         {
             site_t *site = &regitr_payload(itr,site_t);
-            if ( nbuf && (buf[nbuf-1].seq!=itr->seq || buf[nbuf-1].beg!=itr->beg) )
+            if ( nbuf && (args->prn_site_buf[nbuf-1].seq!=itr->seq || args->prn_site_buf[nbuf-1].beg!=itr->beg) )
             {
-                print_buffered_sites(args,batch,buf,nbuf,&str);
+                print_buffered_sites(args,batch,args->prn_site_buf,nbuf,&str);
                 nbuf = 0;
             }
-            assert( nbuf+1 < 100 );
-            prn_site_t *tmp = &buf[nbuf++];
+            nbuf++;
+            hts_resize(prn_site_t, nbuf, &args->nprn_site_buf, &args->prn_site_buf, 0);
+            prn_site_t *tmp = &args->prn_site_buf[nbuf-1];
             tmp->beg = itr->beg;
             tmp->seq = itr->seq;
             tmp->score = score_site(batch,site);
             tmp->site  = site;
         }
-        print_buffered_sites(args,batch,buf,nbuf,&str);
+        print_buffered_sites(args,batch,args->prn_site_buf,nbuf,&str);
         regitr_destroy(itr);
     }
 
