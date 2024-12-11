@@ -2165,7 +2165,7 @@ sub test_plugin_afs
     }
     close($fh);
 
-    test_cmd($opts,%args,cmd =>qq[$$opts{bin}/bcftools +afs -a $$opts{tmp}/mpileup.bam.list -f $$opts{path}/mpileup/$ref $args{args}]);
+    test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +afs -a $$opts{tmp}/mpileup.bam.list -f $$opts{path}/mpileup/$ref $args{args}]);
 }
 sub test_plugin_split
 {
