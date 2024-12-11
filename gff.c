@@ -1017,9 +1017,9 @@ int gff_parse(gff_t *gff)
             if ( !gff->warned.ftr_out_of_bounds || gff->verbosity > 1 )
                 fprintf(stderr,"Warning: The GFF contains features outside the transcript boundaries .. %s\n",gff_id2string(gff,transcript,tr->id));
             gff->warned.ftr_out_of_bounds++;
-            continue;
+            if ( ftr->beg < tr->beg ) tr->beg = ftr->beg;
+            if ( ftr->end > tr->end ) tr->end = ftr->end;
         }
-
         tr->used = 1;
         tr->gene->used = 1;
 

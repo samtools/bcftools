@@ -18,7 +18,8 @@ Changes affecting specific commands:
 
 * bcftools csq
 
-    - Check the input GFF for features outside transcript boundaries (#2323)
+    - Check the input GFF for features outside transcript boundaries and extend the transcript
+      to contain the feature fully (#2323)
 
 * bcftools query
 
