@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2023 Genome Research Ltd.
+   Copyright (c) 2023-2024 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -122,7 +122,7 @@ struct gff_t_
 
     struct {
         int unknown_chr,unknown_tscript_biotype,unknown_strand,unknown_phase,duplicate_id;
-        int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds;
+        int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds,ftr_out_of_bounds;
     } warned;
 };
 
@@ -1010,7 +1010,16 @@ int gff_parse(gff_t *gff)
         khint_t k = kh_get(int2tscript, aux->id2tr, (int)ftr->trid);
         if ( k==kh_end(aux->id2tr) ) continue;       // no corresponding transcript registered, must be an unsupported biotype
 
+        // check whether the feature respects transcript's beg,end coordinates
         gf_tscript_t *tr = kh_val(aux->id2tr,k);
+        if ( ftr->beg < tr->beg || ftr->end > tr->end )
+        {
+            if ( !gff->warned.ftr_out_of_bounds || gff->verbosity > 1 )
+                fprintf(stderr,"Warning: The GFF contains features outside the transcript boundaries .. %s\n",gff_id2string(gff,transcript,tr->id));
+            gff->warned.ftr_out_of_bounds++;
+            continue;
+        }
+
         tr->used = 1;
         tr->gene->used = 1;
 

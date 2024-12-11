@@ -16,6 +16,10 @@ Changes affecting specific commands:
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
 
+* bcftools csq
+
+    - Check the input GFF for features outside transcript boundaries (#2323)
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
