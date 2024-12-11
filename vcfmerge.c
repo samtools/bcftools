@@ -1759,7 +1759,11 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                         type_t val = convert(&p_ori[k * sizeof(type_t)]); \
                         if ( val==vector_end ) break; /* smaller ploidy */ \
                         ma->smpl_ploidy[ismpl+j]++; \
-                        if ( bcf_gt_is_missing(val) ) tmp[k] = 0; /* missing allele */ \
+                        if ( bcf_gt_is_missing(val) ) \
+                        { \
+                            if ( bcf_gt_is_phased(val) ) tmp[k] = 1; /* missing allele, phased */ \
+                            else tmp[k] = 0; /* missing allele, unphased */ \
+                        } \
                         else tmp[k] = val; \
                     } \
                     for (; k<nsize; k++) tmp[k] = bcf_int32_vector_end; \
@@ -1777,7 +1781,11 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                     type_t val = convert(&p_ori[k * sizeof(type_t)]); \
                     if ( val==vector_end ) break; /* smaller ploidy */ \
                     ma->smpl_ploidy[ismpl+j]++; \
-                    if ( bcf_gt_is_missing(val) ) tmp[k] = 0; /* missing allele */ \
+                    if ( bcf_gt_is_missing(val) ) \
+                    { \
+                        if ( bcf_gt_is_phased(val) ) tmp[k] = 1; /* missing allele, phased */ \
+                        else tmp[k] = 0; /* missing allele, unphased */ \
+                    } \
                     else \
                     { \
                         int al = (val>>1) - 1; \

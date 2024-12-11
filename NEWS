@@ -21,6 +21,10 @@ Changes affecting specific commands:
     - Check the input GFF for features outside transcript boundaries and extend the transcript
       to contain the feature fully (#2323)
 
+* bcftools merge
+
+    - Preserve phasing in half-missing genotypes (#2331)
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
