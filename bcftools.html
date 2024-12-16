@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2024-04-29 08:11 BST</strong> and refers to bcftools git version <strong>1.20-6-g5977f1f3+</strong>.</p>
+<p>This manual page was last updated <strong>2024-12-16 09:31 GMT</strong> and refers to bcftools git version <strong>1.21-58-g6559a12a+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -247,8 +247,7 @@ first indel record will be considered and appear on output.</p>
 </dd>
 <dt class="hdlist1"><em>id</em></dt>
 <dd>
-<p>only records with identical ID column are compatible.
-Supported by <strong><a href="#merge">bcftools merge</a></strong> only.</p>
+<p>only records with identical ID column are compatible.</p>
 </dd>
 </dl>
 </div>
@@ -545,7 +544,7 @@ See also the <strong>-l, --merge-logic</strong> option.
     ^INFO/TAG           .. transfer all INFO annotations except "TAG"
 
     TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only it is "."
+    +TAG      .. add or overwrite existing target value only if it is "."
     .TAG      .. add or overwrite existing target value even if source is "."
     .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
     -TAG      .. overwrite existing value, never add new if target does not exist
@@ -674,7 +673,7 @@ columns present.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>--pair-logic</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>exact</em></dt>
+<dt class="hdlist1"><strong>--pair-logic</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>exact</em>|<em>id</em></dt>
 <dd>
 <p>Controls how to match records from the annotation file to the target VCF.
 Effective only when <strong>-a</strong> is a VCF or BCF. The option replaces the former
@@ -935,11 +934,15 @@ given instead, no HWE assumption is made at all and single-sample calling is per
 in low coverage data this inflates the rate of false positives.) The <strong>-G</strong> option requires the presence of
 per-sample FORMAT/QS or FORMAT/AD tag generated with <strong>bcftools mpileup -a QS</strong> (or <strong>-a AD</strong>).</p>
 </dd>
-<dt class="hdlist1"><strong>-g, --gvcf</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-g, --gvcf</strong> <em>INT</em>[,&#8230;&#8203;]</dt>
 <dd>
-<p>output also gVCF blocks of homozygous REF calls. The parameter <em>INT</em> is the
-minimum per-sample depth required to include a site in the non-variant
-block.</p>
+<p>output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+specified by the list of integers. For example, passing <em>5,15</em> will
+group sites into two types of gVCF blocks, the first with minimum
+per-sample DP from the interval [5,15) and the latter with minimum
+depth 15 or more. In this example, sites with minimum per-sample
+depth less than 5 will be printed as separate records, outside of
+gVCF blocks.</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --insert-missed</strong> <em>INT</em></dt>
 <dd>
@@ -1867,7 +1870,7 @@ transcripts in malformatted GFFs with incorrect phase</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --gff-annot</strong> <em>FILE</em></dt>
 <dd>
-<p>GFF3 annotation file (required), such as <a href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" class="bare">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens</a>.
+<p>GFF3 annotation file (required), such as <a href="http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/" class="bare">http://ftp.ensembl.org/pub/current_gff3/homo_sapiens/</a>.
 The script <strong><a href="#gff2gff">gff2gff</a></strong> can help with conversion from non-standard GFF formats.
 An example of a minimal working GFF file:</p>
 </dd>
@@ -2018,6 +2021,10 @@ plain text output can be printed (<em>t</em>).</p>
 <p>Automatically detect and unify chromosome naming conventions in the GFF, fasta
 and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
 that of the input VCF. The default is to attempt the automatic translation.</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dd>
+<p>verbosity level (0-2)</p>
 </dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
@@ -2256,7 +2263,7 @@ Without the <strong>-g</strong> option, multi-sample cross-check of samples in <
 <div class="paragraph">
 <p>Note that the interpretation of the discordance score depends on the options provided (specifically <strong>-e</strong> and
 <strong>-u</strong>) and on the available annotations (FORMAT/PL vs FORMAT/GT).
-The discordance score can be interpreted as the number of mismatching genotypes if only GT-vs-GT matching is performed.</p>
+The discordance score can be interpreted as the number of mismatching genotypes only if GT-vs-GT matching is performed.</p>
 </div>
 <div class="dlist">
 <dl>
@@ -2522,7 +2529,7 @@ in the other files.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em>|<em>id</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2859,7 +2866,8 @@ multiple regions and many alignment files are processed.</p>
 </dd>
 <dt class="hdlist1"><strong>-A, --count-orphans</strong></dt>
 <dd>
-<p>Do not skip anomalous read pairs in variant calling.</p>
+<p>Include anomalous read pairs in variant calling, i.e. reads with
+flag PAIRED but not PROPER_PAIR set. By default such reads are discarded.</p>
 </dd>
 <dt class="hdlist1"><strong>-b, --bam-list</strong> <em>FILE</em></dt>
 <dd>
@@ -2874,10 +2882,69 @@ by misalignments.</p>
 </dd>
 <dt class="hdlist1"><strong>-C, --adjust-MQ</strong> <em>INT</em></dt>
 <dd>
-<p>Coefficient  for  downgrading mapping quality for reads containing
-excessive mismatches. Given a read with a phred-scaled probability q of
-being generated from the mapped position, the new mapping quality is
-about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.</p>
+<p>Coefficient for downgrading mapping quality for reads containing
+excessive mismatches.  Mismatches are counted as a proportion of the
+number of aligned bases ("M", "X" or "=" CIGAR operations), along with
+their quality, to derive an upper-bound of the mapping quality.
+Original mapping qualities lower than this are left intact, while
+higher ones are capped at the new adjusted score.</p>
+<div class="paragraph">
+<p>The exact formula is complex and likely tuned to specific instruments
+and specific alignment tools, so this option is disabled by default
+(indicated as having a zero value).  Variables in the formulae and
+their meaning are defined below.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Variable    Meaning / formula
+M           The number of matching CIGAR bases (operation "M", "X" or "=").
+X           The number of substitutions with quality &gt;= 13.
+SubQ        The summed quality of substitution bases included in X, capped
+            at a maximum of quality 33 per mismatching base.
+ClipQ       The summed quality of soft-clipped or hard-clipped bases. This
+            has no minimum or maximum quality threshold per base.  For
+            hard-clipped bases the per-base quality is taken as 13.
+
+T           SubQ - 10 * log10(M^X / X!) + ClipQ/5
+Cap         MAX(0, INT * sqrt((INT - T) / INT))</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Some notes on the impact of this.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>As the number of mismatches increases, the mapping quality cap
+reduces, eventually resulting in discarded alignments.</p>
+</li>
+<li>
+<p>High quality mismatches reduces the cap faster than low quality
+mismatches.</p>
+</li>
+<li>
+<p>The starting INT value also acts as a hard cap on mapping quality,
+even when zero mismatches are observed.</p>
+</li>
+<li>
+<p>Indels have no impact on the mapping quality.</p>
+<div class="paragraph">
+<p>The intent of this option is to work around aligners that compute a
+mapping quality using a local alignment without having any regard to
+the degree of clipping required or consideration of potential
+contamination or large scale insertions with respect to the reference.
+A record may align uniquely and have no close second match, but having
+a high number of mismatches may still imply that the reference is not
+the correct site.</p>
+</div>
+<div class="paragraph">
+<p>However we do not recommend use of this parameter unless you fully
+understand the impact of it and have determined that it is appropriate
+for your sequencing technology.</p>
+</div>
+</li>
+</ul>
+</div>
 </dd>
 <dt class="hdlist1"><strong>-D, --full-BAQ</strong></dt>
 <dd>
@@ -3351,7 +3418,7 @@ but may not other aligners.</p>
 <div class="content">
 <pre>    bcftools mpileup -Ou -f ref.fa aln.bam | \
     bcftools call -Ou -mv | \
-    bcftools filter -s LowQual -e '%QUAL&lt;20 || DP&gt;100' &gt; var.flt.vcf</pre>
+    bcftools filter -s LowQual -e 'QUAL&lt;20 || DP&gt;100' &gt; var.flt.vcf</pre>
 </div>
 </div>
 </div>
@@ -3421,7 +3488,12 @@ See also <strong>--collapse</strong> in <strong><a href="#common_options">Common
 <dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
 <dd>
 <p>If a record is present in multiple files, output only the first instance.
-Alias for <strong>-d none</strong>, deprecated.</p>
+Alias for <strong>-d exact</strong>, deprecated.</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>do not normalize input records for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>. Note that duplicate removal ignores this option.</p>
 </dd>
 <dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em><a id="fasta_ref"></a></dt>
 <dd>
@@ -3439,6 +3511,11 @@ are encountered, discarding such tags. (Experimental, use at your own risk.)</p>
 <p>when a GFF file is provided, follow HGVS 3&#8217;rule and right-align variants in transcripts on the forward
 strand.  In case of overlapping transcripts, the default mode is to left-align the variant. For a
 description of the supported GFF3 file format see <strong><a href="#csq">bcftools csq</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>normalize only input records for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>. Note that duplicate removal ignores this option.</p>
 </dd>
 <dt class="hdlist1"><strong>--keep-sum</strong> <em>TAG</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -3503,6 +3580,11 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dd>
 <p>when merging (<em>-m+</em>), merged site is PASS only if all sites being merged PASS</p>
 </dd>
+<dt class="hdlist1"><strong>-S, --sort</strong> <em>pos</em>|<em>lex</em></dt>
+<dd>
+<p>when splitting sites or processing duplicates, sort records on output by
+POS only (<em>pos</em>, the default) or by POS and lexicographically by REF+ALT (<em>lex</em>)</p>
+</dd>
 <dt class="hdlist1"><strong>-t, --targets</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3518,6 +3600,10 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dd>
+<p>verbosity level of GFF parsing (0-2)</p>
 </dd>
 <dt class="hdlist1"><strong>-w, --site-win</strong> <em>INT</em></dt>
 <dd>
@@ -3658,6 +3744,10 @@ one of "tbi" or "csi" depending on output file format.</p>
 <dt class="hdlist1"><strong>af-dist</strong></dt>
 <dd>
 <p>collect AF deviation stats and GT probability distribution given AF and assuming HWE</p>
+</dd>
+<dt class="hdlist1"><strong>afs</strong></dt>
+<dd>
+<p>assess site noisiness (allelic frequency score) from a large number of unaffected parental samples</p>
 </dd>
 <dt class="hdlist1"><strong>allele-length</strong></dt>
 <dd>
@@ -4080,7 +4170,8 @@ fields will be still printed but instead of their actual value, <em>STR</em> wil
 </dd>
 <dt class="hdlist1"><strong>-H, --print-header</strong></dt>
 <dd>
-<p>print header</p>
+<p>print header. By default, the header is printed with column indices, e.g. "#[1]CHROM".
+These can be suppressed by giving the option twice, "<code>-HH</code>".</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -4156,6 +4247,7 @@ print "." instead</p>
 %FIRST_ALT      Alias for %ALT{0}
 %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
 %GT             Genotype (e.g. 0/1)
+%FUNCTION       Functions supported by the -i/-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
 %INFO           Prints the whole INFO column
 %INFO/TAG       Any tag in the INFO column
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
@@ -5262,10 +5354,10 @@ phred(binom())               .. the same as binom but phred-scaled</pre>
 <li>
 <p>variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
-AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+AC but always picks the allele with frequency smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-indel length (deletions negative, insertions positive)</p>
+indel length (deletions negative, insertions positive, balanced substitutions zero)</p>
 <div class="literalblock">
 <div class="content">
 <pre>N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN</pre>
@@ -5454,7 +5546,7 @@ that the whole expression is passed to the program as intended:</p>
 <div class="content">
 <div class="literalblock">
 <div class="content">
-<pre>bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre>
+<pre>bcftools view -i 'ID!="." &amp; MAF[0]&lt;0.01'</pre>
 </div>
 </div>
 </div>
@@ -5562,7 +5654,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-04-29 08:09:47 +0100
+Last updated 2024-12-16 09:31:50 UTC
 </div>
 </div>
 </body>
