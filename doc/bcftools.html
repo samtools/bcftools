@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2024-09-12</strong> and refers to bcftools git version <strong>1.21</strong>.</p>
+<p>This manual page was last updated <strong>2024-12-16 09:31 GMT</strong> and refers to bcftools git version <strong>1.21-58-g6559a12a+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -247,8 +247,7 @@ first indel record will be considered and appear on output.</p>
 </dd>
 <dt class="hdlist1"><em>id</em></dt>
 <dd>
-<p>only records with identical ID column are compatible.
-Supported by <strong><a href="#merge">bcftools merge</a></strong> only.</p>
+<p>only records with identical ID column are compatible.</p>
 </dd>
 </dl>
 </div>
@@ -545,7 +544,7 @@ See also the <strong>-l, --merge-logic</strong> option.
     ^INFO/TAG           .. transfer all INFO annotations except "TAG"
 
     TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only it is "."
+    +TAG      .. add or overwrite existing target value only if it is "."
     .TAG      .. add or overwrite existing target value even if source is "."
     .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
     -TAG      .. overwrite existing value, never add new if target does not exist
@@ -674,7 +673,7 @@ columns present.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>--pair-logic</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>exact</em></dt>
+<dt class="hdlist1"><strong>--pair-logic</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>exact</em>|<em>id</em></dt>
 <dd>
 <p>Controls how to match records from the annotation file to the target VCF.
 Effective only when <strong>-a</strong> is a VCF or BCF. The option replaces the former
@@ -2530,7 +2529,7 @@ in the other files.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em>|<em>id</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3419,7 +3418,7 @@ but may not other aligners.</p>
 <div class="content">
 <pre>    bcftools mpileup -Ou -f ref.fa aln.bam | \
     bcftools call -Ou -mv | \
-    bcftools filter -s LowQual -e '%QUAL&lt;20 || DP&gt;100' &gt; var.flt.vcf</pre>
+    bcftools filter -s LowQual -e 'QUAL&lt;20 || DP&gt;100' &gt; var.flt.vcf</pre>
 </div>
 </div>
 </div>
@@ -3479,7 +3478,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -3489,7 +3488,7 @@ See also <strong>--collapse</strong> in <strong><a href="#common_options">Common
 <dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
 <dd>
 <p>If a record is present in multiple files, output only the first instance.
-Alias for <strong>-d none</strong>, deprecated.</p>
+Alias for <strong>-d exact</strong>, deprecated.</p>
 </dd>
 <dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -3745,6 +3744,10 @@ one of "tbi" or "csi" depending on output file format.</p>
 <dt class="hdlist1"><strong>af-dist</strong></dt>
 <dd>
 <p>collect AF deviation stats and GT probability distribution given AF and assuming HWE</p>
+</dd>
+<dt class="hdlist1"><strong>afs</strong></dt>
+<dd>
+<p>assess site noisiness (allelic frequency score) from a large number of unaffected parental samples</p>
 </dd>
 <dt class="hdlist1"><strong>allele-length</strong></dt>
 <dd>
@@ -4244,6 +4247,7 @@ print "." instead</p>
 %FIRST_ALT      Alias for %ALT{0}
 %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
 %GT             Genotype (e.g. 0/1)
+%FUNCTION       Functions supported by the -i/-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
 %INFO           Prints the whole INFO column
 %INFO/TAG       Any tag in the INFO column
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
@@ -5350,7 +5354,7 @@ phred(binom())               .. the same as binom but phred-scaled</pre>
 <li>
 <p>variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
-AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+AC but always picks the allele with frequency smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
 indel length (deletions negative, insertions positive, balanced substitutions zero)</p>
@@ -5542,7 +5546,7 @@ that the whole expression is passed to the program as intended:</p>
 <div class="content">
 <div class="literalblock">
 <div class="content">
-<pre>bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre>
+<pre>bcftools view -i 'ID!="." &amp; MAF[0]&lt;0.01'</pre>
 </div>
 </div>
 </div>
@@ -5650,7 +5654,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-09-12 16:06:32 +0100
+Last updated 2024-12-16 09:31:50 UTC
 </div>
 </div>
 </body>

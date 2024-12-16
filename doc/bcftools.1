@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2024-09-12
+.\" Generator: Asciidoctor 2.0.15.dev
+.\"      Date: 2024-12-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2024-09-12" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2024-12-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2024\-09\-12\fP and refers to bcftools git version \fB1.21\fP.
+This manual page was last updated \fB2024\-12\-16 09:31 GMT\fP and refers to bcftools git version \fB1.21\-58\-g6559a12a+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -422,7 +422,6 @@ abbreviation of "\fB\-c\fP \fIindels\fP\~ \fB\-c\fP \fIsnps\fP"
 \fIid\fP
 .RS 4
 only records with identical ID column are compatible.
-Supported by \fBbcftools merge\fP only.
 .RE
 .RE
 .sp
@@ -596,7 +595,7 @@ Such a file can be easily created from a VCF using:
 .if n .RS 4
 .nf
 .fam C
-    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF,%ALT\(rsn\*(Aq file.vcf | bgzip \-c > als.tsv.gz && tabix \-s1 \-b2 \-e2 als.tsv.gz
+    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF,%ALT\(rsn\(aq file.vcf | bgzip \-c > als.tsv.gz && tabix \-s1 \-b2 \-e2 als.tsv.gz
 .fam
 .fi
 .if n .RE
@@ -745,7 +744,7 @@ See also the \fB\-l, \-\-merge\-logic\fP option.
     ^INFO/TAG           .. transfer all INFO annotations except "TAG"
 
     TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only it is "."
+    +TAG      .. add or overwrite existing target value only if it is "."
     .TAG      .. add or overwrite existing target value even if source is "."
     .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
     \-TAG      .. overwrite existing value, never add new if target does not exist
@@ -805,7 +804,7 @@ one can use
 .if n .RS 4
 .nf
 .fam C
-    bcftools annotate \-\-set\-id +\*(Aq%CHROM\(rs_%POS\(rs_%REF\(rs_%FIRST_ALT\*(Aq file.vcf
+    bcftools annotate \-\-set\-id +\(aq%CHROM\(rs_%POS\(rs_%REF\(rs_%FIRST_ALT\(aq file.vcf
 .fam
 .fi
 .if n .RE
@@ -825,13 +824,13 @@ file dynamically for each record:
 .if n .RS 4
 .nf
 .fam C
-    # The field \*(AqSTR\*(Aq from the \-a file is required to match INFO/TAG in VCF. In the first example
+    # The field \(aqSTR\(aq from the \-a file is required to match INFO/TAG in VCF. In the first example
     # the alleles REF,ALT must match, in the second example they are ignored. The option \-k is required
     # to output also records that are not annotated. The third example shows the same concept with
     # a numerical expression.
-    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,REF,ALT,SCORE,~STR \-i\*(AqTAG={STR}\*(Aq \-k input.vcf
-    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~STR     \-i\*(AqTAG={STR}\*(Aq \-k input.vcf
-    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~INT     \-i\*(AqTAG>{INT}\*(Aq \-k input.vcf
+    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,REF,ALT,SCORE,~STR \-i\(aqTAG={STR}\(aq \-k input.vcf
+    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~STR     \-i\(aqTAG={STR}\(aq \-k input.vcf
+    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~INT     \-i\(aqTAG>{INT}\(aq \-k input.vcf
 .fam
 .fi
 .if n .RE
@@ -862,7 +861,7 @@ This is an experimental feature.
 annotate sites which are present ("+") or absent ("\-") in the \fB\-a\fP file with a new INFO/TAG flag
 .RE
 .sp
-\fB\-\-min\-overlap\fP \fIANN\fP:\*(AqVCF\*(Aq
+\fB\-\-min\-overlap\fP \fIANN\fP:\(aqVCF\(aq
 .RS 4
 minimum overlap required as a fraction of the variant in the annotation \fB\-a\fP file (\fIANN\fP), in the
 target VCF file (\fI:VCF\fP), or both for reciprocal overlap (\fIANN:VCF\fP).
@@ -886,7 +885,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-pair\-logic\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fIexact\fP
+\fB\-\-pair\-logic\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fIexact\fP|\fIid\fP
 .RS 4
 Controls how to match records from the annotation file to the target VCF.
 Effective only when \fB\-a\fP is a VCF or BCF. The option replaces the former
@@ -1139,10 +1138,10 @@ workflow looks like this:
 .nf
 .fam C
     # Extract AN,AC values from an existing VCF, such 1000Genomes
-    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\*(Aq 1000Genomes.bcf | bgzip \-c > AFs.tab.gz
+    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\(aq 1000Genomes.bcf | bgzip \-c > AFs.tab.gz
 
     # If the tags AN,AC are not already present, use the +fill\-tags plugin
-    bcftools +fill\-tags 1000Genomes.bcf | bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\*(Aq | bgzip \-c > AFs.tab.gz
+    bcftools +fill\-tags 1000Genomes.bcf | bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\(aq | bgzip \-c > AFs.tab.gz
     tabix \-s1 \-b2 \-e2 AFs.tab.gz
 
     # Create a VCF header description, here we name the tags REF_AN,REF_AC
@@ -2154,7 +2153,7 @@ An example of a minimal working GFF file:
 .fam C
     # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
-    # the gene (determined from the transcript\*(Aqs "Parent=gene:" attribute), and the biotype
+    # the gene (determined from the transcript\(aqs "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
     #
     # Empty and commented lines are skipped, the following GFF columns are required
@@ -2339,7 +2338,7 @@ one of "tbi" or "csi" depending on output file format.
     #   %TBCSQ{0} .. print the first haplotype only
     #   %TBCSQ{1} .. print the second haplotype only
     #   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
-    bcftools query \-f\*(Aq[%CHROM\(rst%POS\(rst%SAMPLE\(rst%TBCSQ\(rsn]\*(Aq out.bcf
+    bcftools query \-f\(aq[%CHROM\(rst%POS\(rst%SAMPLE\(rst%TBCSQ\(rsn]\(aq out.bcf
 .fam
 .fi
 .if n .RE
@@ -2418,7 +2417,7 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fBEXPRESSIONS\fP.
 .RE
 .sp
-\fB\-g, \-\-SnpGap\fP \fIINT\fP[:\*(Aqindel\*(Aq,\fImnp\fP,\fIbnd\fP,\fIother\fP,\fIoverlap\fP]
+\fB\-g, \-\-SnpGap\fP \fIINT\fP[:\(aqindel\(aq,\fImnp\fP,\fIbnd\fP,\fIother\fP,\fIoverlap\fP]
 .RS 4
 filter SNPs within \fIINT\fP base pairs of an indel or other other variant type. The following example
 demonstrates the logic of \fB\-\-SnpGap\fP \fI3\fP applied on a deletion and
@@ -2584,7 +2583,7 @@ in\-memory sorting and DIR is the temporary directory for external sorting. This
 Stop after first record to estimate required time.
 .RE
 .sp
-\fB\-e, \-\-exclude\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+\fB\-e, \-\-exclude\fP [\fIqry\fP|\fIgt\fP]:\(aqEXPRESSION\(aq
 .RS 4
 Exclude sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
 For valid expressions see \fBEXPRESSIONS\fP.
@@ -2626,7 +2625,7 @@ VCF/BCF file with reference genotypes to compare against
 Homozygous genotypes only, useful with low coverage data (requires \fB\-g, \-\-genotypes\fP)
 .RE
 .sp
-\fB\-i, \-\-include\fP [\fIqry\fP|\fIgt\fP]:\*(AqEXPRESSION\*(Aq
+\fB\-i, \-\-include\fP [\fIqry\fP|\fIgt\fP]:\(aqEXPRESSION\(aq
 .RS 4
 Include sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
 For valid expressions see \fBEXPRESSIONS\fP.
@@ -2674,7 +2673,7 @@ from the query file, the second from the genotypes file when \fB\-g\fP is given
 Restrict to comma\-separated list of regions, see \fBCommon Options\fP
 .RE
 .sp
-*\-R, \-\-regions\-file\*(Aq \fIFILE\fP
+*\-R, \-\-regions\-file\(aq \fIFILE\fP
 .RS 4
 Restrict to regions listed in a file, see \fBCommon Options\fP
 .RE
@@ -2684,11 +2683,11 @@ Restrict to regions listed in a file, see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-s, \-\-samples\fP [\fIqry\fP|\fIgt\fP]:\*(AqLIST\*(Aq:
+\fB\-s, \-\-samples\fP [\fIqry\fP|\fIgt\fP]:\(aqLIST\(aq:
 List of query samples or \fB\-g\fP samples. If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
 pair combinations are compared
 .sp
-\fB\-S, \-\-samples\-file\fP [\fIqry\fP|\fIgt\fP]:\*(AqFILE\*(Aq
+\fB\-S, \-\-samples\-file\fP [\fIqry\fP|\fIgt\fP]:\(aqFILE\(aq
 File with the query or \fB\-g\fP samples to compare.  If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
 pair combinations are compared
 .sp
@@ -2837,7 +2836,7 @@ on the options, the program can output records from one (or more) files
 which have (or do not have) corresponding records with the same position
 in the other files.
 .sp
-\fB\-c, \-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP
+\fB\-c, \-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP|\fIid\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2956,7 +2955,7 @@ the files after filters have been applied
 .if n .RS 4
 .nf
 .fam C
-    bcftools isec \-e\*(AqMAF<0.01\*(Aq \-i\*(AqdbSNP=1\*(Aq \-e\- A.vcf.gz B.vcf.gz C.vcf.gz \-n +2 \-p dir
+    bcftools isec \-e\(aqMAF<0.01\(aq \-i\(aqdbSNP=1\(aq \-e\- A.vcf.gz B.vcf.gz C.vcf.gz \-n +2 \-p dir
 .fam
 .fi
 .if n .RE
@@ -3105,7 +3104,7 @@ if two asterisks \fI**\fP are appended, the unobserved allele will be removed al
 \-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
 \-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
 \-m all         ..  SNP records can be merged with indel records
-\-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
+\-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\(aqt mix them
 \-m id          ..  merge by ID
 .fam
 .fi
@@ -3569,7 +3568,7 @@ see \fBCommon Options\fP
 \fB\-o, \-\-output\fP \fIFILE\fP
 .RS 4
 Write output to \fIFILE\fP, rather than the default of standard output.
-(The same short option is used for both \fB\-\-open\-prob\fP and \fB\-\-output\fP.  If \fB\-o\fP\*(Aqs
+(The same short option is used for both \fB\-\-open\-prob\fP and \fB\-\-output\fP.  If \fB\-o\fP\(aqs
 argument contains any non\-digit characters other than a leading + or \-
 sign,  it  is  interpreted  as \fB\-\-output\fP.  Usually the filename extension
 will take care of this, but to write to an entirely numeric filename use \fB\-o
@@ -3850,7 +3849,7 @@ but may not other aligners.
 .fam C
     bcftools mpileup \-Ou \-f ref.fa aln.bam | \(rs
     bcftools call \-Ou \-mv | \(rs
-    bcftools filter \-s LowQual \-e \*(Aq%QUAL<20 || DP>100\*(Aq > var.flt.vcf
+    bcftools filter \-s LowQual \-e \(aqQUAL<20 || DP>100\(aq > var.flt.vcf
 .fam
 .fi
 .if n .RE
@@ -3888,7 +3887,7 @@ by shell and must be put in quotes or escaped by a backslash:
     101         C         G      ./1
 
     # After:
-    #   bcftools norm \-a \-\-atom\-overlaps \*(Aq*\*(Aq
+    #   bcftools norm \-a \-\-atom\-overlaps \(aq*\(aq
     #   bcftools norm \-a \-\-atom\-overlaps \(rs*
     100         C         G,*    2/1
     100         CC         C,*    1/2
@@ -3909,7 +3908,7 @@ your VCF, do NOT use it for that purpose!!! (Instead see
 .URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" ""
 and
 \c
-.URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
+.URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html." "" ")"
 .RE
 .sp
 \fB\-d, \-\-rm\-dup\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIexact\fP
@@ -3921,7 +3920,7 @@ See also \fB\-\-collapse\fP in \fBCommon Options\fP.
 \fB\-D, \-\-remove\-duplicates\fP
 .RS 4
 If a record is present in multiple files, output only the first instance.
-Alias for \fB\-d none\fP, deprecated.
+Alias for \fB\-d exact\fP, deprecated.
 .RE
 .sp
 \fB\-e, \-\-exclude\fP \fIEXPRESSION\fP
@@ -4198,6 +4197,11 @@ add VariantKey INFO fields VKX and RSX
 \fBaf\-dist\fP
 .RS 4
 collect AF deviation stats and GT probability distribution given AF and assuming HWE
+.RE
+.sp
+\fBafs\fP
+.RS 4
+assess site noisiness (allelic frequency score) from a large number of unaffected parental samples
 .RE
 .sp
 \fBallele\-length\fP
@@ -4553,7 +4557,7 @@ determine parental origin of a CNV region
 \fBprune\fP
 .RS 4
 prune sites by missingness, allele frequency or linkage disequilibrium.
-Alternatively, annotate sites with r2, Lewontin\(cqs D\*(Aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
+Alternatively, annotate sites with r2, Lewontin\(cqs D\(aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
 .RE
 .sp
 \fBremove\-overlaps\fP
@@ -4687,10 +4691,10 @@ Does the environment variable BCFTOOLS_PLUGINS include the correct path?
 .if n .RS 4
 .nf
 .fam C
-// Short description used by \*(Aqbcftools plugin \-l\*(Aq
+// Short description used by \(aqbcftools plugin \-l\(aq
 const char *about(void);
 
-// Longer description used by \*(Aqbcftools +name \-h\*(Aq
+// Longer description used by \(aqbcftools +name \-h\(aq
 const char *usage(void);
 
 // Called once at startup, allows initialization of local variables.
@@ -4917,6 +4921,7 @@ process multiple VCFs listed in the file
 %FIRST_ALT      Alias for %ALT{0}
 %FORMAT         Prints all FORMAT fields or a subset of samples with \-s or \-S
 %GT             Genotype (e.g. 0/1)
+%FUNCTION       Functions supported by the \-i/\-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
 %INFO           Prints the whole INFO column
 %INFO/TAG       Any tag in the INFO column
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
@@ -4951,7 +4956,7 @@ Everything else is printed verbatim.
 .nf
 .fam C
 # Print chromosome, position, ref allele and the first alternate allele
-bcftools query \-f \*(Aq%CHROM  %POS  %REF  %ALT{0}\(rsn\*(Aq file.vcf.gz
+bcftools query \-f \(aq%CHROM  %POS  %REF  %ALT{0}\(rsn\(aq file.vcf.gz
 .fam
 .fi
 .if n .RE
@@ -4960,7 +4965,7 @@ bcftools query \-f \*(Aq%CHROM  %POS  %REF  %ALT{0}\(rsn\*(Aq file.vcf.gz
 .nf
 .fam C
 # Similar to above, but use tabs instead of spaces, add sample name and genotype
-bcftools query \-f \*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT[\(rst%SAMPLE=%GT]\(rsn\*(Aq file.vcf.gz
+bcftools query \-f \(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT[\(rst%SAMPLE=%GT]\(rsn\(aq file.vcf.gz
 .fam
 .fi
 .if n .RE
@@ -4969,7 +4974,7 @@ bcftools query \-f \*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT[\(rst%SAMPLE=%GT]\(rsn
 .nf
 .fam C
 # Print FORMAT/GT fields followed by FORMAT/GT fields
-bcftools query \-f \*(AqGQ:[ %GQ] \(rst GT:[ %GT]\(rsn\*(Aq file.vcf
+bcftools query \-f \(aqGQ:[ %GQ] \(rst GT:[ %GT]\(rsn\(aq file.vcf
 .fam
 .fi
 .if n .RE
@@ -4978,7 +4983,7 @@ bcftools query \-f \*(AqGQ:[ %GQ] \(rst GT:[ %GT]\(rsn\*(Aq file.vcf
 .nf
 .fam C
 # Make a BED file: chr, pos (0\-based), end pos (1\-based), id
-bcftools query \-f\*(Aq%CHROM\(rst%POS0\(rst%END\(rst%ID\(rsn\*(Aq file.bcf
+bcftools query \-f\(aq%CHROM\(rst%POS0\(rst%END\(rst%ID\(rsn\(aq file.bcf
 .fam
 .fi
 .if n .RE
@@ -4987,7 +4992,7 @@ bcftools query \-f\*(Aq%CHROM\(rst%POS0\(rst%END\(rst%ID\(rsn\*(Aq file.bcf
 .nf
 .fam C
 # Print only samples with alternate (non\-reference) genotypes
-bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\(rsn]\*(Aq \-i\*(AqGT="alt"\*(Aq file.bcf
+bcftools query \-f\(aq[%CHROM:%POS %SAMPLE %GT\(rsn]\(aq \-i\(aqGT="alt"\(aq file.bcf
 .fam
 .fi
 .if n .RE
@@ -4996,7 +5001,7 @@ bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\(rsn]\*(Aq \-i\*(AqGT="alt"\*(Aq
 .nf
 .fam C
 # Print all samples at sites with at least one alternate genotype
-bcftools view \-i\*(AqGT="alt"\*(Aq file.bcf \-Ou | bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\(rsn]\*(Aq
+bcftools view \-i\(aqGT="alt"\(aq file.bcf \-Ou | bcftools query \-f\(aq[%CHROM:%POS %SAMPLE %GT\(rsn]\(aq
 .fam
 .fi
 .if n .RE
@@ -5005,7 +5010,7 @@ bcftools view \-i\*(AqGT="alt"\*(Aq file.bcf \-Ou | bcftools query \-f\*(Aq[%CHR
 .nf
 .fam C
 # Print phred\-scaled binomial probability from FORMAT/AD tag for all heterozygous genotypes
-bcftools query \-i\*(AqGT="het"\*(Aq \-f\*(Aq[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\(rsn]\*(Aq file.vcf
+bcftools query \-i\(aqGT="het"\(aq \-f\(aq[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\(rsn]\(aq file.vcf
 .fam
 .fi
 .if n .RE
@@ -5016,7 +5021,7 @@ bcftools query \-i\*(AqGT="het"\*(Aq \-f\*(Aq[%CHROM:%POS %SAMPLE %GT %PBINOM(AD
 # Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
 # index subscript notation: formatting expressions (\-f) uses "{}" while filtering expressions
 # (\-i) use "[]". This is for historic reasons and backward\-compatibility.
-bcftools query \-f \*(Aq%AC{1}\(rsn\*(Aq \-i \*(AqAC[1]>10\*(Aq file.vcf.gz
+bcftools query \-f \(aq%AC{1}\(rsn\(aq \-i \(aqAC[1]>10\(aq file.vcf.gz
 .fam
 .fi
 .if n .RE
@@ -5026,8 +5031,8 @@ bcftools query \-f \*(Aq%AC{1}\(rsn\*(Aq \-i \*(AqAC[1]>10\*(Aq file.vcf.gz
 .fam C
 # Print all samples at sites where at least one sample has DP=1 or DP=2. In the second case
 # print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
-bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 || FMT/DP=2\*(Aq file.vcf
-bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |  FMT/DP=2\*(Aq file.vcf
+bcftools query \-f \(aq[%SAMPLE %GT %DP\(rsn]\(aq \-i \(aqFMT/DP=1 || FMT/DP=2\(aq file.vcf
+bcftools query \-f \(aq[%SAMPLE %GT %DP\(rsn]\(aq \-i \(aqFMT/DP=1 |  FMT/DP=2\(aq file.vcf
 .fam
 .fi
 .if n .RE
@@ -5128,7 +5133,7 @@ Note that such a file can be easily created from a VCF using:
 .if n .RS 4
 .nf
 .fam C
-    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF,%ALT\(rst%INFO/TAG\(rsn\*(Aq file.vcf | bgzip \-c > freqs.tab.gz
+    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF,%ALT\(rst%INFO/TAG\(rsn\(aq file.vcf | bgzip \-c > freqs.tab.gz
 .fam
 .fi
 .if n .RE
@@ -5584,7 +5589,7 @@ multiple subsets simultaneously using the \fBsplit\fP plugin.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that filters like \fI\-\-uncalled\fP, \-\-exclude\-uncalled\*(Aq, or \fI\-\-min\-af 0.1\fP will be calculated from INFO/AC and
+that filters like \fI\-\-uncalled\fP, \-\-exclude\-uncalled\(aq, or \fI\-\-min\-af 0.1\fP will be calculated from INFO/AC and
 INFO/AN when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing field,
 like INFO/AF for example. For that, use \fI\-\-exclude AF<0.1\fP instead.
 .sp
@@ -5596,7 +5601,7 @@ column when present but calculated on the fly when absent. Therefore it is stron
 required order explicitly by separating such commands into two steps. (Make sure to use the \fB\-O u\fP option
 when piping!)
 .sp
-\fB\-c, \-\-min\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|\fI:major\fP|:\*(Aqnonmajor\*(Aq]
+\fB\-c, \-\-min\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|\fI:major\fP|:\(aqnonmajor\(aq]
 .RS 4
 minimum allele count (INFO/AC) of sites to be printed.
 Specifying the type of allele is optional and can be set to
@@ -5605,7 +5610,7 @@ frequent (\fIminor\fP), the most frequent (\fImajor\fP) or sum of all but the
 most frequent (\fInonmajor\fP) alleles.
 .RE
 .sp
-\fB\-C, \-\-max\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
+\fB\-C, \-\-max\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|:\(aqmajor\(aq|:\(aqnonmajor\(aq]
 .RS 4
 maximum allele count (INFO/AC) of sites to be printed.
 Specifying the type of allele is optional and can be set to
@@ -5826,7 +5831,7 @@ plot\-vcfstats \-p outdir file.vchk
 .nf
 .fam C
 # The final looks can be customized by editing the generated
-# \*(Aqoutdir/plot.py\*(Aq script and re\-running manually
+# \(aqoutdir/plot.py\(aq script and re\-running manually
 cd outdir && python plot.py && pdflatex summary.tex
 .fam
 .fi
@@ -6286,7 +6291,7 @@ phred(binom())               .. the same as binom but phred\-scaled
 .\}
 variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
-AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+AC but always picks the allele with frequency smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
 indel length (deletions negative, insertions positive, balanced substitutions zero)
@@ -6370,9 +6375,9 @@ Consequently, the following two expressions are equivalent but not the third:
 .if n .RS 4
 .nf
 .fam C
-\-i \*(AqTAG="hello,world"\*(Aq
-\-i \*(AqTAG="hello" || TAG="world"\*(Aq
-\-i \*(AqTAG="hello" && TAG="world"\*(Aq
+\-i \(aqTAG="hello,world"\(aq
+\-i \(aqTAG="hello" || TAG="world"\(aq
+\-i \(aqTAG="hello" && TAG="world"\(aq
 .fam
 .fi
 .if n .RE
@@ -6405,14 +6410,14 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 .if n .RS 4
 .nf
 .fam C
-\-i \*(AqTAG[*]=1\*(Aq   .. true, the record will be printed
-\-i \*(AqTAG[*]!=1\*(Aq  .. true
-\-e \*(AqTAG[*]=1\*(Aq   .. false, the record will be discarded
-\-e \*(AqTAG[*]!=1\*(Aq  .. false
-\-i \*(AqTAG[0]=1\*(Aq   .. true
-\-i \*(AqTAG[0]!=1\*(Aq  .. false
-\-e \*(AqTAG[0]=1\*(Aq   .. false
-\-e \*(AqTAG[0]!=1\*(Aq  .. true
+\-i \(aqTAG[*]=1\(aq   .. true, the record will be printed
+\-i \(aqTAG[*]!=1\(aq  .. true
+\-e \(aqTAG[*]=1\(aq   .. false, the record will be discarded
+\-e \(aqTAG[*]!=1\(aq  .. false
+\-i \(aqTAG[0]=1\(aq   .. true
+\-i \(aqTAG[0]!=1\(aq  .. false
+\-e \(aqTAG[0]=1\(aq   .. false
+\-e \(aqTAG[0]!=1\(aq  .. true
 .fam
 .fi
 .if n .RE
@@ -6614,7 +6619,7 @@ that the whole expression is passed to the program as intended:
 .if n .RS 4
 .nf
 .fam C
-bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
+bcftools view \-i \(aqID!="." & MAF[0]<0.01\(aq
 .fam
 .fi
 .if n .RE
@@ -6638,7 +6643,7 @@ C     CAAA      .. indel, insertion (regardless of length)
 C     <*>       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
 C     <NON_REF> .. synonymous to <*>
 C     *         .. overlapping deletion
-C     <INS>     .. symbolic allele, known also as \*(Aqother [than above]\*(Aq
+C     <INS>     .. symbolic allele, known also as \(aqother [than above]\(aq
 .fam
 .fi
 .if n .RE
