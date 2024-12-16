@@ -81,7 +81,7 @@ differences between two samples. This greatly helps to reduce the number of
 false calls and also allows one to distinguish between normal and novel copy number
 variation. The command is
 ----
-bcftools cnv -c conrol_sample -s query_sample -o outdir/ -p 0 file.vcf 
+bcftools cnv -c control_sample -s query_sample -o outdir/ -p 0 file.vcf 
 ----
 The ``-p 0`` option tells the program to automatically call matplotlib and
 produce plots like the one in this example:

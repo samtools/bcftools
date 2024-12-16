@@ -1,0 +1,60 @@
+include::header.inc[]
+
+
+Plugin setGT
+------------
+
+The plugin `+setGT` allows to edit genotypes
+
+The list of plugin-specific options can be obtained by running
+`bcftools +setGT -h`, which will print the following usage page:
+----
+About: Sets genotypes. The target genotypes can be specified as:
+           ./.     .. completely missing ("." or "./.", depending on ploidy)
+           ./x     .. partially missing (e.g., "./0" or ".|1" but not "./.")
+           .       .. partially or completely missing
+           a       .. all genotypes
+           b       .. heterozygous genotypes failing two-tailed binomial test (example below)
+           q       .. select genotypes using -i/-e options
+           r:FLOAT .. select randomly a proportion of FLOAT genotypes (can be combined with other modes)
+       and the new genotype can be one of:
+           .       .. missing ("." or "./.", keeps ploidy)
+           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)
+           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X overrides ploidy)
+           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
+           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
+           X       .. allele with bigger read depth as determined from FMT/AD
+           p       .. phase genotype (0/1 becomes 0|1)
+           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)
+Usage: bcftools +setGT [General Options] -- [Plugin Options]
+Options:
+   run "bcftools plugin" for a list of common options
+
+Plugin options:
+   -e, --exclude EXPR        Exclude a genotype if true (requires -t q)
+   -i, --include EXPR        include a genotype if true (requires -t q)
+   -n, --new-gt TYPE         Genotypes to set, see above
+   -s, --seed INT            Random seed to use with -t r [0]
+   -t, --target-gt TYPE      Genotypes to change, see above
+
+Example:
+   # set missing genotypes ("./.") to phased ref genotypes ("0|0")
+   bcftools +setGT in.vcf -- -t . -n 0p
+
+   # set missing genotypes with DP>0 and GQ>20 to ref genotypes ("0/0")
+   bcftools +setGT in.vcf -- -t q -n 0 -i 'GT="." && FMT/DP>0 && GQ>20'
+
+   # set partially missing genotypes to completely missing
+   bcftools +setGT in.vcf -- -t ./x -n .
+
+   # set heterozygous genotypes to 0/0 if binom.test(nAlt,nRef+nAlt,0.5)<1e-3
+   bcftools +setGT in.vcf -- -t "b:AD<1e-3" -n 0
+
+   # force unphased heterozygous genotype if binom.test(nAlt,nRef+nAlt,0.5)>0.1
+   bcftools +setGT in.vcf -- -t ./x -n c:'m/M'
+----
+
+
+include::footer.inc[]
+
+

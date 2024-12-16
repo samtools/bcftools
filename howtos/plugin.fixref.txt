@@ -54,7 +54,7 @@ bcftools sort fixref.bcf -Ob -o fixref.sorted.bcf
 
 
 In the most extreme case when nothing else is working, one can simply force
-the unambigous alleles onto the forward strand and drop the ambigous genotypes.
+the unambiguous alleles onto the forward strand and drop the ambiguous genotypes.
 ----
 bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d
 ----

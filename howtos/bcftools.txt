@@ -408,7 +408,7 @@ Add or remove annotations.
 
     # Annotate from a tab-delimited file with regions (1-based coordinates, inclusive)
     tabix -s1 -b2 -e3 annots.tab.gz
-    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG inut.vcf
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
@@ -1022,7 +1022,7 @@ See the usage examples below.
     #   %TBCSQ    .. print consequences in both haplotypes in separate columns
     #   %TBCSQ{0} .. print the first haplotype only
     #   %TBCSQ{1} .. print the second haplotype only
-    #   %TBCSQ{*} .. print a list of unique consquences present in either haplotype
+    #   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
     bcftools query -f'[%CHROM\t%POS\t%SAMPLE\t%TBCSQ\n]' out.bcf
 ----
 
@@ -2069,7 +2069,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %SAMPLE         Sample name
     %POS0           POS in 0-based coordinates
     %END            End position of the REF allele
-    %END0           End position of the REF allele in 0-based cordinates
+    %END0           End position of the REF allele in 0-based coordinates
     \n              new line
     \t              tab character
 

@@ -25,7 +25,7 @@ bcftools query -l file.bcf | wc -l
 ----
 bcftools query -f '%POS\n' file.bcf
 ----
-In this example, the `-f` otion defines the output format. The `%POS` string
+In this example, the `-f` option defines the output format. The `%POS` string
 indicates that for each VCF line we want the POS column printed. The `\n` 
 stands for a newline character, a notation commonly used in the
 world of computer programming. Any characters without a special meaning
