@@ -10,9 +10,9 @@ The variant calling command in its simplest form is
 bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf
 ----
 
-The first `mpileup` part generates genotype likelihoods at each genomic 
+The first `mpileup` part generates genotype likelihoods at each genomic
 position with coverage. The second `call` part makes the actual calls.
-The `-m` switch tells the program to use the default calling method, 
+The `-m` switch tells the program to use the default calling method,
 the `-v` option asks to output only variant sites, finally the `-O` option
 selects the output format. In this example we chosen binary compressed BCF,
 which is the optimal starting format for further processing, such as filtering.
@@ -52,7 +52,7 @@ Variant filtering is not easy. The variant callers provide a quality score
 a call purely by chance. An easy way to filter low quality calls is
 
 ----
-bcftools view -i '%QUAL>=20' calls.bcf
+bcftools view -i 'QUAL>=20' calls.bcf
 ----
 
 
@@ -62,7 +62,7 @@ only once in the reference genome, reads from both copies would end up aligned t
 the single reference copy. If one of the copies acquired a mutation, this would
 appear as a genuine high-quality SNP. One might argue whether the callers
 should or should not report such calls: on one hand, the call certainly
-highlights a difference between the genomes; the other hand, it certainly 
+highlights a difference between the genomes; the other hand, it certainly
 is not a simple SNV. There are other types of artefacts one can observe in short
 reads and which we will not go into here, but the message is already clear: it is
 difficult to tell the variants and artefacts apart.
@@ -84,13 +84,13 @@ extract the annotations and plot manually, for example like this:
 bcftools query -f '%MyAnnotation\n' calls.bcf | my-plotting-program
 ----
 
-A good measure of the callset quality is often ts/tv, the ratio of 
+A good measure of the callset quality is often ts/tv, the ratio of
 http://en.wikipedia.org/wiki/Transition_%28genetics%29[transitions and transversions].
 Try the following command with different quality thresholds. The stricter the calls,
 the bigger ts/tv value one should get:
 
 ----
-bcftools filter -i'%QUAL>20' calls.vcf.gz | bcftools stats | grep TSTV
+bcftools filter -i'QUAL>20' calls.vcf.gz | bcftools stats | grep TSTV
 ----
 
 Other useful metrics are:
@@ -98,14 +98,14 @@ Other useful metrics are:
 * sequencing depth (DP bigger than twice the average depth indicates problematic regions and is often enriched for artefacts)
 * the minimum number of high-quality non-reference reads
 * proximity to indels (`bcftools filter -g`)
-* etc. 
+* etc.
 
 To give a concrete example, the following filter seemed to work quite well
 for one particular dataset (human data, exomes):
 
 ----
 bcftools filter -sLowQual -g3 -G10 \
-    -e'%QUAL<10 || (RPB<0.1 && %QUAL<15) || (AC<2 && %QUAL<15) || %MAX(DV)<=3 || %MAX(DV)/%MAX(DP)<=0.3' \
+    -e'QUAL<10 || (RPB<0.1 && QUAL<15) || (AC<2 && QUAL<15) || MAX(DV)<=3 || MAX(DV)/MAX(DP)<=0.3' \
     calls.vcf.gz
 ----
 

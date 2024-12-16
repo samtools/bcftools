@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>Variant calling</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -148,7 +148,7 @@ a call purely by chance. An easy way to filter low quality calls is</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools view -i '%QUAL&gt;=20' calls.bcf</pre>
+<pre>bcftools view -i 'QUAL&gt;=20' calls.bcf</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -189,7 +189,7 @@ the bigger ts/tv value one should get:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools filter -i'%QUAL&gt;20' calls.vcf.gz | bcftools stats | grep TSTV</pre>
+<pre>bcftools filter -i'QUAL&gt;20' calls.vcf.gz | bcftools stats | grep TSTV</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -218,7 +218,7 @@ for one particular dataset (human data, exomes):</p>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools filter -sLowQual -g3 -G10 \
-    -e'%QUAL&lt;10 || (RPB&lt;0.1 &amp;&amp; %QUAL&lt;15) || (AC&lt;2 &amp;&amp; %QUAL&lt;15) || %MAX(DV)&lt;=3 || %MAX(DV)/%MAX(DP)&lt;=0.3' \
+    -e'QUAL&lt;10 || (RPB&lt;0.1 &amp;&amp; QUAL&lt;15) || (AC&lt;2 &amp;&amp; QUAL&lt;15) || MAX(DV)&lt;=3 || MAX(DV)/MAX(DP)&lt;=0.3' \
     calls.vcf.gz</pre>
 </div>
 </div>

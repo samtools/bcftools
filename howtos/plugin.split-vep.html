@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>Plugin split-vep</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -261,7 +261,7 @@ Plugin options:
    -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence
    -g, --gene-list [+]FILE         Consider only features listed in FILE, or prioritize if FILE is prefixed with "+"
        --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene]
-   -H, --print-header              Print header
+   -H, --print-header              Print header, -HH to omit column indices
    -l, --list                      Parse the VCF header and list the annotation fields
    -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts
    -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)
