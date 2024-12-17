@@ -324,10 +324,6 @@ static int filters_next_token(char **str, int *len)
     return TOK_VAL;
 }
 
-#define FILTER_OK 0
-#define FILTER_ERR_UNKN_TAGS 1
-#define FILTER_ERR_OTHER 2
-
 static void filter_add_undef_tag(filter_t *filter, char *str)
 {
     int i;
@@ -3688,6 +3684,12 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         nops--;
     }
 
+    if ( !nout )
+    {
+        if ( filter->exit_on_error )
+            error("[%s:%d %s] Error: could not parse the expression \"%s\"\n", __FILE__,__LINE__,__FUNCTION__,filter->str);
+        filter->status |= FILTER_ERR_OTHER;
+    }
     if ( filter->status != FILTER_OK )
     {
         if ( mops ) free(ops);
