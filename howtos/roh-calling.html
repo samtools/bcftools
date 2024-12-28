@@ -131,7 +131,8 @@ a default AF value 0.4.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools roh -G30 --AF-dflt 0.4 file.vcf</pre>
+<pre>bcftools roh -G30 --AF-dflt 0.4 file.vcf -o out.txt
+roh-viz -i out.txt -v test.vcf.gz -o rmme.html</pre>
 </div>
 </div>
 <div class="paragraph">

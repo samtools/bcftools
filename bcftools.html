@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2024-12-16 09:31 GMT</strong> and refers to bcftools git version <strong>1.21-58-g6559a12a+</strong>.</p>
+<p>This manual page was last updated <strong>2024-12-28 22:19 GMT</strong> and refers to bcftools git version <strong>1.21-61-g68f13f2e+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -178,10 +178,13 @@ list of available options, run <strong>bcftools</strong> <em>COMMAND</em> withou
 <div class="ulist">
 <ul>
 <li>
-<p><strong><a href="#gff2gff">gff2gff</a></strong>  .. converts a GFF file to the format required by <strong><a href="#csq">csq</a></strong></p>
+<p><strong><a href="#gff2gff">gff2gff</a></strong>  .. converts a GFF file to the format required by <strong><a href="#csq">bcftools csq</a></strong></p>
 </li>
 <li>
-<p><strong><a href="#plot-vcfstats">plot-vcfstats</a></strong>  .. plots the output of <strong><a href="#stats">stats</a></strong></p>
+<p><strong><a href="#plot-vcfstats">plot-vcfstats</a></strong>  .. plots the output of <strong><a href="#stats">bcftools stats</a></strong></p>
+</li>
+<li>
+<p><strong><a href="#roh-viz">roh-viz</a></strong> .. creates HTML/JavaScript visualization of <strong><a href="#roh">bcftools roh</a></strong></p>
 </li>
 </ul>
 </div>
@@ -4380,7 +4383,8 @@ spaces can be escaped using the backslash character, for example
 <h3 id="roh">bcftools roh [<em>OPTIONS</em>] <em>file.vcf.gz</em></h3>
 <div class="paragraph">
 <p>A program for detecting runs of homo/autozygosity. Only bi-allelic sites
-are considered.</p>
+are considered. The results can be visualized in HTML/JavaScript using
+the <strong><a href="#roh-viz">roh-viz</a></strong> script.</p>
 </div>
 <div class="sect3">
 <h4 id="_the_hmm_model">The HMM model:</h4>
@@ -5114,6 +5118,65 @@ cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre>
 </div>
 </div>
 </div>
+<div class="sect2">
+<h3 id="roh-viz">roh-viz [<em>OPTIONS</em>]</h3>
+<div class="paragraph">
+<p>Script for visualizing the output of <strong><a href="#roh">bcftools roh</a></strong>. It creates
+a HTML/JavaScript document which can be interactively viewed in your favorite
+web browser.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-i, --RoH-file</strong> <em>FILE</em></dt>
+<dd>
+<p>Output of bcftools/roh</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --min-length</strong> <em>NUM</em></dt>
+<dd>
+<p>Mimimum length of ROH [1e6]</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>HTML output file</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>LIST</em></dt>
+<dd>
+<p>List of chromosomes/regions</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>List of samples to show</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --VCF-file</strong> <em>FILE</em></dt>
+<dd>
+<p>VCF file to determine homozygosity rate</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-h, -?, --help</strong>
+    This help message</p>
+</div>
+<div class="paragraph">
+<p><strong>Example:</strong></p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre># Find RoH regions
+bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># Create HTML/JavaScript visualization
+roh-viz -r roh.txt -v file.bcf -o output.html</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -5654,7 +5717,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-12-16 09:31:50 UTC
+Last updated 2024-12-28 22:19:33 UTC
 </div>
 </div>
 </body>

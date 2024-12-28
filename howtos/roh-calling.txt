@@ -45,7 +45,8 @@ and there is just one sample so it cannot be estimated on the fly. Hence we use
 a default AF value 0.4.
 
 ----
-bcftools roh -G30 --AF-dflt 0.4 file.vcf
+bcftools roh -G30 --AF-dflt 0.4 file.vcf -o out.txt
+roh-viz -i out.txt -v test.vcf.gz -o rmme.html
 ----
 
 Please check this link:roh-calling/usage-example.tgz[usage example] for details
@@ -148,7 +149,7 @@ program.  For example in this run many sites were filtered:
 Number of lines: total/processed: 599218/37730
 ----
 
-If the number of the processed sites is too low, check what was the reason for excluding 
+If the number of the processed sites is too low, check what was the reason for excluding
 them. This command should give the number of sites that were processed:
 
 ----
