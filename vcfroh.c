@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2022 Genome Research Ltd.
+    Copyright (C) 2013-2024 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1110,6 +1110,13 @@ static void usage(args_t *args)
     fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [6.7e-8]\n");
     fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from AZ to HW state [5e-9]\n");
     fprintf(stderr, "    -V, --viterbi-training <float>     estimate HMM parameters, <float> is the convergence threshold, e.g. 1e-10 (experimental)\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Example:\n");
+    fprintf(stderr, "   # Find RoH regions assuming default allele frequency 0.4\n");
+    fprintf(stderr, "   bcftools roh -G30 --AF-dflt 0.4 test.vcf -o out.txt\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Create HTML/JavaScript visualization with the accompanied roh-viz script\n");
+    fprintf(stderr, "   misc/roh-viz -i out.txt -v test.vcf -o out.html\n");
     fprintf(stderr, "\n");
     exit(1);
 }
