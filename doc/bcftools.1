@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2024-12-16
+.\"      Date: 2024-12-28
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2024-12-16" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2024-12-28" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2024\-12\-16 09:31 GMT\fP and refers to bcftools git version \fB1.21\-58\-g6559a12a+\fP.
+This manual page was last updated \fB2024\-12\-28 22:19 GMT\fP and refers to bcftools git version \fB1.21\-61\-g68f13f2e+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -347,7 +347,7 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\fBgff2gff\fP  .. converts a GFF file to the format required by \fBcsq\fP
+\fBgff2gff\fP  .. converts a GFF file to the format required by \fBbcftools csq\fP
 .RE
 .sp
 .RS 4
@@ -358,7 +358,18 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\fBplot\-vcfstats\fP  .. plots the output of \fBstats\fP
+\fBplot\-vcfstats\fP  .. plots the output of \fBbcftools stats\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\fBroh\-viz\fP .. creates HTML/JavaScript visualization of \fBbcftools roh\fP
 .RE
 .SH "COMMANDS AND OPTIONS"
 .SS "Common Options"
@@ -5079,7 +5090,8 @@ see \fBCommon Options\fP
 .SS "bcftools roh [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 A program for detecting runs of homo/autozygosity. Only bi\-allelic sites
-are considered.
+are considered. The results can be visualized in HTML/JavaScript using
+the \fBroh\-viz\fP script.
 .SS "The HMM model:"
 .sp
 .if n .RS 4
@@ -5833,6 +5845,64 @@ plot\-vcfstats \-p outdir file.vchk
 # The final looks can be customized by editing the generated
 # \(aqoutdir/plot.py\(aq script and re\-running manually
 cd outdir && python plot.py && pdflatex summary.tex
+.fam
+.fi
+.if n .RE
+.SS "roh\-viz [\fIOPTIONS\fP]"
+.sp
+Script for visualizing the output of \fBbcftools roh\fP. It creates
+a HTML/JavaScript document which can be interactively viewed in your favorite
+web browser.
+.sp
+\fB\-i, \-\-RoH\-file\fP \fIFILE\fP
+.RS 4
+Output of bcftools/roh
+.RE
+.sp
+\fB\-l, \-\-min\-length\fP \fINUM\fP
+.RS 4
+Mimimum length of ROH [1e6]
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+HTML output file
+.RE
+.sp
+\fB\-r, \-\-regions\fP \fILIST\fP
+.RS 4
+List of chromosomes/regions
+.RE
+.sp
+\fB\-s, \-\-samples\fP \fILIST\fP
+.RS 4
+List of samples to show
+.RE
+.sp
+\fB\-v, \-\-VCF\-file\fP \fIFILE\fP
+.RS 4
+VCF file to determine homozygosity rate
+.RE
+.sp
+\fB\-h, \-?, \-\-help\fP
+This help message
+.sp
+\fBExample:\fP
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Find RoH regions
+bcftools roh \-\-AF\-dflt 0.5 \-G 30 \-Or \-o roh.txt file.bcf
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Create HTML/JavaScript visualization
+roh\-viz \-r roh.txt \-v file.bcf \-o output.html
 .fam
 .fi
 .if n .RE

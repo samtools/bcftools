@@ -109,8 +109,9 @@ LIST OF SCRIPTS
 ---------------
 Some helper scripts are bundled with the bcftools code.
 
-- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,csq>>*
-- *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
+- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,bcftools csq>>*
+- *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,bcftools stats>>*
+- *<<roh-viz,roh-viz>>* .. creates HTML/JavaScript visualization of *<<roh,bcftools roh>>*
 
 
 COMMANDS AND OPTIONS
@@ -3286,7 +3287,8 @@ Modify header of VCF/BCF files, change sample names.
 [[roh]]
 === bcftools roh ['OPTIONS'] 'file.vcf.gz'
 A program for detecting runs of homo/autozygosity. Only bi-allelic sites
-are considered.
+are considered. The results can be visualized in HTML/JavaScript using
+the *<<roh-viz,roh-viz>>* script.
 
 ==== The HMM model:
 --------------------------------------
@@ -3826,6 +3828,44 @@ chromosome separately), plots graphs and creates a PDF presentation.
     # The final looks can be customized by editing the generated
     # 'outdir/plot.py' script and re-running manually
     cd outdir && python plot.py && pdflatex summary.tex
+--
+
+
+[[roh-viz]]
+=== roh-viz ['OPTIONS']
+Script for visualizing the output of *<<roh,bcftools roh>>*. It creates
+a HTML/JavaScript document which can be interactively viewed in your favorite
+web browser.
+
+*-i, --RoH-file* 'FILE'::
+    Output of bcftools/roh
+
+*-l, --min-length* 'NUM'::
+    Mimimum length of ROH [1e6]
+
+*-o, --output* 'FILE'::
+    HTML output file
+
+*-r, --regions* 'LIST'::
+    List of chromosomes/regions
+
+*-s, --samples* 'LIST'::
+    List of samples to show
+
+*-v, --VCF-file* 'FILE'::
+    VCF file to determine homozygosity rate
+
+*-h, -?, --help*
+    This help message
+
+
+*Example:*
+--
+    # Find RoH regions
+    bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf
+
+    # Create HTML/JavaScript visualization
+    roh-viz -r roh.txt -v file.bcf -o output.html
 --
 
 

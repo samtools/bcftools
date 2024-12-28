@@ -54,7 +54,7 @@ sub error
         "   -v, --VCF-file FILE     VCF file to determine homozygosity rate\n",
         "   -h, -?, --help          This help message\n",
         "Example:\n",
-        "   bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf",
+        "   bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf\n",
         "   roh-viz -r roh.txt -v file.bcf -o output.html\n",
         "\n";
     exit -1;
