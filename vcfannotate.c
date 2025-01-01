@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -2414,7 +2414,7 @@ static void init_columns(args_t *args)
                 col->hdr_key_src = strdup(ptr+2);
                 col->hdr_key_dst = strdup(str.s+5);
                 tmp.l = 0;
-                ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred FILTER column\">",col->hdr_key_dst);
+                ksprintf(&tmp,"##INFO=<ID=%s,Number=.,Type=String,Description=\"Transferred FILTER column\">",col->hdr_key_dst);
                 bcf_hdr_append(args->hdr_out, tmp.s);
                 if (bcf_hdr_sync(args->hdr_out) < 0) error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, col->hdr_key_dst);
@@ -2672,13 +2672,13 @@ static void init_columns(args_t *args)
                     {
                         // transferring ID column into a new INFO tag
                         tmp.l = 0;
-                        ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred ID column\">",key_dst);
+                        ksprintf(&tmp,"##INFO=<ID=%s,Number=.,Type=String,Description=\"Transferred ID column\">",key_dst);
                     }
                     else if ( !strcasecmp("FILTER",key_src) && !explicit_src_info )
                     {
                         // transferring FILTER column into a new INFO tag
                         tmp.l = 0;
-                        ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred FILTER column\">",key_dst);
+                        ksprintf(&tmp,"##INFO=<ID=%s,Number=.,Type=String,Description=\"Transferred FILTER column\">",key_dst);
                     }
                     else
                     {
