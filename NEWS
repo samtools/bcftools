@@ -36,6 +36,10 @@ Changes affecting specific commands:
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(FMT/AD)'
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(INFO/AD)'
 
+* bcftools roh
+
+    - New visualization tool misc/roh-viz, see below
+
 * bcftools +setGT
 
     - Support for setting missing genotypes with arbitrary ploidy via `-n c:./.` (#2303)
@@ -46,6 +50,10 @@ Changes affecting specific commands:
       allele in the father for male offspring
 
     - Fix a problem with uncallsed mosaic chrX variants in males
+
+* roh-viz
+
+    - HTML/JavaScript visualization of bcftools/roh output and homozygosity rate.
 
 
 ## Release 1.21 (12th September 2024)
