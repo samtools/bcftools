@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2024 Genome Research Ltd.
+    Copyright (C) 2012-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -2968,10 +2968,10 @@ static inline int types_compatible(args_t *args, int selected_types, buffer_t *b
 
     // The -m none mode or exact matching requested
     // Simple test first: are the variants of the same type?
-    int x = selected_types >> 1;        // remove REF
-    int y = rec_types >> 1;             // remove REF
-    while ( x && y ) { x>>=1; y>>=1; }
-    if ( x || y ) return 0;             // the types differ
+    int x = selected_types;
+    int y = rec_types;
+    if ( !(x&y) ) return 0;                 // no matching type
+    if ( (x&y)!=x && (x&y)!=y ) return 0;   // not a subset
 
     if ( vcmp_set_ref(args->vcmp,maux->als[0],rec->d.allele[0]) < 0 ) return 0;   // refs are not compatible
     for (k=1; k<rec->n_allele; k++)

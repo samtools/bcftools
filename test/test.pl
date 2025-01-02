@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2024 Genome Research Ltd.
+#   Copyright (C) 2012-2025 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -61,6 +61,8 @@ run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
+run_test(\&test_vcf_merge,$opts,in=>['merge.12.a','merge.12.b'],out=>'merge.12.1.out',args=>'--merge none');
+run_test(\&test_vcf_merge,$opts,in=>['merge.12.a','merge.12.b'],out=>'merge.12.1.out',args=>'--merge both');
 run_test(\&test_vcf_merge,$opts,in=>['merge.phased.1.a','merge.phased.1.b'],out=>'merge.phased.1.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.11.a','merge.11.b'],out=>'merge.11.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.join.a','merge.join.b'],out=>'merge.join.1.out',args=>'-i AF:join');
