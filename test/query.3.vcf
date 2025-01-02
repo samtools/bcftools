@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##contig=<ID=1,assembly=b37,length=249250621>
+##FILTER=<ID=FILTER,Description="">
+##INFO=<ID=CHROM,Number=.,Type=String,Description="">
+##INFO=<ID=POS,Number=.,Type=String,Description="">
+##INFO=<ID=ID,Number=.,Type=String,Description="">
+##INFO=<ID=REF,Number=.,Type=String,Description="">
+##INFO=<ID=ALT,Number=.,Type=String,Description="">
+##INFO=<ID=QUAL,Number=.,Type=String,Description="">
+##INFO=<ID=FILTER,Number=.,Type=String,Description="">
+##FORMAT=<ID=CHROM,Number=.,Type=String,Description="">
+##FORMAT=<ID=POS,Number=.,Type=String,Description="">
+##FORMAT=<ID=ID,Number=.,Type=String,Description="">
+##FORMAT=<ID=REF,Number=.,Type=String,Description="">
+##FORMAT=<ID=ALT,Number=.,Type=String,Description="">
+##FORMAT=<ID=QUAL,Number=.,Type=String,Description="">
+##FORMAT=<ID=FILTER,Number=.,Type=String,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b
+1	1000	ID	G	A	999	FILTER	CHROM=infoCHROM;POS=infoPOS;ID=infoID;REF=infoREF;ALT=infoALT;QUAL=infoQUAL;FILTER=infoFILTER	CHROM:POS:ID:REF:ALT:QUAL:FILTER	fmtCHROM1:fmtPOS1:fmtID1:fmtREF1:fmtALT1:fmtQUAL1:fmtFILTER1	fmtCHROM2:fmtPOS2:fmtID2:fmtREF2:fmtALT2:fmtQUAL2:fmtFILTER2

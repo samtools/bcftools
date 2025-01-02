@@ -43,6 +43,10 @@ Changes affecting specific commands:
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(FMT/AD)'
         bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(INFO/AD)'
 
+    - Make it possible to refer to the ID column from the FORMAT expression (#2337)
+
+        bcftools query test.vcf -f 'ID=%ID  ID=[ %/ID]  vs  FMT_ID=[ %ID]'
+
 * bcftools roh
 
     - New visualization tool misc/roh-viz, see below

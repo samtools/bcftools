@@ -3253,6 +3253,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 || FMT/DP=2' file.vcf
     bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 |  FMT/DP=2' file.vcf
 
+    # Refer to ID column vs INFO/ID tag vs FORMAT/ID tag
+    bcftools query -f 'columnID=%ID   infoID=%INFO/ID  [fmtID=%ID ]  [columnID=%/ID]'
+
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'

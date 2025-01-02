@@ -1,6 +1,6 @@
 /*  convert.c -- functions for converting between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1466,12 +1466,25 @@ static int parse_subscript(char **p)
 
 static char *parse_tag(convert_t *convert, char *p, int is_gtf)
 {
+    int is_vcf_column = p[1]=='/' ? 1 : 0;
+    if ( is_vcf_column ) p++;
+
     char *q = ++p;
     while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
     kstring_t str = {0,0,0};
     if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
     kputsn(p, q-p, &str);
-    if ( is_gtf )
+    if ( is_gtf && is_vcf_column )
+    {
+        _SET_NON_FORMAT_TAGS(register_tag, str.s, convert, str.s, is_gtf)
+        else if ( !strcmp(str.s, "ALT") )
+        {
+            fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_ALT);
+            fmt->subscript = parse_subscript(&q);
+        }
+        else error("Could not parse tag: %s .. %s\n", str.s,convert->format_str);
+    }
+    else if ( is_gtf )
     {
         _SET_FILTER_EXPR(convert,set_filter_expr,p,q,1)
         else if ( !strcmp(str.s, "SAMPLE") ) register_tag(convert, "SAMPLE", is_gtf, T_SAMPLE);
