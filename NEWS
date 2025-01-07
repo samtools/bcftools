@@ -55,6 +55,17 @@ Changes affecting specific commands:
 
     - Support for setting missing genotypes with arbitrary ploidy via `-n c:./.` (#2303)
 
+* bcftools +split-vep
+
+    - The `-s, --select` option was extended to print only one consequence. Previously it
+      was possible to select a single transcript (e.g., the one with the worst consequence),
+      and it was possible to filter by consequence severity (e.g., missing or worse),
+      but in some cases multiple consequences are reported within a single transcript
+      (e.g., start_lost&splice_region). The extended option allows to print the worst
+      part, for example as
+
+        --select primary:missense+:worst
+
 * bcftools +trio-dnm2
 
     - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
