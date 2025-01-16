@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -105,7 +105,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, njoined, ntotal, nfilter, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -2138,10 +2138,10 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             int line_type = bcf_get_variant_types(args->lines[k]);
             if ( prev_rid>=0 && prev_rid==args->lines[k]->rid && prev_pos==args->lines[k]->pos )
             {
-                if ( args->rmdup & BCF_SR_PAIR_ANY ) continue;    // rmdup by position only
-                if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k]) ) continue;
+                if ( args->rmdup & BCF_SR_PAIR_ANY ) { args->nrmdup++; continue; }   // rmdup by position only
+                if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) { args->nrmdup++; continue; }
+                if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) { args->nrmdup++; continue; }
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k]) ) { args->nrmdup++; continue; }
             }
             else
             {
@@ -2425,8 +2425,8 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/joined/realigned/removed/skipped:\t%d/%d/%d/%d/%d/%d\n",
-        args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nfilter);
+    fprintf(stderr,"Lines   total/split/joined/realigned/mismatch_removed/dup_removed/skipped:\t%d/%d/%d/%d/%d/%d/%d\n",
+        args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nrmdup,args->nfilter);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }

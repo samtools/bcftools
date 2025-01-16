@@ -32,6 +32,10 @@ Changes affecting specific commands:
     - The option `--merge none` is expected to create no new multiallelic sites, but it should
       allow to merge, say, A>C with A>C,AT (#2333)
 
+* bcftools norm
+
+    - Print the number of removed duplicate sites in the final statistics (#2346)
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
