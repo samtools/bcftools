@@ -109,8 +109,16 @@ typedef struct  {
     StringListPtr vepTokens;
     /** columns for bcftools csq predictions */
     StringListPtr bcsqTokens;
-    /** columns for SNPEFF ANN predictions */
-    StringListPtr annTokens;
+    /** table for SNPEFF ANN predictions */
+    TablePtr annTable;
+    /** general info about the variant */
+    TablePtr vcTable;
+    /** table for spliceai */
+    TablePtr spliceaiTable;
+    /** table for INFO col */
+    TablePtr infoTable;
+    /** table for hyperlinks */
+    TablePtr hyperlinksTable;
     regex_t regex_rsid;
     unsigned long n_variants;
     enum build_t build;
@@ -178,12 +186,12 @@ static unsigned int CellWidth(CellPtr ptr) {
     return ks_len(&(ptr->text));
     }
  
- /*
- static const char* CellCStr(CellPtr ptr) {
+/** get the content of a cell as a const char* */
+static const char* CellCStr(CellPtr ptr) {
  	ASSERT_NOT_NULL(ptr);
  	return ks_c_str(&(ptr->text));
  	}
- */
+
  
 static void CellPrint(CellPtr ptr,args_t* args) {
     ASSERT_NOT_NULL(ptr);
@@ -276,16 +284,24 @@ ASSERT_NOT_NULL(t);
 return t->size;
 }
 
+/** remove all lines of a TablePtr */
+static TablePtr TableClear(TablePtr ptr) {
+	unsigned int i;
+	ASSERT_NOT_NULL(ptr);
+	for(i=0;i< ptr->size;++i) {
+            RowFree(ptr->rows[i]);
+            ptr->rows[i]= NULL;
+            }
+	ptr->size=0UL;
+	return ptr;
+	}
+
+/** dispose a TablePtr */
 static void TableFree(TablePtr ptr) {
     if(ptr==NULL) return;
+    TableClear(ptr);
+    free(ptr->rows);
     RowFree(ptr->header);
-    if(ptr->rows!=NULL)  {
-        unsigned int i;
-        for(i=0;i< ptr->size;++i) {
-            RowFree(ptr->rows[i]);
-            }
-        free(ptr->rows);
-        }
     free(ptr);
     }    
 
@@ -381,52 +397,126 @@ static RowPtr TableNewRow(TablePtr ptr) {
     return row;
     }
 
+/**
+ * Create a new empty StringList
+ */
+static StringListPtr StringListNew() {
+	StringListPtr ptr = (StringListPtr)calloc(1UL,sizeof(StringList));
+	ASSERT_NOT_NULL(ptr);
+	return ptr;
+	}
 
-static StringListPtr StringListNew(const char* str,char delim) {
-StringListPtr ptr = calloc(1UL,sizeof(StringList));
-ASSERT_NOT_NULL(ptr);
-char* prev=(char*)str;
-char* p =(char*)str;
-for(;;) {
-    if(*p==delim || *p==0) {
-        ptr->strings=(char**)realloc(ptr->strings,sizeof(char*)*(ptr->size+1));
-        ASSERT_NOT_NULL(ptr->strings);
-        ptr->strings[ptr->size] = strndup(prev,p-prev);
-     	ASSERT_NOT_NULL( ptr->strings[ptr->size]);
-        ptr->size++;
-        if(*p==0) break;
-        prev=p+1;
+/** add a string to the StringList */
+static StringListPtr StringListAdd(StringListPtr ptr, const char* str) {
+	ASSERT_NOT_NULL(ptr);
+	ASSERT_NOT_NULL(str);
+	ptr->strings=(char**)realloc(ptr->strings,sizeof(char*)*(ptr->size+1));
+	ASSERT_NOT_NULL(ptr->strings);
+	ptr->strings[ptr->size] = strdup(str);
+	ptr->size++;
+	return ptr;
+	}
+
+/** treat StringList as a Key/Value associative array. return value associate to key or NULL if key is missing */
+static const char* StringListGet(StringListPtr ptr, const char* key) {
+	unsigned int i;
+	ASSERT_NOT_NULL(ptr);
+	ASSERT_NOT_NULL(key);
+	assert(ptr->size%2==0);
+	for(i=0;i+1< ptr->size;i+=2) {
+		/* key exists */
+		if(strcmp(key,ptr->strings[i])==0) {
+			return ptr->strings[i+1];
+			}
+		}
+	return NULL;
+	}
+
+/** treat StringList as a Key/Value associative array. Add a key, value. Replace value if key exists */
+static StringListPtr StringListPut(StringListPtr ptr, const char* key,const char* value) {
+	unsigned int i;
+	ASSERT_NOT_NULL(ptr);
+	ASSERT_NOT_NULL(key);
+	ASSERT_NOT_NULL(value);
+	assert(ptr->size%2==0);
+	for(i=0;i+1< ptr->size;i+=2) {
+		/* key exists */
+		if(strcmp(key,ptr->strings[i])==0) {
+			if(strcmp(key,ptr->strings[i+1])!=0) {
+				free(ptr->strings[i+1]);
+				ptr->strings[i+1] = strdup(value);
+				ASSERT_NOT_NULL(ptr->strings[i+1]);
+				}
+			return ptr;
+			}
+		}
+	/* key missing */
+	StringListAdd(ptr,key);
+	StringListAdd(ptr,value);
+	return ptr;
+	}
+
+/**
+ * Create a new  StringList by splitting 'str' with 'delim'
+ */
+static StringListPtr StringListMake(const char* str,char delim) {
+	StringListPtr ptr = StringListNew();
+	char* prev=(char*)str;
+	char* p =(char*)str;
+	for(;;) {
+		if(*p==delim || *p==0) {
+		    ptr->strings=(char**)realloc(ptr->strings,sizeof(char*)*(ptr->size+1));
+		    ASSERT_NOT_NULL(ptr->strings);
+		    ptr->strings[ptr->size] = strndup(prev,p-prev);
+		 	ASSERT_NOT_NULL( ptr->strings[ptr->size]);
+		    ptr->size++;
+		    if(*p==0) break;
+		    prev=p+1;
+		    }
+		p++;
+		}
+	return ptr;
+	}
+
+/**
+ * Create a new  StringList until the last argument is empty
+ */
+static StringListPtr StringListCreate(const char* str,...) {
+	va_list arg;
+    StringListPtr ptr = StringListNew();
+    va_start(arg, str);
+    while (str) {
+        StringListAdd(ptr,str);
+        str = va_arg(arg, const char *);
         }
-    p++;
-    }
-return ptr;
-}
+    va_end(arg);
+	return ptr;
+	}
+
 /**
 Dispose list of String
 */
-
-
 void StringListFree(StringList* ptr) {
-unsigned int i;
-if(ptr==NULL) return;
-for(i=0;i< ptr->size;++i) {
-    free(ptr->strings[i]);
-    }
-free(ptr);
-}
+	unsigned int i;
+	if(ptr==NULL) return;
+	for(i=0;i< ptr->size;++i) {
+		free(ptr->strings[i]);
+		}
+	free(ptr);
+	}
 
+/** return content of idx-th item as a const char* */
 const char* StringListAt(StringList* ptr,unsigned int idx) {
-ASSERT_NOT_NULL(ptr);
-assert(idx < ptr->size);
-return ptr->strings[idx];
-}
+	ASSERT_NOT_NULL(ptr);
+	assert(idx < ptr->size);
+	return ptr->strings[idx];
+	}
+
 
 
 /**
-print symbol
+print symbol used by TablePrint to print multiple unicode/plain characters
 */
-
-
 static void printSymbol(args_t* args,unsigned int repeat, const char* wc, char c) {
 unsigned int i;
 if(args->ascii==1) {
@@ -442,95 +532,95 @@ else
     }
 }
 
-
+/** print the content of a table */
 static void TablePrint(TablePtr ptr,args_t* args) {
-unsigned int y,x;
-unsigned int* widths = calloc(TableNCols(ptr),sizeof(unsigned int));
-ASSERT_NOT_NULL(ptr);
+	unsigned int y,x;
+	unsigned int* widths = calloc(TableNCols(ptr),sizeof(unsigned int));
+	ASSERT_NOT_NULL(ptr);
 
-for(x=0; x<TableNCols(ptr); ++x) {
-    unsigned int width =  CellWidth(RowAt(ptr->header,x));
-    if(width>widths[x]) widths[x] = width;
-    }
+	for(x=0; x<TableNCols(ptr); ++x) {
+		unsigned int width =  CellWidth(RowAt(ptr->header,x));
+		if(width>widths[x]) widths[x] = width;
+		}
 
-for(y=0;y< TableNRows(ptr);++y) {
-    for(x=0; x<TableNCols(ptr); ++x) {
-        ASSERT_NOT_NULL(TableAt(ptr,x,y));
-        unsigned int width =  CellWidth(TableAt(ptr,x,y));
-        if(width>widths[x]) widths[x] = width;
-        }
-    }
+	for(y=0;y< TableNRows(ptr);++y) {
+		for(x=0; x<TableNCols(ptr); ++x) {
+		    ASSERT_NOT_NULL(TableAt(ptr,x,y));
+		    unsigned int width =  CellWidth(TableAt(ptr,x,y));
+		    if(width>widths[x]) widths[x] = width;
+		    }
+		}
 	
-		//print header
-		
-		// line 1 of header
-		for(x=0;x<TableNCols(ptr);++x) {
-			printSymbol(args,1,(x==0?"\u250C":"\u252C"),'+');
-			printSymbol(args,2+widths[x],"\u2500",'-');
+	//print header
+	
+	// line 1 of header
+	for(x=0;x<TableNCols(ptr);++x) {
+		printSymbol(args,1,(x==0?"\u250C":"\u252C"),'+');
+		printSymbol(args,2+widths[x],"\u2500",'-');
+		}
+	printSymbol(args,1,"\u2510",'+');
+	fputc('\n',args->out);
+	
+	//line 2 of header
+	for(int x=0;x<TableNCols(ptr);++x) {
+		printSymbol(args,1,"\u2502",'|');
+		fputc(' ',args->out);
+		CellPrint(RowAt(ptr->header,x),args);
+		printSymbol(args,widths[x]-CellWidth(RowAt(ptr->header,x))," ",' ');
+		fputc(' ',args->out);
+		}
+	printSymbol(args,1,"\u2502",'|');
+	fputc('\n',args->out);
+	
+	//line 3 of header
+	for(int x=0;x<TableNCols(ptr);++x) {
+	    if(x==0 && TableNRows(ptr)==0)
+			{	
+			printSymbol(args,1,"\u2514",'+');
 			}
-		printSymbol(args,1,"\u2510",'+');
-		fputc('\n',args->out);
-		
-		//line 2 of header
-		for(int x=0;x<TableNCols(ptr);++x) {
+		else if(x==0)
+			{
+			printSymbol(args,1,"\u251C",'+');
+			}
+		else
+			{
+			printSymbol(args,1,(TableNRows(ptr)==0?"\u2534":"\u253C"),'+');
+			}
+		printSymbol(args,2+widths[x],"\u2500",'-');
+		}
+	
+	
+    printSymbol(args,1,(TableNRows(ptr)==0 ? "\u2518":"\u2524"),'+');
+	fputc('\n',args->out);
+	
+	//print body
+	for(y=0;y< TableNRows(ptr);++y) {
+		RowPtr row = TableRowAt(ptr,y);
+		//line  of data
+		for(x=0;x<TableNCols(ptr);++x) {
+			CellPtr cell = RowAt(row,x);
 			printSymbol(args,1,"\u2502",'|');
 			fputc(' ',args->out);
-			CellPrint(RowAt(ptr->header,x),args);
-			printSymbol(args,widths[x]-CellWidth(RowAt(ptr->header,x))," ",' ');
+			CellPrint(cell,args);
+			printSymbol(args,widths[x]-CellWidth(cell)," ",' ');
 			fputc(' ',args->out);
 			}
 		printSymbol(args,1,"\u2502",'|');
 		fputc('\n',args->out);
-		
-		//line 3 of header
-		for(int x=0;x<TableNCols(ptr);++x) {
-		    if(x==0 && TableNRows(ptr)==0)
-				{	
-				printSymbol(args,1,"\u2514",'+');
-				}
-			else if(x==0)
-				{
-				printSymbol(args,1,"\u251C",'+');
-				}
-			else
-				{
-				printSymbol(args,1,(TableNRows(ptr)==0?"\u2534":"\u253C"),'+');
-				}
+		}
+	//last line
+	if(TableNRows(ptr)>0)
+		{
+		for(x=0;x<TableNCols(ptr);++x) {
+			printSymbol(args,1,(x==0?"\u2514":"\u2534"),'+');
 			printSymbol(args,2+widths[x],"\u2500",'-');
 			}
-		
-		
-	    printSymbol(args,1,(TableNRows(ptr)==0 ? "\u2518":"\u2524"),'+');
+		printSymbol(args,1,"\u2518",'+');
 		fputc('\n',args->out);
-		
-		//print body
-		for(y=0;y< TableNRows(ptr);++y) {
-			RowPtr row = TableRowAt(ptr,y);
-			//line  of data
-			for(x=0;x<TableNCols(ptr);++x) {
-				CellPtr cell = RowAt(row,x);
-				printSymbol(args,1,"\u2502",'|');
-				fputc(' ',args->out);
-				CellPrint(cell,args);
-				printSymbol(args,widths[x]-CellWidth(cell)," ",' ');
-				fputc(' ',args->out);
-				}
-			printSymbol(args,1,"\u2502",'|');
-			fputc('\n',args->out);
-			}
-		//last line
-		if(TableNRows(ptr)>0)
-			{
-			for(x=0;x<TableNCols(ptr);++x) {
-				printSymbol(args,1,(x==0?"\u2514":"\u2534"),'+');
-				printSymbol(args,2+widths[x],"\u2500",'-');
-				}
-			printSymbol(args,1,"\u2518",'+');
-			fputc('\n',args->out);
-			}
+		}
 
-free(widths);
-}
+	free(widths);
+	}
 
 static void HyperLinkTableAdd(TablePtr table, const char* allele, const char* key, const char* value) {
 if(value==NULL || strcmp(value,"")==0) return;
@@ -538,9 +628,14 @@ RowPtr row = TableNewRow(table);
 CellSetText(RowAt(row,0),value);
 }
 
+/**
+ * This method is used to find if a dictionary contains two known contig (name/length) in
+ * order to identify the build : hg19, hg38, etc...
+ */
 static int  findContigs(bcf_hdr_t *hdr_in, const char* ctg1a, uint64_t len1, const char* ctg2a, uint64_t len2) {
 	char ctg1b[10];
 	char ctg2b[10];
+	// try to add a 'chr' prefix to the chromosome name
 	sprintf(ctg1b, "chr%s", ctg1a);
 	sprintf(ctg2b, "chr%s", ctg2a);
 	int found=0;
@@ -548,6 +643,8 @@ static int  findContigs(bcf_hdr_t *hdr_in, const char* ctg1a, uint64_t len1, con
     for(i=0;i< n_contigs && found<2 ;i++) {
     	uint64_t len;
     	bcf_idpair_t  c = hdr_in->id[BCF_DT_CTG][i];
+    	if(c.val==NULL) continue;
+    	if(c.val->info==NULL) continue;
     	len = c.val->info[0];
     	const char* contig_name = c.key;
     	if(len == len1 && (strcmp(ctg1a,contig_name)==0 || strcmp(ctg1b,contig_name)==0)) {
@@ -560,17 +657,18 @@ static int  findContigs(bcf_hdr_t *hdr_in, const char* ctg1a, uint64_t len1, con
     return found==2;
     }
 
-const char *about(void)
-{
-    return "Convert VCF to table.\n";
-}
+const char *about(void) {
+    return "Convert VCF to tables in the terminal.\n"
+    	"Author Pierre Lindenbaum PhD. Institut-du-Thorax. U1087. Nantes/France\n"
+    	;
+	}
 
 /*
     Called once at startup, it initializes local variables.
     Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */
 int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
-{
+	{
 	 int c;
     args.header = hdr_in;
     args.ascii = 0;
@@ -580,12 +678,16 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
     args.bcsqTokens = NULL;
     args.hide_HOM_REF = 0;
     args.hide_NO_CALL = 0;
-    args.annTokens = StringListNew(
-        "Allele,Annotation,Annotation_Impact,Gene_Name,Gene_ID,"
-        "Feature_Type,Feature_ID,Transcript_BioType,Rank,"
-        "HGVS.c,HGVS.p,cDNA.pos/length,CDS.pos/length,AA.pos/length,Distance,Message",
-        ',');
-    
+    args.annTable = TableNewStr(
+        "Allele","Annotation","Annotation_Impact","Gene_Name","Gene_ID",
+        "Feature_Type","Feature_ID","Transcript_BioType","Rank",
+        "HGVS.c","HGVS.p","cDNA.pos/length","CDS.pos/length","AA.pos/length",
+        "Distance,Message",NULL
+        );
+    args.spliceaiTable = TableNewStr("ALLELE","SYMBOL","DS_AG","DS_AL","DS_DG","DS_DL","DP_AG","DP_AL","DP_DG","DP_DL",NULL);
+    args.infoTable = TableNewStr("KEY","IDX","VALUE",NULL);
+    args.hyperlinksTable = TableNewStr("DB","Allele","URL",NULL);
+    args.vcTable = TableNewStr("KEY","VALUE",NULL);
     
 	c = regcomp(&args.regex_rsid,"rs[0-9]+",REG_EXTENDED|REG_ICASE|REG_NOSUB);
     assert(c==0);
@@ -603,10 +705,10 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
             case 'x':
             	{
             	int i;
-            	StringListPtr hide = StringListNew(optarg,',');
+            	StringListPtr hide = StringListMake(optarg,',');
             	for(i=0; i< hide->size;++i) {
             		const char* hidden =  StringListAt(hide,i);
-            		if(strcasecmp(hidden, "HOM_REF")==0) {
+            		if(strcasecmp(hidden, "HOM_REF")==0 || strcasecmp(hidden, "RR")==0) {
             			args.hide_HOM_REF = 1;
             			}
             		else if(strcasecmp(hidden, "NO_CALL")==0 || strcasecmp(hidden, "MISSING")==0) {
@@ -633,8 +735,7 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
 		    args.ascii=1;
 	        }
         }
-    /* guess the build ?*/
-    {
+    /* guess the build by finding signature of chromosome/length ?*/
     if( findContigs(hdr_in,"1",249250621,"2",243199373)) {
     	args.build = human_hg19;
     	}
@@ -644,7 +745,6 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
    else {
     	args.build = undefined;
     	}
-	}
     
     /** find INFO/CSQ and decode it */
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(hdr_in, BCF_HL_INFO, NULL, "CSQ", NULL);
@@ -658,7 +758,7 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
 				if(vep_format[strlen(vep_format)-1]=='"') {
 					vep_format[strlen(vep_format)-1] = 0;
 					}
-				args.vepTokens = StringListNew(vep_format,'|');
+				args.vepTokens = StringListMake(vep_format,'|');
 				free(vep_format);
 			}
 	   }
@@ -669,7 +769,7 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
 		char *format = ret < 0 ? NULL: strstr(hrec->vals[ret], "Format: ");
 		if(format!=NULL) {
 				format += 8;
-				args.bcsqTokens = StringListNew(format,'|');
+				args.bcsqTokens = StringListMake(format,'|');
 			}
 	   }
             
@@ -678,21 +778,103 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
 }
 
 
+#define  ESCAPE_HTTP(SRC,DEST) \
+	do {\
+	char* p=(char*)SRC;\
+	while(*p!=0) {\
+		if(isalnum(*p)||*p=='.' || *p=='-') {\
+			kputc(*p,&DEST);\
+			}\
+		else\
+			{\
+			ksprintf(&DEST,"%%%02x", (unsigned char)*p);\
+			}\
+		p++;\
+		}\
+	} while(0)
 
-static void escapeHttp(kstring_t* k,const char* s) {
-char* p=(char*)s;
-while(*p!=0) {
-	if(isalnum(*p)) {
-		kputc(*p,k);
+
+static void AddHyperlink2(const char* database, const char* name,const char* url) {
+	unsigned int i;
+	for(i=0;i< TableNRows(args.hyperlinksTable);++i) {
+		CellPtr cell = TableAt(args.hyperlinksTable,2,i);
+		if(strcmp(CellCStr(cell),url)==0) return;
 		}
-	else
-		{
-		kputc(*p,k);
-		//ksprintf(k,"%%%02x", (unsigned char)*p);
-		}
-	p++	;
+	RowPtr row = TableNewRow(args.hyperlinksTable);
+	RowSetText(row,0,database);
+	RowSetText(row,1,name);
+	RowSetText(row,2,url);
 	}
-}
+	
+static void AddHyperlinkForInterval(const char* chrom, hts_pos_t pos1, hts_pos_t end1)  {
+	kstring_t url = KS_INITIALIZE;
+	kstring_t ensembl = KS_INITIALIZE;
+	kstring_t ucsc = KS_INITIALIZE;
+
+	
+		{
+		ks_clear(&url);
+		kputs("https://127.0.0.1:60151/goto?locus=",&url); ESCAPE_HTTP(chrom,&url); kputs("%3A",&url); kputll(pos1,&url); kputc('-',&url); kputll(end1,&url);
+		AddHyperlink2("IGV","",ks_str(&url));
+		}
+	
+	if(args.build==human_hg38)
+		{
+		ks_clear(&url);
+		
+		kputs("https://gnomad.broadinstitute.org/region/",&url); ESCAPE_HTTP(ks_str(&ucsc),&url); kputc('-',&url); kputll(pos1,&url); kputc('-',&url); kputll(end1,&url);kputs("?dataset=gnomad_r4");
+		AddHyperlink2("Region Gnomad 3","",ks_str(&url));
+		}
+	
+	ks_free(&url);
+	ks_free(&ensembl);
+	ks_free(&ucsc);
+	}
+
+static void AddHyperlink3(const char* chrom, hts_pos_t pos, hts_pos_t end, const char* ref, const char* alt) 
+	{
+	
+	}
+
+
+
+#define ADD_HYPERLINK_1(DATABASE,BASE) \
+	{\
+	kstring_t url = KS_INITIALIZE;\
+	kputs(BASE,&url);\
+	kputs(ks_str(&escaped),&url);\
+	AddHyperlink2(DATABASE,name,ks_str(&url));\
+	ks_free(&url);\
+	}
+static void AddHyperlink1(const char* columnName, const char* name) {
+	if(name==NULL || strlen(name)==0) return;
+	kstring_t escaped = KS_INITIALIZE;
+	ESCAPE_HTTP(name,escaped);
+	
+	if( strcasecmp(columnName,"genename")==0 ||strcasecmp(columnName,"gene_name")==0 ||strcasecmp(columnName,"symbol")==0 ) {
+		ADD_HYPERLINK_1("Pharos","https://pharos.nih.gov/diseases?associatedTarget=")
+		ADD_HYPERLINK_1("NCBI gene","https://www.ncbi.nlm.nih.gov/gene/?term=")
+		ADD_HYPERLINK_1("OMIM","https://www.omim.org/search?search=")
+		ADD_HYPERLINK_1("hugeamp","https://cvd.hugeamp.org/gene.html?gene=")
+		ADD_HYPERLINK_1("Archs4","https://maayanlab.cloud/archs4/gene/")
+		ADD_HYPERLINK_1("Enrichr","https://maayanlab.cloud/Enrichr/#find!gene=")
+		ADD_HYPERLINK_1("Biogps","http://biogps.org/#goto=search=&query=")
+		ADD_HYPERLINK_1("Gene ResearchAllOfUs","https://databrowser.researchallofus.org/genomic-variants/")
+		ADD_HYPERLINK_1("IRAVs","https://iravdb.io/gene/")
+		ADD_HYPERLINK_1("Finngen","https://public-metaresults-fg-ukbb.finngen.fi/gene/")
+		ADD_HYPERLINK_1("hugeamp","https://hugeamp.org:8000/research.html?ancestry=mixed&cohort=AoU_250k&file=600Traits.csv&pageid=600_traits_app&phenotype=phecode_425.0&gene=")
+		ADD_HYPERLINK_1("intogen","https://www.intogen.org/search?gene=")
+		ADD_HYPERLINK_1("ComplexPortal","https://www.ebi.ac.uk/complexportal/complex/search?query=")
+		}
+	
+ 	if( strcasecmp(columnName,"rsid")==0 || strcasecmp(columnName,"dbsnp")==0) {
+ 		
+
+	    }
+	
+	ks_free(&escaped);
+	}
+
 
 #define PRINT_HEADER \
 	switch(args.build) {\
@@ -708,12 +890,14 @@ while(*p!=0) {
     to suppress output.
 */
 bcf1_t *process(bcf1_t *v) {
+	hts_pos_t end_pos = v->pos + v->rlen ; /* no minus 1, one based */
     TablePtr vepTable = NULL;
     TablePtr bcsqTable = NULL;
-    TablePtr annTable = NULL;
-    TablePtr hyperlinksTable = TableNewStr("DB","Allele","URL",NULL);
+
+    
     unsigned int i;
     args.n_variants++;
+    /* instead of re-inventing the wheel: the conversion of v to text, let's use htslib/vcf_format to convert the whole line to string */
     kstring_t vcf_line = KS_INITIALIZE;
     vcf_format(args.header, v, &vcf_line); 
     //remove last CR/LF
@@ -721,102 +905,89 @@ bcf1_t *process(bcf1_t *v) {
         vcf_line.s[vcf_line.l-1]=0;
         vcf_line.l--;
         }
+    
+    
 
-
-
-    StringListPtr tokens = StringListNew(vcf_line.s,'\t');
-    StringListPtr alt_alleles = StringListNew(StringListAt(tokens,4),',');
+     
+     
+	/* split the VCF line into a list of string */
+    StringListPtr tokens = StringListMake(vcf_line.s,'\t');
+    /* split the ALT alleles */
+    StringListPtr alt_alleles = StringListMake(StringListAt(tokens,4),',');
+	
+	/* add interval hyperlink */
+	AddHyperlinkForInterval(StringListAt(tokens,0),v->pos+1, end_pos); 
 
 
     fputs("<<<",args.out);
     PRINT_HEADER;
      
-    TablePtr p = TableNewStr("KEY","VALUE",NULL);
+   
+    
 
-    RowPtr row = TableNewRow(p);
+    RowPtr row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "CHROM");
     CellSetText(RowAt(row,1),StringListAt(tokens,0));
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "POS");
     CellSetText(RowAt(row,1),StringListAt(tokens,1));
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "ID");
     CellSetText(RowAt(row,1),StringListAt(tokens,2));
-    if(regexec(&args.regex_rsid, StringListAt(tokens,2),0,NULL,0)==0) {
-	    HyperLinkTableAdd(hyperlinksTable,NULL, "RSID", StringListAt(tokens,2));
-	    }
+   	AddHyperlink1("rsid",StringListAt(tokens,2));
+    	
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "REF");
     CellSetText(RowAt(row,1),StringListAt(tokens,3));
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "ALT");
     CellSetText(RowAt(row,1),StringListAt(tokens,4));
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "QUAL");
     CellSetText(RowAt(row,1),tokens->strings[5]);
 
-    row = TableNewRow(p);
+    row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "FILTER");
     CellSetText(RowAt(row,1),StringListAt(tokens,6));
-    if(strcmp(StringListAt(tokens,6),".")!=0 && strcmp(StringListAt(tokens,6),"PASS")!=0) {
+    if(strcmp(StringListAt(tokens,6),".")==0 || strcmp(StringListAt(tokens,6),"PASS")==0) {
+    	RowAt(row,1)->color = COLOR_GREEN;
+    	}
+    else
+    	{
 	    RowAt(row,1)->color = COLOR_RED;
 	    }
 
-     fprintf(args.out, "# Variant\n");
-    TablePrint(p,&args);
-    TableFree(p);
+    fprintf(args.out, "# Variant\n");
+    TablePrint(args.vcTable,&args);
     fputc('\n',args.out);
 
 
     /* ADD HYPERLINKS */
     if(args.build == human_hg19 || args.build==human_hg38) {
-	    kstring_t url = KS_INITIALIZE;
 	    for(i=0;i< alt_alleles->size;++i) {
-		    ks_clear(&url);
 		    const char* alt_allele= StringListAt(alt_alleles,i);
-		    
-		    
-		    RowPtr annot = TableNewRow(hyperlinksTable);
-		    CellSetText(RowAt(annot,0), "GNOMAD");
-		    CellSetText(RowAt(annot,1), alt_allele);
-		    kputs("https://gnomad.broadinstitute.org/variant/",&url);
-		    escapeHttp(&url,StringListAt(tokens,0));
-		    escapeHttp(&url,"-");
-		    kputs(StringListAt(tokens,1),&url);
-		    escapeHttp(&url,"-");
-		    escapeHttp(&url,StringListAt(tokens,3));
-		    escapeHttp(&url,"-");
-		    escapeHttp(&url,alt_allele);
-		    
-		    
-		    CellSetText(RowAt(annot,2), url.s);
+		   
+
 		    }
-	    //			StringUtils.escapeHttp(ensemblCtg) + "-" + ctx.getStart() +"-"+ctx.getReference().getDisplayString()+"-"+alt.getDisplayString()+"?dataset=gnomad_r2_1"
-	    //HyperLinkTableAdd(hyperlinksTable,NULL, "RSID",url.s);
-	    
-	    
-	    
-	    ks_free(&url);
+
 	    }
 
-
-    if(tokens->size>7 && strcmp(tokens->strings[7],".")!=0) {
-        StringListPtr infos = StringListNew(tokens->strings[7],';');
-        TablePtr p = TableNewStr("KEY","IDX","VALUE",NULL);
+	/* parse values in the INFO column */
+    if(tokens->size>7 && strcmp(StringListAt(tokens,7),".")!=0) {
+    	/* split INFO by semicolon */
+        StringListPtr infos = StringListMake(StringListAt(tokens,7),';');
         for(i=0;i< infos->size;i++) {
             unsigned int j;
             const char* info = StringListAt(infos,i);
             char* eq  = strchr(info,'=');
             if(eq==NULL || eq==info) continue;
-            
-            
-           	
-            StringListPtr values = StringListNew(eq+1,',');
+            /* split multiple values for this info using commas */
+            StringListPtr values = StringListMake(eq+1,',');
             for(j=0;j< values->size;j++) {
                 //skip CSQ
             	if(args.vepTokens!=NULL && strncmp(info,"CSQ=",4)==0) {
@@ -830,12 +1001,12 @@ bcf1_t *process(bcf1_t *v) {
 		        		}
 		        	// fill VEP table
 		        	row = TableNewRow(vepTable);
-		        	StringListPtr veps = StringListNew( StringListAt(values,j),'|');
+		        	StringListPtr veps = StringListMake( StringListAt(values,j),'|');
 		        	for(k=0;k< args.vepTokens->size && k < veps->size;++k) {
 		        			CellSetText(RowAt(row,k),StringListAt( veps,k));
 		        			
 		        			if(strcmp(StringListAt(args.vepTokens,k), "SYMBOL")==0) {
-		        				HyperLinkTableAdd(hyperlinksTable, NULL,StringListAt(args.vepTokens,k), StringListAt( veps,k));
+		        				AddHyperlink1("gene_name",StringListAt( veps,k));
 		        				}
 		        			
 		        			}
@@ -856,12 +1027,12 @@ bcf1_t *process(bcf1_t *v) {
 		        
 		        	// fill BCSQ table
 		        	row = TableNewRow(bcsqTable);
-		        	StringListPtr bcsq = StringListNew( StringListAt(values,j),'|');
+		        	StringListPtr bcsq = StringListMake( StringListAt(values,j),'|');
 		        	for(k=0;k< args.bcsqTokens->size && k < bcsq->size;++k) {
 		        			CellSetText(RowAt(row,k),StringListAt( bcsq,k));
 		        			
 		        			if(strcmp(StringListAt(args.bcsqTokens,k), "SYMBOL")==0) {
-		        				HyperLinkTableAdd(hyperlinksTable, NULL,StringListAt(args.bcsqTokens,k), StringListAt( bcsq,k));
+		        				HyperLinkTableAdd(args.hyperlinksTable, NULL,StringListAt(args.bcsqTokens,k), StringListAt( bcsq,k));
 		        				}
 		        			
 		        			}
@@ -870,43 +1041,51 @@ bcf1_t *process(bcf1_t *v) {
 		        	}
                 
                 //skip SNPEFF/ANN
-                if(args.annTokens!=NULL && strncmp(info,"ANN=",4)==0) {
+                if(strncmp(info,"ANN=",4)==0) {
                     unsigned int k;
-                    //build BCSQ table if needed
-		        	if(annTable==NULL) {
-		        		annTable = TableNew(0);
-		        		for(k=0;k< args.annTokens->size;++k) {
-		        			TableAppendColumn(annTable,StringListAt( args.annTokens,k));
-		        			}	
-		        		}
                     // fill ANN table
-		        	row = TableNewRow(annTable);
-		        	StringListPtr ann = StringListNew( StringListAt(values,j),'|');
-		        	for(k=0;k< args.annTokens->size && k < ann->size;++k) {
+		        	row = TableNewRow(args.annTable);
+		        	StringListPtr ann = StringListMake( StringListAt(values,j),'|');
+		        	for(k=0;k< TableNCols(args.annTable) && k < ann->size;++k) {
 		        			RowSetText(row,k,StringListAt(ann,k));
 		        			}
 		            StringListFree(ann);
                     continue;
                     }
+                //skip SpliceAI
+                if(strncmp(info,"SpliceAI=",4)==0) {
+                    unsigned int k;
+                    // fill ANN table
+		        	row = TableNewRow(args.spliceaiTable);
+		        	StringListPtr spliceai = StringListMake( StringListAt(values,j),'|');
+		        	for(k=0;k< TableNCols(args.spliceaiTable) && k < spliceai->size;++k) {
+		        			RowSetText(row,k,StringListAt(spliceai,k));
+		        			}
+		        	AddHyperlink1("gene_name",StringListAt( spliceai,1));
+		            StringListFree(spliceai);
+                    continue;
+                    }
                 
-                row = TableNewRow(p);
+                
+                row = TableNewRow(args.infoTable);
                 CellAppendTextN(RowAt(row,0),info,eq-info);
                 if(values->size>1) CellSetD(RowAt(row,1),(int)(j+1));
                 RowSetText(row,2,values->strings[j]);
                 }
             StringListFree(values);
             }
-        fprintf(args.out, "# INFO\n");
-        TablePrint(p,&args);
-	    TableFree(p);
-        StringListFree(infos);
-        fputc('\n',args.out);
+        if(TableNRows(args.infoTable)>0) {
+		    fprintf(args.out, "# INFO\n");
+		    TablePrint(args.infoTable,&args);
+		    fputc('\n',args.out);
+		    }
+		StringListFree(infos);
         }
 
 
-    if(TableNRows(hyperlinksTable)>0) {
+    if(TableNRows(args.hyperlinksTable)>0) {
 	    fprintf(args.out, "# HYPERLINKS\n");
-	    TablePrint(hyperlinksTable,&args);
+	    TablePrint(args.hyperlinksTable,&args);
 	    fputc('\n',args.out);
 	    }
 
@@ -926,16 +1105,23 @@ bcf1_t *process(bcf1_t *v) {
 	    fputc('\n',args.out);
 	    }
 	
-	 if(annTable!=NULL && TableNRows(annTable)>0) {
+	 if(TableNRows(args.annTable)>0) {
 	    fprintf(args.out, "# ANN/SNPEFF\n");
-	    TableRemoveEmptyColumns(annTable);
-	    TablePrint(annTable,&args);
+	    //no keep it inummutable TableRemoveEmptyColumns(args.annTable);
+	    TablePrint(args.annTable,&args);
+	    fputc('\n',args.out);
+	    }
+	
+	 if(TableNRows(args.spliceaiTable)>0) {
+	    fprintf(args.out, "# SpliceAI\n");
+	    //no keep it inummutable TableRemoveEmptyColumns(args.annTable);
+	    TablePrint(args.spliceaiTable,&args);
 	    fputc('\n',args.out);
 	    }
 	
     if(tokens->size>9) {
 
-        StringListPtr formats = StringListNew(tokens->strings[8],':');
+        StringListPtr formats = StringListMake(tokens->strings[8],':');
         TablePtr p = TableNewStr("SAMPLE",NULL);
         TableAppendColumn(p, "GTYPE");
         int gt_col = -1;
@@ -951,7 +1137,7 @@ bcf1_t *process(bcf1_t *v) {
             int count_allele_missing=0;
             int count_allele_other=0;
             int print_it = 1;
-            StringListPtr values = StringListNew(tokens->strings[i],':');
+            StringListPtr values = StringListMake(tokens->strings[i],':');
             const char* color = COLOR_BLACK;
             unsigned int j;
             if(gt_col!=-1) {
@@ -959,7 +1145,7 @@ bcf1_t *process(bcf1_t *v) {
                 for(j=0;gt[j]!=0;j++) {
                     if(gt[j]=='|') gt[j]='/';
                     }
-                StringListPtr alleles = StringListNew(gt,'/');
+                StringListPtr alleles = StringListMake(gt,'/');
                 for(j=0;j< alleles->size;++j) {
                     char* allele = alleles->strings[j];
                     if(strcmp(allele,"0")==0) count_allele_0++;
@@ -1013,13 +1199,17 @@ bcf1_t *process(bcf1_t *v) {
 
     fputc('\n',args.out);
 
+	/** final cleanup */
     ks_free(&vcf_line);
     StringListFree(tokens);
     StringListFree(alt_alleles);
-    TableFree(hyperlinksTable);
     TableFree(bcsqTable);
     TableFree(vepTable);
-    TableFree(annTable);
+    TableClear(args.hyperlinksTable);
+    TableClear(args.annTable);
+    TableClear(args.spliceaiTable);
+    TableClear(args.infoTable);
+    TableClear(args.vcTable);
     return NULL;/* suppress bcf output */
     }
 
@@ -1027,7 +1217,11 @@ void destroy(void) {
     regfree(&args.regex_rsid);
     StringListFree(args.vepTokens);
     StringListFree(args.bcsqTokens);
-    StringListFree(args.annTokens);
+    TableFree(args.spliceaiTable);
+    TableFree(args.annTable);
+    TableFree(args.infoTable);
+    TableFree(args.hyperlinksTable);
+    TableFree(args.vcTable);
     }
 
 
