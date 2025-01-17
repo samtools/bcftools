@@ -2991,6 +2991,8 @@ By default, appropriate system directories are searched for installed plugins.
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
 
+*vcf2table*::
+    print the variants as a set of tables
 
 ==== Examples:
 
