@@ -71,7 +71,7 @@ typedef unsigned char color_t;
 
 typedef struct Cell {
     kstring_t text;
-    kstring_t url;
+    //kstring_t url; for future use
     const char* color;
 } Cell,*CellPtr;
 
@@ -111,19 +111,35 @@ typedef struct  {
     StringListPtr bcsqTokens;
     /** table for SNPEFF ANN predictions */
     TablePtr annTable;
+     /** table for SNPEFF LOF predictions */
+    TablePtr lofTable;
     /** general info about the variant */
     TablePtr vcTable;
     /** table for spliceai */
     TablePtr spliceaiTable;
     /** table for INFO col */
     TablePtr infoTable;
-    /** table for hyperlinks */
-    TablePtr hyperlinksTable;
-    regex_t regex_rsid;
+    /** table for genotype types */
+    TablePtr gtypeTable;
     unsigned long n_variants;
     enum build_t build;
+    
+    /* show/hide flags */
     int hide_HOM_REF;
     int hide_NO_CALL;
+    int hide_HET;
+    int hide_HOM_VAR;
+    int hide_OTHER;
+    int hide_VC_table;
+    int hide_INFO_table;
+    int hide_GT_table;
+    int hide_GTTYPE_table;
+    int hide_VEP_table;
+    int hide_BCSQ_table;
+    int hide_ANN_table;
+    int hide_LOF_table;
+    int hide_SPLICEAI_table;
+    int hide_colors;
     }  args_t;
 
 static args_t args;
@@ -134,7 +150,7 @@ static CellPtr CellNew() {
     ASSERT_NOT_NULL(ptr);
     ptr->color = COLOR_BLACK;
     ks_initialize(&(ptr->text));
-    ks_initialize(&(ptr->url));
+    //ks_initialize(&(ptr->url));
     return ptr;
     }
 static CellPtr CellClear(CellPtr ptr) {
@@ -154,19 +170,18 @@ static CellPtr CellClear(CellPtr ptr) {
     return ptr;
     }
  
- 
 /** build a new Cell */
 static CellPtr CellSetText(CellPtr ptr, const char* s) {
     CellClear(ptr);
     CellAppendText(ptr,s);
     return ptr;
     }
-/*
+
 static CellPtr CellSetLL(CellPtr ptr, long long v) {
     CellClear(ptr);
     kputll(v,&(ptr->text));
     return ptr;
-    }*/
+    }
     
 static CellPtr CellSetD(CellPtr ptr, double v) {
     CellClear(ptr);
@@ -185,17 +200,10 @@ static unsigned int CellWidth(CellPtr ptr) {
     ASSERT_NOT_NULL(ptr);
     return ks_len(&(ptr->text));
     }
- 
-/** get the content of a cell as a const char* */
-static const char* CellCStr(CellPtr ptr) {
- 	ASSERT_NOT_NULL(ptr);
- 	return ks_c_str(&(ptr->text));
- 	}
 
- 
 static void CellPrint(CellPtr ptr,args_t* args) {
     ASSERT_NOT_NULL(ptr);
-    if(args->ascii==0 && ptr->color!=NULL && ptr->color!=COLOR_BLACK) {
+    if(args->ascii==0  && ptr->color!=NULL && ptr->color!=COLOR_BLACK) {
     	fputs(ptr->color,args->out);
     	}
     fwrite((void*)ks_c_str(&(ptr->text)), sizeof(char), ks_len(&(ptr->text)), args->out);
@@ -206,7 +214,7 @@ static void CellPrint(CellPtr ptr,args_t* args) {
 static void CellFree(CellPtr ptr) {
     if(ptr==NULL) return;
     ks_free(&(ptr->text));
-    ks_free(&(ptr->url));
+    //ks_free(&(ptr->url));
     free(ptr);
     }
     
@@ -406,56 +414,6 @@ static StringListPtr StringListNew() {
 	return ptr;
 	}
 
-/** add a string to the StringList */
-static StringListPtr StringListAdd(StringListPtr ptr, const char* str) {
-	ASSERT_NOT_NULL(ptr);
-	ASSERT_NOT_NULL(str);
-	ptr->strings=(char**)realloc(ptr->strings,sizeof(char*)*(ptr->size+1));
-	ASSERT_NOT_NULL(ptr->strings);
-	ptr->strings[ptr->size] = strdup(str);
-	ptr->size++;
-	return ptr;
-	}
-
-/** treat StringList as a Key/Value associative array. return value associate to key or NULL if key is missing */
-static const char* StringListGet(StringListPtr ptr, const char* key) {
-	unsigned int i;
-	ASSERT_NOT_NULL(ptr);
-	ASSERT_NOT_NULL(key);
-	assert(ptr->size%2==0);
-	for(i=0;i+1< ptr->size;i+=2) {
-		/* key exists */
-		if(strcmp(key,ptr->strings[i])==0) {
-			return ptr->strings[i+1];
-			}
-		}
-	return NULL;
-	}
-
-/** treat StringList as a Key/Value associative array. Add a key, value. Replace value if key exists */
-static StringListPtr StringListPut(StringListPtr ptr, const char* key,const char* value) {
-	unsigned int i;
-	ASSERT_NOT_NULL(ptr);
-	ASSERT_NOT_NULL(key);
-	ASSERT_NOT_NULL(value);
-	assert(ptr->size%2==0);
-	for(i=0;i+1< ptr->size;i+=2) {
-		/* key exists */
-		if(strcmp(key,ptr->strings[i])==0) {
-			if(strcmp(key,ptr->strings[i+1])!=0) {
-				free(ptr->strings[i+1]);
-				ptr->strings[i+1] = strdup(value);
-				ASSERT_NOT_NULL(ptr->strings[i+1]);
-				}
-			return ptr;
-			}
-		}
-	/* key missing */
-	StringListAdd(ptr,key);
-	StringListAdd(ptr,value);
-	return ptr;
-	}
-
 /**
  * Create a new  StringList by splitting 'str' with 'delim'
  */
@@ -475,21 +433,6 @@ static StringListPtr StringListMake(const char* str,char delim) {
 		    }
 		p++;
 		}
-	return ptr;
-	}
-
-/**
- * Create a new  StringList until the last argument is empty
- */
-static StringListPtr StringListCreate(const char* str,...) {
-	va_list arg;
-    StringListPtr ptr = StringListNew();
-    va_start(arg, str);
-    while (str) {
-        StringListAdd(ptr,str);
-        str = va_arg(arg, const char *);
-        }
-    va_end(arg);
 	return ptr;
 	}
 
@@ -622,12 +565,6 @@ static void TablePrint(TablePtr ptr,args_t* args) {
 	free(widths);
 	}
 
-static void HyperLinkTableAdd(TablePtr table, const char* allele, const char* key, const char* value) {
-if(value==NULL || strcmp(value,"")==0) return;
-RowPtr row = TableNewRow(table);
-CellSetText(RowAt(row,0),value);
-}
-
 /**
  * This method is used to find if a dictionary contains two known contig (name/length) in
  * order to identify the build : hg19, hg38, etc...
@@ -670,6 +607,7 @@ const char *about(void) {
 int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
 	{
 	 int c;
+	 memset((void*)&args,sizeof(args_t),1);
     args.header = hdr_in;
     args.ascii = 0;
     args.out = stdout;
@@ -686,11 +624,9 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
         );
     args.spliceaiTable = TableNewStr("ALLELE","SYMBOL","DS_AG","DS_AL","DS_DG","DS_DL","DP_AG","DP_AL","DP_DG","DP_DL",NULL);
     args.infoTable = TableNewStr("KEY","IDX","VALUE",NULL);
-    args.hyperlinksTable = TableNewStr("DB","Allele","URL",NULL);
     args.vcTable = TableNewStr("KEY","VALUE",NULL);
-    
-	c = regcomp(&args.regex_rsid,"rs[0-9]+",REG_EXTENDED|REG_ICASE|REG_NOSUB);
-    assert(c==0);
+    args.lofTable = TableNewStr("Gene_Name","Gene_ID","Number_of_transcripts_in_gene","Percent_of_transcripts_affected",NULL);
+    args.gtypeTable = TableNewStr("Type","Count","%",NULL);
     
     static struct option loptions[] =
     {
@@ -713,6 +649,42 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
             			}
             		else if(strcasecmp(hidden, "NO_CALL")==0 || strcasecmp(hidden, "MISSING")==0) {
             			args.hide_NO_CALL = 1;
+            			}
+            		else if(strcasecmp(hidden, "HOM_VAR")==0 || strcasecmp(hidden, "AA")==0) {
+            			args.hide_HOM_VAR = 1;
+            			}
+            		else if(strcasecmp(hidden, "HET")==0 || strcasecmp(hidden, "AR")==0) {
+            			args.hide_HET = 1;
+            			}
+            		else if(strcasecmp(hidden, "OTHER")==0 ) {
+            			args.hide_OTHER = 1;
+            			}
+            		else if(strcasecmp(hidden, "ANN")==0 || strcasecmp(hidden, "SNPEFF")==0) {
+            			args.hide_ANN_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "CSQ")==0 || strcasecmp(hidden, "VEP")==0) {
+            			args.hide_VEP_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "BCSQ")==0 || strcasecmp(hidden, "BCFTOOLS")==0) {
+            			args.hide_BCSQ_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "SPLICEAI")==0) {
+            			args.hide_SPLICEAI_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "INFO")==0) {
+            			args.hide_INFO_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "VC")==0) {
+            			args.hide_VC_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "LOF")==0) {
+            			args.hide_LOF_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "GT")==0 || strcasecmp(hidden, "GENOTYPES")==0) {
+            			args.hide_GT_table = 1;
+            			}
+            		else if(strcasecmp(hidden, "GTTYPES")==0) {
+            			args.hide_GTTYPE_table = 1;
             			}
             		}
             	StringListFree(hide);
@@ -777,105 +749,6 @@ int init(int argc, char **argv, bcf_hdr_t *hdr_in, bcf_hdr_t *out)
     return 1;//suppress VCF/BCF header
 }
 
-
-#define  ESCAPE_HTTP(SRC,DEST) \
-	do {\
-	char* p=(char*)SRC;\
-	while(*p!=0) {\
-		if(isalnum(*p)||*p=='.' || *p=='-') {\
-			kputc(*p,&DEST);\
-			}\
-		else\
-			{\
-			ksprintf(&DEST,"%%%02x", (unsigned char)*p);\
-			}\
-		p++;\
-		}\
-	} while(0)
-
-
-static void AddHyperlink2(const char* database, const char* name,const char* url) {
-	unsigned int i;
-	for(i=0;i< TableNRows(args.hyperlinksTable);++i) {
-		CellPtr cell = TableAt(args.hyperlinksTable,2,i);
-		if(strcmp(CellCStr(cell),url)==0) return;
-		}
-	RowPtr row = TableNewRow(args.hyperlinksTable);
-	RowSetText(row,0,database);
-	RowSetText(row,1,name);
-	RowSetText(row,2,url);
-	}
-	
-static void AddHyperlinkForInterval(const char* chrom, hts_pos_t pos1, hts_pos_t end1)  {
-	kstring_t url = KS_INITIALIZE;
-	kstring_t ensembl = KS_INITIALIZE;
-	kstring_t ucsc = KS_INITIALIZE;
-
-	
-		{
-		ks_clear(&url);
-		kputs("https://127.0.0.1:60151/goto?locus=",&url); ESCAPE_HTTP(chrom,&url); kputs("%3A",&url); kputll(pos1,&url); kputc('-',&url); kputll(end1,&url);
-		AddHyperlink2("IGV","",ks_str(&url));
-		}
-	
-	if(args.build==human_hg38)
-		{
-		ks_clear(&url);
-		
-		kputs("https://gnomad.broadinstitute.org/region/",&url); ESCAPE_HTTP(ks_str(&ucsc),&url); kputc('-',&url); kputll(pos1,&url); kputc('-',&url); kputll(end1,&url);kputs("?dataset=gnomad_r4");
-		AddHyperlink2("Region Gnomad 3","",ks_str(&url));
-		}
-	
-	ks_free(&url);
-	ks_free(&ensembl);
-	ks_free(&ucsc);
-	}
-
-static void AddHyperlink3(const char* chrom, hts_pos_t pos, hts_pos_t end, const char* ref, const char* alt) 
-	{
-	
-	}
-
-
-
-#define ADD_HYPERLINK_1(DATABASE,BASE) \
-	{\
-	kstring_t url = KS_INITIALIZE;\
-	kputs(BASE,&url);\
-	kputs(ks_str(&escaped),&url);\
-	AddHyperlink2(DATABASE,name,ks_str(&url));\
-	ks_free(&url);\
-	}
-static void AddHyperlink1(const char* columnName, const char* name) {
-	if(name==NULL || strlen(name)==0) return;
-	kstring_t escaped = KS_INITIALIZE;
-	ESCAPE_HTTP(name,escaped);
-	
-	if( strcasecmp(columnName,"genename")==0 ||strcasecmp(columnName,"gene_name")==0 ||strcasecmp(columnName,"symbol")==0 ) {
-		ADD_HYPERLINK_1("Pharos","https://pharos.nih.gov/diseases?associatedTarget=")
-		ADD_HYPERLINK_1("NCBI gene","https://www.ncbi.nlm.nih.gov/gene/?term=")
-		ADD_HYPERLINK_1("OMIM","https://www.omim.org/search?search=")
-		ADD_HYPERLINK_1("hugeamp","https://cvd.hugeamp.org/gene.html?gene=")
-		ADD_HYPERLINK_1("Archs4","https://maayanlab.cloud/archs4/gene/")
-		ADD_HYPERLINK_1("Enrichr","https://maayanlab.cloud/Enrichr/#find!gene=")
-		ADD_HYPERLINK_1("Biogps","http://biogps.org/#goto=search=&query=")
-		ADD_HYPERLINK_1("Gene ResearchAllOfUs","https://databrowser.researchallofus.org/genomic-variants/")
-		ADD_HYPERLINK_1("IRAVs","https://iravdb.io/gene/")
-		ADD_HYPERLINK_1("Finngen","https://public-metaresults-fg-ukbb.finngen.fi/gene/")
-		ADD_HYPERLINK_1("hugeamp","https://hugeamp.org:8000/research.html?ancestry=mixed&cohort=AoU_250k&file=600Traits.csv&pageid=600_traits_app&phenotype=phecode_425.0&gene=")
-		ADD_HYPERLINK_1("intogen","https://www.intogen.org/search?gene=")
-		ADD_HYPERLINK_1("ComplexPortal","https://www.ebi.ac.uk/complexportal/complex/search?query=")
-		}
-	
- 	if( strcasecmp(columnName,"rsid")==0 || strcasecmp(columnName,"dbsnp")==0) {
- 		
-
-	    }
-	
-	ks_free(&escaped);
-	}
-
-
 #define PRINT_HEADER \
 	switch(args.build) {\
 	case human_hg19 : fputs(" GRCh37 : ",args.out); break;\
@@ -890,10 +763,9 @@ static void AddHyperlink1(const char* columnName, const char* name) {
     to suppress output.
 */
 bcf1_t *process(bcf1_t *v) {
-	hts_pos_t end_pos = v->pos + v->rlen ; /* no minus 1, one based */
     TablePtr vepTable = NULL;
     TablePtr bcsqTable = NULL;
-
+	hts_pos_t variant_end = v->pos + v->rlen;
     
     unsigned int i;
     args.n_variants++;
@@ -912,13 +784,7 @@ bcf1_t *process(bcf1_t *v) {
      
 	/* split the VCF line into a list of string */
     StringListPtr tokens = StringListMake(vcf_line.s,'\t');
-    /* split the ALT alleles */
-    StringListPtr alt_alleles = StringListMake(StringListAt(tokens,4),',');
 	
-	/* add interval hyperlink */
-	AddHyperlinkForInterval(StringListAt(tokens,0),v->pos+1, end_pos); 
-
-
     fputs("<<<",args.out);
     PRINT_HEADER;
      
@@ -932,11 +798,20 @@ bcf1_t *process(bcf1_t *v) {
     row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "POS");
     CellSetText(RowAt(row,1),StringListAt(tokens,1));
+    
+    if(v->pos +1 != variant_end) {
+		row = TableNewRow(args.vcTable);
+		CellSetText(RowAt(row,0), "end");
+		CellSetLL(RowAt(row,1),variant_end);
+		
+		row = TableNewRow(args.vcTable);
+		CellSetText(RowAt(row,0), "length");
+		CellSetLL(RowAt(row,1),variant_end-v->pos);
+		}
 
     row = TableNewRow(args.vcTable);
     CellSetText(RowAt(row,0), "ID");
     CellSetText(RowAt(row,1),StringListAt(tokens,2));
-   	AddHyperlink1("rsid",StringListAt(tokens,2));
     	
 
     row = TableNewRow(args.vcTable);
@@ -962,21 +837,13 @@ bcf1_t *process(bcf1_t *v) {
 	    RowAt(row,1)->color = COLOR_RED;
 	    }
 
-    fprintf(args.out, "# Variant\n");
-    TablePrint(args.vcTable,&args);
-    fputc('\n',args.out);
+	if(!args.hide_VC_table) {
+		fprintf(args.out, "# Variant\n");
+		TablePrint(args.vcTable,&args);
+		fputc('\n',args.out);
+		}
 
-
-    /* ADD HYPERLINKS */
-    if(args.build == human_hg19 || args.build==human_hg38) {
-	    for(i=0;i< alt_alleles->size;++i) {
-		    const char* alt_allele= StringListAt(alt_alleles,i);
-		   
-
-		    }
-
-	    }
-
+    
 	/* parse values in the INFO column */
     if(tokens->size>7 && strcmp(StringListAt(tokens,7),".")!=0) {
     	/* split INFO by semicolon */
@@ -991,6 +858,7 @@ bcf1_t *process(bcf1_t *v) {
             for(j=0;j< values->size;j++) {
                 //skip CSQ
             	if(args.vepTokens!=NULL && strncmp(info,"CSQ=",4)==0) {
+            		if(args.hide_VEP_table) continue;
             		unsigned int k;
             		//build VEP table if needed
 		        	if(vepTable==NULL) {
@@ -1004,11 +872,6 @@ bcf1_t *process(bcf1_t *v) {
 		        	StringListPtr veps = StringListMake( StringListAt(values,j),'|');
 		        	for(k=0;k< args.vepTokens->size && k < veps->size;++k) {
 		        			CellSetText(RowAt(row,k),StringListAt( veps,k));
-		        			
-		        			if(strcmp(StringListAt(args.vepTokens,k), "SYMBOL")==0) {
-		        				AddHyperlink1("gene_name",StringListAt( veps,k));
-		        				}
-		        			
 		        			}
 		        	StringListFree(veps);
 		        	continue;
@@ -1016,6 +879,7 @@ bcf1_t *process(bcf1_t *v) {
 		    
                  //skip BCSQ
             	if(args.bcsqTokens!=NULL && strncmp(info,"BCSQ=",5)==0) {
+            		if(args.hide_BCSQ_table) continue;
             		unsigned int k;
             		//build BCSQ table if needed
 		        	if(bcsqTable==NULL) {
@@ -1030,11 +894,6 @@ bcf1_t *process(bcf1_t *v) {
 		        	StringListPtr bcsq = StringListMake( StringListAt(values,j),'|');
 		        	for(k=0;k< args.bcsqTokens->size && k < bcsq->size;++k) {
 		        			CellSetText(RowAt(row,k),StringListAt( bcsq,k));
-		        			
-		        			if(strcmp(StringListAt(args.bcsqTokens,k), "SYMBOL")==0) {
-		        				HyperLinkTableAdd(args.hyperlinksTable, NULL,StringListAt(args.bcsqTokens,k), StringListAt( bcsq,k));
-		        				}
-		        			
 		        			}
 		        	StringListFree(bcsq);
 		        	continue;
@@ -1042,6 +901,7 @@ bcf1_t *process(bcf1_t *v) {
                 
                 //skip SNPEFF/ANN
                 if(strncmp(info,"ANN=",4)==0) {
+                	if(args.hide_ANN_table) continue;
                     unsigned int k;
                     // fill ANN table
 		        	row = TableNewRow(args.annTable);
@@ -1052,8 +912,30 @@ bcf1_t *process(bcf1_t *v) {
 		            StringListFree(ann);
                     continue;
                     }
+                //skip SNPEFF/LOF
+                if(strncmp(info,"LOF=",4)==0) {
+                	if(args.hide_LOF_table) continue;
+                    unsigned int k;
+                    char * copy= strdup(StringListAt(values,j));
+                     ASSERT_NOT_NULL(copy);
+                    //remove first & last char
+                    if(copy[0]=='(') memmove((void*)&copy[0],&copy[1], strlen(copy));
+                    if(copy[strlen(copy)-1]==')') copy[strlen(copy)-1]=0;
+                   
+                    // fill ANN table
+		        	row = TableNewRow(args.lofTable);
+		        	StringListPtr ann = StringListMake(copy,'|');
+		        	for(k=0;k< TableNCols(args.lofTable) && k < ann->size;++k) {
+		        			RowSetText(row,k,StringListAt(ann,k));
+		        			}
+		            StringListFree(ann);
+		            free(copy);
+                    continue;
+                    }
+
                 //skip SpliceAI
                 if(strncmp(info,"SpliceAI=",4)==0) {
+                	if(args.hide_SPLICEAI_table) continue;
                     unsigned int k;
                     // fill ANN table
 		        	row = TableNewRow(args.spliceaiTable);
@@ -1061,7 +943,6 @@ bcf1_t *process(bcf1_t *v) {
 		        	for(k=0;k< TableNCols(args.spliceaiTable) && k < spliceai->size;++k) {
 		        			RowSetText(row,k,StringListAt(spliceai,k));
 		        			}
-		        	AddHyperlink1("gene_name",StringListAt( spliceai,1));
 		            StringListFree(spliceai);
                     continue;
                     }
@@ -1074,22 +955,13 @@ bcf1_t *process(bcf1_t *v) {
                 }
             StringListFree(values);
             }
-        if(TableNRows(args.infoTable)>0) {
+        if(!args.hide_INFO_table && TableNRows(args.infoTable)>0) {
 		    fprintf(args.out, "# INFO\n");
 		    TablePrint(args.infoTable,&args);
 		    fputc('\n',args.out);
 		    }
 		StringListFree(infos);
         }
-
-
-    if(TableNRows(args.hyperlinksTable)>0) {
-	    fprintf(args.out, "# HYPERLINKS\n");
-	    TablePrint(args.hyperlinksTable,&args);
-	    fputc('\n',args.out);
-	    }
-
-
 
     if(vepTable!=NULL && TableNRows(vepTable)>0) {
 	    fprintf(args.out, "# VEP/CSQ\n");
@@ -1111,6 +983,12 @@ bcf1_t *process(bcf1_t *v) {
 	    TablePrint(args.annTable,&args);
 	    fputc('\n',args.out);
 	    }
+	   
+	 if(TableNRows(args.lofTable)>0) {
+	    fprintf(args.out, "# LOF\n");
+	    TablePrint(args.lofTable,&args);
+	    fputc('\n',args.out);
+	    }
 	
 	 if(TableNRows(args.spliceaiTable)>0) {
 	    fprintf(args.out, "# SpliceAI\n");
@@ -1120,7 +998,12 @@ bcf1_t *process(bcf1_t *v) {
 	    }
 	
     if(tokens->size>9) {
-
+		int count_hom_ref = 0;
+		int count_het = 0;
+		int count_hom_var = 0;
+		int count_missing = 0;
+		int count_other = 0;
+		
         StringListPtr formats = StringListMake(tokens->strings[8],':');
         TablePtr p = TableNewStr("SAMPLE",NULL);
         TableAppendColumn(p, "GTYPE");
@@ -1137,14 +1020,18 @@ bcf1_t *process(bcf1_t *v) {
             int count_allele_missing=0;
             int count_allele_other=0;
             int print_it = 1;
+            // split Genotype components
             StringListPtr values = StringListMake(tokens->strings[i],':');
             const char* color = COLOR_BLACK;
             unsigned int j;
-            if(gt_col!=-1) {
-                char* gt = strdup(values->strings[gt_col]);
+            if(gt_col!=-1 && gt_col < values->size) {
+            	// clone the GT value
+                char* gt = strdup(StringListAt(values,gt_col));
+                // remove phasing
                 for(j=0;gt[j]!=0;j++) {
                     if(gt[j]=='|') gt[j]='/';
                     }
+                //split the alleles in the GT 
                 StringListPtr alleles = StringListMake(gt,'/');
                 for(j=0;j< alleles->size;++j) {
                     char* allele = alleles->strings[j];
@@ -1153,26 +1040,89 @@ bcf1_t *process(bcf1_t *v) {
                     else if(strcmp(allele,".")==0) count_allele_missing++;
                     else count_allele_other++;
                     }
+                   
                 if(alleles->size==2) {
-                    if(count_allele_0==0 && count_allele_1==0 && count_allele_other==0) {kputs("NO_CALL",&gtype_name);if(args.hide_NO_CALL) print_it=0;}
-                    else if(count_allele_0==2) { kputs("HOM_REF",&gtype_name); color=COLOR_GREEN;if(args.hide_HOM_REF) print_it=0;}
-                    else if(count_allele_missing==0 && strcmp(StringListAt(alleles,0),StringListAt(alleles,1))==0) {kputs("HOM_VAR",&gtype_name); color=COLOR_RED;}
-                    else if(count_allele_missing==0 && strcmp(StringListAt(alleles,0),StringListAt(alleles,1))!=0) {kputs("HET",&gtype_name); color=COLOR_CYAN;}
+                    if(count_allele_0==0 && count_allele_1==0 && count_allele_other==0) {
+                    	kputs("NO_CALL",&gtype_name);
+                    	if(args.hide_NO_CALL) print_it=0;
+                    	count_missing++;
+                    	}
+                    else if(count_allele_0==2) {
+                    	kputs("HOM_REF",&gtype_name);
+                    	color=COLOR_GREEN;
+                    	if(args.hide_HOM_REF) print_it=0;
+                    	count_hom_ref++;
+                    	}
+                    else if(count_allele_missing==0 && strcmp(StringListAt(alleles,0),StringListAt(alleles,1))==0) {
+                    	kputs("HOM_VAR",&gtype_name);
+                    	color=COLOR_RED;
+                    	if(args.hide_HOM_VAR) print_it=0;
+                    	count_hom_var++;
+                    	}
+                    else if(count_allele_missing==0 && strcmp(StringListAt(alleles,0),StringListAt(alleles,1))!=0) {
+                    	kputs("HET",&gtype_name);
+                    	color=COLOR_CYAN;
+                    	count_het++;
+                    	if(args.hide_HET) print_it=0;
+                    	}
+                    else {
+                    	if(args.hide_OTHER) print_it=0;
+                    	count_other++;
+                    	}
                     }
                 else if(alleles->size==1) {
-                    if(count_allele_0==1) {kputs("REF",&gtype_name);color=COLOR_GREEN;if(args.hide_HOM_REF) print_it=0;}
-                    else if(count_allele_1==1) {kputs("ALT",&gtype_name);color=COLOR_RED;}
-                    else if(count_allele_missing==1)  {kputs("NO_CALL",&gtype_name);if(args.hide_NO_CALL) print_it=0;}
+                    if(count_allele_0==1) {
+                    	kputs("REF",&gtype_name);
+                    	color=COLOR_GREEN;
+                    	if(args.hide_HOM_REF) print_it=0;
+                    	count_hom_ref++;
+                    	}
+                    else if(count_allele_1==1) {
+                    	kputs("ALT",&gtype_name);
+                    	color=COLOR_RED;
+                    	count_hom_var++;
+                    	}
+                    else if(count_allele_missing==1)  {
+                    	kputs("NO_CALL",&gtype_name);
+                    	if(args.hide_NO_CALL) print_it=0;
+                    	count_missing++;
+                    	}
+                    else {
+                    	if(args.hide_OTHER) print_it=0;
+                    	count_other++;
+                    	}
                     }
                 else
                 	{
-                	if(count_allele_0==alleles->size) {kputs("HOM_REF",&gtype_name);; color=COLOR_GREEN;if(args.hide_HOM_REF) print_it=0;}
-                	else if(count_allele_missing==alleles->size) {kputs("NO_CALL",&gtype_name);if(args.hide_NO_CALL) print_it=0;}
+                	if(count_allele_0==alleles->size) {
+                		kputs("HOM_REF",&gtype_name);
+                		color=COLOR_GREEN;
+                		if(args.hide_HOM_REF) print_it=0;
+                		count_hom_ref++;
+                		}
+                	else if(count_allele_1==alleles->size) {
+                		kputs("HOM_VAR",&gtype_name);
+                    	color=COLOR_RED;
+                		if(args.hide_HOM_VAR) print_it=0;
+                		count_hom_ref++;
+                		}
+                	else if(count_allele_missing==alleles->size) {
+                		kputs("NO_CALL",&gtype_name);
+                		if(args.hide_NO_CALL) print_it=0;
+                		count_missing++;
+                		}
+                	else {
+                    	if(args.hide_OTHER) print_it=0;
+                    	count_other++;
+                    	}
                 	}
                 StringListFree(alleles);
                 free(gt);
                 }
-           if(print_it) {
+           
+           
+           
+           if(print_it && !args.hide_GT_table) {
                row = TableNewRow(p);
                CellSetText(RowAt(row,0),args.header->samples[i-9]);
                CellSetText(RowAt(row,1),gtype_name.s);
@@ -1185,8 +1135,33 @@ bcf1_t *process(bcf1_t *v) {
            StringListFree(values);
            ks_free(&gtype_name);
            }
-        fprintf(args.out, "# GENOTYPES\n");
-        TablePrint(p,&args);
+        #define ADD_GT(LABEL,COUNT) if(COUNT>0 && total>0) {\
+        	row = TableNewRow(args.gtypeTable);\
+        	RowSetText(row,0,LABEL);\
+        	CellSetLL(RowAt(row,1),COUNT);\
+        	CellSetD(RowAt(row,2),100.0*(COUNT/((float)total)));\
+        	}
+        if(!args.hide_GTTYPE_table) {
+        	int total = count_hom_ref + count_het + count_hom_var + count_missing + count_other;
+			ADD_GT("REF only ",count_hom_ref)
+			ADD_GT("HET",count_het)
+			ADD_GT("ALT only",count_hom_var)
+			ADD_GT("MISSING",count_missing)
+			ADD_GT("OTHER",count_other)
+        
+        	if(TableNRows(args.gtypeTable)>0) {
+				fprintf(args.out, "# GENOTYPE TYPES\n");
+				TablePrint(args.gtypeTable,&args);
+				fputc('\n',args.out);
+				}
+			}
+		#undef ADD_GT
+        
+        if(!args.hide_GT_table && TableNRows(p)>0) {
+		    fprintf(args.out, "# GENOTYPES\n");
+		    TablePrint(p,&args);
+		    fputc('\n',args.out);
+		    }
         TableFree(p);
         StringListFree(formats);
         }
@@ -1202,26 +1177,26 @@ bcf1_t *process(bcf1_t *v) {
 	/** final cleanup */
     ks_free(&vcf_line);
     StringListFree(tokens);
-    StringListFree(alt_alleles);
     TableFree(bcsqTable);
     TableFree(vepTable);
-    TableClear(args.hyperlinksTable);
     TableClear(args.annTable);
+    TableClear(args.lofTable);
     TableClear(args.spliceaiTable);
     TableClear(args.infoTable);
     TableClear(args.vcTable);
+    TableClear(args.gtypeTable);
     return NULL;/* suppress bcf output */
     }
 
 void destroy(void) {
-    regfree(&args.regex_rsid);
     StringListFree(args.vepTokens);
     StringListFree(args.bcsqTokens);
     TableFree(args.spliceaiTable);
     TableFree(args.annTable);
+    TableFree(args.lofTable);
     TableFree(args.infoTable);
-    TableFree(args.hyperlinksTable);
     TableFree(args.vcTable);
+    TableFree(args.gtypeTable);
     }
 
 
