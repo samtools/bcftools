@@ -722,6 +722,7 @@ EOT
     print {$fh} << "EOT";
 
   </head>
+  <body>
   <div id="chrViz00">
     <input type="range" min="$$opts{bin_size}" max="2000000" step="$$opts{bin_size}" value="$$opts{bin_size}" oninput="this.nextElementSibling.value=this.value" onchange="update_slider(this)">
     <output>$bin_size</output>
@@ -736,7 +737,8 @@ EOT
 
     print {$fh} << "EOT";
   $cmd
-<body>
+</body>
+</html>
 EOT
 
     if ( exists($$opts{outfile}) )
