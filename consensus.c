@@ -768,12 +768,26 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     }
     if ( ialt==-1 )
     {
-        char alleles[4];
-        alleles[0] = rec->d.allele[0][0];
-        alleles[1] = ',';
-        alleles[2] = args->missing_allele;
-        alleles[3] = 0;
-        bcf_update_alleles_str(args->hdr, rec, alleles);
+        // missing allele, it can be a single position or an entire gvcf block
+        if ( rec->rlen>1 && bcf_has_variant_types(rec,VCF_REF,bcf_match_exact)>0 )
+        {
+            kstring_t str = {0,0,0};
+            int idx = rec->pos - args->fa_ori_pos + args->fa_mod_off;   // position of the variant within the modified fasta sequence
+            kputsn(args->fa_buf.s+idx,rec->rlen, &str);
+            kputc(',', &str);
+            for (i=0; i<rec->rlen; i++) kputc(args->missing_allele, &str);
+            bcf_update_alleles_str(args->hdr, rec, str.s);
+            free(str.s);
+        }
+        else
+        {
+            char alleles[4];
+            alleles[0] = rec->d.allele[0][0];
+            alleles[1] = ',';
+            alleles[2] = args->missing_allele;
+            alleles[3] = 0;
+            bcf_update_alleles_str(args->hdr, rec, alleles);
+        }
         ialt = 1;
     }
 

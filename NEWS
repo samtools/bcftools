@@ -16,6 +16,10 @@ Changes affecting specific commands:
 
     - Fix Number in the header definition of transferred FILTER and ID tags (#2335)
 
+* bcftools consensus
+
+    - Preserve entire missing gVCF blocks with --missing (#2350)
+
 * bcftools convert
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
