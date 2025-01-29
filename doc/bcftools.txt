@@ -4077,9 +4077,9 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 * When arithmetic operators are used on vectors A and B, the following logic is used to
   compute the resulting vector C:
 
-    - C_i = A_i + B_i when length(A)==B(A) and sets length(C)=length(A)
-    - C_i = A_i + B_0 when length(B)=1 and sets length(C)=length(A)
-    - C_i = A_0 + B_i when length(A)=1 and sets length(C)=length(B)
+    - C_i = A_i + B_i when length(A)==B(A) and sets length\(C)=length(A)
+    - C_i = A_i + B_0 when length(B)=1 and sets length\(C)=length(A)
+    - C_i = A_0 + B_i when length(A)=1 and sets length\(C)=length(B)
     - throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
 
 *Examples:*
