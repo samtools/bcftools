@@ -115,6 +115,10 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'me
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.gvcf.11.c'],out=>'merge.gvcf.11.1.out',args=>'--gvcf -');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]="."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]~"\."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.2.out',args=>q[-f '%TAG' -i 'TAG[*]!="."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.2.out',args=>q[-f '%TAG' -i 'TAG[*]!~"\."']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.1.out',args=>q[-f '%CHROM %POS %ID %REF %ALT %QUAL %FILTER \\t %INFO/CHROM %INFO/POS %INFO/ID %INFO/REF %INFO/ALT %INFO/QUAL %INFO/FILTER']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.2.out',args=>q[-f '[ %CHROM] \\t [ %POS] \\t [ %ID] \\t [ %REF] \\t [ %ALT] \\t [ %QUAL] \\t [ %FILTER]']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.3.out',args=>q[-f '[ %/CHROM] \\t [ %/POS] \\t [ %/ID] \\t [ %/REF] \\t [ %/ALT] \\t [ %/QUAL] \\t [ %/FILTER]']);

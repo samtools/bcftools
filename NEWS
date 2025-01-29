@@ -2,7 +2,10 @@
 
 Changes affecting the whole of bcftools, or multiple commands:
 
-* Add support for matching lines by ID (#1739)
+* Add support for matching lines by ID via the --pair-logic and --collapse options (#1739)
+
+* The -i/-e filtering expressions now properly match the regex negation of missing
+  values, e.g. -i 'TAG!~"\."' (#2355)
 
 
 Changes affecting specific commands:

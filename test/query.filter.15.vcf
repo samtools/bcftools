@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1,length=5>
+##INFO=<ID=TAG,Number=.,Type=String,Description="Some tag">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	1	.	*	*	.	.	TAG=a,b,c
+chr1	2	.	*	*	.	.	TAG=a
+chr1	3	.	*	*	.	.	TAG=.
+chr1	4	.	*	*	.	.	TAG=.,.
+chr1	5	.	*	*	.	.	TAG=a,.,c

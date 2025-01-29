@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2024-12-28 22:19 GMT</strong> and refers to bcftools git version <strong>1.21-61-g68f13f2e+</strong>.</p>
+<p>This manual page was last updated <strong>2025-01-29 08:37 CET</strong> and refers to bcftools git version <strong>1.21-72-g724713f+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -3481,7 +3481,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
+<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -4334,6 +4334,12 @@ bcftools query -f '%AC{1}\n' -i 'AC[1]&gt;10' file.vcf.gz</pre>
 # print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
 bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 || FMT/DP=2' file.vcf
 bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 |  FMT/DP=2' file.vcf</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre># Refer to ID column vs INFO/ID tag vs FORMAT/ID tag
+bcftools query -f 'columnID=%ID   infoID=%INFO/ID  [fmtID=%ID ]  [columnID=%/ID]'</pre>
 </div>
 </div>
 </div>
@@ -5493,13 +5499,13 @@ compute the resulting vector C:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>C_i = A_i + B_i when length(A)==B(A) and sets length&#169;=length(A)</p>
+<p>C_i = A_i + B_i when length(A)==B(A) and sets length(C)=length(A)</p>
 </li>
 <li>
-<p>C_i = A_i + B_0 when length(B)=1 and sets length&#169;=length(A)</p>
+<p>C_i = A_i + B_0 when length(B)=1 and sets length(C)=length(A)</p>
 </li>
 <li>
-<p>C_i = A_0 + B_i when length(A)=1 and sets length&#169;=length(B)</p>
+<p>C_i = A_0 + B_i when length(A)=1 and sets length(C)=length(B)</p>
 </li>
 <li>
 <p>throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1</p>
@@ -5717,7 +5723,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-12-28 22:19:33 UTC
+Last updated 2025-01-29 08:37:53 +0100
 </div>
 </div>
 </body>
