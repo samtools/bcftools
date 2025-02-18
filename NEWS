@@ -39,6 +39,9 @@ Changes affecting specific commands:
     - The option `--merge none` is expected to create no new multiallelic sites, but it should
       allow to merge, say, A>C with A>C,AT (#2333)
 
+    - Make `--merge both` work with indel-only records; for example, the multiallelic
+      site G>GT,T should be merged with G>GT (#2339)
+
 * bcftools norm
 
     - Print the number of removed duplicate sites in the final statistics (#2346)

@@ -3137,14 +3137,23 @@ int can_merge(args_t *args)
                 if ( strcmp(id,line->d.id) ) continue;      // matching by ID and it does not match the selected record
             }
             else if ( selected_types && !types_compatible(args,selected_types,buf,j) ) continue;
-            else
-            {
-                // First time here, choosing the first line: prioritize SNPs when available in the -m snps,both modes
-                if ( (args->collapse&COLLAPSE_SNPS || args->collapse==COLLAPSE_NONE)     // asked to merge SNVs into multiallelics
-                        && (maux->var_types&snp_mask)                   // there are SNVs at the current position
-                        && !(buf->rec[j].var_types&(snp_mask|ref_mask)) // and this record is not a SNV nor ref
-                   ) continue;
-            }
+
+            // This is not a good code. It makes the incorrect assumption of always having a SNP record available.
+            // However, that is not always the case and prevents the merging of G>GT,T with G>GT (see test/merge.multiallelics.1.*.vcf).
+            // We'd need to first check if it is possible to merge with something at all, and only then start excluding.
+            // Anyway, the can_merge() function should be about a *possibility*, one might argue that the priority should be handled in
+            // the stage_line() function.
+            // Commenting this out makes only one difference in our test case: reorders the output lines so that indels can come first.
+            //
+            //  else
+            //  {
+            //      // First time here, choosing the first line: prioritize SNPs when available in the -m snps,both modes
+            //      if ( (args->collapse&COLLAPSE_SNPS || args->collapse==COLLAPSE_NONE)     // asked to merge SNVs into multiallelics
+            //              && (maux->var_types&snp_mask)                   // there are SNVs at the current position
+            //              && !(buf->rec[j].var_types&(snp_mask|ref_mask)) // and this record is not a SNV nor ref
+            //         ) continue;
+            //  }
+
             selected_types |= line_types;
 
             buf->rec[j].skip = 0;   // the j-th record from i-th reader can be included. Final decision will be made in stage_line
