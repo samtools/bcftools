@@ -82,6 +82,7 @@ args_t *args = NULL;
 #define GT_CUSTOM   (1<<10)
 #define GT_X_VAF    (1<<11)
 #define GT_RAND     (1<<12)
+#define GT_INVPHASE (1<<13)
 
 #define MINOR_ALLELE   -1
 #define MAJOR_ALLELE   -2
@@ -113,6 +114,7 @@ const char *usage(void)
         "           X       .. allele with bigger read depth as determined from FMT/AD\n"
         "           p       .. phase genotype (0/1 becomes 0|1)\n"
         "           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
+        "           i       .. invert the genotype phase (0|1 becomes 1|0)\n"
         "Usage: bcftools +setGT [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -235,6 +237,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( strchr(optarg,'X') ) args->new_mask |= GT_X_VAF;
                 if ( strchr(optarg,'p') ) args->new_mask |= GT_PHASED;
                 if ( strchr(optarg,'u') ) args->new_mask |= GT_UNPHASED;
+                if ( strchr(optarg,'i') ) args->new_mask |= GT_INVPHASE;
                 if ( !strncmp(optarg,"c:",2) ) { args->new_mask |= GT_CUSTOM; args->custom.gt_str = optarg; }
                 if ( args->new_mask==0 ) error("Unknown parameter to --new-gt: %s\n", optarg);
                 break;
@@ -362,6 +365,21 @@ static inline int unphase_gt(int32_t *ptr, int ngts)
         ptr[l] = x;
     }
     return changed;
+}
+
+// invert the phase for a single sample, ngts is the ploidy
+static inline int invert_phase_gt(int32_t *ptr, int ngts)
+{
+    int gt;
+    if ( ngts!=2 ) return 0;    // don't invert the phase for sample ploidy != 2
+    if ( ptr[0]==bcf_int32_vector_end || ptr[1]==bcf_int32_vector_end ) return 0;
+    gt = bcf_gt_allele(ptr[1]);
+    if (bcf_gt_is_phased(ptr[1]))
+        ptr[1] = bcf_gt_phased(bcf_gt_allele(ptr[0]));
+    else
+        ptr[1] = bcf_gt_unphased(bcf_gt_allele(ptr[0]));
+    ptr[0] = bcf_gt_unphased(gt);    // first gt doesn't carry the phased flag per BCF specifications
+    return 2;
 }
 
 // sets GT for a single sample, ngts is the ploidy, allele
@@ -543,6 +561,8 @@ bcf1_t *process(bcf1_t *rec)
             }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(ptr, ngts, args->xarr[i]);
+            else if ( args->new_mask & GT_INVPHASE )
+                changed += invert_phase_gt(ptr, ngts);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
@@ -584,6 +604,8 @@ bcf1_t *process(bcf1_t *rec)
             }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(args->gts + i*ngts, ngts, args->xarr[i]);
+            else if ( args->new_mask & GT_INVPHASE )
+                changed += invert_phase_gt(args->gts, ngts);
             else
                 changed += set_gt(args->gts + i*ngts, ngts, args->new_gt);
         }
@@ -620,6 +642,8 @@ bcf1_t *process(bcf1_t *rec)
             }
             else if ( args->new_mask & GT_X_VAF )
                 changed += set_gt(ptr, ngts, args->xarr[i]);
+            else if ( args->new_mask & GT_INVPHASE )
+                changed += invert_phase_gt(ptr, ngts);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
