@@ -633,6 +633,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+set
 run_test(\&test_vcf_plugin,$opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het"\'');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het" & binom(AD[@{QPATH}/setGT.samples.txt])<0.1\'');
+run_test(\&test_vcf_plugin,$opts,in=>'setGT.2',out=>'setGT.2.1.out',cmd=>'+setGT --no-version',args=>'-- -t a -n i');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.1.out',cmd=>'+setGT --no-version',args=>'-- -t a -n pM');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.2.out',cmd=>'+setGT --no-version',args=>'-- -t a -n pm');
 run_test(\&test_vcf_plugin,$opts,in=>'setGT.3',out=>'setGT.3.3.out',cmd=>'+setGT --no-version',args=>'-- -t a -n c:1');
