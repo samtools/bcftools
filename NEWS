@@ -46,6 +46,10 @@ Changes affecting specific commands:
 
     - Print the number of removed duplicate sites in the final statistics (#2346)
 
+* plot-vcfstats
+
+    - Make the option `-s, --sample-names` functional again (#2353)
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
