@@ -2,6 +2,7 @@
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##reference=norm.3.fa
 ##contig=<ID=1,length=4411532>
+##INFO=<ID=XX,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	9	.	TCA	T	.	.	.
+1	9	.	TCA	T	.	.	XX=1|10|NAC|N
 1	11	.	N	C	.	.	.

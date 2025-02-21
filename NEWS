@@ -46,6 +46,8 @@ Changes affecting specific commands:
 
     - Print the number of removed duplicate sites in the final statistics (#2346)
 
+    - Preserve the original alleles in `--old-rec-tag` when `--check-ref s` requested (#2357)
+
 * plot-vcfstats
 
     - Make the option `-s, --sample-names` functional again (#2353)

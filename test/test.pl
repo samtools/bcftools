@@ -316,10 +316,10 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d snps');
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.1.out',args=>'-d exact');
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.2.out',args=>'-d all');
-run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a');
-run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
-run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
-run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"' --old-rec-tag XX]);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>['-a --old-rec-tag OLD_REC','-m -any --force']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>['-m -any --old-rec-tag OLD_REC --force','-a']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'-m -any --old-rec-tag OLD_REC --force -a');
