@@ -661,20 +661,21 @@ const char* about(void) {
          "Author Pierre Lindenbaum PhD. Institut-du-Thorax. U1087. "
          "Nantes/France\n"
          "Options:\n"
-         "   --hide (string)  comma separated of features to hide:\n"
-         "                    HOM_REF or RR : genotypes with REF allele only\n"
-         "                    HET or AR : heterozygous genotypes\n"
-         "                    NO_CALL or MISSING : missing genotypes\n"
-         "                    CSQ or VEP : VEP table\n"
-         "                    SPLICEAI : SPLICEAI table\n"
-         "                    ANN or SNPEFF : SNPEFF table\n"
-         "                    LOF: SNPEFF LOF table\n"
-         "                    VC: general table\n"
-         "                    INFO: INFO table\n"
-         "                    GT: Genotype table\n"
-         "                    GTTYPES: Genotype count table\n"
-         "                    URL: hyperlink table\n"
-         "Example:\n"
+         "   -h|--help (string)  help (this screen).\n"
+         "   -x|--hide (string)  comma separated list of features to hide:\n"
+         "                       HOM_REF or RR : genotypes with REF allele only\n"
+         "                       HET or AR : heterozygous genotypes\n"
+         "                       NO_CALL or MISSING : missing genotypes\n"
+         "                       CSQ or VEP : VEP table\n"
+         "                       SPLICEAI : SPLICEAI table\n"
+         "                       ANN or SNPEFF : SNPEFF table\n"
+         "                       LOF: SNPEFF LOF table\n"
+         "                       VC: general table\n"
+         "                       INFO: INFO table\n"
+         "                       GT: Genotype table\n"
+         "                       GTTYPES: Genotype count table\n"
+         "                       URL: hyperlink table\n"
+         "\nExample:\n"
          "$ wget -O - "
          "'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/"
          "1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/"
@@ -745,8 +746,12 @@ int init(int argc, char** argv, bcf_hdr_t* hdr_in, bcf_hdr_t* out) {
   args.gtypeTable = TableNewStr("Type", "Count", "%", NULL);
   args.hyperlinksTable = TableNewStr("DB", "" /* empty/misc */, "URL", NULL);
 
-  static struct option loptions[] = {{"hide", required_argument, NULL, 'x'},
-                                     {0, 0, 0, 0}};
+  static struct option loptions[] =
+        {
+        {"help", required_argument, NULL, 'h'},
+        {"hide", required_argument, NULL, 'x'},
+        {0, 0, 0, 0}
+        };
 
   while ((c = getopt_long(argc, argv, "hx:", loptions, NULL)) >= 0) {
     switch (c) {
@@ -800,9 +805,13 @@ int init(int argc, char** argv, bcf_hdr_t* hdr_in, bcf_hdr_t* out) {
         break;
       }
       case 'h':
+        fputs(about(), stdout);
+        exit(EXIT_SUCCESS);
+        break;
       case '?':
       default:
-        error("wrong arguments");
+        error("wrong arguments. Use option --help to get help.\n");
+        exit(EXIT_FAILURE);
         break;
     }
   }
