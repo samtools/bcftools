@@ -492,6 +492,7 @@ void StringListFree(StringList* ptr) {
   for (i = 0; i < ptr->size; ++i) {
     free(ptr->strings[i]);
   }
+  free(ptr->strings);
   free(ptr);
 }
 
