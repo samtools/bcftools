@@ -616,7 +616,7 @@ static int findContigs(bcf_hdr_t* hdr_in, const char* ctg1a, uint64_t len1,
     uint64_t len;
     bcf_idpair_t c = hdr_in->id[BCF_DT_CTG][i];
     if (c.val == NULL) continue;
-    if (c.val->info == NULL) continue;
+    //if (c.val->info == NULL) continue; no info is always an array
     len = c.val->info[0];
     const char* contig_name = c.key;
     if (len == len1 &&
@@ -726,7 +726,7 @@ const char* about(void) {
 */
 int init(int argc, char** argv, bcf_hdr_t* hdr_in, bcf_hdr_t* out) {
   int c;
-  memset((void*)&args, sizeof(args_t), 1);
+  memset((void*)&args, 0, sizeof(args_t));
   args.header = hdr_in;
   args.out = stdout;
   // initialize table that will not change
