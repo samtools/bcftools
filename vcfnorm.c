@@ -93,7 +93,7 @@ typedef struct
     int32_t *int32_arr;
     int ntmp_arr1, ntmp_arr2, nint32_arr;
     kstring_t *tmp_str;
-    kstring_t *tmp_als, *tmp_sym, tmp_kstr;
+    kstring_t *tmp_als, *tmp_sym, tmp_kstr, old_rec_tag_kstr;
     int ntmp_als, ntmp_sym;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
@@ -127,6 +127,42 @@ typedef struct
 }
 args_t;
 
+static void old_rec_tag_init(args_t *args, bcf1_t *line)
+{
+    if ( !args->old_rec_tag ) return;
+
+    args->old_rec_tag_kstr.l = 0;
+    ksprintf(&args->old_rec_tag_kstr,"%s|%"PRIhts_pos"|%s|",bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+    int i;
+    for (i=1; i<line->n_allele; i++)
+    {
+        kputs(line->d.allele[i],&args->old_rec_tag_kstr);
+        if ( i+1<line->n_allele ) kputc(',',&args->old_rec_tag_kstr);
+    }
+}
+static void old_rec_tag_set(args_t *args, bcf1_t *line, int ialt)
+{
+    if ( !args->old_rec_tag || !args->old_rec_tag_kstr.l ) return;
+
+    // only update if the tag is not present already, there can be multiple normalization steps
+    int i, id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, args->old_rec_tag);
+    bcf_unpack(line, BCF_UN_INFO);
+    for (i=0; i<line->n_info; i++)
+    {
+        bcf_info_t *inf = &line->d.info[i];
+        if ( inf && inf->key == id ) return;
+    }
+
+    if ( ialt>0 )
+    {
+        kputc('|',&args->old_rec_tag_kstr);
+        kputw(ialt,&args->old_rec_tag_kstr);
+    }
+    if ( (bcf_update_info_string(args->out_hdr, line, args->old_rec_tag, args->old_rec_tag_kstr.s))!=0 )
+            error("An error occurred while updating INFO/%s\n",args->old_rec_tag);
+    args->old_rec_tag_kstr.l = 0;
+}
+
 static inline int replace_iupac_codes(char *seq, int nseq)
 {
     // Replace ambiguity codes with N for now, it awaits to be seen what the VCF spec codifies in the end
@@ -159,7 +195,8 @@ static void seq_to_upper(char *seq, int len)
         for (i=0; seq[i]; i++) seq[i] = nt_to_upper(seq[i]);
 }
 
-static void fix_ref(args_t *args, bcf1_t *line)
+// returns 0 when no fix was needed, 1 otherwise
+static int fix_ref(args_t *args, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_STR);
     int reflen = strlen(line->d.allele[0]);
@@ -177,7 +214,7 @@ static void fix_ref(args_t *args, bcf1_t *line)
     args->nref.tot++;
 
     // is the REF different? If not, we are done
-    if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
+    if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return 0; }
 
     // is the REF allele missing?
     if ( reflen==1 && line->d.allele[0][0]=='.' )
@@ -186,11 +223,11 @@ static void fix_ref(args_t *args, bcf1_t *line)
         args->nref.set++;
         free(ref);
         bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
-        return;
+        return 1;
     }
 
     // does REF or ALT contain non-standard bases?
-    int has_non_acgtn = 0;
+    int ret = 0, has_non_acgtn = 0;
     for (i=0; i<line->n_allele; i++)
     {
         if ( line->d.allele[i][0]=='<' ) continue;
@@ -200,7 +237,8 @@ static void fix_ref(args_t *args, bcf1_t *line)
     {
         args->nref.set++;
         bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
-        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
+        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return 1; }
+        ret = 1;
     }
 
     // does the REF allele contain N's ?
@@ -221,11 +259,11 @@ static void fix_ref(args_t *args, bcf1_t *line)
     }
     if ( fix )
     {
+        ret = 1;
         args->nref.set++;
         bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
-        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
+        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return ret; }
     }
-
 
     // is it swapped?
     for (i=1; i<line->n_allele; i++)
@@ -237,6 +275,7 @@ static void fix_ref(args_t *args, bcf1_t *line)
     kstring_t str = {0,0,0};
     if ( i==line->n_allele )    // none of the alternate alleles matches the reference
     {
+        ret = 1;
         args->nref.set++;
         kputsn(ref,reflen,&str);
         for (i=1; i<line->n_allele; i++)
@@ -247,7 +286,7 @@ static void fix_ref(args_t *args, bcf1_t *line)
         bcf_update_alleles_str(args->out_hdr,line,str.s);
         free(ref);
         free(str.s);
-        return;
+        return ret;
     }
 
     // one of the alternate alleles matches the reference, assume it's a simple swap
@@ -289,6 +328,7 @@ static void fix_ref(args_t *args, bcf1_t *line)
         ac[i-1] = ni;
         bcf_update_info_int32(args->out_hdr, line, "AC", ac, nac);
     }
+    return 1;
 }
 
 static void fix_dup_alt(args_t *args, bcf1_t *line)
@@ -334,34 +374,35 @@ static void fix_dup_alt(args_t *args, bcf1_t *line)
     if ( changed ) bcf_update_genotypes(args->out_hdr,line,gts,ngts);
 }
 
-static void set_old_rec_tag(args_t *args, bcf1_t *dst, bcf1_t *src, int ialt)
-{
-    if ( !args->old_rec_tag ) return;
-
-    // only update if the tag is not present already, there can be multiple normalization steps
-    int i, id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, args->old_rec_tag);
-    bcf_unpack(dst, BCF_UN_INFO);
-    for (i=0; i<dst->n_info; i++)
-    {
-        bcf_info_t *inf = &dst->d.info[i];
-        if ( inf && inf->key == id ) return;
-    }
-
-    args->tmp_kstr.l = 0;
-    ksprintf(&args->tmp_kstr,"%s|%"PRIhts_pos"|%s|",bcf_seqname(args->hdr,src),src->pos+1,src->d.allele[0]);
-    for (i=1; i<src->n_allele; i++)
-    {
-        kputs(src->d.allele[i],&args->tmp_kstr);
-        if ( i+1<src->n_allele ) kputc(',',&args->tmp_kstr);
-    }
-    if ( ialt>0 )
-    {
-        kputc('|',&args->tmp_kstr);
-        kputw(ialt,&args->tmp_kstr);
-    }
-    if ( (bcf_update_info_string(args->out_hdr, dst, args->old_rec_tag, args->tmp_kstr.s))!=0 )
-            error("An error occurred while updating INFO/%s\n",args->old_rec_tag);
-}
+// static void set_old_rec_tag(args_t *args, bcf1_t *dst, bcf1_t *src, int ialt)
+// {
+// fprintf(stderr,"remove me\n");
+//     if ( !args->old_rec_tag ) return;
+//
+//     // only update if the tag is not present already, there can be multiple normalization steps
+//     int i, id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, args->old_rec_tag);
+//     bcf_unpack(dst, BCF_UN_INFO);
+//     for (i=0; i<dst->n_info; i++)
+//     {
+//         bcf_info_t *inf = &dst->d.info[i];
+//         if ( inf && inf->key == id ) return;
+//     }
+//
+//     args->tmp_kstr.l = 0;
+//     ksprintf(&args->tmp_kstr,"%s|%"PRIhts_pos"|%s|",bcf_seqname(args->hdr,src),src->pos+1,src->d.allele[0]);
+//     for (i=1; i<src->n_allele; i++)
+//     {
+//         kputs(src->d.allele[i],&args->tmp_kstr);
+//         if ( i+1<src->n_allele ) kputc(',',&args->tmp_kstr);
+//     }
+//     if ( ialt>0 )
+//     {
+//         kputc('|',&args->tmp_kstr);
+//         kputw(ialt,&args->tmp_kstr);
+//     }
+//     if ( (bcf_update_info_string(args->out_hdr, dst, args->old_rec_tag, args->tmp_kstr.s))!=0 )
+//             error("An error occurred while updating INFO/%s\n",args->old_rec_tag);
+// }
 
 static int is_left_align(args_t *args, bcf1_t *line)
 {
@@ -523,6 +564,7 @@ static hts_pos_t realign_right(args_t *args, bcf1_t *line)
 static int realign(args_t *args, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_STR);
+    old_rec_tag_init(args,line);
 
     // Sanity check REF
     int i, nref, reflen = strlen(line->d.allele[0]);
@@ -655,7 +697,7 @@ static int realign(args_t *args, bcf1_t *line)
     }
     if ( new_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
-    set_old_rec_tag(args, line, line, 0);
+    old_rec_tag_set(args, line, 0);
 
     // Create new block of alleles and update
     args->tmp_kstr.l = 0;
@@ -1247,6 +1289,7 @@ static void split_multiallelic_to_biallelics(args_t *args, bcf1_t *line)
         if ( !args->tmp_lines[i] ) args->tmp_lines[i] = bcf_init1();
         bcf1_t *dst = args->tmp_lines[i];
         bcf_clear(dst);
+        old_rec_tag_init(args,line);
 
         dst->rid  = line->rid;
         dst->pos  = line->pos;
@@ -1271,7 +1314,7 @@ static void split_multiallelic_to_biallelics(args_t *args, bcf1_t *line)
             else if ( type==BCF_HT_FLAG ) split_info_flag(args, line, info, i, dst);
             else split_info_string(args, line, info, i, dst);
         }
-        set_old_rec_tag(args, dst, line, i + 1); // 1-based indexes
+        old_rec_tag_set(args, dst, i + 1); // 1-based indexes
 
         dst->n_sample = line->n_sample;
         for (j=0; j<line->n_fmt; j++)
@@ -2246,6 +2289,7 @@ static void destroy_data(args_t *args)
     free(args->tmp_als);
     free(args->tmp_sym);
     free(args->tmp_kstr.s);
+    free(args->old_rec_tag_kstr.s);
     if ( args->tmp_str )
     {
         for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) free(args->tmp_str[i].s);
@@ -2269,7 +2313,11 @@ static void normalize_line(args_t *args, bcf1_t *line)
 {
     if ( args->fai )
     {
-        if ( args->filter_pass && (args->check_ref & CHECK_REF_FIX) ) fix_ref(args, line);
+        if ( args->filter_pass && (args->check_ref & CHECK_REF_FIX) )
+        {
+            old_rec_tag_init(args,line);
+            if ( fix_ref(args,line) ) old_rec_tag_set(args,line,0);
+        }
         if ( args->do_indels )
         {
             int ret = args->filter_pass ? realign(args, line) : ERR_OK;

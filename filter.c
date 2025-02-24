@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -2609,9 +2609,11 @@ static int _regex_vector_strings(regex_t *regex, char *str, size_t len, int logi
         char *mid = str;
         while ( mid < end && *mid && *mid!=',' ) mid++;
         int miss = mid - str == 1 && str[0]=='.' ? 1 : 0;
-        if ( miss && missing_logic[miss] ) return 1;
+        int match = ( miss && missing_logic[miss] ) ? 1 : 0;
+        if ( logic==TOK_NLIKE ) match = match ? 0 : 1;
+        if ( match ) return 1;
         char tmp = *mid; *mid = 0;
-        int match = regexec(regex, str, 0,NULL,0) ? 0 : 1;
+        match = regexec(regex, str, 0,NULL,0) ? 0 : 1;
         *mid = tmp;
         if ( logic==TOK_NLIKE ) match = match ? 0 : 1;
         if ( match ) return 1;
@@ -2698,6 +2700,7 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         {
             token_t *tok = atok->regex ? btok : atok;
             rtok->pass_site = _regex_vector_strings(regex, tok->str_value.s, tok->str_value.l, logic, missing_logic);
+    fprintf(stderr,"pass=%d [%s]\n",rtok->pass_site,tok->str_value.s);
         }
         return;
     }
@@ -3742,6 +3745,7 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
                     if ( type==BCF_HT_INT ) set_missing = 1;
                     else if ( type==BCF_HT_REAL ) set_missing = 1;
                 }
+                else if ( !out[k].tag ) error("Error: could not parse the expression\n"); // e.g. =~
                 else if ( !strcmp("QUAL",out[k].tag) ) set_missing = 1;
                 if ( set_missing ) { out[j].is_str = 0; out[j].is_missing = 1; bcf_double_set_missing(out[j].values[0]); }
             }

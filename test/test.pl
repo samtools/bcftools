@@ -61,6 +61,9 @@ run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
+run_test(\&test_vcf_merge,$opts,in=>['merge.symbolic.1.a','merge.symbolic.1.b'],out=>'merge.symbolic.1.1.out',args=>'');
+run_test(\&test_vcf_merge,$opts,in=>['merge.multiallelics.1.a','merge.multiallelics.1.b'],out=>'merge.multiallelics.1.1.out',args=>'--merge none');
+run_test(\&test_vcf_merge,$opts,in=>['merge.multiallelics.1.a','merge.multiallelics.1.b'],out=>'merge.multiallelics.1.1.out',args=>'--merge both');
 run_test(\&test_vcf_merge,$opts,in=>['merge.12.a','merge.12.b'],out=>'merge.12.1.out',args=>'--merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.12.a','merge.12.b'],out=>'merge.12.1.out',args=>'--merge both');
 run_test(\&test_vcf_merge,$opts,in=>['merge.phased.1.a','merge.phased.1.b'],out=>'merge.phased.1.1.out',args=>'');
@@ -115,6 +118,10 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'me
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.gvcf.11.c'],out=>'merge.gvcf.11.1.out',args=>'--gvcf -');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]="."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]~"\."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.2.out',args=>q[-f '%TAG' -i 'TAG[*]!="."']);
+run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.2.out',args=>q[-f '%TAG' -i 'TAG[*]!~"\."']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.1.out',args=>q[-f '%CHROM %POS %ID %REF %ALT %QUAL %FILTER \\t %INFO/CHROM %INFO/POS %INFO/ID %INFO/REF %INFO/ALT %INFO/QUAL %INFO/FILTER']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.2.out',args=>q[-f '[ %CHROM] \\t [ %POS] \\t [ %ID] \\t [ %REF] \\t [ %ALT] \\t [ %QUAL] \\t [ %FILTER]']);
 run_test(\&test_vcf_query,$opts,in=>'query.3',out=>'query.3.3.out',args=>q[-f '[ %/CHROM] \\t [ %/POS] \\t [ %/ID] \\t [ %/REF] \\t [ %/ALT] \\t [ %/QUAL] \\t [ %/FILTER]']);
@@ -310,10 +317,10 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d snps');
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.1.out',args=>'-d exact');
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.2.out',args=>'-d all');
-run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a');
-run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
-run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
-run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"' --old-rec-tag XX]);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>['-a --old-rec-tag OLD_REC','-m -any --force']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>['-m -any --old-rec-tag OLD_REC --force','-a']);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'-m -any --old-rec-tag OLD_REC --force -a');
@@ -902,6 +909,7 @@ run_test(\&test_vcf_convert_hs2vcf,$opts,h=>'convert.hs.gt.ids.hap',s=>'convert.
 run_test(\&test_vcf_convert_gvcf,$opts,in=>'convert.gvcf',out=>'convert.gvcf.out',fa=>'gvcf.fa',args=>'--gvcf2vcf -i\'FILTER="PASS"\'');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.23andme',out=>'convert.23andme.vcf',args=>'-c ID,CHROM,POS,AA -s SAMPLE1',fai=>'23andme');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.tsv',out=>'convert.tsv.vcf',args=>'-c -,CHROM,POS,REF,ALT',fai=>'23andme');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.gvcf-missing.1',out=>'consensus.gvcf-missing.1.out',fa=>'consensus.gvcf-missing.fa',args=>'--missing N');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.1.out',fa=>'consensus.overlaps.1.fa',args=>'-s A');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.2.out',fa=>'consensus.overlaps.1.fa',args=>'-s B');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.3.out',fa=>'consensus.overlaps.1.fa',args=>'-s A -a N');

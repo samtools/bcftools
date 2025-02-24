@@ -2,7 +2,10 @@
 
 Changes affecting the whole of bcftools, or multiple commands:
 
-* Add support for matching lines by ID (#1739)
+* Add support for matching lines by ID via the --pair-logic and --collapse options (#1739)
+
+* The -i/-e filtering expressions now properly match the regex negation of missing
+  values, e.g. -i 'TAG!~"\."' (#2355)
 
 
 Changes affecting specific commands:
@@ -15,6 +18,10 @@ Changes affecting specific commands:
 * bcftools annotate
 
     - Fix Number in the header definition of transferred FILTER and ID tags (#2335)
+
+* bcftools consensus
+
+    - Preserve entire missing gVCF blocks with --missing (#2350)
 
 * bcftools convert
 
@@ -32,9 +39,21 @@ Changes affecting specific commands:
     - The option `--merge none` is expected to create no new multiallelic sites, but it should
       allow to merge, say, A>C with A>C,AT (#2333)
 
+    - Make `--merge both` work with indel-only records; for example, the multiallelic
+      site G>GT,T should be merged with G>GT (#2339)
+
+    - Do not merge symbolic alleles unless they have not just the same type, eg. <DEL>,
+      but also length, i.e the INFO/END coordinate (#2362)
+
 * bcftools norm
 
     - Print the number of removed duplicate sites in the final statistics (#2346)
+
+    - Preserve the original alleles in `--old-rec-tag` when `--check-ref s` requested (#2357)
+
+* plot-vcfstats
+
+    - Make the option `-s, --sample-names` functional again (#2353)
 
 * bcftools query
 
