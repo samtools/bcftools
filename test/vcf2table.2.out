@@ -1,0 +1,110 @@
+<<< 1:14464:A (n. 1)
+
+# Variant
++--------+---------+
+| KEY    | VALUE   |
++--------+---------+
+| CHROM  | 1       |
+| POS    | 14464   |
+| ID     | .       |
+| REF    | A       |
+| ALT    | T       |
+| QUAL   | 2235.88 |
+| FILTER | PASS    |
++--------+---------+
+
+# VEP/CSQ
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+--------------------+------------+----------+--------+---------------+---------------+---------+-----------+--------+--------+--------+--------+--------+--------+--------+-------------+
+| Allele | Consequence                        | IMPACT   | SYMBOL  | Gene            | Feature_type      | Feature         | BIOTYPE                | EXON  | HGVSc                       | cDNA_position | Existing_variation | ALLELE_NUM | DISTANCE | STRAND | VARIANT_CLASS | SYMBOL_SOURCE | HGNC_ID | CANONICAL | AF     | AFR_AF | AMR_AF | EAS_AF | EUR_AF | SAS_AF | MAX_AF | MAX_AF_POPS |
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+--------------------+------------+----------+--------+---------------+---------------+---------+-----------+--------+--------+--------+--------+--------+--------+--------+-------------+
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000423562 | unprocessed_pseudogene | 10/10 | ENST00000423562.1:n.1568T>A | 1568          | rs546169444        | 1          |          | -1     | SNV           | HGNC          | 38034   |           | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000438504 | unprocessed_pseudogene | 12/12 | ENST00000438504.2:n.1682T>A | 1682          | rs546169444        | 1          |          | -1     | SNV           | HGNC          | 38034   | YES       | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | downstream_gene_variant            | MODIFIER | DDX11L1 | ENSG00000223972 | Transcript        | ENST00000456328 | processed_transcript   |       |                             |               | rs546169444        | 1          | 55       | 1      | SNV           | HGNC          | 37102   | YES       | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000488147 | unprocessed_pseudogene | 11/11 | ENST00000488147.1:n.1291T>A | 1291          | rs546169444        | 1          |          | -1     | SNV           | HGNC          | 38034   |           | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000538476 | unprocessed_pseudogene | 13/13 | ENST00000538476.1:n.1530T>A | 1530          | rs546169444        | 1          |          | -1     | SNV           | HGNC          | 38034   |           | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000541675 | unprocessed_pseudogene | 9/9   | ENST00000541675.1:n.1315T>A | 1315          | rs546169444        | 1          |          | -1     | SNV           | HGNC          | 38034   |           | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
+| T      | regulatory_region_variant          | MODIFIER |         |                 | RegulatoryFeature | ENSR00000000002 | open_chromatin_region  |       |                             |               | rs546169444        | 1          |          |        | SNV           |               |         |           | 0.0958 | 0.0144 | 0.1138 | 0.005  | 0.1859 | 0.1943 | 0.1943 | SAS         |
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+--------------------+------------+----------+--------+---------------+---------------+---------+-----------+--------+--------+--------+--------+--------+--------+--------+-------------+
+
+# BCSQ
++-------------+--------+------------------------+
+| Consequence | gene   | biotype                |
++-------------+--------+------------------------+
+| non_coding  | WASH7P | unprocessed_pseudogene |
++-------------+--------+------------------------+
+
+>>> 1:14464:A (n. 1)
+
+<<< 1:14469:C (n. 2)
+
+# Variant
++--------+-------+
+| KEY    | VALUE |
++--------+-------+
+| CHROM  | 1     |
+| POS    | 14469 |
+| ID     | .     |
+| REF    | C     |
+| ALT    | T     |
+| QUAL   | 37.38 |
+| FILTER | PASS  |
++--------+-------+
+
+# VEP/CSQ
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+| Allele | Consequence                        | IMPACT   | SYMBOL  | Gene            | Feature_type      | Feature         | BIOTYPE                | EXON  | HGVSc                       | cDNA_position | ALLELE_NUM | DISTANCE | STRAND | VARIANT_CLASS | SYMBOL_SOURCE | HGNC_ID | CANONICAL |
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000423562 | unprocessed_pseudogene | 10/10 | ENST00000423562.1:n.1563G>A | 1563          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000438504 | unprocessed_pseudogene | 12/12 | ENST00000438504.2:n.1677G>A | 1677          | 1          |          | -1     | SNV           | HGNC          | 38034   | YES       |
+| T      | downstream_gene_variant            | MODIFIER | DDX11L1 | ENSG00000223972 | Transcript        | ENST00000456328 | processed_transcript   |       |                             |               | 1          | 60       | 1      | SNV           | HGNC          | 37102   | YES       |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000488147 | unprocessed_pseudogene | 11/11 | ENST00000488147.1:n.1286G>A | 1286          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000538476 | unprocessed_pseudogene | 13/13 | ENST00000538476.1:n.1525G>A | 1525          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| T      | non_coding_transcript_exon_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript        | ENST00000541675 | unprocessed_pseudogene | 9/9   | ENST00000541675.1:n.1310G>A | 1310          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| T      | regulatory_region_variant          | MODIFIER |         |                 | RegulatoryFeature | ENSR00000000002 | open_chromatin_region  |       |                             |               | 1          |          |        | SNV           |               |         |           |
++--------+------------------------------------+----------+---------+-----------------+-------------------+-----------------+------------------------+-------+-----------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+
+# BCSQ
++-------------+--------+------------------------+
+| Consequence | gene   | biotype                |
++-------------+--------+------------------------+
+| non_coding  | WASH7P | unprocessed_pseudogene |
++-------------+--------+------------------------+
+
+>>> 1:14469:C (n. 2)
+
+<<< 1:14522:G (n. 3)
+
+# Variant
++--------+--------+
+| KEY    | VALUE  |
++--------+--------+
+| CHROM  | 1      |
+| POS    | 14522  |
+| ID     | .      |
+| REF    | G      |
+| ALT    | A      |
+| QUAL   | 627.64 |
+| FILTER | PASS   |
++--------+--------+
+
+# VEP/CSQ
++--------+----------------------------------------------+----------+---------+-----------------+--------------+-----------------+------------------------+-------+--------+--------------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+| Allele | Consequence                                  | IMPACT   | SYMBOL  | Gene            | Feature_type | Feature         | BIOTYPE                | EXON  | INTRON | HGVSc                          | cDNA_position | ALLELE_NUM | DISTANCE | STRAND | VARIANT_CLASS | SYMBOL_SOURCE | HGNC_ID | CANONICAL |
++--------+----------------------------------------------+----------+---------+-----------------+--------------+-----------------+------------------------+-------+--------+--------------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+| A      | non_coding_transcript_exon_variant           | MODIFIER | WASH7P  | ENSG00000227232 | Transcript   | ENST00000423562 | unprocessed_pseudogene | 10/10 |        | ENST00000423562.1:n.1510C>T    | 1510          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| A      | non_coding_transcript_exon_variant           | MODIFIER | WASH7P  | ENSG00000227232 | Transcript   | ENST00000438504 | unprocessed_pseudogene | 12/12 |        | ENST00000438504.2:n.1624C>T    | 1624          | 1          |          | -1     | SNV           | HGNC          | 38034   | YES       |
+| A      | downstream_gene_variant                      | MODIFIER | DDX11L1 | ENSG00000223972 | Transcript   | ENST00000456328 | processed_transcript   |       |        |                                |               | 1          | 113      | 1      | SNV           | HGNC          | 37102   | YES       |
+| A      | intron_variant&non_coding_transcript_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript   | ENST00000488147 | unprocessed_pseudogene |       | 10/10  | ENST00000488147.1:n.1254-21C>T |               | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| A      | intron_variant&non_coding_transcript_variant | MODIFIER | WASH7P  | ENSG00000227232 | Transcript   | ENST00000538476 | unprocessed_pseudogene |       | 12/12  | ENST00000538476.1:n.1492-20C>T |               | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
+| A      | non_coding_transcript_exon_variant           | MODIFIER | WASH7P  | ENSG00000227232 | Transcript   | ENST00000541675 | unprocessed_pseudogene | 9/9   |        | ENST00000541675.1:n.1257C>T    | 1257          | 1          |          | -1     | SNV           | HGNC          | 38034   |           |
++--------+----------------------------------------------+----------+---------+-----------------+--------------+-----------------+------------------------+-------+--------+--------------------------------+---------------+------------+----------+--------+---------------+---------------+---------+-----------+
+
+# BCSQ
++-------------+--------+------------------------+
+| Consequence | gene   | biotype                |
++-------------+--------+------------------------+
+| non_coding  | WASH7P | unprocessed_pseudogene |
++-------------+--------+------------------------+
+
+>>> 1:14522:G (n. 3)
+
