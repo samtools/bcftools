@@ -2415,7 +2415,7 @@ static void init_columns(args_t *args)
                 col->hdr_key_dst = strdup(str.s+5);
                 tmp.l = 0;
                 ksprintf(&tmp,"##INFO=<ID=%s,Number=.,Type=String,Description=\"Transferred FILTER column\">",col->hdr_key_dst);
-                bcf_hdr_append(args->hdr_out, tmp.s);
+                if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                 if (bcf_hdr_sync(args->hdr_out) < 0) error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, col->hdr_key_dst);
                 col->number = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
@@ -2447,7 +2447,7 @@ static void init_columns(args_t *args)
                     if ( k<0 ) error("[%s] Failed to parse the header, the ID attribute not found", __func__);
                     tmp.l = 0;
                     bcf_hrec_format(hrec, &tmp);
-                    bcf_hdr_append(args->hdr_out, tmp.s);
+                    if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                 }
                 if (bcf_hdr_sync(args->hdr_out) < 0)
                     error_errno("[%s] Failed to update header", __func__);
@@ -2481,7 +2481,7 @@ static void init_columns(args_t *args)
                 if ( skip_info && khash_str2int_has_key(skip_info,hrec->vals[k]) ) continue;
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
-                bcf_hdr_append(args->hdr_out, tmp.s);
+                if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                 if (bcf_hdr_sync(args->hdr_out) < 0)
                     error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
@@ -2517,7 +2517,7 @@ static void init_columns(args_t *args)
                 if ( skip_fmt && khash_str2int_has_key(skip_fmt,hrec->vals[k]) ) continue;
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
-                bcf_hdr_append(args->hdr_out, tmp.s);
+                if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                 if (bcf_hdr_sync(args->hdr_out) < 0)
                     error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
@@ -2565,7 +2565,7 @@ static void init_columns(args_t *args)
                 if ( !hrec ) error("No such annotation \"%s\" in %s\n", key_src,args->targets_fname);
                 tmp.l = 0;
                 bcf_hrec_format_rename(hrec, key_dst, &tmp);
-                bcf_hdr_append(args->hdr_out, tmp.s);
+                if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                 if (bcf_hdr_sync(args->hdr_out) < 0)
                     error_errno("[%s] Failed to update header", __func__);
             }
@@ -2698,7 +2698,7 @@ static void init_columns(args_t *args)
                         tmp.l = 0;
                         bcf_hrec_format_rename(hrec, key_dst, &tmp);
                     }
-                    bcf_hdr_append(args->hdr_out, tmp.s);
+                    if ( bcf_hdr_append(args->hdr_out, tmp.s) ) error("[%s:%d] failed to update the header\n",__FILE__,__LINE__);
                     if (bcf_hdr_sync(args->hdr_out) < 0)
                         error_errno("[%s] Failed to update header", __func__);
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
