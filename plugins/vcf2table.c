@@ -466,11 +466,14 @@ static StringListPtr StringListMake(const char* str, char delim) {
   char* p = (char*)str;
   for (;;) {
     if (*p == delim || *p == 0) {
-      ptr->strings =
-          (char**)realloc(ptr->strings, sizeof(char*) * (ptr->size + 1));
+      size_t len = p - prev;
+      ptr->strings = (char**)realloc(ptr->strings, sizeof(char*) * (ptr->size + 1));
       ASSERT_NOT_NULL(ptr->strings);
-      ptr->strings[ptr->size] = strndup(prev, p - prev);
+      /* strndup not implemented on windows , use malloc */
+      ptr->strings[ptr->size] = malloc((1 + len) * sizeof(char));
       ASSERT_NOT_NULL(ptr->strings[ptr->size]);
+      memcpy(ptr->strings[ptr->size], prev, len);
+      ptr->strings[ptr->size][len] = 0;
       ptr->size++;
       if (*p == 0) break;
       prev = p + 1;
