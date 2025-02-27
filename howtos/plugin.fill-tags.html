@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>Plugin fill-tags</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -92,18 +92,20 @@
 INFO/AC_Hom    Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
 INFO/AC_Het    Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
 INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
-INFO/AF        Number:A  Type:Float    ..  Allele frequency
+INFO/AF        Number:A  Type:Float    ..  Allele frequency from FMT/GT or AC,AN if FMT/GT is not present
 INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes
 INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
 INFO/END       Number:1  Type:Integer  ..  End position of the variant
 INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)
 INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
-INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency
+INFO/MAF       Number:1  Type:Float    ..  Frequency of the second most common allele
 INFO/NS        Number:1  Type:Integer  ..  Number of samples with data
 INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
-FORMAT/VAF     Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD
+FORMAT/VAF     Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD or ADF+ADR
 FORMAT/VAF1    Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
-TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)". This is currently very basic, to be extended.</pre>
+TAG:Number=Type(EXPR)                  ..  Experimental support for user expressions such as DP:1=int(sum(DP))
+               If Number and Type are not given (e.g. DP=sum(DP)), variable number (Number=.) of floating point
+               values (Type=Float) will be used.</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -147,20 +149,27 @@ Examples:
    # Fill INFO/AN and INFO/AC
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC
 
-   # Fill all available tags
+   # Fill (almost) all available tags
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t all
 
    # Calculate HWE for sample groups (possibly multiple) read from a file
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE
 
    # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)
-   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(FORMAT/DP)'
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP:1=int(sum(FORMAT/DP))'
 
    # Calculate per-sample read depth (FORMAT/DP) from per-sample allelic depths (FORMAT/AD)
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'
 
+   # Add number of samples which pass (INFO/good) and fail (INFO/bad) a binomial test
+   bcftools +fill-tags in.bcf -- -t 'good=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])&gt;=1e-5)','bad=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])&lt;1e-5)'
+
+   # Annotate with phred-scaled p-value of fisher exact test, use the DP4 or ADF,ADR tags
+   bcftools +fill-tags in.bcf -- -t 'FMT/FT:1=phred(fisher(FMT/DP4))'
+   bcftools +fill-tags in.bcf -- -t 'FMT/FT:1=phred(fisher(FMT/ADF,FMT/ADR))'
+
    # Annotate with allelic fraction
-   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"</pre>
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF</pre>
 </div>
 </div>
 <div class="sect2">
