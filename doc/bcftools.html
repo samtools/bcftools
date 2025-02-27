@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2025-01-29 08:37 CET</strong> and refers to bcftools git version <strong>1.21-72-g724713f+</strong>.</p>
+<p>This manual page was last updated <strong>2025-02-27 12:33 CET</strong> and refers to bcftools git version <strong>1.21-79-gcef68bc+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -5409,14 +5409,22 @@ sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM</pre>
 </div>
 </li>
 <li>
-<p>two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
-and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+<p>two-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
+value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
 homozygous genotypes.</p>
 <div class="literalblock">
 <div class="content">
 <pre>binom(FMT/AD)                .. GT can be used to determine the correct index
 binom(AD[0],AD[1])           .. or the fields can be given explicitly
 phred(binom())               .. the same as binom but phred-scaled</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fisher(INFO/DP4)
+fisher(FORMAT/DP4)
+fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
+fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly</pre>
 </div>
 </div>
 </li>
@@ -5723,7 +5731,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-01-29 08:37:53 +0100
+Last updated 2025-02-27 12:28:57 +0100
 </div>
 </div>
 </body>

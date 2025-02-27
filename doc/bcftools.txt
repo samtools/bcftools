@@ -4019,13 +4019,18 @@ they will evaluate to a vector of per-sample values when applied on FORMAT tags:
         SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
         sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 
-* two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
-  and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+* two-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
+  value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
 
         binom(FMT/AD)                .. GT can be used to determine the correct index
         binom(AD[0],AD[1])           .. or the fields can be given explicitly
         phred(binom())               .. the same as binom but phred-scaled
+
+        fisher(INFO/DP4)
+        fisher(FORMAT/DP4)
+        fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
+        fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly
 
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to

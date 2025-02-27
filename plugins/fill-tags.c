@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2023 Genome Research Ltd.
+   Copyright (c) 2015-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -143,6 +143,13 @@ const char *usage(void)
         "\n"
         "   # Calculate per-sample read depth (FORMAT/DP) from per-sample allelic depths (FORMAT/AD)\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'\n"
+        "\n"
+        "   # Add number of samples which pass (INFO/good) and fail (INFO/bad) a binomial test\n"
+        "   bcftools +fill-tags in.bcf -- -t 'good=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])>=1e-5)','bad=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])<1e-5)'\n"
+        "\n"
+        "   # Annotate with phred-scaled p-value of fisher exact test, use the DP4 or ADF,ADR tags\n"
+        "   bcftools +fill-tags in.bcf -- -t 'FMT/FT:1=phred(fisher(FMT/DP4))'\n"
+        "   bcftools +fill-tags in.bcf -- -t 'FMT/FT:1=phred(fisher(FMT/ADF,FMT/ADR))'\n"
         "\n"
         "   # Annotate with allelic fraction\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
@@ -465,6 +472,8 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
         ret |= parse_func_pop(args,&args->pop[i],tag_expr,expr);
     return ret;
 }
+
+extern char **parse_tag_list(const char *string, int *_n);
 uint32_t parse_tags(args_t *args, const char *str)
 {
     if ( !args->in_hdr ) error("%s", usage());
@@ -472,7 +481,7 @@ uint32_t parse_tags(args_t *args, const char *str)
     args->warned = 0;
     uint32_t flag = 0;
     int i, n_tags;
-    char **tags = hts_readlist(str, 0, &n_tags), *ptr;
+    char **tags = parse_tag_list(str, &n_tags), *ptr;
     for(i=0; i<n_tags; i++)
     {
         if ( !strcasecmp(tags[i],"all") )

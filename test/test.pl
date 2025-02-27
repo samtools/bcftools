@@ -663,6 +663,12 @@ run_test(\&test_vcf_plugin,$opts,in=>'tag2tag.LPL.1',out=>'tag2tag.LPL.1.3.vcf',
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'query.add-variantkey.vcf',cmd=>'+add-variantkey',args=>'');
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'variantkey-hex.out',cmd=>'+variantkey-hex',args=>'test/');
 run_test(\&test_vcf_plugin,$opts,in=>'query.nucleotide',out=>'query.allele-length.tsv',cmd=>'+allele-length',args=>'');
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/DP4))']);
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/ADF[0,2],INFO/ADR[0,2]))']);
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.3.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/ADF,INFO/ADR))']);
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.4.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FMT/FT:1=phred(fisher(FMT/DP4))']);
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.5.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FMT/FT:1=phred(fisher(FORMAT/ADF,FORMAT/ADR))']);
+run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.6.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FMT/FT:1=phred(fisher(FORMAT/ADF[:0,1],FORMAT/ADR[:0,1]))']);
 run_test(\&test_vcf_plugin,$opts,in=>'merge.a',out=>'fill-tags.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC,AC_Hom,AC_Het,AC_Hemi');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'fill-tags.3.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC -S {PATH}/fill-tags.3.smpl');
@@ -678,6 +684,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.1.out',cm
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'INFO/DP:1=int(sum(INFO/AD))']);
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.3.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FORMAT/DP:1=int(smpl_sum(FMT/AD))']);
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.4.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'XX=N_PASS(FMT/AD[:0]<=10)','YY=N_PASS(FMT/AD[:0]>10)']);
+run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.5.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'good=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])>=1e-5)','bad=N_PASS(binom(FMT/AD[:0],FMT/AD[:1])<1e-5)']);
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTisec.out',cmd=>'+GTisec',args=>' | grep -v bcftools');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTisec.H.out',cmd=>'+GTisec',args=>'-- -H | grep -v bcftools');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTisec.Hm.out',cmd=>'+GTisec',args=>'-- -Hm | grep -v bcftools');

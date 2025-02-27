@@ -4,9 +4,11 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 * Add support for matching lines by ID via the --pair-logic and --collapse options (#1739)
 
-* The -i/-e filtering expressions now properly match the regex negation of missing
-  values, e.g. -i 'TAG!~"\."' (#2355)
+* The -i/-e filtering expressions
 
+    - The expressions now properly match the regex negation of missing values, e.g. -i 'TAG!~"\."' (#2355)
+
+    - Added support for Fisher's exact test
 
 Changes affecting specific commands:
 
@@ -31,6 +33,11 @@ Changes affecting specific commands:
 
     - Check the input GFF for features outside transcript boundaries and extend the transcript
       to contain the feature fully (#2323)
+
+* bcftools +fill-tags
+
+    - Thanks to the extension of filtering expressions with Fisher's exact test, the plugin
+      can now be used to add FT annotation (#1582)
 
 * bcftools merge
 

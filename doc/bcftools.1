@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.20
-.\"      Date: 2025-01-29
+.\"      Date: 2025-02-27
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2025-01-29" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2025-02-27" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2025\-01\-29 08:37 CET\fP and refers to bcftools git version \fB1.21\-72\-g724713f+\fP.
+This manual page was last updated \fB2025\-02\-27 12:33 CET\fP and refers to bcftools git version \fB1.21\-79\-gcef68bc+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -6344,8 +6344,8 @@ sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 .  sp -1
 .  IP \(bu 2.3
 .\}
-two\-tailed binomial test. Note that for N=0 the test evaluates to a missing value
-and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+two\-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
+value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
 homozygous genotypes.
 .sp
 .if n .RS 4
@@ -6354,6 +6354,17 @@ homozygous genotypes.
 binom(FMT/AD)                .. GT can be used to determine the correct index
 binom(AD[0],AD[1])           .. or the fields can be given explicitly
 phred(binom())               .. the same as binom but phred\-scaled
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+fisher(INFO/DP4)
+fisher(FORMAT/DP4)
+fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
+fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly
 .fam
 .fi
 .if n .RE
