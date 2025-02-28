@@ -1,8 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 #  The MIT License
 #
-#  Copyright (c) 2024 Genome Research Ltd.
+#  Copyright (c) 2024-2025 Genome Research Ltd.
 #
 #  Authors:
 #       Petr Danecek <pd3@sanger.ac.uk>
@@ -46,6 +46,8 @@ sub error
         "About: HTML/JavaScript visualization of homozygosity rate and bcftools/roh output\n",
         "Usage: roh-viz [OPTIONS]\n",
         "Options:\n",
+        "   -c  --compress 0|1      Compress the embedded data [1]\n",
+        "   -e  --embed-d3 0|1      Embed JS libraries for offline rendering [0]\n",
         "   -i, --RoH-file FILE     Output of bcftools/roh\n",
         "   -l, --min-length NUM    Mimimum length of ROH [1e6]\n",
         "   -o, --output FILE       HTML output file\n",
@@ -67,18 +69,22 @@ sub parse_params
         min_length => 1e6,
         bcftools => 'bcftools',
         outdir => '.',
+        d3_url   => 'https://d3js.org/d3.v7.min.js',
+        pako_url => 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js',
         compress => 1,
+        embed_d3 => 0,
         bin_size => 100_000,     # bin size
         cmd => join(' ',$0,@ARGV),
     };
     while (defined(my $arg=shift(@ARGV)))
     {
-		if (                 $arg eq '--uncompressed' ) { $$opts{compress}=0; next }
-		if ( $arg eq '-r' || $arg eq '--regions' ) { $$opts{regions}=shift(@ARGV); next }
-		if ( $arg eq '-s' || $arg eq '--samples' ) { $$opts{samples}=shift(@ARGV); next }
-		if ( $arg eq '-i' || $arg eq '--RoH-file' ) { $$opts{roh_file}=shift(@ARGV); next }
-		if ( $arg eq '-v' || $arg eq '--VCF-file' ) { $$opts{vcf_file}=shift(@ARGV); next }
-	    if ( $arg eq '-l' || $arg eq '--min-length' ) { $$opts{min_length}=shift(@ARGV); next }
+        if ( $arg eq '-e' or $arg eq '--embed-d3' ) { $$opts{embed_d3}=shift(@ARGV); next; }
+        if ( $arg eq '-c' or $arg eq '--compress' ) { $$opts{compress}=shift(@ARGV); next; }
+        if ( $arg eq '-r' || $arg eq '--regions' ) { $$opts{regions}=shift(@ARGV); next }
+        if ( $arg eq '-s' || $arg eq '--samples' ) { $$opts{samples}=shift(@ARGV); next }
+        if ( $arg eq '-i' || $arg eq '--RoH-file' ) { $$opts{roh_file}=shift(@ARGV); next }
+        if ( $arg eq '-v' || $arg eq '--VCF-file' ) { $$opts{vcf_file}=shift(@ARGV); next }
+        if ( $arg eq '-l' || $arg eq '--min-length' ) { $$opts{min_length}=shift(@ARGV); next }
         if ( $arg eq '-o' || $arg eq '--output' ) { $$opts{outfile}=shift(@ARGV); next }
         if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
         error("Unknown parameter \"$arg\". Run -h for help.\n");
@@ -215,6 +221,14 @@ sub generate_html
 {
     my ($opts) = @_;
 
+    my $d3js = qq[<script type="text/javascript" src="$$opts{d3_url}"></script>];
+    my $pakojs = $$opts{compress} ? qq[<script type="text/javascript" src="$$opts{pako_url}"></script>] : '';
+    if ( $$opts{embed_d3} )
+    {
+        $d3js = '<script type="text/javascript">'. embed_js($opts,$$opts{d3_url}) .'</script>';
+        $pakojs = $$opts{compress} ? '<script type="text/javascript">'. embed_js($opts,$$opts{pako_url}) .'</script>' : '';
+    }
+
     my $fh = \*STDOUT;
     if ( exists($$opts{outfile}) )
     {
@@ -272,6 +286,10 @@ sub generate_html
 
   <script src="https://d3js.org/d3.v6.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
+
+
+  $d3js
+  $pakojs
   <script type="text/javascript" defer>
 
   var chr_len = [];
@@ -437,11 +455,10 @@ EOT
         obj.yAxis_roh = d3.axisLeft(obj.yroh);
 
         var first_time = obj.svg==undefined ? true : false;
-
         if ( first_time )
         {
-            x0 = obj.x.domain()[0];
-            x1 = obj.x.domain()[1];
+            obj.x0 = obj.x.domain()[0];
+            obj.x1 = obj.x.domain()[1];
 
             obj.svg = obj.div.append("svg")
                 .attr("width", obj.width + obj.margin.left + obj.margin.right)
@@ -562,9 +579,9 @@ EOT
                     .enter()
                     .append("rect")
                     .attr("class", "rect")
-                    .attr("x", function(v) { return obj.width*(v.Start - x0)/(x1-x0); })
+                    .attr("x", function(v) { return obj.width*(v.Start - obj.x0)/(obj.x1-obj.x0); })
                     .attr("y", function(v, i) { return groupIndex*5; })
-                    .attr("width", function(v) { return obj.width*(v.End - v.Start)/(x1-x0); })
+                    .attr("width", function(v) { return obj.width*(v.End - v.Start)/(obj.x1-obj.x0); })
                     .attr("height", 4)
                     .attr("fill", function() { return obj.colors(d.key); });
             });
@@ -653,8 +670,8 @@ EOT
         var y = dat[1];
         obj.info_line.attr("transform", "translate("+(x+obj.margin.left)+","+(obj.height)+")");
 
-        var x0 = obj.x.domain()[0];
-        var x1 = obj.x.domain()[1];
+        var x0 = obj.x0;
+        var x1 = obj.x1;
 
         var pos = Math.round(x0+(x1-x0)*x/obj.width);
         var txt = 'Position '+ pos.toLocaleString() +"\\n";
@@ -745,5 +762,29 @@ EOT
     {
         close($fh) or error("close failed: $$opts{outfile}");
     }
+}
+
+sub embed_js
+{
+    my ($opts,$file) = @_;
+    if ( $file=~m{^http}i )
+    {
+        if ( !($file=~m{([^/]+)$}) ) { error("Could not parse the file name: $file"); }
+        my $dat;
+        my $name = $1;
+        if ( -e $name )
+        {
+            $dat = join('',`cat $name`);
+        }
+        else
+        {
+            my $tmp = "$$opts{outfile}.rmme";
+            cmd(qq[wget -O $tmp $file]);
+            my $dat = join('',`cat $tmp`);
+            unlink($tmp);
+        }
+        return $dat;
+    }
+    return join('',`cat $file`);
 }
 
