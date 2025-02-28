@@ -1104,7 +1104,7 @@ sub cygpath {
 sub safe_tempdir
 {
     my $dir = tempdir(CLEANUP=>1);
-    if ($^O =~ /^msys/) {
+    if ($^O =~ /^(cygwin|msys)/) {
         $dir = cygpath($dir);
     }
     return $dir;
@@ -1136,7 +1136,7 @@ sub parse_params
     $$opts{path} = $FindBin::RealBin;
     $$opts{bin}  = $FindBin::RealBin;
     $$opts{bin}  =~ s{/test/?$}{};
-    if ($^O =~ /^msys/) {
+    if ($^O =~ /^(cygwin|msys)/) {
         $$opts{path} = cygpath($$opts{path});
         $$opts{bin}  = cygpath($$opts{bin});
     }
@@ -1554,7 +1554,7 @@ sub test_vcf_convert_hls2vcf
 {
     my ($opts,%args) = @_;
     my $hls = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{l}, $args{s} ) );
-    if($^O =~ /^msys/) { $hls =~ s/\//\\\\/g; }
+    if($^O =~ /^(cygwin|msys)/) { $hls =~ s/\//\\\\/g; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls -Ou | $$opts{bin}/bcftools view | grep -v ^##");
 }
@@ -1562,7 +1562,7 @@ sub test_vcf_convert_hs2vcf
 {
     my ($opts,%args) = @_;
     my $hs = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{s} ) );
-    if($^O =~ /^msys/) { $hs =~ s/\//\\\\/g; }
+    if($^O =~ /^(cygwin|msys)/) { $hs =~ s/\//\\\\/g; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs -Ou | $$opts{bin}/bcftools view | grep -v ^##");
 }
@@ -1817,7 +1817,7 @@ sub test_usage
     # now test subcommand usage as well
     # Under msys the isatty function fails to recognise the terminal.
     # Skip these tests for now.
-    return if ($^O =~ /^msys/);
+    return if ($^O =~ /^(cygwin|msys)/);
 
     foreach my $subcommand (@subcommands) {
         test_usage_subcommand($opts,%args,subcmd=>$subcommand);
@@ -1899,7 +1899,7 @@ sub test_vcf_plugin
     #   $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
     my $wpath = $$opts{path};
-    if ($^O =~ /^msys/) {
+    if ($^O =~ /^(cygwin|msys)/) {
         $wpath = `cygpath -w $$opts{path}`;
         $wpath =~ s/\r?\n//;
     }
@@ -2075,7 +2075,7 @@ sub test_mpileup
         {
             print $fh1 "$$opts{path}/mpileup/$file.bam\n";
             print $fh2 "$$opts{path}/mpileup/$file.cram\n";
-            my $atmp = $^O =~ /^msys/ ? cygpath("$$opts{path}/mpileup") : abs_path("$$opts{path}/mpileup");
+            my $atmp = $^O =~ /^(cygwin|msys)/ ? cygpath("$$opts{path}/mpileup") : abs_path("$$opts{path}/mpileup");
             unless ($atmp =~ /^\//) { $atmp = "/$atmp"; }
             print $fh3 "file://$atmp/$file.bam\n";
             print $fh4 "file://$atmp/$file.cram\n";
