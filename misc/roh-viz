@@ -240,24 +240,21 @@ sub generate_html
 <head>
   <style>
     input[type="range"] {
-      position: absolute;
-      left: 100px;
-      top: 25px;
-      width: 300px;
-      height: 20px;
-      margin: 0;
+        width: 200px;
+        height: 20px;
+        margin-left: 1rem;
     }
 
-    #chrViz00 {
-      height: 50px;
-      width: 100%;
-      background-color: powderblue;
+    #slider_div {
+        display: flex;
+        align-items: center;
+        height: 50px;
+        width: 100%;
+        background-color: #faf3e0;
+        padding-left: 50px;
     }
-
     output {
-      position: absolute;
-      left: 450px;
-      top: 25px;
+        margin-left: 1rem;
     }
 
     svg { font: 10px sans-serif; }
@@ -520,7 +517,7 @@ EOT
             obj.svg.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("y", 70 - obj.margin.left)
-                .attr("x",0 - ((obj.height+obj.margin.bottom)/2))
+                .attr("x",0 - (obj.margin.top+obj.height_roh+(obj.height+obj.margin.middle)/2))
                 .attr("dy", "1em")
                 .style("text-anchor", "middle")
                 .text("Homozygosity rate");
@@ -617,10 +614,11 @@ EOT
 
     // the zoom slider was used, update the view with a new interval size
     var dflt_bin_size = $$opts{bin_size};
-    function update_slider(slider)
+    function update_slider(slider,value)
     {
+        slider.nextElementSibling.value = value;
         const formattedValue = Number(slider.value).toLocaleString();
-        slider.nextElementSibling.value = formattedValue;
+        slider.nextElementSibling.value = formattedValue+' bp';
         var bin_size = slider.value;
 
         for (chr in obj_data)
@@ -710,7 +708,7 @@ EOT
         }
 
         var anchor = x < obj.width*0.5 ? "start" : "end";
-        var x_txt  = x < obj.width*0.5 ? x+obj.margin.left+5  : x+obj.margin.left-5;
+        var x_txt  = x < obj.width*0.5 ? x+obj.margin.left+50  : x+obj.margin.left-50;
         obj.info_text
             .html(txt)
             .style("white-space","pre-wrap")
@@ -740,9 +738,10 @@ EOT
 
   </head>
   <body>
-  <div id="chrViz00">
-    <input type="range" min="$$opts{bin_size}" max="2000000" step="$$opts{bin_size}" value="$$opts{bin_size}" oninput="this.nextElementSibling.value=this.value" onchange="update_slider(this)">
-    <output>$bin_size</output>
+  <div id="slider_div">
+    Bin size
+    <input type="range" min="$$opts{bin_size}" max="2000000" step="$$opts{bin_size}" value="$$opts{bin_size}" oninput="update_slider(this,this.value)">
+    <output>$bin_size bp</output>
   </div>
 
 EOT
