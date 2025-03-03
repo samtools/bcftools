@@ -1,6 +1,6 @@
 /*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -112,18 +112,15 @@ typedef struct
 }
 args_t;
 
-static char **add_sample(void *name2idx, char **lines, int *nlines, int *mlines, char *name, char sex, int *ith)
+static char **add_sample(void *name2idx, char **lines, int *nlines, int *mlines, char *name, char *sex, int *ith)
 {
     int ret = khash_str2int_get(name2idx, name, ith);
     if ( ret==0 ) return lines;
 
     hts_expand(char*,(*nlines+1),*mlines,lines);
-    int len = strlen(name);
-    lines[*nlines] = (char*) malloc(len+3);
-    memcpy(lines[*nlines],name,len);
-    lines[*nlines][len]   = ' ';
-    lines[*nlines][len+1] = sex;
-    lines[*nlines][len+2] = 0;
+    kstring_t str = {0,0,0};
+    ksprintf(&str,"%s %s",name,sex);
+    lines[*nlines] = str.s;
     *ith = *nlines;
     (*nlines)++;
     khash_str2int_set(name2idx, strdup(name), *ith);
@@ -205,12 +202,14 @@ static ploidy_predef_t ploidy_predefs[] =
 
 // only 5 columns are required and the first is ignored:
 //  ignored,sample,father(or 0),mother(or 0),sex(1=M,2=F)
-static char **parse_ped_samples(call_t *call, char **vals, int nvals, int *nsmpl)
+static char **parse_ped_samples(args_t *args, call_t *call, char **vals, int nvals, int *nsmpl)
 {
     int i, j, mlines = 0, nlines = 0;
     kstring_t str = {0,0,0}, fam_str = {0,0,0};
     void *name2idx = khash_str2int_init();
     char **lines = NULL;
+
+    char *msex = "M", *fsex = "F";
     for (i=0; i<nvals; i++)
     {
         str.l = 0;
@@ -232,10 +231,14 @@ static char **parse_ped_samples(call_t *call, char **vals, int nvals, int *nsmpl
         }
         if ( j<4 ) break;
 
-        char sex;
-        if ( col_ends[3][1]=='1' ) sex = 'M';
-        else if ( col_ends[3][1]=='2' ) sex = 'F';
-        else break;
+        char *sex = &col_ends[3][1];
+        if ( ploidy_sex2id(args->ploidy,sex)<0 )
+        {
+            // this gender is not defined, if 1/2, test if M/F is
+            if ( !strcmp(sex,"1") && ploidy_sex2id(args->ploidy,msex)>=0 ) sex = msex;
+            else if ( !strcmp(sex,"2") && ploidy_sex2id(args->ploidy,fsex)>=0 ) sex = fsex;
+            else error("[E::%s] The sex \"%s\" has not been declared in --ploidy/--ploidy-file\n",__func__,sex);
+        }
 
         lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[0]+1, sex, &j);
         if ( strcmp(col_ends[1]+1,"0") && strcmp(col_ends[2]+1,"0") )   // father and mother
@@ -248,9 +251,9 @@ static char **parse_ped_samples(call_t *call, char **vals, int nvals, int *nsmpl
             fam->name = strdup(fam_str.s);
 
             if ( !khash_str2int_has_key(name2idx, col_ends[1]+1) )
-                lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[1]+1, 'M', &fam->sample[FATHER]);
+                lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[1]+1, msex, &fam->sample[FATHER]);
             if ( !khash_str2int_has_key(name2idx, col_ends[2]+1) )
-                lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[2]+1, 'F', &fam->sample[MOTHER]);
+                lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[2]+1, fsex, &fam->sample[MOTHER]);
 
             khash_str2int_get(name2idx, col_ends[0]+1, &fam->sample[CHILD]);
             khash_str2int_get(name2idx, col_ends[1]+1, &fam->sample[FATHER]);
@@ -281,7 +284,7 @@ static void set_samples(args_t *args, const char *fn, int is_file)
     if ( !lines ) error("Could not read the file: %s\n", fn);
 
     int nsmpls;
-    char **smpls = parse_ped_samples(&args->aux, lines, nlines, &nsmpls);
+    char **smpls = parse_ped_samples(args, &args->aux, lines, nlines, &nsmpls);
     if ( smpls )
     {
         for (i=0; i<nlines; i++) free(lines[i]);

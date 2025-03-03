@@ -1,4 +1,4 @@
-/* 
+/*
     Copyright (C) 2014-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -212,7 +212,7 @@ int ploidy_query(ploidy_t *ploidy, char *seq, int pos, int *sex2ploidy, int *min
     {
         int sex = regitr_payload(ploidy->itr,sex_ploidy_t).sex;
         int pld = regitr_payload(ploidy->itr,sex_ploidy_t).ploidy;
-        if ( pld!=ploidy->dflt ) 
+        if ( pld!=ploidy->dflt )
         {
             if ( sex2ploidy ) sex2ploidy[ sex ] = pld;
             if ( _min > pld ) _min = pld;
