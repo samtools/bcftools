@@ -239,7 +239,6 @@ static char **parse_ped_samples(args_t *args, call_t *call, char **vals, int nva
             else if ( !strcmp(sex,"2") && ploidy_sex2id(args->ploidy,fsex)>=0 ) sex = fsex;
             else error("[E::%s] The sex \"%s\" has not been declared in --ploidy/--ploidy-file\n",__func__,sex);
         }
-
         lines = add_sample(name2idx, lines, &nlines, &mlines, col_ends[0]+1, sex, &j);
         if ( strcmp(col_ends[1]+1,"0") && strcmp(col_ends[2]+1,"0") )   // father and mother
         {
@@ -325,10 +324,14 @@ static void set_samples(args_t *args, const char *fn, int is_file)
         while ( *se && !isspace(*se) ) se++;
         if ( se==ss ) { *xptr = x; error("Could not parse: \"%s\"\n", lines[i]); }
 
-        if ( ss[1]==0 && (ss[0]=='0' || ss[0]=='1' || ss[0]=='2') )
-            args->sample2sex[nsmpl] = -1*(ss[0]-'0');
+        char *sex = ss;
+        if ( ploidy_sex2id(args->ploidy,sex)<0 )
+        {
+            if ( sex[1]==0 && (sex[0]=='0' || sex[0]=='1' || sex[0]=='2') ) args->sample2sex[nsmpl] = -1*(sex[0]-'0');
+            else error("[E::%s] The sex \"%s\" has not been declared in --ploidy/--ploidy-file\n",__func__,sex);
+        }
         else
-            args->sample2sex[nsmpl] = ploidy_add_sex(args->ploidy, ss);
+            args->sample2sex[nsmpl] = ploidy_add_sex(args->ploidy,sex);
 
         if ( ismpl!=nsmpl ) map_needed = 1;
         args->samples_map[nsmpl] = ismpl;

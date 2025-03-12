@@ -430,6 +430,7 @@ run_test(\&test_vcf_head,$opts,in=>'mpileup.2.vcf',in_nheaders=>22);
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.1.out',args=>'-s0');
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.2.out',args=>'-s1');
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.3.out',args=>'-s2 -h2');
+run_test(\&test_vcf_call,$opts,in=>'call-ploidy.1',out=>'call-ploidy.1.1.out',args=>'-m --ploidy-file {PATH}/call-ploidy.1.txt -S {PATH}/call-ploidy.1.ped');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mg0');
 run_test(\&test_vcf_call,$opts,in=>'mpileup',out=>'mpileup.3.out',args=>'-mv -S {PATH}/mpileup.3.samples');
