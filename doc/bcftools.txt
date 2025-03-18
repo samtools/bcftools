@@ -1360,14 +1360,17 @@ Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 
 
-*-c, --custom-tag* 'STRING'::
-    use this custom tag to store consequences rather than the default BCSQ tag
-
 *-B, --trim-protein-seq* 'INT'::
     abbreviate protein-changing predictions to maximum of INT aminoacids.
     For example, instead of writing the whole modified protein sequence with potentially hundreds of
     aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
     written.
+
+*-C, --genetic-code* 'INT'|'l'::
+    specify the genetic code table to use, 'l' to print a list of supported tables
+
+*-c, --custom-tag* 'STRING'::
+    use this custom tag to store consequences rather than the default BCSQ tag
 
 *--dump-gff* 'FILE'::
     dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,

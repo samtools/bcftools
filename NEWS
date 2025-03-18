@@ -34,6 +34,9 @@ Changes affecting specific commands:
     - Check the input GFF for features outside transcript boundaries and extend the transcript
       to contain the feature fully (#2323)
 
+    - Add experimental support for alternative genetic code tables, accessible via
+      a new option `-C, --genetic-code` (#2368)
+
 * bcftools +fill-tags
 
     - Thanks to the extension of filtering expressions with Fisher's exact test, the plugin
