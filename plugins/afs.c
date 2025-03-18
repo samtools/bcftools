@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2024 Genome Research Ltd.
+   Copyright (c) 2024-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -802,12 +802,39 @@ static void merge_add_batch(args_t *args, const char *fname)
 }
 static void init_var2(args_t *args, batch_t *batch)
 {
+
     if ( !strcmp(args->recalc_type,"hc") )
     {
-        if ( batch->nbins!=N_BINS ) error("todo: --nbins %d != %d\n",batch->nbins,N_BINS);
         batch->var2 = malloc(sizeof(*batch->var2)*batch->nbins);
+
         int i;
-        for (i=0; i<batch->nbins; i++) batch->var2[i] = var2[i];
+        if ( batch->nbins==N_BINS )
+        {
+            for (i=0; i<batch->nbins; i++) batch->var2[i] = var2[i];
+        }
+        else
+        {
+            // intrapolate data points for nbins!=N_BINS
+
+            batch->var2[0] = var2[0];
+            batch->var2[batch->nbins - 1] = var2[N_BINS - 1];
+
+            double dx = (double)1/(batch->nbins-1);
+            double DX = (double)1/(N_BINS-1);
+            int J=1;
+            for (i=1; i<batch->nbins - 1; i++)
+            {
+                double x = i*dx;
+                while ( J*DX < x ) J++;
+                assert( J < N_BINS );
+                double X = (J-1)*DX;
+                assert( X <= x );
+                if ( x==X )
+                    batch->var2[i] = var2[J-1];
+                else
+                    batch->var2[i] = var2[J-1] + (var2[J]-var2[J-1])*(x-X)/DX;
+            }
+        }
         return;
     }
     if ( !strcmp(args->recalc_type,"data") )
@@ -815,7 +842,7 @@ static void init_var2(args_t *args, batch_t *batch)
         // variance will be calculated from the data
         return;
     }
-     error("todo: --recalc %s\n",args->recalc_type);
+    error("todo: --recalc %s\n",args->recalc_type);
 }
 static int merge(args_t *args)
 {
