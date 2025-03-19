@@ -409,7 +409,6 @@ static int is_left_align(args_t *args, bcf1_t *line)
     if ( args->right_align ) return 0;
     if ( !args->gff ) return 1;
     const char *chr = bcf_seqname(args->hdr,line);
-    if ( !strncasecmp("chr",chr,3) ) chr += 3;  // strip 'chr' prefix, that's what we requested the GFF reader to do
     if ( !regidx_overlap(args->idx_tscript,chr,line->pos,line->pos+line->rlen, args->itr_tscript) ) return 1;
 
     // if there are two conflicting overlapping transcripts, go with the default left-alignment
@@ -2248,7 +2247,6 @@ static void init_data(args_t *args)
     {
         args->gff = gff_init(args->gff_fname);
         gff_set(args->gff,verbosity,args->gff_verbosity);
-        gff_set(args->gff,strip_chr_names,1);
         gff_parse(args->gff);
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);

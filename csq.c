@@ -218,6 +218,10 @@
 #define CSQ_PRN_NMD             (~(CSQ_INTRON|CSQ_NON_CODING))
 #define CSQ_PRN_BIOTYPE         CSQ_NON_CODING
 
+#define CHR_VCF 0
+#define CHR_GFF 1
+#define CHR_FAI 2
+
 // see kput_vcsq()
 const char *csq_strings[] =
 {
@@ -422,8 +426,9 @@ typedef struct _args_t
     int ncsq2_max, nfmt_bcsq;   // maximum number of csq per site that can be accessed from FORMAT/BCSQ (*2 and 1 bit skipped to avoid BCF missing values)
     int ncsq2_small_warned;
     int brief_predictions;
-    int unify_chr_names;
-    char *chr_name;
+    char *unify_chr_names;      // e.g. chr,Chromosome,-; prefixes in VCF,GFF,fasta
+    char *chr_prefix[3];        // chr prefix to trim in VCF,GFF,fasta. See also CHR_VCF,CHR_GFF,CHR_FAI
+    char *chr_name, *chr_names[3];
     int mchr_name;
     struct {
         int unknown_chr,unknown_tscript_biotype,unknown_strand,unknown_phase,duplicate_id;
@@ -628,12 +633,23 @@ void init_data(args_t *args)
 {
     args->nfmt_bcsq = ncsq2_to_nfmt(args->ncsq2_max);
 
+    // init chr prefixes to trim
+    int i,n;
+    char **tmp;
+    if ( args->unify_chr_names && (tmp=hts_readlist(args->unify_chr_names,0,&n)) )
+    {
+        if ( n!=3 ) error("Error: expected three strings, got --unify-chr-names %s\n",args->unify_chr_names);
+        for (i=0; i<3; i++)
+            if ( strcmp("-",tmp[i]) ) args->chr_prefix[i] = tmp[i];
+            else free(tmp[i]);
+        free(tmp);
+    }
+
     args->fai = fai_load(args->fa_fname);
     if ( !args->fai ) error("Failed to load the fai index: %s\n", args->fa_fname);
 
     args->gff = gff_init(args->gff_fname);
     gff_set(args->gff,verbosity,args->verbosity);
-    gff_set(args->gff,strip_chr_names,args->unify_chr_names);
     gff_set(args->gff,force_out_of_phase,args->force);
     gff_set(args->gff,dump_fname,args->dump_gff);
     gff_parse(args->gff);
@@ -726,6 +742,13 @@ void destroy_data(args_t *args)
     kh_destroy(pos2vbuf,args->pos2vbuf);
     if ( args->smpl ) smpl_ilist_destroy(args->smpl);
     int i,j,ret;
+    for (i=0; i<3; i++)
+    {
+        free(args->chr_prefix[i]);
+        free(args->chr_names[i]);
+    }
+    free(args->chr_name);
+
     if ( args->out_fh )
     {
         if ( args->write_index )
@@ -771,7 +794,6 @@ void destroy_data(args_t *args)
     free(args->gt_arr);
     free(args->str.s);
     free(args->str2.s);
-    free(args->chr_name);
 }
 
 /*
@@ -974,20 +996,32 @@ fprintf(stderr,"csq_stage_splice %d: type=%d\n",(int)rec->pos+1,type);
     csq.type.gene    = tr->gene->name;
     csq_stage(args, &csq, rec);
 }
-static inline const char *drop_chr_prefix(args_t *args, const char *chr)
+static inline const char *unify_chr_name(args_t *args, const char *chr, int isrc, int idst)
 {
-    if ( !args->unify_chr_names ) return chr;
-    if ( !strncasecmp("chr",chr,3) ) return chr+3;
-    return chr;
-}
-static inline const char *add_chr_prefix(args_t *args, const char *chr)
-{
-    if ( !args->unify_chr_names ) return chr;
-    int len = strlen(chr);
-    hts_expand(char,len+4,args->mchr_name,args->chr_name);
-    memcpy(args->chr_name,"chr",3);
-    memcpy(args->chr_name+3,chr,len+1);
-    return args->chr_name;
+    if ( !args->chr_prefix[isrc] && !args->chr_prefix[idst] ) return chr;
+
+    int off = 0, len = strlen(chr);
+    if ( args->chr_prefix[isrc] )
+    {
+        off = strlen(args->chr_prefix[isrc]);
+        len -= off;
+        if ( strncmp(args->chr_prefix[isrc],chr,len) )
+            error("Error: failed to unify chr names, cannot strip \"%s\" from \"%s\"\n",args->chr_prefix[isrc],chr);
+    }
+    hts_expand(char,len+1,args->mchr_name,args->chr_name);
+    memcpy(args->chr_name,chr+off,len+1);
+
+    if ( args->chr_prefix[idst] )
+    {
+        off = strlen(args->chr_prefix[idst]);
+        hts_expand(char,len+off+1,args->mchr_name,args->chr_name);
+        memmove(args->chr_name+off,args->chr_name,len+1);
+        memcpy(args->chr_name,args->chr_prefix[idst],off);
+    }
+
+    free(args->chr_names[idst]);
+    args->chr_names[idst] = strdup(args->chr_name);
+    return args->chr_names[idst];
 }
 static inline int splice_csq_ins(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
@@ -1014,7 +1048,7 @@ fprintf(stderr,"ins: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         if ( splice->check_utr )
         {
             regitr_t *itr = regitr_init(NULL);
-            const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+            const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
             if ( regidx_overlap(args->idx_utr,chr,splice->ref_beg+1,splice->ref_beg+1, itr) )     // adjacent utr
             {
                 ret = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
@@ -1052,7 +1086,7 @@ fprintf(stderr,"ins: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         if ( splice->check_utr )
         {
             regitr_t *itr = regitr_init(NULL);
-            const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+            const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
             if ( regidx_overlap(args->idx_utr,chr,splice->ref_end-1,splice->ref_end-1, itr) )     // adjacent utr
             {
                 ret = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
@@ -1231,7 +1265,7 @@ fprintf(stderr,"splice_csq_del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%
             if ( splice->check_utr )
             {
                 regitr_t *itr = regitr_init(NULL);
-                const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+                const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
                 if ( regidx_overlap(args->idx_utr,chr,splice->ref_beg,ex_beg-1, itr) )     // adjacent utr
                     csq = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
                 regitr_destroy(itr);
@@ -1289,7 +1323,7 @@ fprintf(stderr,"splice_csq_del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%
             if ( splice->check_utr )
             {
                 regitr_t *itr = regitr_init(NULL);
-                const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+                const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
                 if ( regidx_overlap(args->idx_utr,chr,ex_end+1,splice->ref_end, itr) )     // adjacent utr
                     csq = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
                 regitr_destroy(itr);
@@ -1380,7 +1414,7 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
             if ( splice->check_utr )
             {
                 regitr_t *itr = regitr_init(NULL);
-                const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+                const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
                 if ( regidx_overlap(args->idx_utr,chr,splice->ref_beg,ex_beg-1, itr) )     // adjacent utr
                     csq = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
                 regitr_destroy(itr);
@@ -1410,7 +1444,7 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
             if ( splice->check_utr )
             {
                 regitr_t *itr = regitr_init(NULL);
-                const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,splice->vcf.rec));
+                const char *chr = unify_chr_name(args, bcf_seqname(args->hdr,splice->vcf.rec),CHR_VCF,CHR_GFF);
                 if ( regidx_overlap(args->idx_utr,chr,ex_end+1,splice->ref_end, itr) )     // adjacent utr
                     csq = csq_stage_utr(args, itr, splice->vcf.rec, splice->tr->id, splice->csq, splice->vcf.ial);
                 regitr_destroy(itr);
@@ -2689,13 +2723,7 @@ void tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
     int i, len;
     int pad_beg = tr->beg >= N_REF_PAD ? N_REF_PAD : tr->beg;
 
-    const char *tmp_chr = chr;
-    if ( !faidx_has_seq(args->fai,tmp_chr) )
-    {
-        tmp_chr = drop_chr_prefix(args,chr);
-        if ( !faidx_has_seq(args->fai,tmp_chr) ) tmp_chr = add_chr_prefix(args,chr);
-    }
-    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq(args->fai, tmp_chr, tr->beg - pad_beg, tr->end + N_REF_PAD, &len);
+    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq(args->fai, chr, tr->beg - pad_beg, tr->end + N_REF_PAD, &len);
     if ( !TSCRIPT_AUX(tr)->ref )
         error("faidx_fetch_seq failed %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
 
@@ -2734,9 +2762,11 @@ static void sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
 int test_cds_local(args_t *args, bcf1_t *rec)
 {
     int i,j, ret = 0;
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
+    const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
 
     // structures to fake the normal test_cds machinery
     hap_node_t root, node;
@@ -2754,7 +2784,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
         if ( !TSCRIPT_AUX(tr) )
         {
             tr->aux = calloc(sizeof(tscript_t),1);
-            tscript_init_ref(args, tr, chr);
+            tscript_init_ref(args, tr, chr_fai);
             tscript_splice_ref(tr);
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
@@ -2932,9 +2962,11 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
     static int overlaps_warned = 0, multiploid_warned = 0;
 
     int i, ret = 0, hap_ret;
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
+    const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
     while ( regitr_overlap(args->itr) )
     {
         gf_cds_t *cds = regitr_payload(args->itr,gf_cds_t*);
@@ -2946,7 +2978,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
         {
             // initialize the transcript and its haplotype tree, fetch the reference sequence
             tr->aux = calloc(sizeof(tscript_t),1);
-            tscript_init_ref(args, tr, chr);
+            tscript_init_ref(args, tr, chr_fai);
 
             TSCRIPT_AUX(tr)->root = (hap_node_t*) calloc(1,sizeof(hap_node_t));
             TSCRIPT_AUX(tr)->nhap = args->phase==PHASE_DROP_GT ? 1 : 2*args->smpl->n;     // maximum ploidy = diploid
@@ -2975,13 +3007,13 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     {
                         fprintf(stderr,
                             "Warning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s.\n",
-                            chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                            chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                         if ( !overlaps_warned )
                             fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                         overlaps_warned = 1;
                     }
                     if ( args->out )
-                        fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s\n", chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                        fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
                 else ret = 1;   // prevent reporting as intron in test_tscript
                 hap_destroy(child);
@@ -3022,13 +3054,13 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             {
                 fprintf(stderr,
                     "Warning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s.\n",
-                    chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                    chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 if ( !multiploid_warned )
                     fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                 multiploid_warned = 1;
             }
             if ( args->out )
-                fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s\n", chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
             continue;
         }
         for (ismpl=0; ismpl<args->smpl->n; ismpl++)
@@ -3045,7 +3077,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                 if ( !bcf_gt_is_phased(gt[0]) && !bcf_gt_is_phased(gt[1]) )
                 {
                     if ( args->phase==PHASE_REQUIRE )
-                        error("Unphased heterozygous genotype at %s:%"PRId64", sample %s. See the --phase option.\n", chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
+                        error("Unphased heterozygous genotype at %s:%"PRId64", sample %s. See the --phase option.\n", chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
                     if ( args->phase==PHASE_SKIP )
                         continue;
                     if ( args->phase==PHASE_NON_REF )
@@ -3088,14 +3120,14 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                         {
                             fprintf(stderr,
                                     "Warning: Skipping overlapping variants at %s:%"PRId64", sample %s\t%s>%s.\n",
-                                    chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
+                                    chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                             if ( !overlaps_warned )
                                 fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                             overlaps_warned = 1;
                         }
                         if ( args->out  )
                             fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64", sample %s\t%s>%s\n",
-                                    chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
+                                    chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                     }
                     hap_destroy(child);
                     continue;
@@ -3207,9 +3239,10 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
 }
 int test_utr(args_t *args, bcf1_t *rec)
 {
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_utr,chr,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_utr,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3245,8 +3278,9 @@ int test_utr(args_t *args, bcf1_t *rec)
 }
 int test_splice(args_t *args, bcf1_t *rec)
 {
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
-    if ( !regidx_overlap(args->idx_exon,chr,rec->pos,rec->pos + rec->rlen, args->itr) ) return 0;
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
+    if ( !regidx_overlap(args->idx_exon,chr_gff,rec->pos,rec->pos + rec->rlen, args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3277,8 +3311,9 @@ int test_splice(args_t *args, bcf1_t *rec)
 }
 int test_tscript(args_t *args, bcf1_t *rec)
 {
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
-    if ( !regidx_overlap(args->idx_tscript,chr,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
+    if ( !regidx_overlap(args->idx_tscript,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3320,7 +3355,8 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
         warned = 1;
     }
 
-    const char *chr = drop_chr_prefix(args, bcf_seqname(args->hdr,rec));
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
+    const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
 
     // only insertions atm
     int beg = rec->pos + 1;
@@ -3328,7 +3364,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
     int csq_class = CSQ_ELONGATION;
 
     int hit = 0;
-    if ( regidx_overlap(args->idx_cds,chr,beg,end, args->itr) )
+    if ( regidx_overlap(args->idx_cds,chr_gff,beg,end, args->itr) )
     {
         while ( regitr_overlap(args->itr) )
         {
@@ -3346,7 +3382,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             hit = 1;
         }
     }
-    if ( regidx_overlap(args->idx_utr,chr,beg,end, args->itr) )
+    if ( regidx_overlap(args->idx_utr,chr_gff,beg,end, args->itr) )
     {
         while ( regitr_overlap(args->itr) )
         {
@@ -3364,7 +3400,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             hit = 1;
         }
     }
-    if ( regidx_overlap(args->idx_exon,chr,beg,end, args->itr) )
+    if ( regidx_overlap(args->idx_exon,chr_gff,beg,end, args->itr) )
     {
         splice_t splice;
         splice_init(&splice, rec);
@@ -3383,7 +3419,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             if ( splice.csq ) hit = 1;
         }
     }
-    if ( !hit && regidx_overlap(args->idx_tscript,chr,beg,end, args->itr) )
+    if ( !hit && regidx_overlap(args->idx_tscript,chr_gff,beg,end, args->itr) )
     {
         splice_t splice;
         splice_init(&splice, rec);
@@ -3444,6 +3480,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
 
     bcf1_t *rec = *rec_ptr;
     static int32_t prev_rid = -1, prev_pos = -1;
+    const char *chr_vcf = bcf_seqname(args->hdr,rec);
     if ( prev_rid!=rec->rid )
     {
         prev_rid = rec->rid;
@@ -3452,14 +3489,16 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         // Common error is to use different naming conventions in the fasta and the VCF (e.g. X vs chrX).
         // Perform a simple sanity check (that does not catch much), the chromosome must be present in the
         // reference file
-        if ( !faidx_has_seq(args->fai,bcf_seqname(args->hdr,rec)) )
-        {
-            if ( !faidx_has_seq(args->fai,drop_chr_prefix(args,bcf_seqname(args->hdr,rec))) && !faidx_has_seq(args->fai,add_chr_prefix(args,bcf_seqname(args->hdr,rec))) )
-                error("Error: the chromosome \"%s\" is not present in %s\n",bcf_seqname(args->hdr,rec),args->fa_fname);
-        }
+        const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
+        if ( !faidx_has_seq(args->fai,chr_fai) )
+            error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names could help\n",chr_fai,args->fa_fname);
+
+        const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
+        if ( !gff_has_seq(args->gff,chr_gff) )
+            error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names could help\n",chr_gff,args->gff_fname);
     }
     if ( prev_pos > rec->pos )
-        error("Error: The file is not sorted, %s:%d comes before %s:%"PRId64"\n",bcf_seqname(args->hdr,rec),prev_pos+1,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        error("Error: The file is not sorted, %s:%d comes before %s:%"PRId64"\n",chr_vcf,prev_pos+1,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
 
     int call_csq = 1;
     if ( rec->n_allele < 2 ) call_csq = 0;   // no alternate allele
@@ -3535,7 +3574,8 @@ static const char *usage(void)
         "GFF options:\n"
         "       --dump-gff FILE.gz            Dump the parsed GFF file (for debugging purposes)\n"
         "       --force                       Run even if some sanity checks fail\n"
-        "       --unify-chr-names 1|0         Automatically unify chromosome naming (e.g. chrX vs X) in GFF, fasta, and VCF [1]\n"
+        "       --unify-chr-names 0|LIST      Unify chromosome naming by stripping a prefix in VCF,GFF,fasta, respectively [0]\n"
+        "                                     (e.g., \"chr,Chr,-\" trims \"chr\" in VCF and \"Chr\" in GFF, fasta is unchanged)\n"
         "General options:\n"
         "   -e, --exclude EXPR                Exclude sites for which the expression is true\n"
         "   -i, --include EXPR                Select sites for which the expression is true\n"
@@ -3574,7 +3614,6 @@ int main_csq(int argc, char *argv[])
     args->verbosity = 1;
     args->record_cmd_line = 1;
     args->clevel = -1;
-    args->unify_chr_names = 1;
 
     static struct option loptions[] =
     {
@@ -3702,11 +3741,7 @@ int main_csq(int argc, char *argv[])
                     error("Unsupported index format '%s'\n", optarg);
                 break;
             case  7 : args->dump_gff = optarg; break;
-            case  8 :
-                if ( !strcmp(optarg,"0") ) args->unify_chr_names = 0;
-                else if ( !strcmp(optarg,"1") ) args->unify_chr_names = 1;
-                else error("Could not parse: --unify-chr-names %s\n",optarg);
-                break;
+            case  8 : args->unify_chr_names = optarg; break;
             case 'h':
             case '?': error("%s",usage());
             default: error("The option not recognised: %s\n\n", optarg); break;

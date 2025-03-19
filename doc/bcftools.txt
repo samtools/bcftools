@@ -1503,10 +1503,12 @@ output VCF and are ignored for the prediction analysis.
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*--unify-chr-names* '0'|'1'::
-    Automatically detect and unify chromosome naming conventions in the GFF, fasta
-    and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
-    that of the input VCF. The default is to attempt the automatic translation.
+*--unify-chr-names* '0'|'LIST'::
+    unify chromosome naming by stripping a prefix in VCF, GFF, fasta, respectively.
+    For example, if the LIST is "chr,Chromosome,-", the program will trim the "chr" prefix
+    in the VCF, "Chromosome" in the GFF, and the fasta will be left unchanged.
+    The chromosome names in the output VCF will match that of the input VCF. The default is
+    not to modify the sequence names.
 
 *-v, --verbose* 'INT'::
     verbosity level (0-2)
