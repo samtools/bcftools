@@ -102,14 +102,14 @@ args_t;
 
 const char *about(void)
 {
-    return "Localised assessment of sequencing artefacts, estimate site noisiness (allelic frequency score)\n";
+    return "Localised assessment of sequencing artefacts, estimate site noisiness (variant read frequency score)\n";
 }
 static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Assess site noisiness (allelic frequency score) from a large number of unaffected parental samples\n"
-        "Usage: bcftools +afs [OPTIONS]\n"
+        "About: Assess site noisiness (variant read frequency score) from a large number of unaffected parental samples\n"
+        "Usage: bcftools +vrfs [OPTIONS]\n"
         "\n"
         "Required options:\n"
         "   -a, --alns FILE               List of BAM/CRAM files\n"
@@ -135,16 +135,16 @@ static const char *usage_text(void)
         "\n"
         "Example:\n"
         "   # Typical run\n"
-        "   bcftools +afs -f ref.fa -a bams.txt -s sites.txt -o scores.txt\n"
+        "   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores.txt\n"
         "\n"
         "   # Run in batches. Let's say one batch can have at most 3 bams and there are 5 bams in total\n"
         "   #   1) find out the number of required batches with `--batch k=3` (the program outputs: 2)\n"
         "   #   2) run all batches individually with `--batch 1/2` and `--batch 2/2`\n"
         "   #   3) create a list of outputs and merge with `--merge-batches list.txt`\n"
-        "   bcftools +afs -a bams.txt --batch k=3     # prints 2\n"
-        "   bcftools +afs -f ref.fa -a bams.txt -s sites.txt -o scores1.txt --batch 1/2\n"
-        "   bcftools +afs -f ref.fa -a bams.txt -s sites.txt -o scores2.txt --batch 2/2\n"
-        "   bcftools +afs --merge-batches list.txt\n"
+        "   bcftools +vrfs -a bams.txt --batch k=3     # prints 2\n"
+        "   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores1.txt --batch 1/2\n"
+        "   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores2.txt --batch 2/2\n"
+        "   bcftools +vrfs --merge-batches list.txt\n"
         "\n";
 }
 

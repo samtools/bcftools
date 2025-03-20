@@ -849,7 +849,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.2.out',cmd=>'+variant-distance -d fwd');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.3.out',cmd=>'+variant-distance -d rev');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.4.out',cmd=>'+variant-distance -d both');
-run_test(\&test_plugin_afs,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'afs.1.1.out',tmp=>'afs.1.1',args=>q[-s {PATH}/afs.sites.txt]);
+run_test(\&test_plugin_vrfs,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'vrfs.1.1.out',tmp=>'vrfs.1.1',args=>q[-s {PATH}/vrfs.sites.txt]);
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 run_test(\&test_plugin_split,$opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
@@ -2180,7 +2180,7 @@ sub test_csq_real
     }
     closedir($dh);
 }
-sub test_plugin_afs
+sub test_plugin_vrfs
 {
     my ($opts,%args) = @_;
     if ( !$$opts{test_plugins} ) { return; }
@@ -2199,7 +2199,7 @@ sub test_plugin_afs
     }
     close($fh);
 
-    test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +afs -a $$opts{tmp}/mpileup.bam.list -f $$opts{path}/mpileup/$ref $args{args} | sort]);
+    test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools +vrfs -a $$opts{tmp}/mpileup.bam.list -f $$opts{path}/mpileup/$ref $args{args} | sort]);
 }
 sub test_plugin_split
 {

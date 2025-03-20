@@ -2849,8 +2849,8 @@ By default, appropriate system directories are searched for installed plugins.
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
 
-*afs*::
-    assess site noisiness (allelic frequency score) from a large number of unaffected parental samples
+*vrfs*::
+    assess site noisiness (variant read frequency score) from a large number of unaffected parental samples
 
 *allele-length*::
     count the frequency of the length of REF, ALT and REF+ALT

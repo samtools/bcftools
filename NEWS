@@ -12,9 +12,9 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
-* bcftools +afs
+* bcftools +vrfs
 
-    - New experimental plugin for scoring variants and assess site noisiness (allelic frequency profiles)
+    - New experimental plugin for scoring variants and assess site noisiness (variant read frequency profiles)
       from a large number of unaffected parental samples
 
 * bcftools annotate
