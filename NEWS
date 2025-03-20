@@ -34,6 +34,14 @@ Changes affecting specific commands:
     - Check the input GFF for features outside transcript boundaries and extend the transcript
       to contain the feature fully (#2323)
 
+    - Add experimental support for alternative genetic code tables, accessible via
+      a new option `-C, --genetic-code` (#2368)
+
+    - Change in the `--unify-chr-names` option, no automatic sequence name modification
+      is attempted anymore, the prefixes to trim must be given explictly. For example,
+      if run with `--unify-chr-names chr,Chromosome,-`, the program will trim the "chr"
+      prefix in the VCF, "Chromosome" in the GFF, leaving the fasta unchanged (#2378)
+
 * bcftools +fill-tags
 
     - Thanks to the extension of filtering expressions with Fisher's exact test, the plugin

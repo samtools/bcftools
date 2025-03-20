@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2023-2024 Genome Research Ltd.
+   Copyright (c) 2023-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -88,7 +88,6 @@ typedef struct
     kh_int2tscript_t *id2tr;
 
     // sequences
-    void *seq2int;  // str2int hash
     char **seq;
     int nseq, mseq;
 
@@ -111,13 +110,16 @@ struct gff_t_
     // index iterator
     regidx_t *idx_cds, *idx_utr, *idx_exon, *idx_tscript;
 
+    // str2int hash with parsed sequence names
+    void *seq2int;
+
     // temporary structures, deleted after initializtion
     aux_t init;
 
     // mapping between transcript id (eg. Zm00001d027245_T001) and a numeric idx
     id_tbl_t tscript_ids;
 
-    int strip_chr_names, verbosity;
+    int verbosity;
     int force;      // force run under various conditions. Currently only to skip out-of-phase transcripts
 
     struct {
@@ -155,12 +157,6 @@ int gff_set(gff_t *gff, gff_opt_t key, ...)
         case force_out_of_phase:
             va_start(args, key);
             gff->force = va_arg(args,int);
-            va_end(args);
-            return 0;
-
-        case strip_chr_names:
-            va_start(args, key);
-            gff->strip_chr_names = va_arg(args,int);
             va_end(args);
             return 0;
 
@@ -216,12 +212,12 @@ static inline int feature_set_seq(gff_t *gff, char *chr_beg, char *chr_end)
     char tmp = chr_end[1];
     chr_end[1] = 0;
     int iseq;
-    if ( khash_str2int_get(aux->seq2int, chr_beg, &iseq)!=0 )
+    if ( khash_str2int_get(gff->seq2int, chr_beg, &iseq)!=0 )
     {
         char *new_chr = strdup(chr_beg);
         hts_expand(char*, aux->nseq+1, aux->mseq, aux->seq);
         aux->seq[aux->nseq] = new_chr;
-        iseq = khash_str2int_inc(aux->seq2int, aux->seq[aux->nseq]);
+        iseq = khash_str2int_inc(gff->seq2int, aux->seq[aux->nseq]);
         aux->nseq++;
         assert( aux->nseq < 1<<29 );  // see gf_gene_t.iseq and ftr_t.iseq
     }
@@ -239,7 +235,6 @@ static inline void gff_parse_chr(gff_t *gff, const char *line, char **chr_beg, c
     char *se = (char*) line;
     while ( *se && *se!='\t' ) se++;
     if ( !*se ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
-    if ( gff->strip_chr_names && !strncasecmp("chr",line,3) ) line += 3;
     *chr_beg = (char*) line;
     *chr_end = se-1;
 }
@@ -974,7 +969,7 @@ int gff_parse(gff_t *gff)
     if ( gff->verbosity > 0 ) fprintf(stderr,"Parsing %s ...\n", gff->fname);
 
     aux_t *aux = &gff->init;
-    aux->seq2int   = khash_str2int_init();   // chrom's numeric id
+    gff->seq2int   = khash_str2int_init();   // chrom's numeric id
     aux->gid2gene  = kh_init(int2gene);      // gene id to gf_gene_t, for idx_gene
     aux->id2tr     = kh_init(int2tscript);   // transcript id to tscript_t
     gff->idx_tscript = regidx_init(NULL, NULL, regidx_free_tscript, sizeof(gf_tscript_t*), NULL);
@@ -1085,7 +1080,6 @@ int gff_parse(gff_t *gff)
 
     free(aux->seq);
     free(aux->ftr);
-    khash_str2int_destroy_free(aux->seq2int);
     // keeping only to destroy the genes at the end: kh_destroy(int2gene,aux->gid2gene);
     kh_destroy(int2tscript,aux->id2tr);
     gff_id_destroy(&aux->gene_ids);
@@ -1119,7 +1113,12 @@ void gff_destroy(gff_t *gff)
     regidx_destroy(gff->idx_exon);
     regidx_destroy(gff->idx_tscript);
 
+    khash_str2int_destroy_free(gff->seq2int);
     gff_id_destroy(&gff->tscript_ids);
     free(gff);
+}
+int gff_has_seq(gff_t *gff, const char *seq)
+{
+    return khash_str2int_has_key(gff->seq2int, seq);
 }
 

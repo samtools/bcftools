@@ -1,0 +1,321 @@
+#!/usr/bin/env perl
+#
+#  The MIT License
+#
+#  Copyright (c) 2025 Genome Research Ltd.
+#
+#  Author: Petr Danecek <pd3@sanger.ac.uk>
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
+#
+
+use strict;
+use warnings;
+use Carp;
+use Data::Dumper;
+
+my $opts = parse_params();
+parse_and_format($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print
+        "About: Reformat genetic code tables for use in bcftools/csq\n",
+        "       https://www.insdc.org/submitting-standards/genetic-code-tables\n",
+        "Usage: gencode-tables [OPTIONS]\n",
+        "Options:\n",
+        "   -h, -?, --help       This help message\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = {};
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-?' or $arg eq '-h' or $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    return $opts;
+}
+
+sub parse_and_format
+{
+    my ($opts) = @_;
+    my @str = split(/\n/,table_str());
+    while (@str)
+    {
+        my @tbl = splice(@str,0,8);
+        if ( !($tbl[1]=~/^\s*$/) or (exists($tbl[7]) && !($tbl[7]=~/^\s*$/)) ) { error("Could not parse: ",Dumper(\@tbl)); }
+        if ( !($tbl[0]=~/^(\d+):\s+(.+)\s+\(/ ) ) { error("Could not parse table name: ",Dumper(\@tbl)); }
+        my $idx  = $1;
+        my $name = $2;
+        if ( !($tbl[2]=~/^Amino acids\s+(\S+)/ ) ) { error("Could not parse amino acids: ",Dumper(\@tbl)); }
+        my $aas = $1;
+        if ( !($tbl[3]=~/^Start codons\s+(\S+)/ ) ) { error("Could not parse start/stop codons: ",Dumper(\@tbl)); }
+        my $ststp = $1;
+        if ( !($tbl[4]=~/^Base 1\s+(\S+)/ ) ) { error("Could not parse base 1: ",Dumper(\@tbl)); }
+        my $bases1 = $1;
+        if ( !($tbl[5]=~/^Base 2\s+(\S+)/ ) ) { error("Could not parse base 2: ",Dumper(\@tbl)); }
+        my $bases2 = $1;
+        if ( !($tbl[6]=~/^Base 3\s+(\S+)/ ) ) { error("Could not parse base 3: ",Dumper(\@tbl)); }
+        my $bases3 = $1;
+        if ( length($aas) != 64 ) { error("Incorrect length: $aas",Dumper(\@tbl)); }
+        if ( length($bases1) != 64 ) { error("Incorrect length: $bases1",Dumper(\@tbl)); }
+        if ( length($bases2) != 64 ) { error("Incorrect length: $bases2",Dumper(\@tbl)); }
+        if ( length($bases3) != 64 ) { error("Incorrect length: $bases3",Dumper(\@tbl)); }
+        my %codon2aa;
+        for (my $i=0; $i<64; $i++)
+        {
+            my $codon = substr($bases1,$i,1).substr($bases2,$i,1).substr($bases3,$i,1);
+            my $aa = substr($aas,$i,1);
+            my $stop = substr($ststp,$i,1);
+            $codon2aa{$codon}{aa}   = $aa;
+            $codon2aa{$codon}{stop} = $stop;
+        }
+        my ($gencode,$stop);
+        for my $key (sort keys %codon2aa)
+        {
+            $gencode .= $codon2aa{$key}{aa};
+            $stop .= $codon2aa{$key}{stop};
+        }
+        print qq[{.id=$idx, .name="$name",\n .code="$gencode",\n .stop="$stop" },\n];
+    }
+}
+
+
+# tables copy and pasted from https://www.insdc.org/submitting-standards/genetic-code-tables
+sub table_str
+{
+    return << "EOT";
+1: Standard (transl_table=1)
+
+Amino acids  FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ---M------**--*----M---------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+2: Vertebrate Mitochondrial (transl_table=2)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG
+Start codons ----------**--------------------MMMM----------**---M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+3: Yeast Mitochondrial (transl_table=3)
+
+Amino acids  FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**----------------------MM---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+4: Mold Mitochondrial; Protozoan Mitochondrial; Coelenterate Mitochondrial; Mycoplasma; Spiroplasma (transl_table=4)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --MM------**-------M------------MMMM---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+5: Invertebrate Mitochondrial (transl_table=5)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG
+Start codons ---M------**--------------------MMMM---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+6: Ciliate Nuclear; Dasycladacean Nuclear; Hexamita Nuclear (transl_table=6)
+
+Amino acids  FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --------------*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+9: Echinoderm Mitochondrial; Flatworm Mitochondrial (transl_table=9)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+Start codons ----------**-----------------------M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+10: Euplotid Nuclear (transl_table=10)
+
+Amino acids  FFLLSSSSYY**CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**-----------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+11: Bacterial, Archaeal and Plant Plastid (transl_table=11)
+
+Amino acids  FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ---M------**--*----M------------MMMM---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+12: Alternative Yeast Nuclear (transl_table=12)
+
+Amino acids  FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**--*----M---------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+13: Ascidian Mitochondrial (transl_table=13)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG
+Start codons ---M------**----------------------MM---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+14: Alternative Flatworm Mitochondrial (transl_table=14)
+
+Amino acids  FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+Start codons -----------*-----------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+15: Blepharisma Nuclear (transl_table=15)
+
+Amino acids  FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------*---*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+16: Chlorophycean Mitochondrial (transl_table=16)
+
+Amino acids  FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------*---*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+21: Trematode Mitochondrial (transl_table=21)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+Start codons ----------**-----------------------M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+22: Scenedesmus obliquus Mitochondrial Code (transl_table=22)
+
+Amino acids  FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ------*---*---*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+23: Thraustochytrium mitochondrial code (transl_table=23)
+
+Amino acids  FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --*-------**--*-----------------M--M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+24: Pterobranchia Mitochondrial (transl_table=24)
+
+Amino acids  FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG
+Start codons ---M------**-------M---------------M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+25: Candidate Division SR1 and Gracilibacteria (transl_table=25)
+
+Amino acids  FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ---M------**-----------------------M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+26: Pachysolen tannophilus Nuclear Code (transl_table=26)
+
+Amino acids  FFLLSSSSYY**CC*WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**--*----M---------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+27: Karyorelict Nuclear (transl_table=27)
+
+Amino acids  FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --------------*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+28: Condylostoma Nuclear (transl_table=28)
+
+Amino acids  FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**--*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+29: Mesodinium Nuclear (transl_table=29)
+
+Amino acids  FFLLSSSSYYYYCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --------------*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+30: Peritrich Nuclear (transl_table=30)
+
+Amino acids  FFLLSSSSYYEECC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons --------------*--------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+31: Blastocrithidia Nuclear (transl_table=31)
+
+Amino acids  FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+Start codons ----------**-----------------------M----------------------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+
+33: Cephalodiscidae Mitochondrial UAA-Tyr (transl_table=33)
+
+Amino acids  FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG
+Start codons ---M-------*-------M---------------M---------------M------------
+Base 1       TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
+Base 2       TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
+Base 3       TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
+EOT
+}
