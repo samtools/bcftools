@@ -94,6 +94,8 @@ trio-switch-rate:: Calculates phase switch rate in trio children.
 
 variantkey-hex:: generate unsorted VariantKey-RSid index files in hexadecimal format
 
+vrfs:: Assess site noisiness (variant read frequency score) from a large number of reference samples
+
 include::footer.inc[]
 
 
