@@ -66,6 +66,8 @@ Changes affecting specific commands:
 
     - Preserve the original alleles in `--old-rec-tag` when `--check-ref s` requested (#2357)
 
+    - Print a warning when INFO/SVLEN is not defined as Number=A (#2371)
+
 * plot-vcfstats
 
     - Make the option `-s, --sample-names` functional again (#2353)

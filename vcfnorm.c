@@ -2232,6 +2232,15 @@ static void init_data(args_t *args)
         args->tmp_str = (kstring_t*) calloc(bcf_hdr_nsamples(args->hdr),sizeof(kstring_t));
         args->diploid = (uint8_t*) malloc(bcf_hdr_nsamples(args->hdr));
     }
+    if ( args->mrows_op==MROWS_SPLIT )
+    {
+        // check the sanity of splitted fields, specifically of SVLEN (#2371)
+        int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"SVLEN");
+        if ( id>=0 && bcf_hdr_id2length(args->hdr,BCF_HL_INFO,id)!=BCF_VL_A )
+            fprintf(stderr,
+                "Warning: the tag INFO/SVLE must be defined as Number=A in order for the field to be split\n"
+                "         (the command `bcftools reheader` can be used to fix the header)\n");
+    }
     if ( args->atomize==SPLIT )
     {
         args->abuf = abuf_init(args->hdr, SPLIT);
