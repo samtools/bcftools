@@ -3848,10 +3848,19 @@ int main_vcfannotate(int argc, char *argv[])
     if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->files->errnum));
 
-    static int line_errcode_warned = 0;
+    static int line_errcode_warned = 0, vcf_parse_error_warned = 0;
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
     {
+        if ( args->files->errnum )
+        {
+            if ( !args->force ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
+            else if ( !vcf_parse_error_warned )
+            {
+                fprintf(stderr,"Warning: Encountered an error, proceeding only because --force was given.\n");
+                vcf_parse_error_warned = 1;
+            }
+        }
         if ( !bcf_sr_has_line(args->files,0) ) continue;
         bcf1_t *line = bcf_sr_get_line(args->files,0);
         if ( line->errcode )
