@@ -55,6 +55,10 @@ const double var2[N_BINS] = {1,1.441327e-03,4.382657e-05,6.160600e-07,1.414270e-
     2.020386e-09,1.767838e-09,1.571411e-09,1.414270e-09,1.285700e-09,1.178558e-09,1.087900e-09,1.010193e-09,
     9.428468e-10,8.839188e-10,8.319236e-10,7.857056e-10,7.443527e-10};
 
+#define VAR2_DATA 1
+#define VAR2_FILE 2
+#define VAR2_HC   3
+
 // VAF profile across many samples at a single site. Used as a regidx payload
 typedef struct
 {
@@ -87,7 +91,8 @@ typedef struct
 {
     int argc, output_type, record_cmd_line, clevel, use_bam_idx, verbose;
     char **argv, *output_fname, *sites_fname, *aln_fname, *fasta_fname, *batch_fname, *batch;
-    char **bams, **batch_fnames, *recalc_type;
+    char **bams, **batch_fnames, *recalc_type_str;
+    int recalc_type;    // one of VAR2_* types
     int nbams, nbatch_fnames;
     int min_dp;    // minimum read depth to consider
     prn_site_t *prn_site_buf;
@@ -121,7 +126,7 @@ static const char *usage_text(void)
         "   -n, --nbins INT               Number of VAF bins [20]\n"
         "   -r, --recalc TYPE             Recalculate scores based on provided variances [hc]\n"
         "                                   data .. as observed in the data\n"
-        "                                   file .. read profile from file (-r file:/path/to/file.txt)\n"
+        "                                   file .. read profile from a file, one value per line (-r file:/path/to/file.txt)\n"
         "                                   hc   .. hard-coded profile\n"
         "\n"
         "Other options:\n"
@@ -409,18 +414,89 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     }
     return 0;
 }
-static void batch_profile_set_mean_var2(batch_t *batch)
+
+/*
+    In the mode "hc" and "file" the function returns NULL, otherwise returns a newly allocated array
+    of size batch->nbins, to be filled with VAR2 values collected from the data.
+    The modes "hc" and "file" may need rescaling, if the number of bins is different from --nbins.
+*/
+static double *init_var2(args_t *args, batch_t *batch)
+{
+    assert( !batch->var2 );
+
+    double *ori = NULL;
+    int i, nnew = batch->nbins , nori = 0;
+    if ( !strncmp(args->recalc_type_str,"file:",5)  )
+    {
+        int n;
+        char *tmp, **list = hts_readlist(args->recalc_type_str+5, 1, &n);
+        if ( !list || !n ) error("Error: could not parse %s\n",args->recalc_type_str+5);
+        ori = malloc(sizeof(*batch->var2)*n);
+        for (i=0; i<n; i++)
+        {
+            ori[i] = strtod(list[i], &tmp);
+            if ( tmp==list[i] ) error("Error: could not parse the %d-th value in %s\n",i+1,args->recalc_type_str+5);
+            free(list[i]);
+        }
+        free(list);
+        nori = n;
+        args->recalc_type = VAR2_FILE;
+    }
+    else if ( !strcmp(args->recalc_type_str,"hc") )
+    {
+        ori = malloc(sizeof(*ori)*N_BINS);
+        for (i=0; i<N_BINS; i++) ori[i] = var2[i];
+        nori = N_BINS;
+        args->recalc_type = VAR2_HC;
+    }
+
+    if ( ori && nori==nnew )
+    {
+        batch->var2 = ori;
+        return NULL;
+    }
+    if ( ori && nori!=nnew )
+    {
+        // intrapolate data points
+        double *tmp = malloc(sizeof(*tmp)*nnew);
+
+        tmp[0] = ori[0];
+        tmp[nnew - 1] = ori[nori - 1];
+
+        double dx = (double)1/(nnew-1);
+        double DX = (double)1/(nori-1);
+        int J=1;
+        for (i=1; i<nnew - 1; i++)
+        {
+            double x = i*dx;
+            while ( J*DX < x ) J++;
+            assert( J < nori );
+            double X = (J-1)*DX;
+            assert( X <= x );
+            if ( x==X )
+                tmp[i] = ori[J-1];
+            else
+                tmp[i] = ori[J-1] + (ori[J]-ori[J-1])*(x-X)/DX;
+        }
+        free(ori);
+        batch->var2 = tmp;
+        return NULL;
+    }
+
+    if ( !strcmp(args->recalc_type_str,"data") ) args->recalc_type = VAR2_DATA;
+    else error("Error: the mode --recalc %s is not recognized\n",args->recalc_type_str);
+
+    batch->var2 = calloc(batch->nbins,sizeof(*batch->var2));
+    return batch->var2;
+}
+static void batch_profile_set_mean_var2(args_t *args, batch_t *batch)
 {
     // this is to calculate the mean and variance for each VAF bin
     free(batch->mean);
     batch->mean = calloc(batch->nbins,sizeof(*batch->mean));
 
-    double *var2 = NULL;
-    if ( !batch->var2 )
-    {
-        batch->var2 = calloc(batch->nbins,sizeof(*batch->var2));
-        var2 = batch->var2;
-    }
+    // if a pointer is returned, collect VAR2 from the data
+    double *var2_ptr = init_var2(args, batch);
     batch->nval = 0;
 
     // calculate profile from all sites
@@ -439,28 +515,28 @@ static void batch_profile_set_mean_var2(batch_t *batch)
         {
             double val = site->dist[i]/max_val;
             batch->mean[i] += val;
-            if ( var2 ) var2[i] += val*val;
+            if ( var2_ptr ) var2_ptr[i] += val*val;
         }
         batch->nval++;
     }
-    if ( batch->nval )
+    if ( batch->nval && args->recalc_type==VAR2_DATA )
     {
-        double min_nonzero_var2 = HUGE_VAL;
+        double min_nonzero_var2 = 1;
         for (i=0; i<batch->nbins; i++)
         {
             batch->mean[i] = batch->mean[i]/batch->nval;
-            if ( var2 )
+            if ( var2_ptr )
             {
-                var2[i] = var2[i]/batch->nval - batch->mean[i]*batch->mean[i];
-                if ( var2[i]>0 && var2[i] < min_nonzero_var2 ) min_nonzero_var2 = var2[i];
+                var2_ptr[i] = var2_ptr[i]/batch->nval - batch->mean[i]*batch->mean[i];
+                if ( var2_ptr[i]>0 && var2_ptr[i] < min_nonzero_var2 ) min_nonzero_var2 = var2_ptr[i];
             }
         }
         // to avoid infinite scores, make sure we never see zero variance,
         // but make it ever decreasing to penalize higher VAF bins
-        if ( var2 )
+        if ( var2_ptr )
         {
             for (i=0; i<batch->nbins; i++)
-                if ( var2[i]==0 ) var2[i] = min_nonzero_var2/i;
+                if ( var2_ptr[i]==0 ) var2_ptr[i] = min_nonzero_var2/(i?i+1:1);
         }
     }
     regitr_destroy(itr);
@@ -629,7 +705,7 @@ static int batch_profile_run(args_t *args)
     free(str.s);
 
     args->profile.idx = args->sites_idx;
-    batch_profile_set_mean_var2(&args->profile);
+    batch_profile_set_mean_var2(args, &args->profile);
     write_batch(args, &args->profile);
     args->profile.idx = NULL;   // otherwise it would be destroyed twice
 
@@ -800,50 +876,6 @@ static void merge_add_batch(args_t *args, const char *fname)
     args->batch_fnames = (char**)realloc(args->batch_fnames,sizeof(*args->batch_fnames)*args->nbatch_fnames);
     args->batch_fnames[args->nbatch_fnames - 1] = strdup(fname);
 }
-static void init_var2(args_t *args, batch_t *batch)
-{
-
-    if ( !strcmp(args->recalc_type,"hc") )
-    {
-        batch->var2 = malloc(sizeof(*batch->var2)*batch->nbins);
-
-        int i;
-        if ( batch->nbins==N_BINS )
-        {
-            for (i=0; i<batch->nbins; i++) batch->var2[i] = var2[i];
-        }
-        else
-        {
-            // intrapolate data points for nbins!=N_BINS
-
-            batch->var2[0] = var2[0];
-            batch->var2[batch->nbins - 1] = var2[N_BINS - 1];
-
-            double dx = (double)1/(batch->nbins-1);
-            double DX = (double)1/(N_BINS-1);
-            int J=1;
-            for (i=1; i<batch->nbins - 1; i++)
-            {
-                double x = i*dx;
-                while ( J*DX < x ) J++;
-                assert( J < N_BINS );
-                double X = (J-1)*DX;
-                assert( X <= x );
-                if ( x==X )
-                    batch->var2[i] = var2[J-1];
-                else
-                    batch->var2[i] = var2[J-1] + (var2[J]-var2[J-1])*(x-X)/DX;
-            }
-        }
-        return;
-    }
-    if ( !strcmp(args->recalc_type,"data") )
-    {
-        // variance will be calculated from the data
-        return;
-    }
-    error("todo: --recalc %s\n",args->recalc_type);
-}
 static int merge(args_t *args)
 {
     args->out_fh = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
@@ -868,7 +900,6 @@ static int merge(args_t *args)
         if ( !batch )
         {
             batch = tmp;
-            init_var2(args,batch);
             continue;
         }
         batch_merge(batch,tmp);
@@ -876,7 +907,7 @@ static int merge(args_t *args)
     }
     if ( !batch ) error("Error: failed to merge the files, no usable data found\n");
 
-    batch_profile_set_mean_var2(batch);
+    batch_profile_set_mean_var2(args,batch);
     write_batch(args,batch);
 
     free(args->batch_fnames);
@@ -894,7 +925,7 @@ int run(int argc, char **argv)
     args->clevel = -1;
     args->min_dp = 10;
     args->profile.nbins = N_BINS;
-    args->recalc_type = "hc";
+    args->recalc_type_str = "hc";
     static struct option loptions[] =
     {
         {"recalc",required_argument,NULL,'r'},
@@ -927,7 +958,7 @@ int run(int argc, char **argv)
                 if ( *tmp || args->profile.nbins<10 ) error("Could not parse argument: --nbins %s; the minimum value is 10\n", optarg);
                 break;
             case 'i': args->use_bam_idx = 1; break;
-            case 'r': args->recalc_type = optarg; break;
+            case 'r': args->recalc_type_str = optarg; break;
             case 'f': args->fasta_fname = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -968,7 +999,6 @@ int run(int argc, char **argv)
     int do_profile = args->aln_fname ? 1 : 0;
     if ( !do_merge && !do_profile ) error("%s", usage_text());
     if ( do_merge && do_profile ) error("%s", usage_text());
-    if ( args->recalc_type ) init_var2(args,&args->profile);
 
     if ( do_profile )
     {
