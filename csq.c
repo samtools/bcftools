@@ -3491,11 +3491,23 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         // reference file
         const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
         if ( !faidx_has_seq(args->fai,chr_fai) )
-            error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names could help\n",chr_fai,args->fa_fname);
+        {
+            static int missing_chr_fai_warned = 0;
+            if ( !args->force )
+                error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names or --force could help\n",chr_fai,args->fa_fname);
+            else if ( !missing_chr_fai_warned++ )
+                fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_fai,args->fa_fname);
+        }
 
         const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
         if ( !gff_has_seq(args->gff,chr_gff) )
-            error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names could help\n",chr_gff,args->gff_fname);
+        {
+            static int missing_chr_gff_warned = 0;
+            if ( !args->force )
+                error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names or --force could help\n",chr_gff,args->gff_fname);
+            else if ( !missing_chr_gff_warned++ )
+                fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_gff,args->gff_fname);
+        }
     }
     if ( prev_pos > rec->pos )
         error("Error: The file is not sorted, %s:%d comes before %s:%"PRId64"\n",chr_vcf,prev_pos+1,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
