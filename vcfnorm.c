@@ -2238,7 +2238,7 @@ static void init_data(args_t *args)
         int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"SVLEN");
         if ( id>=0 && bcf_hdr_id2length(args->hdr,BCF_HL_INFO,id)!=BCF_VL_A )
             fprintf(stderr,
-                "Warning: the tag INFO/SVLE must be defined as Number=A in order for the field to be split\n"
+                "Warning: the tag INFO/SVLEN must be defined as Number=A in order for the field to be split\n"
                 "         (the command `bcftools reheader` can be used to fix the header)\n");
     }
     if ( args->atomize==SPLIT )
