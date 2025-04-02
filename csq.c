@@ -1005,7 +1005,7 @@ static inline const char *unify_chr_name(args_t *args, const char *chr, int isrc
     {
         off = strlen(args->chr_prefix[isrc]);
         len -= off;
-        if ( strncmp(args->chr_prefix[isrc],chr,len) )
+        if ( strncmp(args->chr_prefix[isrc],chr,off) )
             error("Error: failed to unify chr names, cannot strip \"%s\" from \"%s\"\n",args->chr_prefix[isrc],chr);
     }
     hts_expand(char,len+1,args->mchr_name,args->chr_name);
