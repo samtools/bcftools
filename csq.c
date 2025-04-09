@@ -433,7 +433,7 @@ typedef struct _args_t
     int mchr_name;
     struct {
         int unknown_chr,unknown_tscript_biotype,unknown_strand,unknown_phase,duplicate_id;
-        int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds;
+        int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds,ref_allele_mismatch;
     } warned;
 
     char *gencode_str;          // which genetic code table to use
@@ -2790,7 +2790,8 @@ void tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
     }
 }
 
-static void sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
+// returns 0 on success, negative number on reference mismatch
+static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
 {
     int vbeg = 0;
     int rbeg = rec->pos - tr->beg + N_REF_PAD;
@@ -2802,10 +2803,24 @@ static void sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
     while ( ref[i] && vcf[i] )
     {
         if ( ref[i]!=vcf[i] && toupper(ref[i])!=toupper(vcf[i]) )
-            error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
-                    bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+        {
+            if ( !args->force )
+                error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+
+            else if ( args->verbosity && (!args->warned.ref_allele_mismatch || args->verbosity > 1) )
+            {
+                fprintf(stderr,"Warning: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+                if ( args->verbosity < 2 )
+                    fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
+            }
+            args->warned.ref_allele_mismatch++;
+            return -1;
+        }
         i++;
     }
+    return 0;
 }
 
 int test_cds_local(args_t *args, bcf1_t *rec)
@@ -2838,7 +2853,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
 
-        sanity_check_ref(args, tr, rec);
+        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
 
         kstring_t sref;
         sref.s = TSCRIPT_AUX(tr)->sref;
@@ -3039,7 +3054,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             khp_insert(trhp, args->active_tr, &tr);
         }
 
-        sanity_check_ref(args, tr, rec);
+        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
 
         if ( args->phase==PHASE_DROP_GT )
         {
