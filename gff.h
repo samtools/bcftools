@@ -314,5 +314,8 @@ const char *gff_id2string(gff_t *gff, id_type_t type, int id);
 const char *gf_type2gff_string(int type);
 
 int gff_has_seq(gff_t *gff, const char *chr);
+int gff_nseq(gff_t *gff);
+const char *gff_iseq(gff_t *gff, int i);
+
 
 #endif

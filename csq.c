@@ -427,6 +427,7 @@ typedef struct _args_t
     int ncsq2_small_warned;
     int brief_predictions;
     char *unify_chr_names;      // e.g. chr,Chromosome,-; prefixes in VCF,GFF,fasta
+    char *unify_chr_names_err;
     char *chr_prefix[3];        // chr prefix to trim in VCF,GFF,fasta. See also CHR_VCF,CHR_GFF,CHR_FAI
     char *chr_name, *chr_names[3];
     int mchr_name;
@@ -629,13 +630,24 @@ static void init_gencode(args_t *args)
     }
     if ( !gencode ) error("Could not parse argument: --genetic-code %s, no such table\n",args->gencode_str);
 }
-void init_data(args_t *args)
+void test_prefix(kstring_t *str, const char *seq)
 {
-    args->nfmt_bcsq = ncsq2_to_nfmt(args->ncsq2_max);
-
+    if ( !strncasecmp(seq,"chromosome_",11) ) kputsn(seq,11,str);
+    else if ( !strncasecmp(seq,"chromosome",10) ) kputsn(seq,10,str);
+    else if ( !strncasecmp(seq,"chrom_",6) ) kputsn(seq,6,str);
+    else if ( !strncasecmp(seq,"chrom",5) ) kputsn(seq,5,str);
+    else if ( !strncasecmp(seq,"chr_",4) ) kputsn(seq,4,str);
+    else if ( !strncasecmp(seq,"chr",3) ) kputsn(seq,3,str);
+    else kputs("-",str);
+}
+void init_chr_names(args_t *args)
+{
     // init chr prefixes to trim
     int i,n;
     char **tmp;
+
+    // chr prefixes given explicitly
+    args->unify_chr_names_err = strdup("check if --unify-chr-names or --force could help");
     if ( args->unify_chr_names && (tmp=hts_readlist(args->unify_chr_names,0,&n)) )
     {
         if ( n!=3 ) error("Error: expected three strings, got --unify-chr-names %s\n",args->unify_chr_names);
@@ -643,7 +655,41 @@ void init_data(args_t *args)
             if ( strcmp("-",tmp[i]) ) args->chr_prefix[i] = tmp[i];
             else free(tmp[i]);
         free(tmp);
+        return;
     }
+
+    int nseq;
+    const char **vcf = bcf_hdr_seqnames(args->hdr, &nseq);
+    if ( !vcf ) return;
+    const char *seq_vcf = vcf[0];
+    const char *seq_gff = gff_iseq(args->gff,0);
+    const char *seq_fa  = faidx_iseq(args->fai,0);
+    free(vcf);
+    if ( !strcmp(seq_vcf,seq_fa) && !strcmp(seq_vcf,seq_gff) ) return;
+
+    // First sequences not identical: either they have different prefix or they are in different order.
+    // See if we can suggest the --unify-chr-names parameter to use
+    kstring_t chr_vcf = {0,0,0}, chr_gff = {0,0,0}, chr_fa = {0,0,0}, str = {0,0,0};
+    test_prefix(&chr_vcf, seq_vcf);
+    test_prefix(&chr_gff, seq_gff);
+    test_prefix(&chr_fa, seq_fa);
+    int same_chr = 1;
+    if ( strcmp(!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l,!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l) ) same_chr = 0;
+    if ( strcmp(!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l,!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l) ) same_chr = 0;
+    if ( strcmp(!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l,!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l) ) same_chr = 0;
+    free(args->unify_chr_names_err);
+    if ( same_chr )
+        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, try to run with --unify-chr-names %s,%s,%s\n",seq_vcf,seq_gff,seq_fa,chr_vcf.s,chr_gff.s,chr_fa.s);
+    else
+        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, check if running with --unify-chr-names or --force coud help\n",seq_vcf,seq_gff,seq_fa);
+    free(chr_vcf.s);
+    free(chr_gff.s);
+    free(chr_fa.s);
+    args->unify_chr_names_err = str.s;
+}
+void init_data(args_t *args)
+{
+    args->nfmt_bcsq = ncsq2_to_nfmt(args->ncsq2_max);
 
     args->fai = fai_load(args->fa_fname);
     if ( !args->fai ) error("Failed to load the fai index: %s\n", args->fa_fname);
@@ -658,6 +704,8 @@ void init_data(args_t *args)
     args->idx_exon = gff_get(args->gff,idx_exon);
     args->idx_tscript = gff_get(args->gff,idx_tscript);
     args->itr = regitr_init(NULL);
+
+    init_chr_names(args);
 
     args->rid = -1;
 
@@ -794,6 +842,7 @@ void destroy_data(args_t *args)
     free(args->gt_arr);
     free(args->str.s);
     free(args->str2.s);
+    free(args->unify_chr_names_err);
 }
 
 /*
@@ -3494,7 +3543,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         {
             static int missing_chr_fai_warned = 0;
             if ( !args->force )
-                error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names or --force could help\n",chr_fai,args->fa_fname);
+                error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_fai,args->fa_fname,args->unify_chr_names_err);
             else if ( !missing_chr_fai_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_fai,args->fa_fname);
         }
@@ -3504,7 +3553,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         {
             static int missing_chr_gff_warned = 0;
             if ( !args->force )
-                error("Error: the chromosome \"%s\" is not present in %s, check if --unify-chr-names or --force could help\n",chr_gff,args->gff_fname);
+                error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_gff,args->gff_fname,args->unify_chr_names_err);
             else if ( !missing_chr_gff_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_gff,args->gff_fname);
         }
