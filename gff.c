@@ -208,7 +208,6 @@ const char *gf_type2gff_string(int type)
 */
 static inline int feature_set_seq(gff_t *gff, char *chr_beg, char *chr_end)
 {
-    aux_t *aux = &gff->init;
     char tmp = chr_end[1];
     chr_end[1] = 0;
     int iseq;
