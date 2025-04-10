@@ -519,25 +519,21 @@ static void batch_profile_set_mean_var2(args_t *args, batch_t *batch)
         }
         batch->nval++;
     }
-    if ( batch->nval && args->recalc_type==VAR2_DATA )
+    for (i=0; i<batch->nbins; i++)
+        batch->mean[i] = batch->mean[i]/batch->nval;
+
+    if ( var2_ptr && batch->nval && args->recalc_type==VAR2_DATA )
     {
         double min_nonzero_var2 = 1;
         for (i=0; i<batch->nbins; i++)
         {
-            batch->mean[i] = batch->mean[i]/batch->nval;
-            if ( var2_ptr )
-            {
-                var2_ptr[i] = var2_ptr[i]/batch->nval - batch->mean[i]*batch->mean[i];
-                if ( var2_ptr[i]>0 && var2_ptr[i] < min_nonzero_var2 ) min_nonzero_var2 = var2_ptr[i];
-            }
+            var2_ptr[i] = var2_ptr[i]/batch->nval - batch->mean[i]*batch->mean[i];
+            if ( var2_ptr[i]>0 && var2_ptr[i] < min_nonzero_var2 ) min_nonzero_var2 = var2_ptr[i];
         }
         // to avoid infinite scores, make sure we never see zero variance,
         // but make it ever decreasing to penalize higher VAF bins
-        if ( var2_ptr )
-        {
-            for (i=0; i<batch->nbins; i++)
-                if ( var2_ptr[i]==0 ) var2_ptr[i] = min_nonzero_var2/(i?i+1:1);
-        }
+        for (i=0; i<batch->nbins; i++)
+            if ( var2_ptr[i]==0 ) var2_ptr[i] = min_nonzero_var2/(i?i+1:1);
     }
     regitr_destroy(itr);
 }
