@@ -1,0 +1,160 @@
+#!/usr/bin/env perl
+#
+#  The MIT License
+#
+#  Copyright (c) 2024-2025 Genome Research Ltd.
+#
+#  Author: petr.danecek@sanger
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
+
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+parse_and_calc($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print
+        "About: Parse bcftools/vrfs output and from a subset of sites calculate variances.\n",
+        "Usage: vrfs-variances [OPTIONS]\n",
+        "Options:\n",
+        "   -n, --ndat NUM          Number of sites to include, fraction (FLOAT) or absolute (INT) [0.2]\n",
+        "   -r, --rand-noise INT    Add random noise, INT is a seed for reproducibility, or 0 for no seed [0]\n",
+        "   -s, --list-sites        List sites passing the -n setting\n",
+        "   -v, --list-var2         Output in a format suitable for `bcftools +vrfs -r file`\n",
+        "   -h, -?, --help          This help message\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = { ndat=>0.2 };
+    if ( -t STDIN && !@ARGV ) { error(); }
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-r' or $arg eq '--rand-noise' ) { $$opts{rand_noise}=shift(@ARGV); next }
+        if ( $arg eq '-s' or $arg eq '--list-sites' ) { $$opts{list_sites}=1; next }
+        if ( $arg eq '-v' or $arg eq '--list-var2' ) { $$opts{list_var2}=1; next }
+        if ( $arg eq '-n' or $arg eq '--ndat' ) { $$opts{ndat}=shift(@ARGV); next }
+        if ( $arg eq '-?' or $arg eq '-h' or $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( exists($$opts{rand_noise}) )
+    {
+        if ( $$opts{rand_noise} ) { srand($$opts{rand_noise}); }
+        else { srand(); }
+    }
+    return $opts;
+}
+
+sub cmp_dist
+{
+    for (my $i=@{$$a{dist}}-1; $i>=0; $i--)
+    {
+        if ( $$a{dist}[$i] == $$b{dist}[$i] ) { next; }
+        return $$a{dist}[$i] <=> $$b{dist}[$i];
+    }
+    return 0;
+}
+
+sub parse_and_calc
+{
+    my ($opts) = @_;
+    my @dat = ();
+    while (my $line=<STDIN>)
+    {
+        # SITE    chr15   79031596    AAG A   5.746144e+01    926-181-22-12-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0
+        if ( !($line=~/^SITE/) ) { next; }
+        chomp($line);
+        my (@col) = split(/\t/,$line);
+        my @dist = split(/-/,$col[-1]);
+        push @dat, { line=>$line, dist=>\@dist };
+    }
+    my @sdat = sort cmp_dist @dat;
+    my $nmax = $$opts{ndat};
+    if ( $nmax <= 1 ) { $nmax = int($nmax * scalar @sdat); }
+    my $n = 0;
+    my @avg  = ();
+    my @avg2 = ();
+    for my $x (@sdat)
+    {
+        my $rand = -1;
+        if ( exists($$opts{rand_noise}) && rand(1000)<10 ) { $rand = int(rand(@{$$x{dist}})); }
+        my $max = 0;
+        for (my $i=0; $i<@{$$x{dist}}; $i++)
+        {
+            if ( $rand==$i ) { $$x{dist}[$i]++; }
+            if ( $max < $$x{dist}[$i] ) { $max = $$x{dist}[$i]; }
+        }
+        for (my $i=0; $i<@{$$x{dist}}; $i++)
+        {
+            my $val = $$x{dist}[$i] / $max;
+            $avg[$i]  += $val;
+            $avg2[$i] += $val * $val;
+        }
+        if ( $$opts{list_sites} ) { print $$x{line}."\n"; }
+        if ( ++$n >= $nmax )
+        {
+            if ( !$$opts{list_var2} ) { print $$x{line}."\n"; }
+            last;
+        }
+    }
+    if ( $$opts{list_sites} ) { return; }
+    $avg2[0] = 1;
+    for (my $i=0; $i<@avg; $i++)
+    {
+        $avg[$i]  = sprintf("%e",$avg[$i]/$n);
+        $avg2[$i] = $avg2[$i]/$n - $avg[$i]*$avg[$i];
+        if ( $avg2[$i]<=0 )
+        {
+            # yes, it be smaller than zero, machine precision in play when the values are close to zero
+            $avg2[$i] = $i>0 ? $avg2[$i-1]/2 : 1;
+        }
+        if ( !exists($$opts{rand_noise}) && $avg2[$i] < 1e-9 )
+        {
+            $avg2[$i] = $avg2[$i-1] * ($i-1) / $i;
+        }
+        $avg2[$i] = sprintf("%e",$avg2[$i]);
+    }
+    # make it monotonic
+    for (my $i=@avg2-1; $i>0; $i--)
+    {
+        if ( $avg2[$i-1] < $avg2[$i] ) { $avg2[$i-1] = $avg2[$i]; }
+    }
+    if ( $$opts{list_var2} )
+    {
+        print join("\n",@avg2)."\n";
+    }
+    else
+    {
+        print STDERR "MEAN\t".join(" ",@avg)."\n";
+        print STDERR "VAR2\t".join(" ",@avg2)."\n";
+    }
+}
+
