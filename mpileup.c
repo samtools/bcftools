@@ -651,6 +651,7 @@ static int mpileup(mplp_conf_t *conf)
                 exit(EXIT_FAILURE);
             }
         }
+        regidx_set(conf->reg,merge_overlaps,1);
         nregs = regidx_nregs(conf->reg);
         if ( nregs )
         {
