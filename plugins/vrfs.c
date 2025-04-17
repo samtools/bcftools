@@ -321,7 +321,11 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     if ( args->use_bam_idx )
         ret = mpileup_set(args->mplp, REGIONS_FNAME, args->sites_fname);
     else
+    {
         ret = mpileup_set(args->mplp, TARGETS_FNAME, args->sites_fname);
+        if ( args->verbose )
+            fprintf(stderr,"Note: the -i, --use-index option is not given, streaming the alignment files\n");
+    }
     if ( ret ) error("Error: could not initialize site list %s\n",args->sites_fname);
 
     mpileup_set(args->mplp, LEGACY_MODE, 1);
@@ -667,9 +671,6 @@ static int batch_profile_run(args_t *args)
     gettimeofday(&t0, NULL);
     double delta_prev = 0;
     int i;
-
-    if ( args->verbose )
-        fprintf(stderr,"Note: the -i, --use-index option is not given, streaming the alignment files\n");
 
     // collect the profiles across all bams. This is the I/O intensive part
     for (i=0; i<args->nbams; i++)
