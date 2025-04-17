@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=17,length=4200>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Read Position Bias (closer to 0 is better)">
+##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
+##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
+##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
+##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric, http://samtools.github.io/bcftools/rd-SegBias.pdf">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00100	HG00101	HG00102
+17	100	.	C	<*>	0	.	DP=18;I16=16,1,0,0,672,27586,0,0,958,55682,0,0,332,7446,0,0;QS=3,0;MQ0F=0	PL:AD	0,27,189:9,0	0,9,118:3,0	0,15,134:5,0
+17	101	.	C	<*>	0	.	DP=18;I16=16,1,0,0,630,24730,0,0,958,55682,0,0,331,7303,0,0;QS=3,0;MQ0F=0	PL:AD	0,27,182:9,0	0,9,108:3,0	0,15,132:5,0
+17	102	.	C	<*>	0	.	DP=18;I16=16,1,0,0,676,27812,0,0,958,55682,0,0,330,7178,0,0;QS=3,0;MQ0F=0	PL:AD	0,27,188:9,0	0,9,121:3,0	0,15,139:5,0
+17	103	.	T	C,<*>	0	.	DP=18;I16=15,1,1,0,668,28542,6,36,929,54841,29,841,323,7035,6,36;QS=2.98256,0.0174419,0;SGB=-0.556633;RPBZ=-1.02125;MQBZ=-2.73861;MQSBZ=0.365148;BQBZ=-1.64924;SCBZ=4;MQ0F=0	PL:AD	0,17,184,24,187,185:8,1,0	0,9,118,9,118,118:3,0,0	0,15,147,15,147,147:5,0,0
+17	104	.	G	C,<*>	0	.	DP=18;I16=15,1,1,0,601,24163,3,9,929,54841,29,841,320,6884,7,49;QS=2.98726,0.0127389,0;SGB=-0.556633;RPBZ=-1.02125;MQBZ=-2.73861;MQSBZ=0.365148;BQBZ=-1.64309;SCBZ=4;MQ0F=0	PL:AD	0,18,173,24,176,173:8,1,0	0,9,101,9,101,101:3,0,0	0,15,133,15,133,133:5,0,0
+17	105	.	G	<*>	0	.	DP=19;I16=17,1,0,0,603,22351,0,0,1018,59282,0,0,325,6815,0,0;QS=3,0;MQ0F=0	PL:AD	0,30,171:10,0	0,9,106:3,0	0,15,125:5,0

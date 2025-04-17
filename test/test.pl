@@ -984,6 +984,7 @@ run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.2.out',
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.1.out',fa=>'consensus.22.fa',args=>'--regions-overlap 0');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 1');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.22',out=>'consensus22.3.out',fa=>'consensus.22.fa',args=>'--regions-overlap 2');
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.12.out',args=>q[-r17:100-102,17:102-103,17:103-104,17:104-105,17:100-105],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150 -a -AD],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600 -a -AD]); # test files from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060 -a -AD]); # test file converted to vcf from samtools mpileup test suite

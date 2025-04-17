@@ -148,6 +148,11 @@ inline int regidx_push(regidx_t *idx, char *chr_beg, char *chr_end, uint32_t beg
     if ( beg > MAX_COOR_0 ) beg = MAX_COOR_0;
     if ( end > MAX_COOR_0 ) end = MAX_COOR_0;
 
+    if ( beg > end )
+    {
+        uint32_t tmp = beg; beg = end; end = tmp;
+    }
+
     int rid;
     idx->str.l = 0;
     kputsn(chr_beg, chr_end-chr_beg+1, &idx->str);
@@ -358,13 +363,12 @@ static void reglist_sort_(regidx_t *regidx, reglist_t *list)
 static void reglist_merge_(regidx_t *regidx, reglist_t *list)
 {
     if ( list->merged ) return;
-
     int j;
     for (j=1; j<list->nreg; j++)
     {
         if ( list->reg[j-1].end < list->reg[j].beg ) continue;
-        list->reg[j-1].end = list->reg[j].end;
-        if ( j+1 < list->nreg ) memmove(&list->reg[j],&list->reg[j+1],list->nreg-j-1);
+        if ( list->reg[j-1].end < list->reg[j].end ) list->reg[j-1].end = list->reg[j].end;
+        if ( j+1 < list->nreg ) memmove(&list->reg[j],&list->reg[j+1],(list->nreg-j-1)*sizeof(*list->reg));
         j--;
         list->nreg--;
     }
