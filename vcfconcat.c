@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2023 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -662,6 +662,7 @@ static void concat(args_t *args)
                             }
                             str++;
                         }
+                        fp->line.l = str - fp->line.s;
                         str = fp->line.s;
                     }
                     while ( *str && *str!='\t' ) str++;
