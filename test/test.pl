@@ -862,7 +862,8 @@ run_test(\&test_plugin_split,$opts,in=>'split.2',out=>'split.2.1.out',tmp=>'spli
 run_test(\&test_plugin_scatter,$opts,in=>'scatter.1',out=>'scatter.1.1.out',tmp=>'scatter.1.1',args=>q[-n 3]);
 run_test(\&test_plugin_scatter,$opts,in=>'scatter.1',out=>'scatter.1.2.out',tmp=>'scatter.1.2',args=>q[-s 21,22]);
 run_test(\&test_plugin_scatter,$opts,in=>'scatter.1',out=>'scatter.1.3.out',tmp=>'scatter.1.3',args=>q[-s 21,22 -x X]);
-run_test(\&test_vcf_concat,$opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
+run_test(\&test_vcf_concat,$opts,in=>['concat.1.a','concat.1.b'],out=>'concat.6.out',args=>'-G',do_vcf=>1);
+run_test(\&test_vcf_concat,$opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'',do_vcf=>1);
 run_test(\&test_vcf_concat,$opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 run_test(\&test_vcf_concat,$opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
 run_test(\&test_vcf_concat,$opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.bcf.out',do_bcf=>1,args=>'-a');
@@ -1930,9 +1931,10 @@ sub test_vcf_plugin
 sub test_vcf_concat
 {
     my ($opts,%args) = @_;
-    my $files;
+    my ($files,$vcfs);
     for my $file (@{$args{in}})
     {
+        $vcfs .= " $$opts{path}/$file.vcf";
         if ( $args{do_bcf} )
         {
             cmd("$$opts{bin}/bcftools view --no-version -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
@@ -1947,6 +1949,10 @@ sub test_vcf_concat
     }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat --no-version $args{args} $files");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat -Ob $args{args} $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    if ( $args{do_vcf} )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat --no-version $args{args} $vcfs");
+    }
 }
 sub test_vcf_reheader
 {
