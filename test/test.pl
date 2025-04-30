@@ -845,6 +845,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.4.out',cmd=>'+prune
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.5.out',cmd=>q[+prune -w 2bp -n 1 --AF-tag AF -i 'GT="alt"']);  # same as above but first discard REF-only sites
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.6.out',cmd=>'+prune -w 2bp -n 1 -N 1st');
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.7.out',cmd=>'+prune -w 2bp -n 1 -N rand --random-seed 1');
+run_test(\&test_vcf_plugin,$opts,in=>'prune.3',out=>'prune.3.1.out',cmd=>q[+prune -w 3bp -a count -i 'XX!=0' -k]);
+run_test(\&test_vcf_plugin,$opts,in=>'prune.3',out=>'prune.3.2.out',cmd=>q[+prune -w 3bp -a count -i 'XX!=0']);
+run_test(\&test_vcf_plugin,$opts,in=>'prune.3',out=>'prune.3.3.out',cmd=>q[+prune -w 3bp -m count=2 -i 'XX!=0']);
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1.out',cmd=>'+variant-distance');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.1.out',cmd=>'+variant-distance -d nearest');
 run_test(\&test_vcf_plugin,$opts,in=>'variant-distance',out=>'variant-distance.2.out',cmd=>'+variant-distance -d fwd');

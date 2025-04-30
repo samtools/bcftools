@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2017-2024 Genome Research Ltd.
+    Copyright (C) 2017-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -60,9 +60,10 @@ typedef struct
     vcfbuf_t *vcfbuf;
     double ld_max[VCFBUF_LD_N];
     int ld_max_set[VCFBUF_LD_N];
-    char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N];
+    char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N], *cluster_annot;
     int ld_mask;
     int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed, clevel;
+    int max_cluster;
     char *nsites_mode;
     int keep_sites;
     char **argv, *region, *target, *fname, *output_fname, *ld_filter;
@@ -76,35 +77,38 @@ args_t;
 
 const char *about(void)
 {
-    return "Prune sites by missingness, linkage disequilibrium\n";
+    return "Annotate sites with or prune sites by linkage disequilibrium or number of sites within a window\n";
 }
 
 static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Prune sites by missingness or linkage disequilibrium.\n"
-        "\n"
+        "About: Annotate sites with or prune sites by the number of variants within a window (\"count\"), Lewontin's D\n"
+        "       (\"LD\"; doi:10.1093/molbev/msz265), Ragsdale's D (\"RD\"; doi:10.1534/genetics.108.093153), or correlation\n"
+        "       coefficient r-squared.\n"
         "Usage: bcftools +prune [Options]\n"
         "Plugin options:\n"
         "       --AF-tag STR                Use this tag with -n to determine allele frequency\n"
-        "   -a, --annotate r2,LD            Add position of an upstream record with the biggest r2/LD value\n"
-        "   -e, --exclude EXPR              Exclude sites for which the expression is true\n"
+        "   -a, --annotate count|LD|RD|r2   Annotate with the number of variants within the -w window (\"count\"),\n"
+        "                                   or with the biggest LD, RD, or r2 value and the position of the record\n"
         "   -f, --set-filter STR            Apply soft filter STR instead of discarding the site (only with -m)\n"
-        "   -i, --include EXPR              Include only sites for which the expression is true\n"
-        "   -k, --keep-sites                Leave sites filtered by -i/-e unchanged instead of discarding them\n"
-        "   -m, --max [r2|LD=]FLOAT         Remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window\n"
+        "   -m, --max count|LD|RD|r2=NUM    Remove clusters of more than NUM sites (\"count\") or sites with LD, RD, or r2 bigger than NUM\n"
         "   -n, --nsites-per-win N          Keep at most N sites in the -w window. See also -N, --nsites-per-win-mode\n"
         "   -N, --nsites-per-win-mode STR   Keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
-        "   -o, --output FILE               Write output to the FILE [standard output]\n"
-        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "       --random-seed INT           Use the provided random seed for reproducibility\n"
         "       --randomize-missing         Replace missing data with randomly assigned genotype based on site's allele frequency\n"
+        "   -w, --window INT[bp|kb|Mb]      The window size of INT sites or INT bp/kb/Mb for the -m/-n options [100kb]\n"
+        "Common options:\n"
+        "   -e, --exclude EXPR              Exclude sites for which the expression is true\n"
+        "   -i, --include EXPR              Include only sites for which the expression is true\n"
+        "   -k, --keep-sites                Leave sites filtered by -i/-e unchanged instead of discarding them\n"
+        "   -o, --output FILE               Write output to the FILE [standard output]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "   -r, --regions REGION            Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
-        "   -w, --window INT[bp|kb|Mb]      The window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
@@ -121,6 +125,9 @@ static const char *usage_text(void)
         "\n"
         "   # Discard records with r2 bigger than 0.6, first removing records with more than 2% of genotypes missing\n"
         "   bcftools +prune -m 0.6 -e'F_MISSING>=0.02' input.bcf -Ob -o output.bcf\n"
+        "\n"
+        "   # Mark clusters of more than 3 sites within a 10bp window, do not mark ref-only sites\n"
+        "   bcftools +prune -m count=3 -w 10bp -k -i 'type!=\"ref\"' input.bcf -Ob -o output.bcf\n"
         "\n";
 }
 
@@ -155,11 +162,11 @@ static void init_data(args_t *args)
             kputs("LD bigger than ",&str);
             kputd(args->ld_max[VCFBUF_LD_IDX_LD],&str);
         }
-        if ( args->ld_max_set[VCFBUF_LD_IDX_HD] )
+        if ( args->ld_max_set[VCFBUF_LD_IDX_RD] )
         {
             if ( str.l ) kputs(" or ",&str);
-            kputs("HD bigger than ",&str);
-            kputd(args->ld_max[VCFBUF_LD_IDX_HD],&str);
+            kputs("RD bigger than ",&str);
+            kputd(args->ld_max[VCFBUF_LD_IDX_RD],&str);
         }
         bcf_hdr_printf(args->hdr,"##FILTER=<ID=%s,Description=\"An upstream site within %d%s with %s\">",args->ld_filter,
                 args->ld_win < 0 ? -args->ld_win/1000 : args->ld_win,
@@ -179,12 +186,14 @@ static void init_data(args_t *args)
             bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise Lewontin's D' (PMID:19433632) with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_LD],args->ld_annot_pos[VCFBUF_LD_IDX_LD]);
             bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_LD],args->ld_annot[VCFBUF_LD_IDX_LD]);
         }
-        if ( args->ld_annot[VCFBUF_LD_IDX_HD] )
+        if ( args->ld_annot[VCFBUF_LD_IDX_RD] )
         {
-            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise Ragsdale's \\hat{D} (PMID:31697386) with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_HD],args->ld_annot_pos[VCFBUF_LD_IDX_HD]);
-            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_HD],args->ld_annot[VCFBUF_LD_IDX_HD]);
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise Ragsdale's \\hat{D} (PMID:31697386) with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_RD],args->ld_annot_pos[VCFBUF_LD_IDX_RD]);
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_RD],args->ld_annot[VCFBUF_LD_IDX_RD]);
         }
     }
+    if ( args->cluster_annot  )
+        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The number of variants within %d bp of the site\">",args->cluster_annot,args->ld_win);
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( init_index2(args->out_fh,args->hdr,args->output_fname,
                      &args->index_fn, args->write_index)<0 )
@@ -193,7 +202,16 @@ static void init_data(args_t *args)
     if ( args->ld_filter && strcmp(".",args->ld_filter) )
         args->ld_filter_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->ld_filter);
 
+    if ( args->ld_win>0 && (args->max_cluster || args->cluster_annot) )
+    {
+        fprintf(stderr,"Warning: assuming `-w %dbp` was intended instead of `-w %d`\n",args->ld_win,args->ld_win);
+        args->ld_win *= -1;
+        if ( args->max_cluster && -args->ld_win <= args->max_cluster ) error("Error: -w must be bigger than -m\n");
+    }
+
     args->vcfbuf = vcfbuf_init(args->hdr, args->ld_win);
+    if ( args->max_cluster ) vcfbuf_set(args->vcfbuf,CLUSTER_PRUNE,args->max_cluster);
+    if ( args->cluster_annot ) vcfbuf_set(args->vcfbuf,CLUSTER_SIZE,1);
     if ( args->ld_max_set[VCFBUF_LD_IDX_R2] ) vcfbuf_set(args->vcfbuf,LD_MAX_R2,args->ld_max[VCFBUF_LD_IDX_R2]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_LD] ) vcfbuf_set(args->vcfbuf,LD_MAX_LD,args->ld_max[VCFBUF_LD_IDX_LD]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_HD] ) vcfbuf_set(args->vcfbuf,LD_MAX_HD,args->ld_max[VCFBUF_LD_IDX_HD]);
@@ -203,6 +221,10 @@ static void init_data(args_t *args)
         hts_srand48(args->rseed);
     }
     if ( args->rand_missing ) vcfbuf_set(args->vcfbuf,LD_RAND_MISSING,1);
+    if ( args->max_cluster )
+    {
+        vcfbuf_set(args->vcfbuf,CLUSTER_PRUNE,args->max_cluster);
+    }
     if ( args->nsites )
     {
         vcfbuf_set(args->vcfbuf,PRUNE_NSITES,args->nsites);
@@ -235,7 +257,18 @@ static void flush(args_t *args, int flush_all)
 {
     bcf1_t *rec;
     while ( (rec = vcfbuf_flush(args->vcfbuf, flush_all)) )
+    {
+        if ( args->cluster_annot )
+        {
+            int is_marked = vcfbuf_get_val(args->vcfbuf,int,CLUSTER_SIZE);
+            if ( is_marked > 0 )
+            {
+                int32_t val = is_marked;
+                bcf_update_info_int32(args->hdr, rec, args->cluster_annot, &val, 1);
+            }
+        }
         if ( bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    }
 }
 static void process(args_t *args)
 {
@@ -361,10 +394,14 @@ int run(int argc, char **argv)
                             args->ld_annot_pos[VCFBUF_LD_IDX_LD] = "POS_LD";
                             args->ld_annot[VCFBUF_LD_IDX_LD]     = "LD";
                         }
-                        else if ( !strcasecmp("HD",tag[i]) )
+                        else if ( !strcasecmp("RD",tag[i]) || !strcasecmp("HD",tag[i]) )
                         {
-                            args->ld_annot_pos[VCFBUF_LD_IDX_HD] = "POS_HD";
-                            args->ld_annot[VCFBUF_LD_IDX_HD]     = "HD";
+                            args->ld_annot_pos[VCFBUF_LD_IDX_RD] = "POS_RD";
+                            args->ld_annot[VCFBUF_LD_IDX_RD]     = "RD";
+                        }
+                        else if ( !strcasecmp("COUNT",tag[i]) )
+                        {
+                            args->cluster_annot = "CLUSTER_SIZE";
                         }
                         else error("The tag \"%s\" is not supported\n",tag[i]);
                         free(tag[i]);
@@ -395,10 +432,14 @@ int run(int argc, char **argv)
                     args->ld_max_set[VCFBUF_LD_IDX_LD] = 1;
                     args->ld_max[VCFBUF_LD_IDX_LD] = strtod(optarg+3,&tmp);
                 }
-                else if ( !strncasecmp("HD=",optarg,3) )
+                else if ( !strncasecmp("RD=",optarg,3) || !strncasecmp("HD=",optarg,3) )
                 {
-                    args->ld_max_set[VCFBUF_LD_IDX_HD] = 1;
-                    args->ld_max[VCFBUF_LD_IDX_HD] = strtod(optarg+3,&tmp);
+                    args->ld_max_set[VCFBUF_LD_IDX_RD] = 1;
+                    args->ld_max[VCFBUF_LD_IDX_RD] = strtod(optarg+3,&tmp);
+                }
+                else if ( !strncasecmp("count=",optarg,6) )
+                {
+                    args->max_cluster = strtod(optarg+6,&tmp);
                 }
                 else
                 {

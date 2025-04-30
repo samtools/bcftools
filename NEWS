@@ -76,6 +76,10 @@ Changes affecting specific commands:
 
     - Make the option `-s, --sample-names` functional again (#2353)
 
+* bcftools +prune
+
+    - New option to remove or annotate clusters of sites within a window
+
 * bcftools query
 
     - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be

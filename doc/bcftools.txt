@@ -2952,8 +2952,9 @@ By default, appropriate system directories are searched for installed plugins.
     determine parental origin of a CNV region
 
 *prune*::
-    prune sites by missingness, allele frequency or linkage disequilibrium.
-    Alternatively, annotate sites with r2, Lewontin's D' (PMID:19433632), Ragsdale's D (PMID:31697386).
+    annotate sites with or prune sites by the number of variants within a window, Lewontin's D
+    (doi:10.1093/molbev/msz265), Ragsdale's D (doi:10.1534/genetics.108.093153), or correlation
+    coefficient r-squared.
 
 *remove-overlaps*::
     remove overlapping variants and duplicate sites
