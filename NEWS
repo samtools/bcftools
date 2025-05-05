@@ -25,6 +25,8 @@ Changes affecting specific commands:
 
     - Preserve entire missing gVCF blocks with --missing (#2350)
 
+    - Fixed a bug, the `-S, --samples-file` option is no longer ignored (#2398)
+
 * bcftools convert
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)

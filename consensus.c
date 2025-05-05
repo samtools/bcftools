@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2024 Genome Research Ltd.
+   Copyright (c) 2014-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -228,7 +228,17 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->files,args->fname) ) error("Failed to read from %s: %s\n", !strcmp("-",args->fname)?"standard input":args->fname, bcf_sr_strerror(args->files->errnum));
     args->hdr = args->files->readers[0].header;
     args->isample = -1;
-    if ( !args->sample )
+    if ( args->sample_fname )
+    {
+        args->smpl = smpl_ilist_init(args->hdr,args->sample_fname,1,SMPL_NONE|SMPL_VERBOSE);
+        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
+    }
+    else if ( args->sample && strcmp("-",args->sample) )
+    {
+        args->smpl = smpl_ilist_init(args->hdr,args->sample,0,SMPL_NONE|SMPL_VERBOSE);
+        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
+    }
+    else if ( !args->sample )
     {
         args->smpl = smpl_ilist_init(args->hdr,NULL,0,SMPL_NONE|SMPL_VERBOSE);
         if ( !args->smpl->n )
@@ -236,16 +246,6 @@ static void init_data(args_t *args)
             smpl_ilist_destroy(args->smpl);
             args->smpl = NULL;
         }
-    }
-    else if ( args->sample && strcmp("-",args->sample) )
-    {
-        args->smpl = smpl_ilist_init(args->hdr,args->sample,0,SMPL_NONE|SMPL_VERBOSE);
-        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
-    }
-    else if ( args->sample_fname )
-    {
-        args->smpl = smpl_ilist_init(args->hdr,args->sample_fname,1,SMPL_NONE|SMPL_VERBOSE);
-        if ( args->smpl && !args->smpl->n ) error("No matching sample found\n");
     }
     if ( args->smpl )
     {
