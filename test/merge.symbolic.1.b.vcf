@@ -1,4 +1,4 @@
-##fileformat=VCFv4.1
+##fileformat=VCFv4.4
 ##contig=<ID=chr1,length=248956422>
 ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">

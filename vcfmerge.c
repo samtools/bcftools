@@ -3424,6 +3424,7 @@ void merge_vcf(args_t *args)
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p); //hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");
+    bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
 
     if ( args->header_fname )
     {
@@ -3445,7 +3446,6 @@ void merge_vcf(args_t *args)
     info_rules_init(args);
     missing_rules_init(args);
 
-    bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
     if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( args->header_only )
     {

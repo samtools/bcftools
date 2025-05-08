@@ -1,4 +1,4 @@
-##fileformat=VCFv4.1
+##fileformat=VCFv4.4
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##contig=<ID=chr1,length=248956422>
 ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">
