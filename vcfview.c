@@ -619,7 +619,7 @@ int main_vcfview(int argc, char *argv[])
         {"exclude-phased",no_argument,NULL,'P'},
         {"no-version",no_argument,NULL,8},
         {"write-index",optional_argument,NULL,'W'},
-        {"hts-verbose",required_argument,NULL,9},
+        {"hts-verbose",required_argument,NULL,10},
         {NULL,0,NULL,0}
     };
     char *tmp;
