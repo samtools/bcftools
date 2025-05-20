@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2022 Genome Research Ltd.
+   Copyright (c) 2018-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -97,13 +97,14 @@ static const char *usage_text(void)
         "About: Calculates basic per-sample stats. Use curly brackets to scan a range of values simultaneously\n"
         "Usage: bcftools +smpl-stats [Plugin Options]\n"
         "Plugin options:\n"
-        "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
-        "   -i, --include EXPR          include sites and samples for which the expression is true\n"
-        "   -o, --output FILE           output file name [stdout]\n"
-        "   -r, --regions REG           restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE     restrict to regions listed in a file\n"
-        "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -e, --exclude EXPR          Exclude sites and samples for which the expression is true\n"
+        "   -i, --include EXPR          Include sites and samples for which the expression is true\n"
+        "   -o, --output FILE           Output file name [stdout]\n"
+        "   -r, --regions REG           Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE     Restrict to regions listed in a file\n"
+        "   -t, --targets REG           Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE     Similar to -R but streams rather than index-jumps\n"
+        "   -v, --verbosity INT         Verbosity level\n"
         "\n"
         "Example:\n"
         "   bcftools +smpl-stats -i 'GQ>{10,20,30,40,50}' file.bcf\n"
@@ -441,13 +442,20 @@ int run(int argc, char **argv)
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c, i;
-    while ((c = getopt_long(argc, argv, "o:s:i:e:r:R:t:T:",loptions,NULL)) >= 0)
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "o:s:i:e:r:R:t:T:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

@@ -3672,6 +3672,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --single-overlaps           Keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
     fprintf(stderr, "   -x, --remove LIST               List of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
     fprintf(stderr, "       --threads INT               Number of extra output compression threads [0]\n");
+    fprintf(stderr, "   -v, --verbosity INT             Verbosity level\n");
     fprintf(stderr, "   -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
@@ -3729,13 +3730,19 @@ int main_vcfannotate(int argc, char *argv[])
         {"min-overlap",required_argument,NULL,12},
         {"no-version",no_argument,NULL,8},
         {"force",no_argument,NULL,'f'},
+        {"verbosity",required_argument,NULL,'v'},
         {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:H:?o:O:r:R:a:x:c:C:i:e:S:s:I:m:kl:fW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:H:?o:O:r:R:a:x:c:C:i:e:S:s:I:m:kl:fW::v:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'f': args->force = 1; break;
             case 'k': args->keep_sites = 1; break;
             case 'm':

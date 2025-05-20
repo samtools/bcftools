@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2024 Genome Research Ltd.
+   Copyright (c) 2018-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -153,6 +153,7 @@ static const char *usage_text(void)
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "General options:\n"
@@ -1673,15 +1674,21 @@ int run(int argc, char **argv)
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,15},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
     double pn_abs, pn_frac;
-    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:nW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:nW::v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 : args->force_ad = 1; break;
             case  2 : free(args->dnm_score_tag); args->dnm_score_tag = strdup(optarg); break;
             case  3 : free(args->dnm_allele_tag); args->dnm_allele_tag = strdup(optarg); break;

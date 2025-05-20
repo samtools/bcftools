@@ -987,7 +987,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
     fprintf(stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with <int> worker threads [0]\n");
-    fprintf(stderr, "   -v, --verbose 0|1              Set verbosity level [1]\n");
+    fprintf(stderr, "   -v, --verbosity INT            Set verbosity level\n");
     fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1009,6 +1009,7 @@ int main_vcfconcat(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"verbose",required_argument,NULL,'v'},
+        {"verbosity",required_argument,NULL,'v'},
         {"naive",no_argument,NULL,'n'},
         {"naive-force",no_argument,NULL,7},
         {"compact-PS",no_argument,NULL,'c'},
@@ -1081,6 +1082,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'v':
                       args->verbose = strtol(optarg, &tmp, 0);
                       if ( *tmp || args->verbose<0 || args->verbose>1 ) error("Error: currently only --verbose 0 or --verbose 1 is supported\n");
+                      if ( args->verbose > 3 ) hts_verbose = args->verbose;
                       break;
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))

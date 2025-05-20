@@ -3541,6 +3541,7 @@ static void usage(void)
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "        --threads INT                 Use multithreading with INT worker threads [0]\n");
+    fprintf(stderr, "    -v, --verbosity INT               Verbosity level\n");
     fprintf(stderr, "    -W, --write-index[=FMT]           Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -3587,11 +3588,17 @@ int main_vcfmerge(int argc, char *argv[])
         {"force-single",no_argument,NULL,12},
         {"filter-logic",required_argument,NULL,'F'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:W::",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --local-alleles %s\n", optarg);

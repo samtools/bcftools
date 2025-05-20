@@ -303,6 +303,10 @@ Such a file can be easily created from a VCF using:
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
 
+*-v, --verbosity* 'INT'::
+    Verbosity level. Values bigger than 3 are passed to the underlying HTSlib library so that network issues
+    and other problems occurring at the library level can be investigated.
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output files. 'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format. Defaults to
@@ -552,6 +556,9 @@ Add or remove annotations.
     except GT. To remove all INFO tags except "FOO" and "BAR", use
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -823,6 +830,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 ==== HMM Options:
 
 *-a, --aberrant* 'float'[,'float']::
@@ -946,6 +956,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -1045,6 +1058,9 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *-S, --samples-file* 'FILE'::
     apply variants of the samples listed in the file. See also the option *-I, --iupac-codes*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *Examples:*
 ----
     # Apply variants present in sample "NA001", output IUPAC codes for hets
@@ -1107,7 +1123,7 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
 
-==== VCF output options:
+==== General options:
 
 *--no-version*::
     see *<<common_options,Common Options>>*
@@ -1120,6 +1136,10 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 ==== GEN/SAMPLE conversion:
 *-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
@@ -1510,8 +1530,8 @@ output VCF and are ignored for the prediction analysis.
     The chromosome names in the output VCF will match that of the input VCF. The default is
     not to modify the sequence names.
 
-*-v, --verbose* 'INT'::
-    verbosity level (0-2)
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -1684,6 +1704,9 @@ And similarly here, the second is filtered:
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -1803,6 +1826,9 @@ The discordance score can be interpreted as the number of mismatching genotypes 
     the other tag. The output includes the number of sites that were matched by the four
     possible modes (for example GT-vs-GT or GT-vs-PL).
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *Examples:*
 ----
    # Check discordance of all samples from B against all samples in A
@@ -1871,6 +1897,10 @@ present, but it never adds version or command line information itself.
     the list of samples, with each sample per line, can be obtained with `bcftools query` using
     the option *-l, --list-samples*.
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 
 [[index]]
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
@@ -1901,6 +1931,10 @@ the CSI first and then the TBI.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 ==== Stats options:
 *-a, --all*::
@@ -1978,6 +2012,9 @@ in the other files.
     see *<<common_options,Common Options>>*
 
 *--targets-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
@@ -2142,6 +2179,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
@@ -2453,6 +2493,9 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -2751,8 +2794,8 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*-v, --verbose* 'INT'::
-    verbosity level of GFF parsing (0-2)
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
@@ -2837,8 +2880,8 @@ By default, appropriate system directories are searched for installed plugins.
     adjacent colons, the system directories are also searched at that position
     in the list of directories.
 
-*-v, --verbose*::
-    print debugging information to debug plugin failure
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-V, --version*::
     print version string and exit
@@ -3095,9 +3138,10 @@ file for help.
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*-v, --verbose*::
+*-v, --verbosity* 'INT'::
     verbose debugging output which gives hints about the thresholds and decisions made
     by the program. Note that the exact output can change between versions.
+    See also *<<common_options,Common Options>>*
 
 ==== Algorithm options:
 
@@ -3199,6 +3243,10 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-v, --vcf-list* 'FILE'::
     process multiple VCFs listed in the file
 
+*--verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 ==== Format:
 
     %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
@@ -3292,6 +3340,9 @@ Modify header of VCF/BCF files, change sample names.
     this option is ignored, but left for compatibility with earlier versions of bcftools.
 
 *--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 
@@ -3444,6 +3495,10 @@ Transition probabilities:
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 ==== HMM Options:
 
 *-a, --hw-to-az* 'FLOAT'::
@@ -3474,6 +3529,9 @@ Transition probabilities:
 *-T, --temp-dir* 'DIR'::
     Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
     then these are replaced with a string that makes the directory name unique.
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -3568,8 +3626,8 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
 *-u, --user-tstv* '<TAG[:min:max:n]>'::
     collect Ts/Tv stats for any tag using the given binning [0:1:100]
 
-*-v, --verbose*::
-    produce verbose per-site and per-sample output
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[view]]
@@ -3624,6 +3682,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+*--verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::

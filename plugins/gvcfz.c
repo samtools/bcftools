@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2017-2023 Genome Research Ltd.
+    Copyright (C) 2017-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -102,6 +102,7 @@ static const char *usage_text(void)
         "   -g, --group-by EXPR             Group gVCF blocks according to the expression\n"
         "   -o, --output FILE               Write gVCF output to the FILE\n"
         "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Compress blocks by GQ and DP. Multiple blocks separated by a semicolon can be defined\n"
@@ -336,14 +337,20 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:g:i:e:aW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "v:r:R:t:T:o:O:g:i:e:aW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'a': args->trim_alts = 1; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

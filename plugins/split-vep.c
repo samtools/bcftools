@@ -277,6 +277,7 @@ static const char *usage_text(void)
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
@@ -1577,14 +1578,20 @@ int run(int argc, char **argv)
         {"no-version",no_argument,NULL,2},
         {"allow-undef-tags",no_argument,0,'u'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c, drop_sites = -1;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:W::v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
             case 'A':

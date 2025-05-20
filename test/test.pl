@@ -655,8 +655,8 @@ run_test(\&test_vcf_plugin,$opts,in=>'dosage',out=>'dosage.1.out',cmd=>'+dosage'
 run_test(\&test_vcf_plugin,$opts,in=>'dosage',out=>'dosage.2.out',cmd=>'+dosage',args=>'-- -t GL');
 run_test(\&test_vcf_plugin,$opts,in=>'dosage',out=>'dosage.3.out',cmd=>'+dosage',args=>'-- -t GT');
 run_test(\&test_vcf_plugin,$opts,in=>'fixploidy',out=>'fixploidy.out',cmd=>'+fixploidy --no-version',args=>'-- -s {PATH}/fixploidy.samples -p {PATH}/fixploidy.ploidy');
-run_test(\&test_vcf_plugin,$opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
-run_test(\&test_vcf_plugin,$opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
+run_test(\&test_vcf_plugin,$opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploidy',args=>'-v -rX | grep -v bcftools');
+run_test(\&test_vcf_plugin,$opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-v -rX | grep -v bcftools');
 run_test(\&test_vcf_plugin,$opts,in=>'view.GL',out=>'view.PL.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gl-to-pl');
 run_test(\&test_vcf_plugin,$opts,in=>'view.GL',out=>'view.GL-GP.vcf',cmd=>'+tag2tag --no-version',args=>'-- --gl-to-gp');
 run_test(\&test_vcf_plugin,$opts,in=>'view.GP',out=>'view.GT.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gp-to-gt -t 0.2');

@@ -10,6 +10,10 @@ Changes affecting the whole of bcftools, or multiple commands:
 
     - Added support for Fisher's exact test
 
+* Add the option `-v, --verbosity INT` to all bcftools commands and plugins. Verbosity values
+  bigger than 3 are passed to the underlying HTSlib library so that the user can investigate
+  network issues and other problems occurring at the library level.
+
 Changes affecting specific commands:
 
 * bcftools +vrfs

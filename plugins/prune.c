@@ -109,6 +109,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
@@ -352,14 +353,20 @@ int run(int argc, char **argv)
         {"nsites-per-win-mode",required_argument,NULL,'N'},
         {"window",required_argument,NULL,'w'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:N:w:kW::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "v:r:R:t:T:m:o:O:a:f:i:e:n:N:w:kW::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 : args->rand_missing = 1; break;
             case  2 : args->af_tag = optarg; break;
             case  3 :

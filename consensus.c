@@ -1217,6 +1217,7 @@ static void usage(args_t *args)
     fprintf(stderr, "        --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "    -s, --samples LIST             Comma-separated list of samples to include, \"-\" to ignore samples and use REF,ALT\n");
     fprintf(stderr, "    -S, --samples-file FILE        File of samples to include\n");
+    fprintf(stderr, "    -v, --verbosity INT            Verbosity level\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Get the consensus for one region. The fasta header lines are then expected\n");
     fprintf(stderr, "   # in the form \">chr:from-to\".\n");
@@ -1254,13 +1255,20 @@ int main_consensus(int argc, char *argv[])
         {"chain",1,0,'c'},
         {"prefix",required_argument,0,'p'},
         {"regions-overlap",required_argument,0,5},
+        {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "h?s:S:1Ii:e:H:f:o:m:c:M:p:a:",loptions,NULL)) >= 0)
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "h?s:S:1Ii:e:H:f:o:m:c:M:p:a:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 : args->mark_del = optarg[0]; break;
             case  2 :
                 if ( !strcasecmp(optarg,"uc") ) args->mark_ins = TO_UPPER;

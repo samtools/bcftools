@@ -933,6 +933,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -M, --keep-masked-ref           Keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -V, --skip-variants TYPE        Skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             Output variant sites only\n");
+    fprintf(stderr, "       --verbosity INT             Verbosity level\n");
     fprintf(stderr, "   -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Consensus/variant calling options:\n");
@@ -1018,6 +1019,7 @@ int main_vcfcall(int argc, char *argv[])
         {"chromosome-Y",no_argument,NULL,'Y'},
         {"no-version",no_argument,NULL,8},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,10},
         {NULL,0,NULL,0}
     };
 
@@ -1108,6 +1110,11 @@ int main_vcfcall(int argc, char *argv[])
             case 'W':
                 if (!(args.write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);
+                break;
+            case 10:
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
                 break;
             default: usage(&args);
         }

@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014-2022,2024 Genome Research Ltd.
+    Copyright (C) 2014-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -661,12 +661,13 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools reheader [OPTIONS] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -f, --fai FILE             update sequences and their lengths from the .fai file\n");
-    fprintf(stderr, "    -h, --header FILE          new header\n");
-    fprintf(stderr, "    -o, --output FILE          write output to a file [standard output]\n");
-    fprintf(stderr, "    -s, --samples FILE         new sample names\n");
-    fprintf(stderr, "    -T, --temp-prefix PATH     ignored; was template for temporary file name\n");
-    fprintf(stderr, "        --threads INT          use multithreading with <int> worker threads (BCF only) [0]\n");
+    fprintf(stderr, "    -f, --fai FILE             Update sequences and their lengths from the .fai file\n");
+    fprintf(stderr, "    -h, --header FILE          New header\n");
+    fprintf(stderr, "    -o, --output FILE          Write output to a file [standard output]\n");
+    fprintf(stderr, "    -s, --samples FILE         New sample names\n");
+    fprintf(stderr, "    -T, --temp-prefix PATH     Ignored; was template for temporary file name\n");
+    fprintf(stderr, "        --threads INT          Use multithreading with <int> worker threads (BCF only) [0]\n");
+    fprintf(stderr, "    -v, --verbosity INT        Verbosity level\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Example:\n");
     fprintf(stderr, "   # Write out the header to be modified\n");
@@ -695,12 +696,19 @@ int main_reheader(int argc, char *argv[])
         {"header",1,0,'h'},
         {"samples",1,0,'s'},
         {"threads",1,NULL,1},
+        {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "s:h:o:f:T:",loptions,NULL)) >= 0)
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "s:h:o:f:T:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'T': break; // unused - was temp file prefix
             case 'f': args->fai_fname = optarg; break;

@@ -1,6 +1,6 @@
 /*  vcfconvert.c -- convert between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1621,11 +1621,12 @@ static void usage(void)
     fprintf(stderr, "   -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "       --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "VCF output options:\n");
+    fprintf(stderr, "General options:\n");
     fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output FILE              Output file name [stdout]\n");
     fprintf(stderr, "   -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with INT worker threads [0]\n");
+    fprintf(stderr, "   -v, --verbosity INT            Verbosity level\n");
     fprintf(stderr, "   -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
@@ -1720,12 +1721,18 @@ int main_vcfconvert(int argc, char *argv[])
         {"fasta-ref",required_argument,NULL,'f'},
         {"no-version",no_argument,NULL,10},
         {"keep-duplicates",no_argument,NULL,12},
+        {"verbosity",required_argument,NULL,'v'},
         {"write-index",optional_argument,NULL,'W'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:W::",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

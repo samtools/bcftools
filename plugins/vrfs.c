@@ -136,7 +136,7 @@ static const char *usage_text(void)
         "   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files\n"
         "   -o, --output FILE             Output file name [stdout]\n"
         "   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]\n"
-        "   -v, --verbose                 Increase verbosity, eg print the elapsed and estimated total running time\n"
+        "   -v, --verbosity INT           Verbosity level, eg can print the elapsed and estimated total running time\n"
         "\n"
         "Example:\n"
         "   # Typical run\n"
@@ -935,14 +935,15 @@ int run(int argc, char **argv)
         {"fasta-ref",required_argument,NULL,'f'},
         {"alns",required_argument,NULL,'a'},
         {"sites",required_argument,NULL,'s'},
-        {"verbose",no_argument,NULL,'v'},
+        {"verbose",optional_argument,NULL,'v'},
+        {"verbosity",optional_argument,NULL,'v'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:d:n:ib:m:M:vr:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:s:t:a:f:d:n:ib:m:M:v::r:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -977,7 +978,15 @@ int run(int argc, char **argv)
             case 's': args->sites_fname = optarg; break;
             case 'a': args->aln_fname = optarg; break;
             case 'b': args->batch = optarg; break;
-            case 'v': args->verbose++; break;
+            case 'v':
+                if (!optarg) args->verbose++;
+                else
+                {
+                    args->verbose = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                    if ( args->verbose > 3 ) hts_verbose = args->verbose;
+                }
+                break;
             case 'm': args->batch_fname = optarg; break;
             case 'M': merge_add_batch(args,optarg); break;
             case 'h':

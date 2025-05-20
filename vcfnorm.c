@@ -113,7 +113,7 @@ typedef struct
     char *old_rec_tag;
     htsFile *out;
     char *index_fn;
-    int write_index, gff_verbosity;
+    int write_index, verbose;
     int right_align;
     char *gff_fname;
     gff_t *gff;
@@ -2255,7 +2255,7 @@ static void init_data(args_t *args)
     if ( args->gff_fname )
     {
         args->gff = gff_init(args->gff_fname);
-        gff_set(args->gff,verbosity,args->gff_verbosity);
+        gff_set(args->gff,verbosity,args->verbose);
         gff_parse(args->gff);
         args->idx_tscript = gff_get(args->gff,idx_tscript);
         args->itr_tscript = regitr_init(NULL);
@@ -2522,7 +2522,7 @@ static void usage(void)
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with INT worker threads [0]\n");
-    fprintf(stderr, "    -v, --verbose INT               Verbosity level (0-2) of GFF parsing [1]\n");
+    fprintf(stderr, "    -v, --verbosity INT             Verbosity level\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "    -W, --write-index[=FMT]         Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
@@ -2555,7 +2555,7 @@ int main_vcfnorm(int argc, char *argv[])
     int region_is_file  = 0;
     int targets_is_file = 0;
     args->use_star_allele = 1;
-    args->gff_verbosity = 1;
+    args->verbose = 1;
     int regions_overlap = 1;
     int targets_overlap = 0;
     args->cmp_func = cmp_bcf_pos;
@@ -2594,6 +2594,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {"write-index",optional_argument,NULL,'W'},
         {"verbose",required_argument,NULL,'v'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -2607,8 +2608,9 @@ int main_vcfnorm(int argc, char *argv[])
                 break;
             case 'g': args->gff_fname = optarg; break;
             case 'v':
-                args->gff_verbosity = atoi(optarg);
-                if ( args->gff_verbosity<0 || args->gff_verbosity>2 ) error("Error: expected integer 0-2 with -v, --verbose\n");
+                args->verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( args->verbose > 3 ) hts_verbose = args->verbose;
                 break;
             case 'a': args->atomize = SPLIT; break;
             case 'e':

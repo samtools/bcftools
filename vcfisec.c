@@ -1,6 +1,6 @@
 /*  vcfisec.c -- Create intersections, unions and complements of VCF files.
 
-    Copyright (C) 2012-2024 Genome Research Ltd.
+    Copyright (C) 2012-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -504,7 +504,8 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets REGION           Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
-    fprintf(stderr, "        --threads INT              Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --threads INT              Use multithreading with INT worker threads [0]\n");
+    fprintf(stderr, "    -v, --verbosity INT            Verbosity level\n");
     fprintf(stderr, "    -w, --write LIST               List of files to write with -p given as 1-based indexes. By default, all files are written\n");
     fprintf(stderr, "    -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
@@ -565,11 +566,17 @@ int main_vcfisec(int argc, char *argv[])
         {"threads",required_argument,NULL,9},
         {"no-version",no_argument,NULL,8},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:W::",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {

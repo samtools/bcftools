@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2017-2023 Genome Research Ltd.
+    Copyright (C) 2017-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -126,6 +126,7 @@ static const char *usage_text(void)
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
@@ -657,14 +658,20 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:G:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "v:r:R:t:T:o:O:i:e:k:S:G:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 : args->hts_opts = hts_readlist(optarg,0,&args->nhts_opts); break;
             case 'k': args->keep_tags = optarg; break;
             case 'e':

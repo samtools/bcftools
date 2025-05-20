@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2018-2021 Genome Research Ltd.
+   Copyright (c) 2018-2021,2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -129,23 +129,24 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Calculates indel stats. Use curly brackets to scan a range of values simultaneously\n"
         "Usage: bcftools +indel-stats [Plugin Options]\n"
         "Plugin options:\n"
-        "       --alt2ref-DNM           consider GT errors such as 0/1 + 1/1 -> 0/0 a valid DNM\n"
+        "       --alt2ref-DNM           Consider GT errors such as 0/1 + 1/1 -> 0/0 a valid DNM\n"
         "   -c, --csq-tag STR           VEP or BCSQ tag to determine inframe and frameshift variants [CSQ]\n"
-        "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
-        "   -i, --include EXPR          include sites and samples for which the expression is true\n"
-        "       --max-len INT           maximum indel length to consider [20]\n"
-        "       --nvaf INT              number of variant allele frequency bins [20]\n"
-        "   -o, --output FILE           output file name [stdout]\n"
-        "   -p, --ped FILE              limit the stats to de novo indels\n"
-        "   -r, --regions REG           restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE     restrict to regions listed in a file\n"
-        "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -e, --exclude EXPR          Exclude sites and samples for which the expression is true\n"
+        "   -i, --include EXPR          Include sites and samples for which the expression is true\n"
+        "       --max-len INT           Maximum indel length to consider [20]\n"
+        "       --nvaf INT              Number of variant allele frequency bins [20]\n"
+        "   -o, --output FILE           Output file name [stdout]\n"
+        "   -p, --ped FILE              Limit the stats to de novo indels\n"
+        "   -r, --regions REG           Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE     Restrict to regions listed in a file\n"
+        "   -t, --targets REG           Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE     Similar to -R but streams rather than index-jumps\n"
+        "   -v, --verbosity INT         Verbosity level\n"
         "\n"
         "Example:\n"
         "   bcftools +indel-stats -i 'GQ>{10,20,30,40,50}' file.bcf\n"
@@ -189,7 +190,7 @@ static void parse_filters(args_t *args)
         }
         if ( !expanded ) break;
     }
-    
+
     fprintf(stderr,"Collecting data for %d filtering expressions\n", args->nflt_str);
 }
 
@@ -245,7 +246,7 @@ static void parse_ped(args_t *args, char *fname)
 
     // sort the sample by index so that they are accessed more or less sequentially
     qsort(args->trio,args->ntrio,sizeof(trio_t),cmp_trios);
-    
+
     free(str.s);
     free(off);
     if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
@@ -295,9 +296,9 @@ static void init_data(args_t *args)
             // replace tab's with spaces so that the output stays parsable
             char *tmp = args->filters[i].expr;
             while ( *tmp )
-            { 
-                if ( *tmp=='\t' ) *tmp = ' '; 
-                tmp++; 
+            {
+                if ( *tmp=='\t' ) *tmp = ' ';
+                tmp++;
             }
         }
     }
@@ -598,7 +599,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
 
             // Determine the alternate allele and the genotypes, skip if any of the alleles is missing.
             // the order is: child, father, mother
-            int als[6], *als_child = als, *als_father = als+2, *als_mother = als+4; 
+            int als[6], *als_child = als, *als_father = als+2, *als_mother = als+4;
             if ( parse_genotype(args->gt_arr, args->ngt1, args->trio[i].idx[iCHILD], als_child) < 0 ) continue;
             if ( parse_genotype(args->gt_arr, args->ngt1, args->trio[i].idx[iFATHER], als_father) < 0 ) continue;
             if ( parse_genotype(args->gt_arr, args->ngt1, args->trio[i].idx[iMOTHER], als_mother) < 0 ) continue;
@@ -617,7 +618,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             {
                 if ( !child_is_indel ) continue;
             }
-            else 
+            else
             {
                 if ( !child_is_indel &&
                      !(bcf_get_variant_type(rec,als_father[0]) & VCF_INDEL) &&
@@ -695,14 +696,20 @@ int run(int argc, char **argv)
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     char *tmp;
     int c, i;
-    while ((c = getopt_long(argc, argv, "o:s:i:e:r:R:t:T:c:p:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:s:i:e:r:R:t:T:c:p:v:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
+            case 'v':
+                int verbose = strtol(optarg,&tmp,10);
+                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                if ( verbose > 3 ) hts_verbose = verbose;
+                break;
             case  1 :
                 MAX_LEN = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: --max-len %s\n", optarg);

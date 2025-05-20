@@ -2813,7 +2813,7 @@ static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
                 fprintf(stderr,"Warning: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
                         bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
                 if ( args->verbosity < 2 )
-                    fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
+                    fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
             }
             args->warned.ref_allele_mismatch++;
             return -1;
@@ -3073,7 +3073,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                             "Warning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s.\n",
                             chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                         if ( !overlaps_warned )
-                            fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
+                            fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
                         overlaps_warned = 1;
                     }
                     if ( args->out )
@@ -3120,7 +3120,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     "Warning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s.\n",
                     chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 if ( !multiploid_warned )
-                    fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
+                    fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
                 multiploid_warned = 1;
             }
             if ( args->out )
@@ -3186,7 +3186,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                                     "Warning: Skipping overlapping variants at %s:%"PRId64", sample %s\t%s>%s.\n",
                                     chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                             if ( !overlaps_warned )
-                                fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
+                                fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
                             overlaps_warned = 1;
                         }
                         if ( args->out  )
@@ -3668,7 +3668,7 @@ static const char *usage(void)
         "   -T, --targets-file FILE           Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --threads INT                 Use multithreading with <int> worker threads [0]\n"
-        "   -v, --verbose INT                 Verbosity level 0-2 [1]\n"
+        "   -v, --verbosity INT               Verbosity level 0-6 [1]\n"
         "   -W, --write-index[=FMT]           Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
@@ -3711,6 +3711,7 @@ int main_csq(int argc, char *argv[])
         {"phase",1,0,'p'},
         {"quiet",0,0,'q'},
         {"verbose",1,0,'v'},
+        {"verbosity",1,0,'v'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"regions-overlap",required_argument,NULL,4},
@@ -3753,7 +3754,8 @@ int main_csq(int argc, char *argv[])
             case 'q': error("Error: the -q option has been deprecated, use -v, --verbose instead.\n"); break;
             case 'v':
                 args->verbosity = atoi(optarg);
-                if ( args->verbosity<0 || args->verbosity>2 ) error("Error: expected integer 0-2 with -v, --verbose\n");
+                if ( args->verbosity<0 ) error("Error: expected integer with -v, --verbosity\n");
+                if ( args->verbosity > 3 ) hts_verbose = args->verbosity;
                 break;
             case 'p':
                 switch (optarg[0])

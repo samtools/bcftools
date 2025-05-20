@@ -1270,6 +1270,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
         "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "      --threads INT       Use multithreading with INT worker threads [0]\n"
+        "  -v, --verbosity INT     Verbosity level\n"
         "  -W, --write-index[=FMT] Automatically index the output files [off]\n"
         "\n"
         "SNP/INDEL genotype likelihoods options:\n"
@@ -1465,10 +1466,17 @@ int main_mpileup(int argc, char *argv[])
         {"no-poly-mqual", no_argument, NULL, 26},
         {"score-vs-ref",required_argument, NULL, 27},
         {"seqq-offset", required_argument, NULL, 28},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:UW::",lopts,NULL)) >= 0) {
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:UW::v:",lopts,NULL)) >= 0) {
         switch (c) {
+        case 'v':
+            int verbose = strtol(optarg,&tmp,10);
+            if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+            if ( verbose > 3 ) hts_verbose = verbose;
+            break;
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  16 :
             mplp.rflag_skip_any_unset = bam_str2flag(optarg);
