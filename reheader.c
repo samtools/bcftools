@@ -418,7 +418,7 @@ static void reheader_vcf_gz(args_t *args)
     // Output all remaining data read with the header block
     if ( fp->block_length - skip_until > 0 )
     {
-        if ( bgzf_write(bgzf_out, buffer+skip_until, fp->block_length-skip_until)<0 ) error("Error: %d\n",fp->errcode);
+        if ( bgzf_write(bgzf_out, buffer+skip_until, fp->block_length-skip_until)<0 ) error("Error: %d\n",bgzf_out->errcode);
     }
     if ( bgzf_flush(bgzf_out)<0 ) error("Error: %d\n",bgzf_out->errcode);
 
@@ -434,8 +434,8 @@ static void reheader_vcf_gz(args_t *args)
         int count = bgzf_raw_write(bgzf_out, buf, nread);
         if (count != nread) error("Write failed, wrote %d instead of %d bytes.\n", count,(int)nread);
     }
-    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %d\n",args->output_fname ? args->output_fname : "-",bgzf_out->errcode);
-    if (hts_close(args->fp)) error("Error closing %s: %d\n",args->fname,fp->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %s\n",args->output_fname ? args->output_fname : "-",strerror(errno));
+    if (hts_close(args->fp)) error("Error closing %s: %s\n",args->fname,strerror(errno));
     free(buf);
 }
 static void reheader_vcf(args_t *args)
