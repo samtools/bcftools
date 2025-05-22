@@ -12,14 +12,15 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
-* bcftools +vrfs
-
-    - New experimental plugin for scoring variants and assess site noisiness (variant read frequency profiles)
-      from a large number of unaffected parental samples
-
 * bcftools annotate
 
     - Fix Number in the header definition of transferred FILTER and ID tags (#2335)
+
+* bcftools call
+
+    - The `-s, --samples` option was not working properly, now also supporting
+      sample negation as advertised in the manual page, e.g. `-s ^sample1,sample2`
+      to include all samples but sample1 and sample2 (#2380)
 
 * bcftools consensus
 
@@ -126,6 +127,11 @@ Changes affecting specific commands:
 * roh-viz
 
     - HTML/JavaScript visualization of bcftools/roh output and homozygosity rate.
+
+* bcftools +vrfs
+
+    - New experimental plugin for scoring variants and assess site noisiness (variant read frequency profiles)
+      from a large number of unaffected parental samples
 
 
 ## Release 1.21 (12th September 2024)
