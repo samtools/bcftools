@@ -278,7 +278,12 @@ static char **parse_ped_samples(args_t *args, call_t *call, char **vals, int nva
  */
 static void set_samples(args_t *args, const char *fn, int is_file)
 {
-    int i, nlines;
+    int i, nlines, negate = 0;
+    if ( fn[0]=='^' )
+    {
+        negate = 1;
+        fn++;
+    }
     char **lines = hts_readlist(fn, is_file, &nlines);
     if ( !lines ) error("Could not read the file: %s\n", fn);
 
@@ -300,43 +305,80 @@ static void set_samples(args_t *args, const char *fn, int is_file)
     for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++) args->sample2sex[i] = dflt_sex_id;
 
     int *old2new = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(args->aux.hdr));
-    for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++) old2new[i] = -1;
-
     int nsmpl = 0, map_needed = 0;
-    for (i=0; i<nlines; i++)
+    if ( !negate )
     {
-        char *ss = lines[i];
-        while ( *ss && isspace(*ss) ) ss++;
-        if ( !*ss ) error("Could not parse: %s\n", lines[i]);
-        if ( *ss=='#' ) continue;
-        char *se = ss;
-        while ( *se && !isspace(*se) ) se++;
-        char x = *se, *xptr = se; *se = 0;
-
-        int ismpl = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, ss);
-        if ( ismpl < 0 ) { fprintf(stderr,"Warning: No such sample in the VCF: %s\n",ss); continue; }
-        if ( old2new[ismpl] != -1 ) { fprintf(stderr,"Warning: The sample is listed multiple times: %s\n",ss); continue; }
-
-        ss = se+(x != '\0');
-        while ( *ss && isspace(*ss) ) ss++;
-        if ( !*ss ) ss = "2";   // default ploidy
-        se = ss;
-        while ( *se && !isspace(*se) ) se++;
-        if ( se==ss ) { *xptr = x; error("Could not parse: \"%s\"\n", lines[i]); }
-
-        char *sex = ss;
-        if ( ploidy_sex2id(args->ploidy,sex)<0 )
+        for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++) old2new[i] = -1;
+        for (i=0; i<nlines; i++)
         {
-            if ( sex[1]==0 && (sex[0]=='0' || sex[0]=='1' || sex[0]=='2') ) args->sample2sex[nsmpl] = -1*(sex[0]-'0');
-            else error("[E::%s] The sex \"%s\" has not been declared in --ploidy/--ploidy-file\n",__func__,sex);
-        }
-        else
-            args->sample2sex[nsmpl] = ploidy_add_sex(args->ploidy,sex);
+            char *ss = lines[i];
+            while ( *ss && isspace(*ss) ) ss++;
+            if ( !*ss ) error("Could not parse: %s\n", lines[i]);
+            if ( *ss=='#' ) continue;
+            char *se = ss;
+            while ( *se && !isspace(*se) ) se++;
+            char x = *se, *xptr = se; *se = 0;
 
-        if ( ismpl!=nsmpl ) map_needed = 1;
-        args->samples_map[nsmpl] = ismpl;
-        old2new[ismpl] = nsmpl;
-        nsmpl++;
+            int ismpl = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, ss);
+            if ( ismpl < 0 ) { fprintf(stderr,"Warning: No such sample in the VCF: %s\n",ss); continue; }
+            if ( old2new[ismpl] != -1 ) { fprintf(stderr,"Warning: The sample is listed multiple times: %s\n",ss); continue; }
+
+            ss = se+(x != '\0');
+            while ( *ss && isspace(*ss) ) ss++;
+            if ( !*ss ) ss = "2";   // default ploidy
+            se = ss;
+            while ( *se && !isspace(*se) ) se++;
+            if ( se==ss ) { *xptr = x; error("Could not parse: \"%s\"\n", lines[i]); }
+
+            char *sex = ss;
+            if ( ploidy_sex2id(args->ploidy,sex)<0 )
+            {
+                if ( sex[1]==0 && (sex[0]=='0' || sex[0]=='1' || sex[0]=='2') ) args->sample2sex[nsmpl] = -1*(sex[0]-'0');
+                else error("[E::%s] The sex \"%s\" has not been declared in --ploidy/--ploidy-file\n",__func__,sex);
+            }
+            else
+                args->sample2sex[nsmpl] = ploidy_add_sex(args->ploidy,sex);
+
+            if ( ismpl!=nsmpl ) map_needed = 1;
+            args->samples_map[nsmpl] = ismpl;
+            old2new[ismpl] = nsmpl;
+            nsmpl++;
+        }
+        if ( nsmpl!=bcf_hdr_nsamples(args->aux.hdr) ) map_needed = 1;
+    }
+    else
+    {
+        // negate: in this mode the default ploidy must be used for obvious reason - there is no way to
+        // specify ploidy if the sample name is not shown
+        for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++) old2new[i] = 1;   // by default keep the sample
+        for (i=0; i<nlines; i++)
+        {
+            char *ss = lines[i];
+            while ( *ss && isspace(*ss) ) ss++;
+            if ( !*ss ) error("Could not parse: %s\n", lines[i]);
+            if ( *ss=='#' ) continue;
+            char *se = ss;
+            while ( *se && !isspace(*se) ) se++;
+            *se = 0;
+
+            int ismpl = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, ss);
+            if ( ismpl < 0 ) { fprintf(stderr,"Warning: No such sample in the VCF: %s\n",ss); continue; }
+
+            old2new[ismpl] = 0; // do not keep this sample
+            free(lines[i]);
+        }
+        free(lines);
+        lines = malloc(sizeof(*lines)*bcf_hdr_nsamples(args->aux.hdr));
+        nsmpl = 0;
+        for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++)
+        {
+            if ( !old2new[i] ) continue;
+            lines[nsmpl] = strdup(args->aux.hdr->samples[i]);
+            args->samples_map[nsmpl] = i;
+            old2new[i] = nsmpl;
+            nsmpl++;
+        }
+        map_needed = 1;
     }
 
     for (i=0; i<args->aux.nfams; i++)

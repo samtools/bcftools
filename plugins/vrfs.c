@@ -347,7 +347,7 @@ static int batch_profile_run1(args_t *args, char *aln_fname)
     while ( (ret=mpileup_next(args->mplp))==1 )
     {
         char *chr = mpileup_get_val(args->mplp,char*,CHROM);
-        hts_pos_t pos = mpileup_get_val(args->mplp,int,POS);
+        hts_pos_t pos = mpileup_get_val(args->mplp,hts_pos_t,POS);
 
         if ( !regidx_overlap(args->sites_idx, chr,pos,pos, args->sites_itr) )
         {
