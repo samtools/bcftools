@@ -1729,9 +1729,7 @@ int main_vcfconvert(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

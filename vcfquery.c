@@ -301,7 +301,6 @@ int main_vcfquery(int argc, char *argv[])
         {"verbosity",required_argument,NULL,4},
         {0,0,0,0}
     };
-    char *tmp;
     while ((c = getopt_long(argc, argv, "hlr:R:F:f:a:s:S:Ht:T:c:v:i:e:o:uN",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': args->fn_out = optarg; break;
@@ -354,9 +353,7 @@ int main_vcfquery(int argc, char *argv[])
                 break;
             case  3 : args->force_samples = 1; break;
             case  4 :
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'h':
             case '?': usage(); break;

@@ -249,9 +249,7 @@ int main_vcfindex(int argc, char *argv[])
         switch (c)
         {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'c': tbi = 0; break;
             case 't': tbi = 1; min_shift = 0; break;

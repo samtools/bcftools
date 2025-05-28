@@ -1154,9 +1154,7 @@ int main_vcfcall(int argc, char *argv[])
                     error("Unsupported index format '%s'\n", optarg);
                 break;
             case 10:
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             default: usage(&args);
         }

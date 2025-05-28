@@ -1469,13 +1469,10 @@ int main_mpileup(int argc, char *argv[])
         {"verbosity",required_argument,NULL,'v'},
         {NULL, 0, NULL, 0}
     };
-    char *tmp;
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:UW::v:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'v':
-            int verbose = strtol(optarg,&tmp,10);
-            if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-            if ( verbose > 3 ) hts_verbose = verbose;
+            if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
             break;
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  16 :
