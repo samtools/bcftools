@@ -67,6 +67,9 @@ Changes affecting specific commands:
     - Do not merge symbolic alleles unless they have not just the same type, eg. <DEL>,
       but also length, i.e the INFO/END coordinate (#2362)
 
+    - Fix a bug where an incorrectly formatted gVCF file with overlapping blocks would trigger
+      an infinite loop in the program (#2410)
+
 * bcftools mpileup
 
     - The -r/-R option newly merge overlapping regions, preventing the output of duplicate sites

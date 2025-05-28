@@ -2723,20 +2723,31 @@ void gvcf_flush(args_t *args, int done)
     }
 }
 
-static inline int is_gvcf_block(bcf1_t *line)
+static inline int is_gvcf_block(args_t *args, bcf1_t *line)
 {
     if ( line->rlen<=1 ) return 0;
     if ( strlen(line->d.allele[0])==line->rlen ) return 0;
-    if ( line->n_allele==1 ) return 1;
+    if ( line->n_allele==1 ) goto is_gvcf;
 
     int i;
     for (i=1; i<line->n_allele; i++)
     {
-        if ( !strcmp(line->d.allele[i],"<*>") ) return 1;
-        if ( !strcmp(line->d.allele[i],"<NON_REF>") ) return 1;
-        if ( !strcmp(line->d.allele[i],"<X>") ) return 1;
+        if ( !strcmp(line->d.allele[i],"<*>") ) goto is_gvcf;
+        if ( !strcmp(line->d.allele[i],"<NON_REF>") ) goto is_gvcf;
+        if ( !strcmp(line->d.allele[i],"<X>") ) goto is_gvcf;
     }
     return 0;
+
+is_gvcf:
+    maux_t *ma = args->maux;
+    if ( !ma->gvcf )
+    {
+        args->do_gvcf = 1;
+        ma->gvcf = (gvcf_aux_t*) calloc(ma->n,sizeof(gvcf_aux_t));  // -Walloc-size-larger-than gives a harmless warning caused by signed integer ma->n
+        for (i=0; i<ma->n; i++)
+            ma->gvcf[i].line = bcf_init1();
+    }
+    return 1;
 }
 
 /*
@@ -2776,7 +2787,7 @@ void gvcf_stage(args_t *args, int pos)
         int irec = maux->buf[i].beg;
         bcf_hdr_t *hdr = bcf_sr_get_header(files, i);
         bcf1_t *line = args->files->readers[i].buffer[irec];
-        int ret = is_gvcf_block(line) ? bcf_get_info_int32(hdr,line,"END",&end,&nend) : 0;
+        int ret = is_gvcf_block(args,line) ? bcf_get_info_int32(hdr,line,"END",&end,&nend) : 0;
         if ( ret==1 )
         {
             if ( end[0] == line->pos + 1 )  // POS and INFO/END are identical, treat as if a normal w/o INFO/END
@@ -3133,7 +3144,7 @@ int can_merge(args_t *args)
                     var_type &= ~VCF_INDEL;
                 }
                 var_type = var_type ? var_type<<1 : ref_mask;
-                if ( args->do_gvcf && is_gvcf_block(line) ) var_type |= ref_mask;
+                if ( args->do_gvcf && is_gvcf_block(args,line) ) var_type |= ref_mask;
                 buf->rec[j].var_types = var_type;
             }
             maux->var_types |= buf->rec[j].var_types;
@@ -3233,7 +3244,8 @@ void stage_line(args_t *args)
             if ( buf->rec[j].skip )
             {
                 int is_gvcf = maux->gvcf && maux->gvcf[i].active ? 1 : 0;
-                if ( !is_gvcf && is_gvcf_block(buf->lines[j]) ) is_gvcf = 1;
+                if ( !is_gvcf && is_gvcf_block(args,buf->lines[j]) ) is_gvcf = 1;
+                if ( is_gvcf && buf->rec[j].skip && !maux->gvcf[i].active ) continue;
                 if ( !is_gvcf ) continue;   // done or not compatible
             }
             if ( args->merge_by_id ) break;     // if merging by ID and the line is compatible, the this is THE line
