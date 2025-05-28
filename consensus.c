@@ -1259,15 +1259,12 @@ int main_consensus(int argc, char *argv[])
         {0,0,0,0}
     };
     int c;
-    char *tmp;
     while ((c = getopt_long(argc, argv, "h?s:S:1Ii:e:H:f:o:m:c:M:p:a:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case  1 : args->mark_del = optarg[0]; break;
             case  2 :

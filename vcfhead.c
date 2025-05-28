@@ -61,14 +61,11 @@ int main_vcfhead(int argc, char *argv[])
     uint64_t nheaders = 0;
     uint64_t nrecords = 0;
 
-    char *tmp;
     int c, nargs;
     while ((c = getopt_long(argc, argv, "h:n:s:v:", loptions, NULL)) >= 0)
         switch (c) {
         case 'v':
-            int verbose = strtol(optarg,&tmp,10);
-            if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-            if ( verbose > 3 ) hts_verbose = verbose;
+            if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
             break;
         case 'h': all_headers = 0; nheaders = strtoull(optarg, NULL, 0); break;
         case 'n': nrecords = strtoull(optarg, NULL, 0); break;

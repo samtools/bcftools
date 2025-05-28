@@ -699,15 +699,12 @@ int main_reheader(int argc, char *argv[])
         {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
-    char *tmp;
     while ((c = getopt_long(argc, argv, "s:h:o:f:T:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case  1 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'T': break; // unused - was temp file prefix

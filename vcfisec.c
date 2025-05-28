@@ -573,9 +573,7 @@ int main_vcfisec(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:l:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'o': args->output_fname = optarg; break;
             case 'O':

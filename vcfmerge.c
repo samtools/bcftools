@@ -2725,6 +2725,8 @@ void gvcf_flush(args_t *args, int done)
 
 static inline int is_gvcf_block(args_t *args, bcf1_t *line)
 {
+    maux_t *ma;
+
     if ( line->rlen<=1 ) return 0;
     if ( strlen(line->d.allele[0])==line->rlen ) return 0;
     if ( line->n_allele==1 ) goto is_gvcf;
@@ -2739,7 +2741,7 @@ static inline int is_gvcf_block(args_t *args, bcf1_t *line)
     return 0;
 
 is_gvcf:
-    maux_t *ma = args->maux;
+    ma = args->maux;
     if ( !ma->gvcf )
     {
         args->do_gvcf = 1;
@@ -3607,9 +3609,7 @@ int main_vcfmerge(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:M:l:g:F:0L:W::v:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'L':
                 args->local_alleles = strtol(optarg,&tmp,10);

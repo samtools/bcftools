@@ -1685,9 +1685,7 @@ int run(int argc, char **argv)
         switch (c)
         {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case  1 : args->force_ad = 1; break;
             case  2 : free(args->dnm_score_tag); args->dnm_score_tag = strdup(optarg); break;

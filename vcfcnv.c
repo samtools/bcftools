@@ -1303,9 +1303,7 @@ int main_vcfcnv(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:O:W::f:a:L:d:k:v:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'v':
-                int verbose = strtol(optarg,&tmp,10);
-                if ( *tmp || verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
-                if ( verbose > 3 ) hts_verbose = verbose;
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
             case 'L':
                 args->lrr_smooth_win = strtol(optarg,&tmp,10);
