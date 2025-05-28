@@ -10,6 +10,11 @@ Changes affecting specific commands:
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
 
+* bcftools merge
+
+    - Fix a bug where an incorrectly formatted gVCF file with overlapping blocks would trigger
+      an infinite loop in the program (#2410)
+
 
 ## Release 1.21 (12th September 2024)
 
