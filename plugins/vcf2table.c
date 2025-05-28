@@ -38,7 +38,6 @@
 #include <unistd.h>  // for isatty
 
 #include "../bcftools.h"
-#include "hts_internal.h"
 
 #define ASSERT_NOT_NULL(a)                                                \
   do {                                                                    \
