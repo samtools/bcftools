@@ -1,5 +1,6 @@
 ##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##contig=<ID=1,length=249250621>
+##INFO=<ID=XX,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-1	8	.	N	NA	.	.	.
+1	8	.	N	NA	.	.	XX=1|8|BA|BAA

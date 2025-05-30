@@ -4,7 +4,7 @@
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
 ##FILTER=<ID=ori_filter1,Description="Test">
 ##FILTER=<ID=ori_filter2,Description="Test">
-##INFO=<ID=ID,Number=1,Type=String,Description="Transferred ID column">
+##INFO=<ID=ID,Number=.,Type=String,Description="Transferred ID column">
 ##INFO=<ID=INFO_ID,Number=1,Type=String,Description="Test">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 1	3000001	id_id1;id_id2;info_id	C	T	.	ori_filter1;ori_filter2	ID=id_id1,id_id2;INFO_ID=info_id

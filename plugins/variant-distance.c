@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2022-2024 Genome Research Ltd.
+    Copyright (C) 2022-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -93,6 +93,7 @@ static const char *usage_text(void)
         "   -t, --targets REGION             Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "   -v, --verbosity INT              Verbosity level\n"
         "   -W, --write-index[=FMT]          Automatically index the output files [off]\n"
         "Examples:\n"
         "   bcftools +variant-distance input.bcf -Ob -o output.bcf\n"
@@ -249,14 +250,18 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:n:d:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "r:R:t:T:o:O:n:d:W::v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case 'd':
                 if ( !strcasecmp("nearest",optarg) ) args->direction = DIR_NEAREST;
                 else if ( !strcasecmp("fwd",optarg) ) args->direction = DIR_FWD;

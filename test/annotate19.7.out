@@ -5,6 +5,6 @@
 ##FILTER=<ID=ori_filter1,Description="Test">
 ##FILTER=<ID=ori_filter2,Description="Test">
 ##FILTER=<ID=filter_filter,Description="Test">
-##INFO=<ID=FILTER,Number=1,Type=String,Description="Transferred FILTER column">
+##INFO=<ID=FILTER,Number=.,Type=String,Description="Transferred FILTER column">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 1	3000001	ori_id	C	T	.	filter_filter	FILTER=filter_filter

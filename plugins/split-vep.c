@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2024 Genome Research Ltd.
+   Copyright (c) 2019-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <unistd.h>     // for isatty
 #include <inttypes.h>
+#include <assert.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
@@ -52,6 +53,8 @@
 #define SELECT_TR_WORST     1
 #define SELECT_TR_EXPR      2
 #define SELECT_CSQ_ANY     -1
+#define PRN_CSQ_ALL   0
+#define PRN_CSQ_WORST 1
 
 #define TR_OP_EQ  0   // =
 #define TR_OP_NE  1   // !=
@@ -131,6 +134,7 @@ typedef struct
     int ncols_csq,mcols_csq;    // the number of cols_csq transcripts and the high-water mark
     int min_severity, max_severity;     // ignore consequences outside this severity range
     int drop_sites;                     // the -x, --drop-sites option
+    int prn_csq;                        // one of PRN_CSQ_*
     int select_tr;                      // one of SELECT_TR_*
     select_tr_t tr_expr;                // with SELECT_TR_EXPR, see --select <FIELD><OP><VALUE>
     uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
@@ -236,17 +240,26 @@ static const char *usage_text(void)
         "   -H, --print-header              Print header, -HH to omit column indices\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
-        "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
-        "                                     TR, transcript:   all,worst,primary,pick,mane,EXPRESSION [all]\n"
-        "                                     CSQ, consequence: any,missense,missense+,etc [any]\n"
-        "                                   Where the transcript EXPRESSION is of the form <FIELD><OPERATOR><VALUE>\n"
-        "                                     FIELD:    field name (e.g. \"CANONICAL\")\n"
-        "                                     OPERATOR: string comparison (=,!=), regex matching (~,!~)\n"
-        "                                     VALUE:    required string value (e.g. \"YES\")\n"
-        "                                   The TR presets are defined as follows\n"
-        "                                     primary:  CANONICAL=YES\n"
-        "                                     pick:     PICK=1\n"
-        "                                     mane:     MANE_SELECT!=\"\"\n"
+        "   -s, --select TR:CSQ[:PRN]       Select transcripts to extract by type and/or consequence severity, see also -S and -x\n"
+        "                                     TR, filter transcripts:   all,worst,primary,pick,mane,EXPRESSION [all]\n"
+        "                                     CSQ, filter consequences: any,missense,missense+,etc [any]\n"
+        "                                     PRN, print consequences:  all,worst [all]\n"
+        "                                   TR transcript selection\n"
+        "                                       all       .. list all transcripts\n"
+        "                                       worst     .. list only one transcript with the worst consequence (see -S)\n"
+        "                                       primary   .. list transcripts marked as CANONICAL=YES\n"
+        "                                       pick      .. as PICK=1\n"
+        "                                       mane      .. as MANE_SELECT!=\"\"\n"
+        "                                     or an EXPRESSION in the form of \"<FIELD><OPERATOR><VALUE>\", where\n"
+        "                                       FIELD     .. field name (e.g. \"CANONICAL\")\n"
+        "                                       OPERATOR  .. string comparison (=,!=), regex matching (~,!~)\n"
+        "                                       VALUE     .. required string value (e.g. \"YES\")\n"
+        "                                   CSQ consequence filtering, selects transcripts by CSQ severity (see \"-S -\")\n"
+        "                                       missense  .. selects only transcripts with a missense variant\n"
+        "                                       missense+ .. transcripts with a missense consequence or more severe\n"
+        "                                   PRN controls what consequences are actually printed\n"
+        "                                       all   .. print all consequences if multiple per transcript (e.g., start_lost&splice_region)\n"
+        "                                       worst .. print the worst consequence per transcript (e.g., start_lost above)\n"
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
         "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
@@ -264,6 +277,7 @@ static const char *usage_text(void)
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
@@ -606,7 +620,7 @@ static void parse_column_str(args_t *args)
         char keep = *ep;
         *ep = 0;
         int type = -1;
-        int idx_beg, idx_end;
+        int idx_beg = 0, idx_end = -1;
         if ( !strcmp("-",bp) )
         {
             kstring_t str = {0,0,0};
@@ -958,7 +972,8 @@ static void init_data(args_t *args)
     if ( !args->select ) args->select = "all:any";
     cols_t *cols = cols_split(args->select, NULL, ':');
     char *sel_tr  = cols->off[0][0] ? cols->off[0] : "all";
-    char *sel_csq = cols->n==2 && cols->off[1][0] ? cols->off[1] : "any";
+    char *sel_csq = cols->n > 1 && cols->off[1][0] ? cols->off[1] : "any";
+    char *prn_csq = cols->n > 2 && cols->off[2][0] ? cols->off[2] : "all";
 
     // ... transcript selection
     if ( !strcasecmp(sel_tr,"all") ) args->select_tr = SELECT_TR_ALL;
@@ -968,20 +983,26 @@ static void init_data(args_t *args)
     else if ( !strcasecmp(sel_tr,"mane") ) init_select_tr_expr(args,"MANE_SELECT!=\"\"");
     else init_select_tr_expr(args,sel_tr);
 
-    // ... consequence selection
+    // ... transcript selection by consequence severity
     if ( !strcasecmp(sel_csq,"any") ) { args->min_severity = args->max_severity = SELECT_CSQ_ANY; }     // to avoid unnecessary lookups
     else
     {
         int len = strlen(sel_csq);
-        int severity, modifier = '=';
+        int severity = -1, modifier = '=';
         if ( sel_csq[len-1]=='+' ) { modifier = '+'; sel_csq[len-1] = 0; }
         else if ( sel_csq[len-1]=='-' ) { modifier = '-'; sel_csq[len-1] = 0; }
         if ( khash_str2int_get(args->csq2severity, sel_csq, &severity)!=0 )
             error("Error: the consequence \"%s\" is not recognised. Run \"bcftools +split-vep -S ?\" to see the default list.\n", sel_csq);
+        assert(severity >= 0);
         if ( modifier=='=' ) { args->min_severity = severity; args->max_severity = severity; }
         else if ( modifier=='+' ) { args->min_severity = severity; args->max_severity = INT_MAX; }
         else if ( modifier=='-' ) { args->min_severity = 0; args->max_severity = severity; }
     }
+
+    // .. consequence printout - everything or only one (worst)?
+    if ( !strcasecmp(prn_csq,"all") ) args->prn_csq = PRN_CSQ_ALL;
+    else if ( !strcasecmp(prn_csq,"worst") ) args->prn_csq = PRN_CSQ_WORST;
+    else error("Error: could not parse \"%s\" in the expression \"%s\"\n",prn_csq,args->select);
     cols_destroy(cols);
 
     // The "Consequence" column to determine severity for filtering. The name of this column is hardwired for now, both VEP and bt/csq use the same name
@@ -1346,6 +1367,32 @@ static void restrict_csqs_to_genes(args_t *args)
     args->ncols_csq = nhit;
 }
 
+// Beware: edits the string, writes \0 character. For example, overwrites the '&' in start_lost&splice_region
+char *csq_rewrite_worst(args_t *args, char *str)
+{
+    cols_t *tmp = cols_split(str,NULL,'&');
+    char *ret = str;
+    if ( tmp->n > 1 )
+    {
+        // find the consequence with max severity
+        int i, imax = 0, smax = -1;
+        for (i=0; i<tmp->n; i++)
+        {
+            int severity = -1;
+            khash_str2int_get(args->csq2severity, tmp->off[i], &severity);
+            if ( smax < severity ) smax = severity, imax = i;
+        }
+
+        // position return string to the most severe csq
+        ret = str + (tmp->off[imax] - tmp->off[0]);
+
+        // if max is not the last one, need to write the null termination byte
+        if ( imax+1 < tmp->n ) str[tmp->off[imax+1] - tmp->off[0] - 1] = 0;
+    }
+    cols_destroy(tmp);
+    return ret;
+}
+
 // Split the VEP annotation by transcript and by field, then check if the number of subfields looks alright.
 // Unfortunately, we cannot enforce the number of subfields to match the header definition because that can
 // be variable: `bcftools csq` outputs different number of fields for different consequence types.
@@ -1463,7 +1510,13 @@ static void process_record(args_t *args, bcf1_t *rec)
 
             char *ann_str = NULL;
             if ( ann->idx==-1 ) ann_str = args->cols_tr->off[i];
-            else if ( *cols_csq->off[ann->idx] ) ann_str = cols_csq->off[ann->idx];
+            else if ( *cols_csq->off[ann->idx] )
+            {
+                if ( ann->idx==args->csq_idx && args->prn_csq==PRN_CSQ_WORST )
+                    ann_str = csq_rewrite_worst(args, cols_csq->off[ann->idx]);
+                else
+                    ann_str = cols_csq->off[ann->idx];
+            }
             if ( ann_str )
             {
                 annot_append(ann, ann_str);
@@ -1525,14 +1578,18 @@ int run(int argc, char **argv)
         {"no-version",no_argument,NULL,2},
         {"allow-undef-tags",no_argument,0,'u'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c, drop_sites = -1;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xXuHg:W::v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
             case 'A':

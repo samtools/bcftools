@@ -1,0 +1,11 @@
+##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting the allele">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting the allele">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	150	.	C	T	.	.	AD=0,0,0  	AD	.	.
+1	153	.	C	T	.	.	AD=0,0,21 	AD	.,.,.	0,0,210
+1	154	.	C	T	.	.	AD=30,13,0	AD	30,13,0	300,13,0
+1	155	.	C	T	.	.	AD=20,0,10	AD	20,0,10	200,0,10

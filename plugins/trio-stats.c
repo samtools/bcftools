@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2018-2021 Genome Research Ltd.
+   Copyright (c) 2018-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -89,7 +89,7 @@ typedef struct
     uint32_t
         nalt,   // number of all alternate trios
         nsd,    // number of singleton or doubleton trios
-        *idx;   // indexes of the singleton and doubleon trios 
+        *idx;   // indexes of the singleton and doubleon trios
 }
 alt_trios_t;    // for one alt allele
 
@@ -124,24 +124,25 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Calculate transmission rate in trio children. Use curly brackets to scan\n"
         "       a range of values simultaneously\n"
         "Usage: bcftools +trio-stats [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --alt-trios INT         for transmission rate consider only sites with at most this\n"
+        "   -a, --alt-trios INT         For transmission rate consider only sites with at most this\n"
         "                                   many alternate trios, 0 for unlimited [0]\n"
-        "   -d, --debug TYPE            comma-separated list of features: {mendel-errors,transmitted}\n"
-        "   -e, --exclude EXPR          exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
-        "   -i, --include EXPR          include trios for which the expression is true (one failing sample invalidates a trio)\n"
-        "   -o, --output FILE           output file name [stdout]\n"
+        "   -d, --debug TYPE            Comma-separated list of features: {mendel-errors,transmitted}\n"
+        "   -e, --exclude EXPR          Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
+        "   -i, --include EXPR          Include trios for which the expression is true (one failing sample invalidates a trio)\n"
+        "   -o, --output FILE           Output file name [stdout]\n"
         "   -p, --ped FILE              PED file\n"
-        "   -P, --pfm P,F,M             sample names of proband, father, and mother\n"
-        "   -r, --regions REG           restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE     restrict to regions listed in a file\n"
-        "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -P, --pfm P,F,M             Sample names of proband, father, and mother\n"
+        "   -r, --regions REG           Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE     Restrict to regions listed in a file\n"
+        "   -t, --targets REG           Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE     Similar to -R but streams rather than index-jumps\n"
+        "   -v, --verbosity INT         Verbosity level\n"
         "\n"
         "Example:\n"
         "   bcftools +trio-stats -p file.ped -i 'GQ>{10,20,30,40,50}' file.bcf\n"
@@ -219,7 +220,7 @@ static void parse_ped(args_t *args, char *fname)
 
     // sort the sample by index so that they are accessed more or less sequentially
     qsort(args->trio,args->ntrio,sizeof(trio_t),cmp_trios);
-    
+
     khash_str2int_destroy_free(has_smpl);
     khash_str2int_destroy_free(has_trio);
     free(tmp.s);
@@ -265,7 +266,7 @@ static void parse_filters(args_t *args)
         }
         if ( !expanded ) break;
     }
-    
+
     fprintf(stderr,"Collecting data for %d filtering expressions\n", args->nflt_str);
 }
 
@@ -329,9 +330,9 @@ static void init_data(args_t *args)
             // replace tab's with spaces so that the output stays parsable
             char *tmp = args->filters[i].expr;
             while ( *tmp )
-            { 
-                if ( *tmp=='\t' ) *tmp = ' '; 
-                tmp++; 
+            {
+                if ( *tmp=='\t' ) *tmp = ' ';
+                tmp++;
             }
         }
     }
@@ -367,7 +368,7 @@ static void alt_trios_reset(args_t *args, int nals)
 {
     int i;
     hts_expand0(alt_trios_t, nals, args->malt_trios, args->alt_trios);
-    for (i=0; i<nals; i++) 
+    for (i=0; i<nals; i++)
     {
         alt_trios_t *tr = &args->alt_trios[i];
         if ( !tr->idx )
@@ -531,7 +532,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
     int ngt = bcf_get_genotypes(args->hdr, rec, &args->gt_arr, &args->mgt_arr);
     if ( ngt<0 ) return;
     int ngt1 = ngt / rec->n_sample;
-    
+
 
     // For ts/tv: numeric code of the reference allele, -1 for insertions
     int ref = !rec->d.allele[0][1] ? bcf_acgt2int(*rec->d.allele[0]) : -1;
@@ -551,7 +552,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
 
         // Determine the alternate allele and the genotypes, skip if any of the alleles is missing.
         // the order is: child, father, mother
-        int als[6], *als_child = als, *als_father = als+2, *als_mother = als+4; 
+        int als[6], *als_child = als, *als_father = als+2, *als_mother = als+4;
         if ( parse_genotype(args->gt_arr, ngt1, args->trio[i].idx[iCHILD], als_child) < 0 ) continue;
         if ( parse_genotype(args->gt_arr, ngt1, args->trio[i].idx[iFATHER], als_father) < 0 ) continue;
         if ( parse_genotype(args->gt_arr, ngt1, args->trio[i].idx[iMOTHER], als_mother) < 0 ) continue;
@@ -568,7 +569,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             args->ac_trio[ als[j] ]++;
         }
         if ( !has_nonref ) continue;   // only ref or * in this trio
-        
+
         stats->nnon_ref++;
 
         // Calculate ts/tv. It does the right thing and handles also HetAA genotypes
@@ -656,7 +657,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             {
                 if ( (als_child[0]!=j && als_child[1]!=j) || (als_child[0]==j && als_child[1]==j) ) continue;
                 if ( (als_father[0]==j && als_father[1]==j) || (als_mother[0]==j && als_mother[1]==j) ) continue;
-                if ( !args->max_alt_trios ) 
+                if ( !args->max_alt_trios )
                 {
                     stats->ndoubleton++;
                     if ( args->verbose & VERBOSE_TRANSMITTED )
@@ -723,14 +724,18 @@ int run(int argc, char **argv)
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c, i;
-    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:d:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:d:v:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
-            case 'd': 
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
+            case 'd':
             {
                 int n;
                 char **tmp = hts_readlist(optarg, 0, &n);

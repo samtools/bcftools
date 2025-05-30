@@ -4,7 +4,7 @@
 #
 # The MIT License
 #
-# Copyright (C) 2012-2020 Genome Research Ltd.
+# Copyright (C) 2012-2025 Genome Research Ltd.
 #
 # Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -658,6 +658,10 @@ sub parse_vcfstats1
         }
         if ( $line=~/^#/ ) { next; }
         my @items = split(/\t/,$line);
+        if ( $items[0] eq 'ID' && $items[2] eq '<STDIN>' )
+        {
+            $items[2] = 'STDIN';
+        }
         if ( $items[0] eq 'SN' )
         {
             $dat{$items[1]}{$items[2]} = splice(@items,3);
@@ -1927,7 +1931,7 @@ sub plot_vaf25_by_sample
     tprint $fh, "
             dat = [
         ";
-    for (my $i=0; $i<@vaf; $i++) { tprint $fh, "\t[$i,$vaf[$i]],\n"; }
+    for (my $i=0; $i<@vaf; $i++) { tprint $fh, "\t[$i,$vaf[$i],'$vals[$i][0]'],\n"; }
     tprint $fh, "]\n";
     tprint $fh, "
 
@@ -1938,7 +1942,7 @@ sub plot_vaf25_by_sample
                 ax1.set_ylabel('nVAF<0.25')
                 ax1.set_ylim(-0.1,1.1)
                 if sample_names:
-                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.xticks([int(row[0]) for row in dat],[row[2] for row in dat],**sample_font)
                     plt.subplots_adjust(**sample_margins)
                 else:
                     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)

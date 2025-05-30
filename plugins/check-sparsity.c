@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2017 Genome Research Ltd.
+/*
+    Copyright (C) 2017,2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -59,15 +59,16 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Print samples without genotypess in a region (-r/-R) or chromosome (the default)\n"
         "\n"
-        "Usage: bcftools +check-sparsity <file.vcf.gz> [Plugin Options]\n"
+        "Usage: bcftools +check-sparsity FILE.VCF [Plugin Options]\n"
         "Plugin options:\n"
-        "   -n, --n-markers <int>           minimum number of required markers [1]\n"
-        "   -r, --regions <chr:beg-end>     restrict to comma-separated list of regions\n"
-        "   -R, --regions-file <file>       restrict to regions listed in a file\n"
+        "   -n, --n-markers INT           Minimum number of required markers [1]\n"
+        "   -r, --regions CHR:BEG-END     Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE       Restrict to regions listed in a file\n"
+        "   -v, --verbosity INT           Verbosity level\n"
         "\n";
 }
 
@@ -235,20 +236,24 @@ int run(int argc, char **argv)
         {"n-markers",required_argument,NULL,'n'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c,i;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:n:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "r:R:n:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
-            case 'n': 
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
+            case 'n':
                 args->min_sites = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse: -n %s\n", optarg);
                 break;
             case 'R': args->region_is_file = 1; // fall-through
-            case 'r': args->region = optarg; break; 
+            case 'r': args->region = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

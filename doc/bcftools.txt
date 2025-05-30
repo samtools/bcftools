@@ -109,8 +109,9 @@ LIST OF SCRIPTS
 ---------------
 Some helper scripts are bundled with the bcftools code.
 
-- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,csq>>*
-- *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
+- *<<gff2gff,gff2gff>>*  .. converts a GFF file to the format required by *<<csq,bcftools csq>>*
+- *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,bcftools stats>>*
+- *<<roh-viz,roh-viz>>* .. creates HTML/JavaScript visualization of *<<roh,bcftools roh>>*
 
 
 COMMANDS AND OPTIONS
@@ -163,7 +164,6 @@ specific commands to see if they apply.
 
         'id';;
             only records with identical ID column are compatible.
-            Supported by *<<merge,bcftools merge>>* only.
 
 *-f, --apply-filters* 'LIST'::
     Skip sites where FILTER column does not contain any of the strings listed
@@ -303,6 +303,10 @@ Such a file can be easily created from a VCF using:
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
 
+*-v, --verbosity* 'INT'::
+    Verbosity level. Values bigger than 3 are passed to the underlying HTSlib library so that network issues
+    and other problems occurring at the library level can be investigated.
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output files. 'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format. Defaults to
@@ -405,7 +409,7 @@ Add or remove annotations.
     ^INFO/TAG           .. transfer all INFO annotations except "TAG"
 
     TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only it is "."
+    +TAG      .. add or overwrite existing target value only if it is "."
     .TAG      .. add or overwrite existing target value even if source is "."
     .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
     -TAG      .. overwrite existing value, never add new if target does not exist
@@ -501,7 +505,7 @@ Add or remove annotations.
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
-*--pair-logic* 'snps'|'indels'|'both'|'all'|'some'|'exact'::
+*--pair-logic* 'snps'|'indels'|'both'|'all'|'some'|'exact'|'id'::
     Controls how to match records from the annotation file to the target VCF.
     Effective only when *-a* is a VCF or BCF. The option replaces the former
     uninuitive *--collapse*.
@@ -552,6 +556,9 @@ Add or remove annotations.
     except GT. To remove all INFO tags except "FOO" and "BAR", use
     "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -823,6 +830,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 ==== HMM Options:
 
 *-a, --aberrant* 'float'[,'float']::
@@ -946,6 +956,9 @@ are concatenated without being recompressed, which is very fast..
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -1045,6 +1058,9 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 *-S, --samples-file* 'FILE'::
     apply variants of the samples listed in the file. See also the option *-I, --iupac-codes*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *Examples:*
 ----
     # Apply variants present in sample "NA001", output IUPAC codes for hets
@@ -1107,7 +1123,7 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
 
-==== VCF output options:
+==== General options:
 
 *--no-version*::
     see *<<common_options,Common Options>>*
@@ -1120,6 +1136,10 @@ Note that the *-H, --haplotype* option requires the *-s, --samples* option, unle
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 ==== GEN/SAMPLE conversion:
 *-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
@@ -1360,14 +1380,17 @@ Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 
 
-*-c, --custom-tag* 'STRING'::
-    use this custom tag to store consequences rather than the default BCSQ tag
-
 *-B, --trim-protein-seq* 'INT'::
     abbreviate protein-changing predictions to maximum of INT aminoacids.
     For example, instead of writing the whole modified protein sequence with potentially hundreds of
     aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
     written.
+
+*-C, --genetic-code* 'INT'|'l'::
+    specify the genetic code table to use, 'l' to print a list of supported tables
+
+*-c, --custom-tag* 'STRING'::
+    use this custom tag to store consequences rather than the default BCSQ tag
 
 *--dump-gff* 'FILE'::
     dump the parsed GFF into a gzipped FILE. Intended for debugging purposes,
@@ -1500,13 +1523,15 @@ output VCF and are ignored for the prediction analysis.
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*--unify-chr-names* '0'|'1'::
-    Automatically detect and unify chromosome naming conventions in the GFF, fasta
-    and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
-    that of the input VCF. The default is to attempt the automatic translation.
+*--unify-chr-names* '0'|'LIST'::
+    unify chromosome naming by stripping a prefix in VCF, GFF, fasta, respectively.
+    For example, if the LIST is "chr,Chromosome,-", the program will trim the "chr" prefix
+    in the VCF, "Chromosome" in the GFF, and the fasta will be left unchanged.
+    The chromosome names in the output VCF will match that of the input VCF. The default is
+    not to modify the sequence names.
 
-*-v, --verbose* 'INT'::
-    verbosity level (0-2)
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -1679,6 +1704,9 @@ And similarly here, the second is filtered:
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -1798,6 +1826,9 @@ The discordance score can be interpreted as the number of mismatching genotypes 
     the other tag. The output includes the number of sites that were matched by the four
     possible modes (for example GT-vs-GT or GT-vs-PL).
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *Examples:*
 ----
    # Check discordance of all samples from B against all samples in A
@@ -1866,6 +1897,10 @@ present, but it never adds version or command line information itself.
     the list of samples, with each sample per line, can be obtained with `bcftools query` using
     the option *-l, --list-samples*.
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 
 [[index]]
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
@@ -1897,6 +1932,10 @@ the CSI first and then the TBI.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 ==== Stats options:
 *-a, --all*::
     Used in conjunction with *-s, --stats*, print per contig stats
@@ -1919,7 +1958,7 @@ on the options, the program can output records from one (or more) files
 which have (or do not have) corresponding records with the same position
 in the other files.
 
-*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'|'id'::
     see *<<common_options,Common Options>>*
 
 *-C, --complement*::
@@ -1973,6 +2012,9 @@ in the other files.
     see *<<common_options,Common Options>>*
 
 *--targets-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
@@ -2137,6 +2179,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
@@ -2448,6 +2493,9 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     used by the earlier Bcftools releases.  For excample BQBZ becomes
     BQB.
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
     one of "tbi" or "csi" depending on output file format.
@@ -2599,7 +2647,7 @@ but may not other aligners.
 ----
     bcftools mpileup -Ou -f ref.fa aln.bam | \
     bcftools call -Ou -mv | \
-    bcftools filter -s LowQual -e '%QUAL<20 || DP>100' > var.flt.vcf
+    bcftools filter -s LowQual -e 'QUAL<20 || DP>100' > var.flt.vcf
 ----
 
 
@@ -2655,7 +2703,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
-    Alias for *-d none*, deprecated.
+    Alias for *-d exact*, deprecated.
 
 *-e, --exclude* 'EXPRESSION'::
     do not normalize input records for which 'EXPRESSION' is true. For valid expressions see
@@ -2746,8 +2794,8 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
-*-v, --verbose* 'INT'::
-    verbosity level of GFF parsing (0-2)
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
@@ -2832,8 +2880,8 @@ By default, appropriate system directories are searched for installed plugins.
     adjacent colons, the system directories are also searched at that position
     in the list of directories.
 
-*-v, --verbose*::
-    print debugging information to debug plugin failure
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-V, --version*::
     print version string and exit
@@ -2848,6 +2896,9 @@ By default, appropriate system directories are searched for installed plugins.
 
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
+
+*vrfs*::
+    assess site noisiness (variant read frequency score) from a large number of unaffected parental samples
 
 *allele-length*::
     count the frequency of the length of REF, ALT and REF+ALT
@@ -2944,8 +2995,9 @@ By default, appropriate system directories are searched for installed plugins.
     determine parental origin of a CNV region
 
 *prune*::
-    prune sites by missingness, allele frequency or linkage disequilibrium.
-    Alternatively, annotate sites with r2, Lewontin's D' (PMID:19433632), Ragsdale's D (PMID:31697386).
+    annotate sites with or prune sites by the number of variants within a window, Lewontin's D
+    (doi:10.1093/molbev/msz265), Ragsdale's D (doi:10.1534/genetics.108.093153), or correlation
+    coefficient r-squared.
 
 *remove-overlaps*::
     remove overlapping variants and duplicate sites
@@ -2988,6 +3040,8 @@ By default, appropriate system directories are searched for installed plugins.
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
 
+*vcf2table*::
+    print the variants as a set of tables
 
 ==== Examples:
 
@@ -3084,9 +3138,10 @@ file for help.
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
-*-v, --verbose*::
+*-v, --verbosity* 'INT'::
     verbose debugging output which gives hints about the thresholds and decisions made
     by the program. Note that the exact output can change between versions.
+    See also *<<common_options,Common Options>>*
 
 ==== Algorithm options:
 
@@ -3188,6 +3243,10 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-v, --vcf-list* 'FILE'::
     process multiple VCFs listed in the file
 
+*--verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 ==== Format:
 
     %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
@@ -3196,6 +3255,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %FIRST_ALT      Alias for %ALT{0}
     %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
     %GT             Genotype (e.g. 0/1)
+    %FUNCTION       Functions supported by the -i/-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
     %INFO           Prints the whole INFO column
     %INFO/TAG       Any tag in the INFO column
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
@@ -3249,6 +3309,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 || FMT/DP=2' file.vcf
     bcftools query -f '[%SAMPLE %GT %DP\n]' -i 'FMT/DP=1 |  FMT/DP=2' file.vcf
 
+    # Refer to ID column vs INFO/ID tag vs FORMAT/ID tag
+    bcftools query -f 'columnID=%ID   infoID=%INFO/ID  [fmtID=%ID ]  [columnID=%/ID]'
+
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
@@ -3279,11 +3342,15 @@ Modify header of VCF/BCF files, change sample names.
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 [[roh]]
 === bcftools roh ['OPTIONS'] 'file.vcf.gz'
 A program for detecting runs of homo/autozygosity. Only bi-allelic sites
-are considered.
+are considered. The results can be visualized in HTML/JavaScript using
+the *<<roh-viz,roh-viz>>* script.
 
 ==== The HMM model:
 --------------------------------------
@@ -3428,6 +3495,10 @@ Transition probabilities:
 *--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
 ==== HMM Options:
 
 *-a, --hw-to-az* 'FLOAT'::
@@ -3458,6 +3529,9 @@ Transition probabilities:
 *-T, --temp-dir* 'DIR'::
     Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
     then these are replaced with a string that makes the directory name unique.
+
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
     Automatically index the output file.  'FMT' is optional and can be
@@ -3552,8 +3626,8 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
 *-u, --user-tstv* '<TAG[:min:max:n]>'::
     collect Ts/Tv stats for any tag using the given binning [0:1:100]
 
-*-v, --verbose*::
-    produce verbose per-site and per-sample output
+*-v, --verbosity* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[view]]
@@ -3608,6 +3682,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+*--verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 
 *-W*['FMT']*, -W*[='FMT']*, --write-index*[='FMT']::
@@ -3826,6 +3903,44 @@ chromosome separately), plots graphs and creates a PDF presentation.
 --
 
 
+[[roh-viz]]
+=== roh-viz ['OPTIONS']
+Script for visualizing the output of *<<roh,bcftools roh>>*. It creates
+a HTML/JavaScript document which can be interactively viewed in your favorite
+web browser.
+
+*-i, --RoH-file* 'FILE'::
+    Output of bcftools/roh
+
+*-l, --min-length* 'NUM'::
+    Mimimum length of ROH [1e6]
+
+*-o, --output* 'FILE'::
+    HTML output file
+
+*-r, --regions* 'LIST'::
+    List of chromosomes/regions
+
+*-s, --samples* 'LIST'::
+    List of samples to show
+
+*-v, --VCF-file* 'FILE'::
+    VCF file to determine homozygosity rate
+
+*-h, -?, --help*
+    This help message
+
+
+*Example:*
+--
+    # Find RoH regions
+    bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf
+
+    # Create HTML/JavaScript visualization
+    roh-viz -r roh.txt -v file.bcf -o output.html
+--
+
+
 [[expressions]]
 FILTERING EXPRESSIONS
 ---------------------
@@ -3973,17 +4088,22 @@ they will evaluate to a vector of per-sample values when applied on FORMAT tags:
         SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
         sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 
-* two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
-  and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+* two-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
+  value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
 
         binom(FMT/AD)                .. GT can be used to determine the correct index
         binom(AD[0],AD[1])           .. or the fields can be given explicitly
         phred(binom())               .. the same as binom but phred-scaled
 
+        fisher(INFO/DP4)
+        fisher(FORMAT/DP4)
+        fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
+        fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly
+
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
-AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+AC but always picks the allele with frequency smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
 indel length (deletions negative, insertions positive, balanced substitutions zero)
@@ -4031,9 +4151,9 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 * When arithmetic operators are used on vectors A and B, the following logic is used to
   compute the resulting vector C:
 
-    - C_i = A_i + B_i when length(A)==B(A) and sets length(C)=length(A)
-    - C_i = A_i + B_0 when length(B)=1 and sets length(C)=length(A)
-    - C_i = A_0 + B_i when length(A)=1 and sets length(C)=length(B)
+    - C_i = A_i + B_i when length(A)==B(A) and sets length\(C)=length(A)
+    - C_i = A_i + B_0 when length(B)=1 and sets length\(C)=length(A)
+    - C_i = A_0 + B_i when length(A)=1 and sets length\(C)=length(B)
     - throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
 
 *Examples:*
@@ -4081,7 +4201,7 @@ An example of expression enclosed in single quotes which cause
 that the whole expression is passed to the program as intended:
 
 --
-    bcftools view -i '%ID!="." & MAF[0]<0.01'
+    bcftools view -i 'ID!="." & MAF[0]<0.01'
 --
 
 Please refer to the documentation of your shell for details.

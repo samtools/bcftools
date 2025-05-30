@@ -1,0 +1,8 @@
+##fileformat=VCFv4.4
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample	Other
+chr1	147022730	SV1	N	<DEL>	.	.	END=147593064	GT	0/1	./.
+chr1	147022730	SV2	N	<DEL>	.	.	END=148013144	GT	./.	1/1

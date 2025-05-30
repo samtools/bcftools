@@ -21,8 +21,16 @@ timeout_in: 10m
 # clone with our own commands too.
 clone_template: &HTSLIB_CLONE
   htslib_clone_script: |
-    .ci_helpers/clone "https://github.com/${CIRRUS_REPO_OWNER}/htslib" "${HTSDIR}" "${CIRRUS_BRANCH}"
-
+    # Tricky, but when run as a PR Cirrus-CI obscures the branch name and
+    # replaces it by pull/<num>.  This means we can't automatically get PRs
+    # to test whether the user has a similarly named branch to compiler and
+    # test against.
+    #
+    # Instead if we add htslib#NUM into the first line of the commit then
+    # we will use that PR from htslib instead.  This is only needed when
+    # making a PR, so for development prior to the PR being made the
+    # CIRRUS_BRANCH will be used in preference.
+    .ci_helpers/clone ${CIRRUS_REPO_OWNER} htslib "${HTSDIR}" "${CIRRUS_BRANCH}" `printenv CIRRUS_CHANGE_TITLE | sed -n 's/.*htslib#\([0-9]*\).*/\1/p'`
 
 #--------------------------------------------------
 # Template: bcftools compile and test
@@ -34,16 +42,34 @@ compile_template: &COMPILE
     if test "$USE_CONFIG" = "yes"; then
       (cd $HTSDIR && autoreconf -i)
       autoreconf -i
-      ./configure --enable-werror || (cat config.log; /bin/false)
+      ./configure --enable-werror $CONFIG_OPTS \
+           ${CC:+CC="$CC"} \
+           ${CFLAGS:+CFLAGS="$CFLAGS"} \
+           ${CPPFLAGS:+CPPFLAGS="$CPPFLAGS"} \
+           ${LDFLAGS:+LDFLAGS="$LDFLAGS"} \
+         || (cat config.log; /bin/false)
       make -j3
     else
-      make -j3 plugindir=$CIRRUS_WORKING_DIR/plugins -e
+      make -j3 plugindir="$CIRRUS_WORKING_DIR/plugins" \
+           ${HTSDIR:+HTSDIR="$HTSDIR"} \
+           ${CC:+CC="$CC"} \
+           ${CFLAGS:+CFLAGS="$CFLAGS"} \
+           ${CPPFLAGS:+CPPFLAGS="$CPPFLAGS"} \
+           ${LDFLAGS:+LDFLAGS="$LDFLAGS"}
     fi
 
 test_template: &TEST
   test_script: |
-    make -e test
-
+    if test "$USE_CONFIG" = "yes"; then
+        make test
+    else
+        make test  \
+           ${HTSDIR:+HTSDIR="$HTSDIR"} \
+           ${CC:+CC="$CC"} \
+           ${CFLAGS:+CFLAGS="$CFLAGS"} \
+           ${CPPFLAGS:+CPPFLAGS="$CPPFLAGS"} \
+           ${LDFLAGS:+LDFLAGS="$LDFLAGS"}
+    fi
 
 #--------------------------------------------------
 # Task: linux builds.
@@ -60,15 +86,23 @@ gcc_task:
     LC_ALL: C
     CIRRUS_CLONE_DEPTH: 1
     HTSDIR: ./htslib
-    CFLAGS:  -fsanitize=address
-    LDFLAGS: -fsanitize=address
 
   matrix:
     - environment:
        USE_CONFIG: no
+       CFLAGS:  -g -Og -Wall -Werror -fsanitize=address
+       LDFLAGS: -fsanitize=address
     - environment:
        USE_CONFIG: yes
-       CFLAGS: -std=gnu99 -O0
+       CONFIG_OPTS: --enable-libgsl --enable-perl-filters 
+       CFLAGS: -std=gnu99 -g -Og -Wall -fsanitize=address
+       LDFLAGS: -fsanitize=address
+
+  install_script: |
+    apt-get update
+    apt-get install -y --no-install-suggests --no-install-recommends \
+        libdeflate-dev libperl-dev libgsl0-dev libio-pty-perl
+
 
   << : *COMPILE
   << : *TEST
@@ -84,7 +118,6 @@ ubuntu_task:
 
   environment:
     CC: clang
-    CFLAGS: -g -O2 -Werror -Wall -Wformat -Wformat=2
     LC_ALL: C
     CIRRUS_CLONE_DEPTH: 1
     HTSDIR: ./htslib
@@ -92,10 +125,12 @@ ubuntu_task:
   matrix:
     - environment:
        USE_CONFIG: no
+       CFLAGS: -g -O2 -Werror -Wall -Wformat -Wformat=2
     - container:
        memory: 2G
       environment:
        USE_CONFIG: yes
+       CONFIG_OPTS: --enable-libgsl --enable-perl-filters
        CFLAGS: -g -Wall -O3
        LDFLAGS: -Wl,-rpath,`pwd`/inst/lib
 
@@ -106,7 +141,7 @@ ubuntu_task:
     apt-get install -y --no-install-suggests --no-install-recommends \
         ca-certificates clang git autoconf automake  \
         make zlib1g-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev   \
-        libssl-dev libdeflate-dev
+        libssl-dev libdeflate-dev libperl-dev libgsl0-dev libio-pty-perl
 
   << : *COMPILE
   << : *TEST
@@ -125,13 +160,14 @@ rockylinux_task:
     CIRRUS_CLONE_DEPTH: 1
     HTSDIR: ./htslib
     USE_CONFIG: yes
+    CONFIG_OPTS: --enable-libgsl --enable-perl-filters
 
   # NB: we could consider building a docker image with these
   # preinstalled and specifying that instead, to speed up testing.
   install_script: |
     yum install -y autoconf automake make gcc perl-Data-Dumper perl-FindBin \
         zlib-devel bzip2 bzip2-devel xz-devel curl-devel openssl-devel \
-        git diffutils
+        git diffutils gsl-devel perl-ExtUtils-Embed
 
   << : *COMPILE
   << : *TEST
@@ -143,7 +179,7 @@ rockylinux_task:
 macosx_task:
   name: macosx + clang
   macos_instance:
-    image: ghcr.io/cirruslabs/macos-ventura-base:latest
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
 
   environment:
     CC: clang

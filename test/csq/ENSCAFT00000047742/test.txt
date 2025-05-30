@@ -1,0 +1,3 @@
+104	CA	C	splice_acceptor&splice_donor|DUSP3|ENSCAFT00000047742|protein_coding
+104	CA	C	splice_acceptor&splice_donor|DUSP3|ENSCAFT00000047742|protein_coding
+

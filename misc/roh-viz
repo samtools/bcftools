@@ -1,0 +1,789 @@
+#!/usr/bin/env perl
+#
+#  The MIT License
+#
+#  Copyright (c) 2024-2025 Genome Research Ltd.
+#
+#  Authors:
+#       Petr Danecek <pd3@sanger.ac.uk>
+#       Based on code by Jakub Genci, https://github.com/GenciJakub/BcThesis
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
+
+use strict;
+use warnings;
+use Data::Dumper;
+
+my $opts = parse_params();
+process_data($opts);
+generate_html($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { print "@msg\n"; }
+    print
+        "About: HTML/JavaScript visualization of homozygosity rate and bcftools/roh output\n",
+        "Usage: roh-viz [OPTIONS]\n",
+        "Options:\n",
+        "   -c  --compress 0|1      Compress the embedded data [1]\n",
+        "   -e  --embed-d3 0|1      Embed JS libraries for offline rendering [0]\n",
+        "   -i, --RoH-file FILE     Output of bcftools/roh\n",
+        "   -l, --min-length NUM    Mimimum length of ROH [1e6]\n",
+        "   -o, --output FILE       HTML output file\n",
+        "   -r, --regions LIST      List of chromosomes/regions\n",
+        "   -s, --samples LIST      List of samples to show\n",
+        "   -v, --VCF-file FILE     VCF file to determine homozygosity rate\n",
+        "   -h, -?, --help          This help message\n",
+        "Example:\n",
+        "   bcftools roh --AF-dflt 0.5 -G 30 -Or -o roh.txt file.bcf\n",
+        "   roh-viz -r roh.txt -v file.bcf -o output.html\n",
+        "\n";
+    exit -1;
+}
+
+sub parse_params
+{
+    my $opts =
+    {
+        min_length => 1e6,
+        bcftools => 'bcftools',
+        outdir => '.',
+        d3_url   => 'https://d3js.org/d3.v7.min.js',
+        pako_url => 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js',
+        compress => 1,
+        embed_d3 => 0,
+        bin_size => 100_000,     # bin size
+        cmd => join(' ',$0,@ARGV),
+    };
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-e' or $arg eq '--embed-d3' ) { $$opts{embed_d3}=shift(@ARGV); next; }
+        if ( $arg eq '-c' or $arg eq '--compress' ) { $$opts{compress}=shift(@ARGV); next; }
+        if ( $arg eq '-r' || $arg eq '--regions' ) { $$opts{regions}=shift(@ARGV); next }
+        if ( $arg eq '-s' || $arg eq '--samples' ) { $$opts{samples}=shift(@ARGV); next }
+        if ( $arg eq '-i' || $arg eq '--RoH-file' ) { $$opts{roh_file}=shift(@ARGV); next }
+        if ( $arg eq '-v' || $arg eq '--VCF-file' ) { $$opts{vcf_file}=shift(@ARGV); next }
+        if ( $arg eq '-l' || $arg eq '--min-length' ) { $$opts{min_length}=shift(@ARGV); next }
+        if ( $arg eq '-o' || $arg eq '--output' ) { $$opts{outfile}=shift(@ARGV); next }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+	if ( !exists($$opts{roh_file}) ) { error("Missing the -r option.\n"); }
+	if ( !exists($$opts{vcf_file}) ) { error("Missing the -v option.\n"); }
+	return $opts;
+}
+
+sub cmd
+{
+    my ($cmd,%args) = @_;
+
+    if ( $args{verbose} ) { print STDERR $cmd,"\n"; }
+
+    # Why not to use backticks? Perl calls /bin/sh, which is often bash. To get the correct
+    #   status of failing pipes, it must be called with the pipefail option.
+
+    my $kid_io;
+    my $pid = open($kid_io, "-|");
+    if ( !defined $pid ) { error("Cannot fork: $!"); }
+
+    my @out;
+    if ($pid)
+    {
+        # parent
+        @out = <$kid_io>;
+        close($kid_io);
+    }
+    else
+    {
+        # child
+        exec('bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [bash -o pipefail -c $cmd]: $!");
+    }
+
+    if ( exists($args{exit_on_error}) && !$args{exit_on_error} ) { return @out; }
+
+    my $exit_status = $?;
+    my $status = exists($args{require_status}) ? $args{require_status} : 0;
+    if ( $status ne $exit_status )
+    {
+        my $msg;
+        if ( $? & 0xff )
+        {
+            $msg = "The command died with signal ".($? & 0xff);
+        }
+        else
+        {
+            $msg = "The command exited with status ".($? >> 8)." (expected $status)";
+        }
+        $msg .= ":\n\t$cmd\n\n";
+        if ( @out ) {  $msg .= join('',@out,"\n\n"); }
+        error($msg);
+    }
+    return @out;
+}
+
+sub format_number_with_commas
+{
+    my ($number) = @_;
+    $number =~ s/(?<=\d)(?=(\d{3})+$)/,/g;
+    return $number;
+}
+
+sub process_data
+{
+	my ($opts) = @_;
+
+    print STDERR "Parsing $$opts{outdir}/roh.txt\n";
+    open(my $in,"zless $$opts{roh_file} |") or error("zless $$opts{roh_file}: $!");
+    while (my $line=<$in>)
+    {
+        chomp($line);
+
+        if ( $line=~/^#/ )
+        {
+            if ( $line=~/The command line was:\s+/ ) { $$opts{roh_cmd} = $'; }
+            next;
+        }
+
+        my @col = split(/\t/,$line);
+        if ( $col[0] ne 'RG' ) { next; }
+
+        # RG	[2]Sample	[3]Chromosome	[4]Start	[5]End	[6]Length (bp)	[7]Number of markers	[8]Quality (average fwd-bwd phred score)
+        my (undef,$smpl,$chr,$beg,$end,undef,$nsnp,$qual) = (@col);
+        if ( $end - $beg >= $$opts{min_length} )
+        {
+            push @{$$opts{roh}{$chr}{$smpl}},"$beg,$end,$nsnp,$qual";
+        }
+    }
+    close($in) or error("close failed: zless $$opts{in_file}");
+
+    my $bin_size = $$opts{bin_size};
+    my %chr_len = ();
+    my %dat  = ();
+    my %smpl = ();
+    my $smpl = exists($$opts{samples}) ? "-s $$opts{samples}" : '';
+    my $regs = exists($$opts{regions}) ? "-r $$opts{regions}" : '';
+    my $cmd  = qq[$$opts{bcftools} query $$opts{vcf_file} -f'[%CHROM\\t%POS\\t%SAMPLE\\t%GT\\n]' -i'GT="alt"' $smpl $regs];
+    print STDERR "Parsing $$opts{vcf_file}\n";
+    print STDERR "  $cmd\n";
+    open($in,"$cmd |") or error("$cmd: $!");
+    while (my $line=<$in>)
+    {
+        chomp($line);
+        my ($chr,$pos,$smpl,$gt) = split(/\t/,$line);
+        my %gt = ();
+        for my $x (split(m{[|/]},$gt)) { $gt{$x}=1; }   # split by the phase symbol, eg 0/1 and 0|1
+        my $is_hom = scalar %gt == 1 ? 1 : 0;
+
+        if ( !exists($dat{$chr}) ) { print STDERR "."; }
+        my $bin = int($pos/$bin_size)*$bin_size + $bin_size/2;
+        $dat{$chr}{$smpl}{$bin}{$is_hom}++;
+
+        if ( !defined $chr_len{$chr} or $pos > $chr_len{$chr} ) { $chr_len{$chr} = $pos; }
+        $smpl{$smpl} = 1;
+    }
+    close($in) or error("close failed: $cmd");
+    print STDERR "\n";
+    $$opts{dat} = \%dat;
+    $$opts{chr} = [sort {$chr_len{$b}<=>$chr_len{$a}} keys %chr_len];
+    for my $chr (keys %chr_len)
+    {
+        my $chr_id = $chr;
+        $chr_id =~ s/\./_/g;
+        if ( !($chr_id=~/^chr/i) ) { $chr_id = "chr$chr_id"; }
+        $$opts{chr_id}{$chr} = $chr_id;
+    }
+    $$opts{smpl} = [sort keys %smpl];
+    $$opts{chr_len} = \%chr_len;
+}
+
+sub generate_html
+{
+    my ($opts) = @_;
+
+    my $d3js = qq[<script type="text/javascript" src="$$opts{d3_url}"></script>];
+    my $pakojs = $$opts{compress} ? qq[<script type="text/javascript" src="$$opts{pako_url}"></script>] : '';
+    if ( $$opts{embed_d3} )
+    {
+        $d3js = '<script type="text/javascript">'. embed_js($opts,$$opts{d3_url}) .'</script>';
+        $pakojs = $$opts{compress} ? '<script type="text/javascript">'. embed_js($opts,$$opts{pako_url}) .'</script>' : '';
+    }
+
+    my $fh = \*STDOUT;
+    if ( exists($$opts{outfile}) )
+    {
+        open($fh,'>',$$opts{outfile}) or error("$$opts{outfile}: $!");
+    }
+    print {$fh} << "EOT";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <style>
+    input[type="range"] {
+        width: 200px;
+        height: 20px;
+        margin-left: 1rem;
+    }
+
+    #slider_div {
+        display: flex;
+        align-items: center;
+        height: 50px;
+        width: 100%;
+        background-color: #faf3e0;
+        padding-left: 50px;
+    }
+    output {
+        margin-left: 1rem;
+    }
+
+    svg { font: 10px sans-serif; }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .y.axis path {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .brush .extent {
+      stroke: #fff;
+      fill-opacity: .125;
+      shape-rendering: crispEdges;
+    }
+
+    .line { fill: none; }
+  </style>
+
+  <script src="https://d3js.org/d3.v6.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
+
+
+  $d3js
+  $pakojs
+  <script type="text/javascript" defer>
+
+  var chr_len = [];
+  var str_hom_data = [];
+  var str_roh_data = [];
+  var obj_data = [];
+EOT
+
+    my %chr_used = ();
+
+    # The homozygosity rate data
+    for my $chr (@{$$opts{chr}})
+    {
+        my $chr_id = $$opts{chr_id}{$chr};
+
+        my @smpl = (sort keys %{$$opts{dat}{$chr}});
+        for my $smpl (@smpl)
+        {
+            my @bin = (sort {$a<=>$b} keys %{$$opts{dat}{$chr}{$smpl}});
+            if ( @bin<2 ) { next; }
+
+            if ( !exists($chr_used{$chr}) )
+            {
+                $chr_used{$chr} = 1;
+                print $fh qq[str_hom_data["$chr_id"] = [];\n];
+            }
+
+            my $cmd = $$opts{compress} ? "| gzip -c | base64 | tr -d \\\\n" : '';
+            open(my $tmp,"$cmd > $$opts{outfile}.part") or error("$cmd > $$opts{outfile}.part: $!");
+            print $tmp qq[midPoint,snpCount,homRate\n];
+            for my $bin (@bin)
+            {
+                my $dat = $$opts{dat}{$chr}{$smpl}{$bin};
+                my $nhet = exists($$dat{0}) ? $$dat{0} : 0;
+                my $nhom = exists($$dat{1}) ? $$dat{1} : 0;
+                if ( $nhet+$nhom==0 ) { next; }
+                print $tmp join(',',$bin,$nhet+$nhom,sprintf("%.4f",$nhom/($nhet+$nhom)))."\n";
+            }
+            close($tmp) or error("close failed: $cmd > $$opts{outfile}.part");
+            open($tmp,'<',"$$opts{outfile}.part") or error("$$opts{outfile}.part: $!");
+            print $fh qq[str_hom_data["$chr_id"]["$smpl"] = `];
+            while (my $line=<$tmp>) { print $fh $line; }
+            print $fh qq[`;\n];
+            close($tmp) or error("close failed: $$opts{outfile}.part");
+            unlink("$$opts{outfile}.part");
+        }
+    }
+    my $max_chr_len = 0;
+    my @used = ();
+    for my $chr (@{$$opts{chr}})
+    {
+        if ( !exists($chr_used{$chr}) ) { next; }
+        push @used,$chr;
+        if ( $max_chr_len < $$opts{chr_len}{$chr} ) { $max_chr_len = $$opts{chr_len}{$chr}; }
+        my $chr_id = $$opts{chr_id}{$chr};
+        print $fh qq[chr_len["$chr_id"] = $$opts{chr_len}{$chr};\n];
+    }
+    print $fh qq[var max_chr_len = $max_chr_len;\n];
+    $$opts{chr} = \@used;
+
+    # the roh data
+    for my $chr (@{$$opts{chr}})
+    {
+        if ( !$chr_used{$chr} ) { next; }
+
+        my $chr_id = $$opts{chr_id}{$chr};
+        print $fh qq[str_roh_data["$chr_id"] = [];\n];
+
+        my @smpl = (sort keys %{$$opts{dat}{$chr}});
+        for my $smpl (@smpl)
+        {
+            my $cmd = $$opts{compress} ? "| gzip -c | base64 | tr -d \\\\n" : '';
+            open(my $tmp,"$cmd > $$opts{outfile}.part") or error("$cmd > $$opts{outfile}.part: $!");
+
+            print $tmp qq[start,end,snpCount,qual\n];
+            for my $roh (@{$$opts{roh}{$chr}{$smpl}})
+            {
+                print $tmp $roh."\n";
+            }
+            close($tmp) or error("close failed: $cmd > $$opts{outfile}.part");
+            open($tmp,'<',"$$opts{outfile}.part") or error("$$opts{outfile}.part: $!");
+            print $fh qq[str_roh_data["$chr_id"]["$smpl"] = `];
+            while (my $line=<$tmp>) { print $fh $line; }
+            print $fh qq[`;\n];
+            close($tmp) or error("close failed: $$opts{outfile}.part");
+            unlink("$$opts{outfile}.part");
+        }
+    }
+
+    my $d3_parse_hom_data = $$opts{compress} ?
+        'pako.inflate(Uint8Array.from(atob(str_hom_data[chr][smpl]),c=>c.charCodeAt(0)),{to:"string"})' :
+        'str_hom_data[chr][smpl]';
+
+    my $d3_parse_roh_data = $$opts{compress} ?
+        'pako.inflate(Uint8Array.from(atob(str_roh_data[chr][smpl]),c=>c.charCodeAt(0)),{to:"string"})' :
+        'str_roh_data[chr][smpl]';
+
+    my $nsmpl = scalar @{$$opts{smpl}};
+
+    # JavaScript part
+    print {$fh} << "EOT";
+
+    var chrs = [];
+    window.onload = function() {
+        document.querySelectorAll(".chr").forEach((x) => {
+            var chr = x.id;
+            chrs.push(chr);
+
+            // convert from base64, decompress, parse csv
+            var obj = {};
+            obj.ori_hom_data = [];
+            for (smpl in str_hom_data[chr])
+            {
+                var dat = d3.csvParse($d3_parse_hom_data,function(d) {
+                    return {
+                        Point : +d.midPoint,
+                        SnpCount : +d.snpCount,
+                        Rate : +d.homRate
+                    }
+                });
+                obj.ori_hom_data.push({key:smpl, values:dat});
+            }
+            obj.ori_roh_data = [];
+            for (smpl in str_roh_data[chr])
+            {
+                var dat = d3.csvParse($d3_parse_roh_data,function(d) {
+                    return {
+                        Start: +d.start,
+                        End: +d.end,
+                        SnpCount : +d.snpCount,
+                        Qual : +d.qual
+                    }
+                });
+                obj.ori_roh_data.push({key:smpl, values:dat});
+            }
+            obj.scaled_hom_data = obj.ori_hom_data;
+            obj.margin = {top:50, right:50, bottom:100, left:60, middle:50};
+            var max_width = obj.width = window.innerWidth * 0.9;
+            obj.width  = obj.width * (chr_len[chr]/max_chr_len);
+            if ( obj.width < 0.25*max_width ) obj.width = 0.25*max_width;
+            obj.height_roh = $nsmpl * 5;
+            obj.height_hom = 150;
+            obj.height = obj.height_roh + obj.height_hom + obj.margin.middle;
+            obj.id  = x.id;
+            obj.div = d3.select('#'+x.id);
+            obj.chr = x.getAttribute('name');
+            obj_data[chr] = obj;
+            plot_data(obj,obj.ori_hom_data,obj.ori_roh_data);
+        });
+    }
+
+    var x0,x1;
+    function plot_data(obj,hom_data,roh_data)
+    {
+        obj.x  = d3.scaleLinear().range([ 0, obj.width ]);
+        obj.yhom = d3.scaleLinear().range([ obj.height_hom, 0 ]);  // main homRate graph (bottom)
+        obj.yroh = d3.scaleLinear().range([ obj.height_roh, 0 ]);  // roh graph (top)
+        obj.x.domain(d3.extent(hom_data.flatMap(group=>group.values),d=>d.Point));
+        obj.yhom.domain([0,1]);
+        obj.yroh.domain([0,1]);
+        obj.xAxis  = d3.axisBottom(obj.x);
+        obj.yAxis_hom = d3.axisLeft(obj.yhom);
+        obj.yAxis_roh = d3.axisLeft(obj.yroh);
+
+        var first_time = obj.svg==undefined ? true : false;
+        if ( first_time )
+        {
+            obj.x0 = obj.x.domain()[0];
+            obj.x1 = obj.x.domain()[1];
+
+            obj.svg = obj.div.append("svg")
+                .attr("width", obj.width + obj.margin.left + obj.margin.right)
+                .attr("height", obj.height + obj.margin.top + obj.margin.bottom);
+
+            obj.graph_roh = obj.svg.append("g")
+                .attr("transform", "translate(" + obj.margin.left + "," + (obj.margin.top) + ")");
+            obj.graph_hom = obj.svg.append("g")
+                .attr("transform", "translate(" + obj.margin.left + "," + (obj.margin.top+obj.margin.middle+obj.height_roh) + ")");
+
+            // info line
+            obj.svg
+                .append('rect')
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .style("z-index","1000")
+                .attr("transform", "translate(" + obj.margin.left + "," + (obj.margin.top) + ")")
+                .attr('width', obj.width)
+                .attr('height', obj.height)
+                .on("mouseover", function(event) {
+                    obj.info_line.style("opacity",1);
+                    obj.info_text.style("opacity",1);
+                    obj.info_text_bg.style("opacity",0.9);
+                })
+                .on("mouseout", function(event) {
+                    obj.info_line.style("opacity",0);
+                    obj.info_text.style("opacity",0);
+                    obj.info_text_bg.style("opacity",0);
+                })
+                .on("mousemove", function(event) { mousemove(obj,d3.pointer(event,this)); });
+            obj.info_line = obj.svg
+                .append('line')
+                .attr("class", "mouse-line")
+                .attr("stroke", "black")
+                .attr("stroke-width", 1)
+                .attr("pointer-events", "none")     // otherwise the line might trigger mouse events
+                .style("opacity",0)
+                .attr("y1", obj.margin.top - obj.height)
+                .attr("y2", obj.margin.top);
+            obj.info_text = obj.svg
+                .append('text')
+                .style("opacity", 0)
+                .attr("pointer-events", "none")     // otherwise the line might trigger mouse events
+                .attr("text-anchor", "start")
+                .attr("alignment-baseline", "middle");
+            obj.info_text_bg = obj.svg.insert("rect", "text")   // add background opacity to make the text visible
+                .attr("pointer-events", "none")     // otherwise the line might trigger mouse events
+                .attr("fill", "white")
+                .attr("opacity", 0);
+
+            // x-axis label
+            obj.svg.append("text")
+                .attr("x", (obj.width/2) )
+                .attr("y",  obj.height + 90)
+                .style("text-anchor", "middle")
+                .text("Position on chromosome " + obj.chr);
+
+            // y-axis label
+            obj.svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 70 - obj.margin.left)
+                .attr("x",0 - (obj.margin.top+obj.height_roh+(obj.height+obj.margin.middle)/2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Homozygosity rate");
+
+            // graph title
+            obj.graphName = obj.svg.append('g')
+                .append('text')
+                .attr("x", (obj.width / 2))
+                .attr("y", 20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .text("Chromosome " + obj.chr);
+
+            // color palette
+            obj.samples = hom_data.map(function(d){ return d.key }) // list of group names
+                obj.colors = d3.scaleOrdinal()
+                .domain(obj.samples)
+                .range(["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"])//d3-scale-chromatic, Category 10
+        }
+        else
+        {
+            //remove drawn paths
+            obj.hom_lines.remove();
+            obj.roh_lines.remove();
+        }
+
+        // the homozygosity rate data
+        obj.hom_lines = obj.graph_hom.append("g");
+        obj.hom_lines.selectAll(".line")
+            .data(hom_data)
+            .enter()
+            .append("path")
+            .attr("class", "line")
+            .attr("fill", "none")
+            .attr("stroke-width", 1.5)
+            .attr("stroke", function(d){ return obj.colors(d.key) })
+            .attr("d", function(d){
+                x = d3.line()
+                    .x(function(d) { return obj.x(d.Point); })
+                    .y(function(d) { return obj.yhom(d.Rate); })
+                    (d.values);
+                return x;
+                });
+
+        // the roh data
+        obj.roh_lines = obj.graph_roh.append("g");
+        obj.roh_lines.selectAll(".group")
+            .data(roh_data)     // bind the parent data, each object with a key (sample) and values (data points)
+            .enter()
+            .append("g")        // create a group for each key (sample)
+            .attr("class", "group")
+            .each(function(d,groupIndex) {
+                d3.select(this)
+                    .selectAll(".rect")
+                    .data(d.values) // Bind values array for each key
+                    .enter()
+                    .append("rect")
+                    .attr("class", "rect")
+                    .attr("x", function(v) { return obj.width*(v.Start - obj.x0)/(obj.x1-obj.x0); })
+                    .attr("y", function(v, i) { return groupIndex*5; })
+                    .attr("width", function(v) { return obj.width*(v.End - v.Start)/(obj.x1-obj.x0); })
+                    .attr("height", 4)
+                    .attr("fill", function() { return obj.colors(d.key); });
+            });
+
+        if ( first_time )
+        {
+            obj.graph_hom.append("g")
+                .attr("class", "axis axis--x")
+                .attr("transform", "translate(0," + (obj.height_hom-1) + ")")
+                .call(obj.xAxis);
+            obj.graph_hom.append("g")
+                .attr("class", "axis axis--y")
+                .call(obj.yAxis_hom);
+
+            obj.legend = obj.svg.selectAll(".legend")
+                .data(hom_data)
+                .enter()
+                .append("g")
+                .attr("class", "legend")
+                .attr("transform", (d,i) => "translate("+obj.width*0.9+","+(10+20*i)+")");
+            obj.legend.append("rect")
+                .attr("width", 8)
+                .attr("height", 8)
+                .attr("fill", function(d){ return obj.colors(d.key) })
+            obj.legend.append("text")
+                .attr("x", 15)
+                .attr("y", 10)
+                .text(d => d.key)
+                .style("font-size", "12px")
+                .style("text-anchor", "start");
+        }
+    }
+
+    // the zoom slider was used, update the view with a new interval size
+    var dflt_bin_size = $$opts{bin_size};
+    function update_slider(slider,value)
+    {
+        slider.nextElementSibling.value = value;
+        const formattedValue = Number(slider.value).toLocaleString();
+        slider.nextElementSibling.value = formattedValue+' bp';
+        var bin_size = slider.value;
+
+        for (chr in obj_data)
+        {
+            var obj = obj_data[chr];
+            obj.scaled_hom_data = rescale_hom_data(obj,bin_size);
+            plot_data(obj,obj.scaled_hom_data,obj.ori_roh_data);
+        }
+    }
+    function rescale_hom_data(obj,bin_size)
+    {
+        // slider moved to starting position
+        if ( bin_size==dflt_bin_size ) return obj.ori_hom_data;
+
+        var scaled = [];
+        for (let ismpl=0; ismpl<obj.ori_hom_data.length; ismpl++)
+        {
+            var xscaled = [];
+            var ntot = 0;
+            var nhom = 0;
+            var bin  = -1;
+            const rec = obj.ori_hom_data[ismpl].values;
+            for (let jbin=0; jbin<rec.length; jbin++)
+            {
+                const x = rec[jbin];
+                var xbin = bin_size*Math.round(x.Point/bin_size) + bin_size/2;
+                if ( bin==-1 ) bin = xbin;
+                if ( bin!=xbin ) // flush
+                {
+                    var rate = ntot ? nhom/ntot : 0;
+                    xscaled.push({Point:xbin,SnpCount:ntot,Rate:rate});
+                    ntot = 0;
+                    nhom = 0;
+                    bin  = xbin;
+                }
+                ntot += x.SnpCount;
+                nhom += x.SnpCount * x.Rate;
+            }
+            scaled.push({key:obj.ori_hom_data[ismpl].key, values:xscaled});
+        }
+        return scaled;
+    }
+
+    function mousemove(obj,dat)
+    {
+        var x = dat[0];
+        var y = dat[1];
+        obj.info_line.attr("transform", "translate("+(x+obj.margin.left)+","+(obj.height)+")");
+
+        var x0 = obj.x0;
+        var x1 = obj.x1;
+
+        var pos = Math.round(x0+(x1-x0)*x/obj.width);
+        var txt = 'Position '+ pos.toLocaleString() +"\\n";
+
+        var roh_hdr_printed = 0;
+        for (let ismpl=0; ismpl<obj.ori_roh_data.length; ismpl++)
+        {
+            const rec = obj.ori_roh_data[ismpl].values;
+            for (let jbin=0; jbin<rec.length; jbin++)
+            {
+                const x = rec[jbin];
+                if ( x.End < pos ) continue;
+                if ( x.Start > pos ) break;
+                if ( !roh_hdr_printed )
+                {
+                    roh_hdr_printed = 1;
+                    txt += "\\nSample / VariantCount / ROH Call Quality / Start-End\\n";
+                }
+                txt += "\\t" + obj.ori_roh_data[ismpl].key + " / "+x.SnpCount.toLocaleString()+" / "+x.Qual + " / " + x.Start.toLocaleString() + " - " + x.End.toLocaleString() +"\\n";
+            }
+        }
+
+        txt += "\\nSample / VariantCount / HomRate\\n";
+        for (let ismpl=0; ismpl<obj.scaled_hom_data.length; ismpl++)
+        {
+            const rec = obj.scaled_hom_data[ismpl].values;
+            txt += "\\t" + obj.scaled_hom_data[ismpl].key;
+            for (let jbin=0; jbin<rec.length; jbin++)
+            {
+                const x = rec[jbin];
+                if ( x.Point < pos ) continue;
+                txt += " / "+x.SnpCount.toLocaleString()+" / "+x.Rate.toFixed(4);
+                break;
+            }
+            txt += "\\n";
+        }
+
+        var anchor = x < obj.width*0.5 ? "start" : "end";
+        var x_txt  = x < obj.width*0.5 ? x+obj.margin.left+50  : x+obj.margin.left-50;
+        obj.info_text
+            .html(txt)
+            .style("white-space","pre-wrap")
+            .attr("text-anchor", anchor)
+            .attr("x", x_txt)
+            .attr("y", obj.height*0.2+obj.margin.top);
+
+        const bbox = obj.info_text.node().getBBox();
+        obj.info_text_bg
+            .attr("x", bbox.x - 4) // Add some padding
+            .attr("y", bbox.y - 4)
+            .attr("width", bbox.width + 4)
+            .attr("height", bbox.height + 4);
+    }
+  </script>
+EOT
+
+
+    # HTML part
+    my @cmd = qq[This file was produced with];
+    if ( exists($$opts{roh_cmd}) ) { push @cmd,qq[<span style="margin-left:3em;font-family:monospace">$$opts{roh_cmd}</span>]; }
+    if ( exists($$opts{cmd}) ) { push @cmd,qq[<span style="margin-left:3em;font-family:monospace">$$opts{cmd}</span>]; }
+    my $cmd = join('<br>',@cmd);
+
+    my $bin_size = format_number_with_commas($$opts{bin_size});
+    print {$fh} << "EOT";
+
+  </head>
+  <body>
+  <div id="slider_div">
+    Bin size
+    <input type="range" min="$$opts{bin_size}" max="2000000" step="$$opts{bin_size}" value="$$opts{bin_size}" oninput="update_slider(this,this.value)">
+    <output>$bin_size bp</output>
+  </div>
+
+EOT
+
+    for my $chr (@{$$opts{chr}})
+    {
+        print $fh qq[<div id="$$opts{chr_id}{$chr}" name="$chr" class="chr"></div>\n];
+    }
+
+    print {$fh} << "EOT";
+  $cmd
+</body>
+</html>
+EOT
+
+    if ( exists($$opts{outfile}) )
+    {
+        close($fh) or error("close failed: $$opts{outfile}");
+    }
+}
+
+sub embed_js
+{
+    my ($opts,$file) = @_;
+    if ( $file=~m{^http}i )
+    {
+        if ( !($file=~m{([^/]+)$}) ) { error("Could not parse the file name: $file"); }
+        my $dat;
+        my $name = $1;
+        if ( -e $name )
+        {
+            $dat = join('',`cat $name`);
+        }
+        else
+        {
+            my $tmp = "$$opts{outfile}.rmme";
+            cmd(qq[wget -O $tmp $file]);
+            my $dat = join('',`cat $tmp`);
+            unlink($tmp);
+        }
+        return $dat;
+    }
+    return join('',`cat $file`);
+}
+

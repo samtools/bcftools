@@ -1,0 +1,14 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=ADF,Number=R,Type=Integer,Description="Allelic depths on the forward strand">
+##INFO=<ID=ADR,Number=R,Type=Integer,Description="Allelic depths on the reverse strand">
+##FORMAT=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Allelic depths on the forward strand">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Allelic depths on the reverse strand">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##INFO=<ID=FT,Number=1,Type=Float,Description="Added by +fill-tags expression FT:1=phred(fisher(INFO/ADF[0,2],INFO/ADR[0,2]))">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+1	3062915	.	G	A,T	.	.	DP4=10,20,30,40;ADF=10,10,20;ADR=20,10,30;FT=1.96028	GT:DP4:ADF:ADR	0/2:10,20,30,40:10,10,20:20,10,30
+1	3062915	.	G	A,T	.	.	DP4=10,20,30,40;ADF=10,10,20;ADR=20,10,30;FT=1.96028	GT:DP4:ADF:ADR	0/0:10,20,30,40:10,10,20:20,10,30

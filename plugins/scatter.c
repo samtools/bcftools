@@ -98,6 +98,7 @@ static const char *usage_text(void)
         "   -x, --extra STRING              Output records not overlapping listed regions in separate file\n"
         "   -p, --prefix STRING             Prepend string to output VCF names\n"
         "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Examples:\n"
@@ -361,14 +362,18 @@ int run(int argc, char **argv)
         {"prefix",required_argument,NULL,'p'},
         {"hts-opts",required_argument,NULL,5},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "e:i:o:O:r:R:t:T:n:s:S:x:p:W::h?", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "e:i:o:O:r:R:t:T:n:s:S:x:p:W::h?v:", loptions, NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

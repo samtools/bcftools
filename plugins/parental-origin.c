@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2024 Genome Research Ltd.
+   Copyright (c) 2019-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -92,14 +92,15 @@ static const char *usage_text(void)
         "About: Determine parental origin of a CNV region\n"
         "Usage: bcftools +parental-origin [Plugin Options]\n"
         "Plugin options:\n"
-        "   -b, --min-binom-prob FLOAT      exclude parental HETs with skewed ALT allele fraction [1e-2]\n"
-        "   -d, --debug                     list informative sites\n"
-        "   -e, --exclude EXPR              exclude sites and samples for which the expression is true\n"
-        "   -g, --greedy                    use also ambiguous sites, e.g. het+hom parents for deletions\n"
-        "   -i, --include EXPR              include sites and samples for which the expression is true\n"
-        "   -p, --pfm P,F,M                 sample names of proband, father, and mother\n"
-        "   -r, --region REGION             chr:beg-end\n"
-        "   -t, --type <del|dup>            the CNV type\n"
+        "   -b, --min-binom-prob FLOAT    Exclude parental HETs with skewed ALT allele fraction [1e-2]\n"
+        "   -d, --debug                   List informative sites\n"
+        "   -e, --exclude EXPR            Exclude sites and samples for which the expression is true\n"
+        "   -g, --greedy                  Use also ambiguous sites, e.g. het+hom parents for deletions\n"
+        "   -i, --include EXPR            include sites and samples for which the expression is true\n"
+        "   -p, --pfm P,F,M               Sample names of proband, father, and mother\n"
+        "   -r, --region REGION           Chr:beg-end\n"
+        "   -t, --type del|dup            The CNV type\n"
+        "   -v, --verbosity INT           Verbosity level\n"
         "\n"
         "Example:\n"
         "   bcftools +parental-origin -p proband,father,mother -t dup -r 14:22671179-22947951 file.bcf\n"
@@ -334,14 +335,18 @@ int run(int argc, char **argv)
         {"debug",no_argument,0,'d'},
         {"greedy",no_argument,0,'g'},
         {"min-binom-prob",required_argument,0,'b'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h?e:i:p:r:t:dgb:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?e:i:p:r:t:dgb:v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr21,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl1	smpl2	smpl3
+chr21	14483696	.	G	GT,T	.	.	.	GT	0/0	0/1	1/1

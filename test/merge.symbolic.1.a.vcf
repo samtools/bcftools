@@ -1,0 +1,6 @@
+##fileformat=VCFv4.1
+##contig=<ID=chr1,length=248956422>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample
+chr1	147022730	SV1	N	<DEL>	.	.	END=147593064	GT	0/1

@@ -77,7 +77,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     double avg = tmp[0] = dist->yvals[0];
     for (i=1; i<hwin; i++)
     {
-        avg += dist->yvals[2*i-1]; 
+        avg += dist->yvals[2*i-1];
         tmp[i] = avg/(2*i+1);
     }
     avg = 0;
@@ -161,7 +161,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     dist->ira = n*0.5;
 
     if ( verbose )
-        fprintf(stderr,"%s:\t irr,ira,iaa=%.2f,%.2f,%.2f \t cn=%2d \t ra/rr=%f \t aa/ra=%f \t nra=%d\n", 
+        fprintf(stderr,"%s:\t irr,ira,iaa=%.2f,%.2f,%.2f \t cn=%2d \t ra/rr=%f \t aa/ra=%f \t nra=%d\n",
             dist->chr, dist->xvals[irr],dist->xvals[dist->ira],dist->xvals[iaa],
             dist->copy_number,sra/srr,saa/sra, (int)sra);
 }
@@ -200,17 +200,13 @@ static void init_data(args_t *args)
     for (i=0; i<args->nbins; i++) args->xvals[i] = 1.0*i/(args->nbins-1);
 
     // collect BAF distributions for all chromosomes
-    int idist = -1, nbaf = 0, nprocessed = 0, ntotal = 0, prev_chr = -1;
+    int idist = -1, nbaf = 0, prev_chr = -1;
     float *baf = NULL;
     while ( bcf_sr_next_line(files) )
     {
-        ntotal++;
-
         bcf1_t *line = bcf_sr_get_line(files,0);
         if ( bcf_get_format_float(hdr,line,"BAF",&baf,&nbaf) != 1 ) continue;
         if ( bcf_float_is_missing(baf[0]) ) continue;
-
-        nprocessed++;
 
         if ( prev_chr==-1 || prev_chr!=line->rid )
         {
@@ -540,8 +536,8 @@ static void fit_curves(args_t *args)
             // Use cn_penalty as a tiebreaker. If set to 0.3, cn3_fit must be 30% smaller than cn2_fit.
             if ( cn<0 || cn3_fit < (1-args->cn_penalty) * fit )
             {
-                cn = 2 + cn3_frac; 
-                fit = cn3_fit; 
+                cn = 2 + cn3_frac;
+                fit = cn3_fit;
                 if ( cn2_fail=='*' ) cn2_fail = 'p';
             }
             else cn3_fail = 'p';
@@ -634,7 +630,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -t, --targets REGION           Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
-    fprintf(stderr, "    -v, --verbose                  \n");
+    fprintf(stderr, "    -v, --verbosity INT            Verbosity level\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Algorithm options:\n");
     fprintf(stderr, "    -b, --peak-size FLOAT          Minimum peak size (0-1, larger is stricter) [0.1]\n");
@@ -671,7 +667,8 @@ int main_polysomy(int argc, char *argv[])
         {"include-aa",0,0,'i'},
         {"peak-size",1,0,'b'},
         {"min-fraction",1,0,'m'},
-        {"verbose",0,0,'v'},
+        {"verbose",optional_argument,0,'v'},
+        {"verbosity",optional_argument,0,'v'},
         {"fit-th",1,0,'f'},
         {"cn-penalty",1,0,'c'},
         {"peak-symmetry",1,0,'p'},
@@ -687,7 +684,7 @@ int main_polysomy(int argc, char *argv[])
     };
     char *tmp;
     int c;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:b:n:S:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:v::t:T:r:R:s:f:p:c:im:b:n:S:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -732,7 +729,14 @@ int main_polysomy(int argc, char *argv[])
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'o': args->output_dir = optarg; break;
-            case 'v': args->verbose++; break;
+            case 'v':
+                if ( !optarg ) args->verbose++;
+                else
+                {
+                    args->verbose = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                }
+                break;
             default: usage(args); break;
         }
     }

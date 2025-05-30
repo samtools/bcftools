@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2023 Genome Research Ltd.
+   Copyright (c) 2018-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -110,6 +110,7 @@ static const char *usage_text(void)
         "   -t, --targets REG                Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "   -v, --verbosity INT              Verbosity level\n"
         "   -W, --write-index[=FMT]          Automatically index the output files [off]\n"
         "\n"
         "Example:\n"
@@ -488,14 +489,18 @@ int run(int argc, char **argv)
         {"targets-file",1,0,'T'},
         {"targets-overlap",required_argument,NULL,4},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:W::v:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case  1 : args->force_samples = 1; break;
             case 'f': args->max_AC_str = optarg; break;
             case 'a': args->annots_str = optarg; break;

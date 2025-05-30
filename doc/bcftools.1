@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2024-09-12
+.\"      Date: 2025-05-30
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2024-09-12" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2025-05-30" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2024\-09\-12\fP and refers to bcftools git version \fB1.21\fP.
+This manual page was last updated \fB2025\-05\-30\fP and refers to bcftools git version \fB1.22\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -347,7 +347,7 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\fBgff2gff\fP  .. converts a GFF file to the format required by \fBcsq\fP
+\fBgff2gff\fP  .. converts a GFF file to the format required by \fBbcftools csq\fP
 .RE
 .sp
 .RS 4
@@ -358,7 +358,18 @@ Some helper scripts are bundled with the bcftools code.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\fBplot\-vcfstats\fP  .. plots the output of \fBstats\fP
+\fBplot\-vcfstats\fP  .. plots the output of \fBbcftools stats\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\fBroh\-viz\fP .. creates HTML/JavaScript visualization of \fBbcftools roh\fP
 .RE
 .SH "COMMANDS AND OPTIONS"
 .SS "Common Options"
@@ -422,7 +433,6 @@ abbreviation of "\fB\-c\fP \fIindels\fP\~ \fB\-c\fP \fIsnps\fP"
 \fIid\fP
 .RS 4
 only records with identical ID column are compatible.
-Supported by \fBbcftools merge\fP only.
 .RE
 .RE
 .sp
@@ -612,6 +622,12 @@ Use multithreading with \fIINT\fP worker threads. The option is currently used o
 output stream, only when \fI\-\-output\-type\fP is \fIb\fP or \fIz\fP. Default: 0.
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+Verbosity level. Values bigger than 3 are passed to the underlying HTSlib library so that network issues
+and other problems occurring at the library level can be investigated.
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output files. \fIFMT\fP is optional and can be
@@ -745,7 +761,7 @@ See also the \fB\-l, \-\-merge\-logic\fP option.
     ^INFO/TAG           .. transfer all INFO annotations except "TAG"
 
     TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only it is "."
+    +TAG      .. add or overwrite existing target value only if it is "."
     .TAG      .. add or overwrite existing target value even if source is "."
     .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
     \-TAG      .. overwrite existing value, never add new if target does not exist
@@ -886,7 +902,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-pair\-logic\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fIexact\fP
+\fB\-\-pair\-logic\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fIexact\fP|\fIid\fP
 .RS 4
 Controls how to match records from the annotation file to the target VCF.
 Effective only when \fB\-a\fP is a VCF or BCF. The option replaces the former
@@ -958,6 +974,11 @@ be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
 "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -1328,6 +1349,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "HMM Options:"
 .sp
 \fB\-a, \-\-aberrant\fP \fIfloat\fP[,\fIfloat\fP]
@@ -1502,6 +1528,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -1649,6 +1680,11 @@ apply variants of the listed samples. See also the option \fB\-I, \-\-iupac\-cod
 apply variants of the samples listed in the file. See also the option \fB\-I, \-\-iupac\-codes\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -1763,7 +1799,7 @@ see \fBCommon Options\fP
 Automatically index the output file.  \fIFMT\fP is optional and can be
 one of "tbi" or "csi" depending on output file format.
 .RE
-.SS "VCF output options:"
+.SS "General options:"
 .sp
 \fB\-\-no\-version\fP
 .RS 4
@@ -1781,6 +1817,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2105,17 +2146,22 @@ variant in the analysis.
 Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 .sp
-\fB\-c, \-\-custom\-tag\fP \fISTRING\fP
-.RS 4
-use this custom tag to store consequences rather than the default BCSQ tag
-.RE
-.sp
 \fB\-B, \-\-trim\-protein\-seq\fP \fIINT\fP
 .RS 4
 abbreviate protein\-changing predictions to maximum of INT aminoacids.
 For example, instead of writing the whole modified protein sequence with potentially hundreds of
 aminoacids, with \fB\-B 1\fP only an abbreviated version such as \fI25E..329>25G..94\fP will be
 written.
+.RE
+.sp
+\fB\-C, \-\-genetic\-code\fP \fIINT\fP|\fIl\fP
+.RS 4
+specify the genetic code table to use, \fIl\fP to print a list of supported tables
+.RE
+.sp
+\fB\-c, \-\-custom\-tag\fP \fISTRING\fP
+.RS 4
+use this custom tag to store consequences rather than the default BCSQ tag
 .RE
 .sp
 \fB\-\-dump\-gff\fP \fIFILE\fP
@@ -2307,16 +2353,18 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-unify\-chr\-names\fP \fI0\fP|\fI1\fP
+\fB\-\-unify\-chr\-names\fP \fI0\fP|\fILIST\fP
 .RS 4
-Automatically detect and unify chromosome naming conventions in the GFF, fasta
-and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
-that of the input VCF. The default is to attempt the automatic translation.
+unify chromosome naming by stripping a prefix in VCF, GFF, fasta, respectively.
+For example, if the LIST is "chr,Chromosome,\-", the program will trim the "chr" prefix
+in the VCF, "Chromosome" in the GFF, and the fasta will be left unchanged.
+The chromosome names in the output VCF will match that of the input VCF. The default is
+not to modify the sequence names.
 .RE
 .sp
-\fB\-v, \-\-verbose\fP \fIINT\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-verbosity level (0\-2)
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -2555,6 +2603,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -2721,6 +2774,11 @@ the other tag. The output includes the number of sites that were matched by the 
 possible modes (for example GT\-vs\-GT or GT\-vs\-PL).
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -2768,6 +2826,11 @@ Running with \fB\-s 0\fP alone outputs the #CHROM header line only. Note that
 the list of samples, with each sample per line, can be obtained with \f(CRbcftools query\fP using
 the option \fB\-l, \-\-list\-samples\fP.
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
@@ -2809,6 +2872,11 @@ generate TBI\-format index for VCF files
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "Stats options:"
 .sp
 \fB\-a, \-\-all\fP
@@ -2837,7 +2905,7 @@ on the options, the program can output records from one (or more) files
 which have (or do not have) corresponding records with the same position
 in the other files.
 .sp
-\fB\-c, \-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP
+\fB\-c, \-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP|\fIid\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2921,6 +2989,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3160,6 +3233,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3608,6 +3686,11 @@ BQB.
 .if n .RE
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -3850,7 +3933,7 @@ but may not other aligners.
 .fam C
     bcftools mpileup \-Ou \-f ref.fa aln.bam | \(rs
     bcftools call \-Ou \-mv | \(rs
-    bcftools filter \-s LowQual \-e \*(Aq%QUAL<20 || DP>100\*(Aq > var.flt.vcf
+    bcftools filter \-s LowQual \-e \*(AqQUAL<20 || DP>100\*(Aq > var.flt.vcf
 .fam
 .fi
 .if n .RE
@@ -3921,7 +4004,7 @@ See also \fB\-\-collapse\fP in \fBCommon Options\fP.
 \fB\-D, \-\-remove\-duplicates\fP
 .RS 4
 If a record is present in multiple files, output only the first instance.
-Alias for \fB\-d none\fP, deprecated.
+Alias for \fB\-d exact\fP, deprecated.
 .RE
 .sp
 \fB\-e, \-\-exclude\fP \fIEXPRESSION\fP
@@ -4060,9 +4143,9 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-v, \-\-verbose\fP \fIINT\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-verbosity level of GFF parsing (0\-2)
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-w, \-\-site\-win\fP \fIINT\fP
@@ -4174,9 +4257,9 @@ adjacent colons, the system directories are also searched at that position
 in the list of directories.
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-print debugging information to debug plugin failure
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-V, \-\-version\fP
@@ -4198,6 +4281,11 @@ add VariantKey INFO fields VKX and RSX
 \fBaf\-dist\fP
 .RS 4
 collect AF deviation stats and GT probability distribution given AF and assuming HWE
+.RE
+.sp
+\fBvrfs\fP
+.RS 4
+assess site noisiness (variant read frequency score) from a large number of unaffected parental samples
 .RE
 .sp
 \fBallele\-length\fP
@@ -4552,8 +4640,9 @@ determine parental origin of a CNV region
 .sp
 \fBprune\fP
 .RS 4
-prune sites by missingness, allele frequency or linkage disequilibrium.
-Alternatively, annotate sites with r2, Lewontin\(cqs D\*(Aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
+annotate sites with or prune sites by the number of variants within a window, Lewontin\(cqs D
+(doi:10.1093/molbev/msz265), Ragsdale\(cqs D (doi:10.1534/genetics.108.093153), or correlation
+coefficient r\-squared.
 .RE
 .sp
 \fBremove\-overlaps\fP
@@ -4622,6 +4711,11 @@ annotate sites with the distance to the nearest variant
 \fBvariantkey\-hex\fP
 .RS 4
 generate unsorted VariantKey\-RSid index files in hexadecimal format
+.RE
+.sp
+\fBvcf2table\fP
+.RS 4
+print the variants as a set of tables
 .RE
 .SS "Examples:"
 .sp
@@ -4754,10 +4848,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 verbose debugging output which gives hints about the thresholds and decisions made
 by the program. Note that the exact output can change between versions.
+See also \fBCommon Options\fP
 .RE
 .SS "Algorithm options:"
 .sp
@@ -4906,6 +5001,11 @@ print "." instead
 .RS 4
 process multiple VCFs listed in the file
 .RE
+.sp
+\fB\-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "Format:"
 .sp
 .if n .RS 4
@@ -4917,6 +5017,7 @@ process multiple VCFs listed in the file
 %FIRST_ALT      Alias for %ALT{0}
 %FORMAT         Prints all FORMAT fields or a subset of samples with \-s or \-S
 %GT             Genotype (e.g. 0/1)
+%FUNCTION       Functions supported by the \-i/\-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
 %INFO           Prints the whole INFO column
 %INFO/TAG       Any tag in the INFO column
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
@@ -5031,6 +5132,15 @@ bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |  FMT/DP=
 .fam
 .fi
 .if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Refer to ID column vs INFO/ID tag vs FORMAT/ID tag
+bcftools query \-f \*(AqcolumnID=%ID   infoID=%INFO/ID  [fmtID=%ID ]  [columnID=%/ID]\*(Aq
+.fam
+.fi
+.if n .RE
 .SS "bcftools reheader [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 Modify header of VCF/BCF files, change sample names.
@@ -5071,10 +5181,16 @@ this option is ignored, but left for compatibility with earlier versions of bcft
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "bcftools roh [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 A program for detecting runs of homo/autozygosity. Only bi\-allelic sites
-are considered.
+are considered. The results can be visualized in HTML/JavaScript using
+the \fBroh\-viz\fP script.
 .SS "The HMM model:"
 .sp
 .if n .RS 4
@@ -5271,6 +5387,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "HMM Options:"
 .sp
 \fB\-a, \-\-hw\-to\-az\fP \fIFLOAT\fP
@@ -5311,6 +5432,11 @@ see \fBCommon Options\fP
 .RS 4
 Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
 then these are replaced with a string that makes the directory name unique.
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -5452,9 +5578,9 @@ see \fBCommon Options\fP
 collect Ts/Tv stats for any tag using the given binning [0:1:100]
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-produce verbose per\-site and per\-sample output
+see \fBCommon Options\fP
 .RE
 .SS "bcftools view [\fIOPTIONS\fP] \fIfile.vcf.gz\fP [\fIREGION\fP [...]]"
 .sp
@@ -5533,6 +5659,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -5828,6 +5959,64 @@ plot\-vcfstats \-p outdir file.vchk
 # The final looks can be customized by editing the generated
 # \*(Aqoutdir/plot.py\*(Aq script and re\-running manually
 cd outdir && python plot.py && pdflatex summary.tex
+.fam
+.fi
+.if n .RE
+.SS "roh\-viz [\fIOPTIONS\fP]"
+.sp
+Script for visualizing the output of \fBbcftools roh\fP. It creates
+a HTML/JavaScript document which can be interactively viewed in your favorite
+web browser.
+.sp
+\fB\-i, \-\-RoH\-file\fP \fIFILE\fP
+.RS 4
+Output of bcftools/roh
+.RE
+.sp
+\fB\-l, \-\-min\-length\fP \fINUM\fP
+.RS 4
+Mimimum length of ROH [1e6]
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+HTML output file
+.RE
+.sp
+\fB\-r, \-\-regions\fP \fILIST\fP
+.RS 4
+List of chromosomes/regions
+.RE
+.sp
+\fB\-s, \-\-samples\fP \fILIST\fP
+.RS 4
+List of samples to show
+.RE
+.sp
+\fB\-v, \-\-VCF\-file\fP \fIFILE\fP
+.RS 4
+VCF file to determine homozygosity rate
+.RE
+.sp
+\fB\-h, \-?, \-\-help\fP
+This help message
+.sp
+\fBExample:\fP
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Find RoH regions
+bcftools roh \-\-AF\-dflt 0.5 \-G 30 \-Or \-o roh.txt file.bcf
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+# Create HTML/JavaScript visualization
+roh\-viz \-r roh.txt \-v file.bcf \-o output.html
 .fam
 .fi
 .if n .RE
@@ -6261,8 +6450,8 @@ sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 .  sp -1
 .  IP \(bu 2.3
 .\}
-two\-tailed binomial test. Note that for N=0 the test evaluates to a missing value
-and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+two\-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
+value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
 homozygous genotypes.
 .sp
 .if n .RS 4
@@ -6271,6 +6460,17 @@ homozygous genotypes.
 binom(FMT/AD)                .. GT can be used to determine the correct index
 binom(AD[0],AD[1])           .. or the fields can be given explicitly
 phred(binom())               .. the same as binom but phred\-scaled
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+fisher(INFO/DP4)
+fisher(FORMAT/DP4)
+fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
+fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly
 .fam
 .fi
 .if n .RE
@@ -6286,7 +6486,7 @@ phred(binom())               .. the same as binom but phred\-scaled
 .\}
 variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
-AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+AC but always picks the allele with frequency smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
 indel length (deletions negative, insertions positive, balanced substitutions zero)
@@ -6437,7 +6637,7 @@ compute the resulting vector C:
 .  sp -1
 .  IP \(bu 2.3
 .\}
-C_i = A_i + B_i when length(A)==B(A) and sets length\(co=length(A)
+C_i = A_i + B_i when length(A)==B(A) and sets length(C)=length(A)
 .RE
 .sp
 .RS 4
@@ -6448,7 +6648,7 @@ C_i = A_i + B_i when length(A)==B(A) and sets length\(co=length(A)
 .  sp -1
 .  IP \(bu 2.3
 .\}
-C_i = A_i + B_0 when length(B)=1 and sets length\(co=length(A)
+C_i = A_i + B_0 when length(B)=1 and sets length(C)=length(A)
 .RE
 .sp
 .RS 4
@@ -6459,7 +6659,7 @@ C_i = A_i + B_0 when length(B)=1 and sets length\(co=length(A)
 .  sp -1
 .  IP \(bu 2.3
 .\}
-C_i = A_0 + B_i when length(A)=1 and sets length\(co=length(B)
+C_i = A_0 + B_i when length(A)=1 and sets length(C)=length(B)
 .RE
 .sp
 .RS 4
@@ -6614,7 +6814,7 @@ that the whole expression is passed to the program as intended:
 .if n .RS 4
 .nf
 .fam C
-bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
+bcftools view \-i \*(AqID!="." & MAF[0]<0.01\*(Aq
 .fam
 .fi
 .if n .RE

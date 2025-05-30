@@ -1,5 +1,5 @@
-/* 
-    Copyright (C) 2016-2021 Genome Research Ltd.
+/*
+    Copyright (C) 2016-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -88,10 +88,10 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)\n"
-        "       in the non-PAR region of chrX. The HWE is assumed, so given the alternate allele\n" 
+        "       in the non-PAR region of chrX. The HWE is assumed, so given the alternate allele\n"
         "       frequency fA and the genotype likelihoods pRR,pRA,pAA, the probabilities are\n"
         "       calculated as\n"
         "           P(dip) = pRR*(1-fA)^2 + pAA*fA^2 + 2*pRA*(1-fA)*fA\n"
@@ -104,17 +104,17 @@ static const char *usage_text(void)
         "\n"
         "Usage: bcftools +guess-ploidy <file.vcf.gz> [Plugin Options]\n"
         "Plugin options:\n"
-        "       --AF-dflt <float>           the default alternate allele frequency [0.5]\n"
-        "       --AF-tag <TAG>              use TAG for allele frequency\n"
-        "   -e, --error-rate <float>        probability of GT being wrong (with -t GT) [1e-3]\n"
-        "       --exclude <expr>            exclude sites for which the expression is true\n"
-        "   -i, --include-indels            do not skip indel sites\n"
-        "       --include <expr>            include only sites for which the expression is true\n"
-        "   -g, --genome <str>              shortcut to select nonPAR region for common genomes b37|hg19|b38|hg38\n"
-        "   -r, --regions <chr:beg-end>     restrict to comma-separated list of regions\n"
-        "   -R, --regions-file <file>       restrict to regions listed in a file\n"
-        "   -t, --tag <tag>                 genotype or genotype likelihoods: GT, PL, GL [PL]\n"
-        "   -v, --verbose                   verbose output (specify twice to increase verbosity)\n"
+        "       --AF-dflt FLOAT             The default alternate allele frequency [0.5]\n"
+        "       --AF-tag TAG                Use TAG for allele frequency\n"
+        "   -e, --error-rate FLOAT          Probability of GT being wrong (with -t GT) [1e-3]\n"
+        "       --exclude EXPR              Exclude sites for which the expression is true\n"
+        "   -i, --include-indels            Do not skip indel sites\n"
+        "       --include EXPR              Include only sites for which the expression is true\n"
+        "   -g, --genome STR                Shortcut to select nonPAR region for common genomes b37|hg19|b38|hg38\n"
+        "   -r, --regions CHR:BEG-END       Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "   -t, --tag TAG                   Genotype or genotype likelihoods: GT, PL, GL [PL]\n"
+        "   -v, --verbosity INT             Verbose output (specify twice to increase verbosity)\n"
         "\n"
         "Region shortcuts:\n"
         "   b37  .. -r X:2699521-154931043      # GRCh37 no-chr prefix\n"
@@ -167,7 +167,7 @@ void process_region_guess(args_t *args)
                 int32_t *ptr = args->arr + ismpl*ngt;
                 double *tmp = args->tmpf + ismpl*3;
 
-                if ( ptr[0]==bcf_gt_missing ) 
+                if ( ptr[0]==bcf_gt_missing )
                 {
                     tmp[0] = -1;
                     continue;
@@ -220,7 +220,7 @@ void process_region_guess(args_t *args)
                     double *tmp = args->tmpf + ismpl*3;
 
                     // restrict to first ALT
-                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing || ptr[2]==bcf_int32_missing ) 
+                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing || ptr[2]==bcf_int32_missing )
                     {
                         tmp[0] = -1;
                         continue;
@@ -265,7 +265,7 @@ void process_region_guess(args_t *args)
                     double *tmp = args->tmpf + ismpl*3;
 
                     // restrict to first ALT
-                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing ) 
+                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing )
                     {
                         tmp[0] = -1;
                         continue;
@@ -300,7 +300,7 @@ void process_region_guess(args_t *args)
                     double *tmp = args->tmpf + ismpl*3;
 
                     // restrict to first ALT
-                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) || bcf_float_is_missing(ptr[2]) ) 
+                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) || bcf_float_is_missing(ptr[2]) )
                     {
                         tmp[0] = -1;
                         continue;
@@ -345,7 +345,7 @@ void process_region_guess(args_t *args)
                     double *tmp = args->tmpf + ismpl*3;
 
                     // restrict to first ALT
-                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) ) 
+                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) )
                     {
                         tmp[0] = -1;
                         continue;
@@ -408,7 +408,8 @@ int run(int argc, char **argv)
         {"AF-dflt",required_argument,NULL,1},
         {"exclude",required_argument,NULL,2},
         {"include",required_argument,NULL,3},
-        {"verbose",no_argument,NULL,'v'},
+        {"verbose",optional_argument,NULL,'v'},
+        {"verbosity",optional_argument,NULL,'v'},
         {"include-indels",no_argument,NULL,'i'},
         {"error-rate",required_argument,NULL,'e'},
         {"tag",required_argument,NULL,'t'},
@@ -420,12 +421,12 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:e:ig:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "v::r:R:t:e:ig:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 0: args->af_tag = optarg; break;
-            case 1: 
+            case 1:
                     args->af_dflt = strtod(optarg,&tmp);
                     if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
                     break;
@@ -449,8 +450,16 @@ int run(int argc, char **argv)
                 else error("The argument not recognised, expected --genome b37, b38, hg19 or hg38: %s\n", optarg);
                 break;
             case 'R': region_is_file = 1; // fall-through
-            case 'r': region = optarg; break; 
-            case 'v': args->verbose++; break; 
+            case 'r': region = optarg; break;
+            case 'v':
+                if (!optarg) args->verbose++;
+                else
+                {
+                    args->verbose = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                    if ( args->verbose > 3 ) hts_verbose = args->verbose;
+                }
+                break;
             case 't':
                 if ( !strcasecmp(optarg,"GT") ) args->tag = GUESS_GT;
                 else if ( !strcasecmp(optarg,"PL") ) args->tag = GUESS_PL;
@@ -555,7 +564,7 @@ int run(int argc, char **argv)
         else
             printf("%s\t%c\n", args->hdr->samples[i],predicted_sex);
     }
-   
+
     if ( args->filter )
         filter_destroy(args->filter);
 

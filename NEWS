@@ -1,6 +1,148 @@
+## Release 1.22 (30th May 2025)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Add support for matching lines by ID via the --pair-logic and --collapse options (#1739)
+
+* The -i/-e filtering expressions
+
+    - The expressions now properly match the regex negation of missing values, e.g. -i 'TAG!~"\."' (#2355)
+
+    - Added support for Fisher's exact test
+
+* Add the option `-v, --verbosity INT` to all bcftools commands and plugins. Verbosity values
+  bigger than 3 are passed to the underlying HTSlib library so that the user can investigate
+  network issues and other problems occurring at the library level.
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - Fix Number in the header definition of transferred FILTER and ID tags (#2335)
+
+* bcftools call
+
+    - The `-s, --samples` option was not working properly, now also supporting
+      sample negation as advertised in the manual page, e.g. `-s ^sample1,sample2`
+      to include all samples but sample1 and sample2 (#2380)
+
+* bcftools consensus
+
+    - Preserve entire missing gVCF blocks with --missing (#2350)
+
+    - Fixed a bug, the `-S, --samples-file` option is no longer ignored (#2398)
+
+* bcftools convert
+
+    - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
+
+* bcftools csq
+
+    - Check the input GFF for features outside transcript boundaries and extend the transcript
+      to contain the feature fully (#2323)
+
+    - Add experimental support for alternative genetic code tables, accessible via
+      a new option `-C, --genetic-code` (#2368)
+
+    - Change in the `--unify-chr-names` option, no automatic sequence name modification
+      is attempted anymore, the prefixes to trim must be given explictly. For example,
+      if run with `--unify-chr-names chr,Chromosome,-`, the program will trim the "chr"
+      prefix in the VCF, "Chromosome" in the GFF, leaving the fasta unchanged (#2378)
+
+* bcftools +fill-tags
+
+    - Thanks to the extension of filtering expressions with Fisher's exact test, the plugin
+      can now be used to add FT annotation (#1582)
+
+* bcftools merge
+
+    - Preserve phasing in half-missing genotypes (#2331)
+
+    - The option `--merge none` is expected to create no new multiallelic sites, but it should
+      allow to merge, say, A>C with A>C,AT (#2333)
+
+    - Make `--merge both` work with indel-only records; for example, the multiallelic
+      site G>GT,T should be merged with G>GT (#2339)
+
+    - Do not merge symbolic alleles unless they have not just the same type, eg. <DEL>,
+      but also length, i.e the INFO/END coordinate (#2362)
+
+    - Fix a bug where an incorrectly formatted gVCF file with overlapping blocks would trigger
+      an infinite loop in the program (#2410)
+
+* bcftools mpileup
+
+    - The -r/-R option newly merge overlapping regions, preventing the output of duplicate sites
+
+* bcftools norm
+
+    - Print the number of removed duplicate sites in the final statistics (#2346)
+
+    - Preserve the original alleles in `--old-rec-tag` when `--check-ref s` requested (#2357)
+
+    - Print a warning when INFO/SVLEN is not defined as Number=A (#2371)
+
+* plot-vcfstats
+
+    - Make the option `-s, --sample-names` functional again (#2353)
+
+* bcftools +prune
+
+    - New option to remove or annotate clusters of sites within a window
+
+* bcftools query
+
+    - The functions used in -i/-e filtering expressions (such as SUM, MEDIAN, etc) can be
+      now used in formatting expressions (#2271).
+      If the VCF contains INFO/AD and FORMAT/AD, try:
+
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t [ %sSUM(FMT/AD)]'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t [ %SUM(FMT/AD)]'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(FMT/AD)'
+        bcftools query test.vcf -f '%CHROM:%POS \t [ %AD]  \t   %SUM(INFO/AD)'
+
+    - Make it possible to refer to the ID column from the FORMAT expression (#2337)
+
+        bcftools query test.vcf -f 'ID=%ID  ID=[ %/ID]  vs  FMT_ID=[ %ID]'
+
+* bcftools roh
+
+    - New visualization tool misc/roh-viz, see below
+
+* bcftools +setGT
+
+    - Support for setting missing genotypes with arbitrary ploidy via `-n c:./.` (#2303)
+
+* bcftools +split-vep
+
+    - The `-s, --select` option was extended to print only one consequence. Previously it
+      was possible to select a single transcript (e.g., the one with the worst consequence),
+      and it was possible to filter by consequence severity (e.g., missing or worse),
+      but in some cases multiple consequences are reported within a single transcript
+      (e.g., start_lost&splice_region). The extended option allows to print the worst
+      part, for example as
+
+        --select primary:missense+:worst
+
+* bcftools +trio-dnm2
+
+    - Fix a problem with --strictly-novel option which would neglect the presence of the apparent de novo
+      allele in the father for male offspring
+
+    - Fix a problem with uncallsed mosaic chrX variants in males
+
+* roh-viz
+
+    - HTML/JavaScript visualization of bcftools/roh output and homozygosity rate.
+
+* bcftools +vrfs
+
+    - New experimental plugin for scoring variants and assess site noisiness (variant read frequency profiles)
+      from a large number of unaffected parental samples
+
+
 ## Release 1.21 (12th September 2024)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 

@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10	.	G	.	.	.	.
+1	11	.	T	TCT	.	.	.
+1	12	.	C	CTC	.	.	.
+1	13	.	T	A[chr15:12345[	.	.	.

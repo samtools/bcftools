@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2024 Genome Research Ltd.
+   Copyright (c) 2015-2025 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -144,6 +144,7 @@ static const char *usage_text(void)
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
+        "   -v, --verbosity INT             Verbosity level\n"
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "Options:\n"
@@ -821,6 +822,7 @@ int run(int argc, char **argv)
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
         {"write-index",optional_argument,NULL,'W'},
+        {"verbosity",required_argument,NULL,'v'},
         {0,0,0,0}
     };
     int c;
@@ -829,6 +831,9 @@ int run(int argc, char **argv)
     {
         switch (c)
         {
+            case 'v':
+                if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
