@@ -1,5 +1,14 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools reheader
+
+    - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of
+      samples on command line, rather than from a file of sample names (#2383)
+
+
 ## Release 1.22 (30th May 2025)
 
 

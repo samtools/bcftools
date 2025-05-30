@@ -3325,16 +3325,20 @@ Modify header of VCF/BCF files, change sample names.
 *-h, --header* 'FILE'::
     new VCF header
 
-*-o, --output* 'FILE'::
-    see *<<common_options,Common Options>>*
+*-n, --samples-list* 'LIST'::
+    comma-separated list of new sample names
 
 *-s, --samples* 'FILE'::
+*-N, --samples-file* 'FILE'::
     new sample names, one name per line, in the same order as they appear
     in the VCF file. Alternatively, only samples which need to be renamed
     can be listed as "old_name new_name\n" pairs separated by whitespaces,
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-T, --temp-prefix* 'PATH'::
     this option is ignored, but left for compatibility with earlier versions of bcftools.
