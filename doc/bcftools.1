@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.20
-.\"      Date: 2025-02-27
+.\" Generator: Asciidoctor 2.0.16.dev
+.\"      Date: 2025-05-30
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2025-02-27" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2025-05-30" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2025\-02\-27 12:33 CET\fP and refers to bcftools git version \fB1.21\-79\-gcef68bc+\fP.
+This manual page was last updated \fB2025\-05\-30\fP and refers to bcftools git version \fB1.22\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -622,6 +622,12 @@ Use multithreading with \fIINT\fP worker threads. The option is currently used o
 output stream, only when \fI\-\-output\-type\fP is \fIb\fP or \fIz\fP. Default: 0.
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+Verbosity level. Values bigger than 3 are passed to the underlying HTSlib library so that network issues
+and other problems occurring at the library level can be investigated.
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output files. \fIFMT\fP is optional and can be
@@ -968,6 +974,11 @@ be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
 "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -1338,6 +1349,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "HMM Options:"
 .sp
 \fB\-a, \-\-aberrant\fP \fIfloat\fP[,\fIfloat\fP]
@@ -1512,6 +1528,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -1659,6 +1680,11 @@ apply variants of the listed samples. See also the option \fB\-I, \-\-iupac\-cod
 apply variants of the samples listed in the file. See also the option \fB\-I, \-\-iupac\-codes\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -1773,7 +1799,7 @@ see \fBCommon Options\fP
 Automatically index the output file.  \fIFMT\fP is optional and can be
 one of "tbi" or "csi" depending on output file format.
 .RE
-.SS "VCF output options:"
+.SS "General options:"
 .sp
 \fB\-\-no\-version\fP
 .RS 4
@@ -1791,6 +1817,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2115,17 +2146,22 @@ variant in the analysis.
 Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 .sp
-\fB\-c, \-\-custom\-tag\fP \fISTRING\fP
-.RS 4
-use this custom tag to store consequences rather than the default BCSQ tag
-.RE
-.sp
 \fB\-B, \-\-trim\-protein\-seq\fP \fIINT\fP
 .RS 4
 abbreviate protein\-changing predictions to maximum of INT aminoacids.
 For example, instead of writing the whole modified protein sequence with potentially hundreds of
 aminoacids, with \fB\-B 1\fP only an abbreviated version such as \fI25E..329>25G..94\fP will be
 written.
+.RE
+.sp
+\fB\-C, \-\-genetic\-code\fP \fIINT\fP|\fIl\fP
+.RS 4
+specify the genetic code table to use, \fIl\fP to print a list of supported tables
+.RE
+.sp
+\fB\-c, \-\-custom\-tag\fP \fISTRING\fP
+.RS 4
+use this custom tag to store consequences rather than the default BCSQ tag
 .RE
 .sp
 \fB\-\-dump\-gff\fP \fIFILE\fP
@@ -2317,16 +2353,18 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-\-unify\-chr\-names\fP \fI0\fP|\fI1\fP
+\fB\-\-unify\-chr\-names\fP \fI0\fP|\fILIST\fP
 .RS 4
-Automatically detect and unify chromosome naming conventions in the GFF, fasta
-and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
-that of the input VCF. The default is to attempt the automatic translation.
+unify chromosome naming by stripping a prefix in VCF, GFF, fasta, respectively.
+For example, if the LIST is "chr,Chromosome,\-", the program will trim the "chr" prefix
+in the VCF, "Chromosome" in the GFF, and the fasta will be left unchanged.
+The chromosome names in the output VCF will match that of the input VCF. The default is
+not to modify the sequence names.
 .RE
 .sp
-\fB\-v, \-\-verbose\fP \fIINT\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-verbosity level (0\-2)
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -2565,6 +2603,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -2731,6 +2774,11 @@ the other tag. The output includes the number of sites that were matched by the 
 possible modes (for example GT\-vs\-GT or GT\-vs\-PL).
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fBExamples:\fP
 .sp
 .if n .RS 4
@@ -2778,6 +2826,11 @@ Running with \fB\-s 0\fP alone outputs the #CHROM header line only. Note that
 the list of samples, with each sample per line, can be obtained with \f(CRbcftools query\fP using
 the option \fB\-l, \-\-list\-samples\fP.
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
@@ -2816,6 +2869,11 @@ generate TBI\-format index for VCF files
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2931,6 +2989,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3170,6 +3233,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3618,6 +3686,11 @@ BQB.
 .if n .RE
 .RE
 .sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
 .RS 4
 Automatically index the output file.  \fIFMT\fP is optional and can be
@@ -3918,6 +3991,7 @@ cannot be stressed enough, that \fIs\fP will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 .URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" ""
 and
+\c
 .URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
 .RE
 .sp
@@ -4069,9 +4143,9 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-v, \-\-verbose\fP \fIINT\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-verbosity level of GFF parsing (0\-2)
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-w, \-\-site\-win\fP \fIINT\fP
@@ -4183,9 +4257,9 @@ adjacent colons, the system directories are also searched at that position
 in the list of directories.
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-print debugging information to debug plugin failure
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-V, \-\-version\fP
@@ -4209,9 +4283,9 @@ add VariantKey INFO fields VKX and RSX
 collect AF deviation stats and GT probability distribution given AF and assuming HWE
 .RE
 .sp
-\fBafs\fP
+\fBvrfs\fP
 .RS 4
-assess site noisiness (allelic frequency score) from a large number of unaffected parental samples
+assess site noisiness (variant read frequency score) from a large number of unaffected parental samples
 .RE
 .sp
 \fBallele\-length\fP
@@ -4566,8 +4640,9 @@ determine parental origin of a CNV region
 .sp
 \fBprune\fP
 .RS 4
-prune sites by missingness, allele frequency or linkage disequilibrium.
-Alternatively, annotate sites with r2, Lewontin\(cqs D\*(Aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
+annotate sites with or prune sites by the number of variants within a window, Lewontin\(cqs D
+(doi:10.1093/molbev/msz265), Ragsdale\(cqs D (doi:10.1534/genetics.108.093153), or correlation
+coefficient r\-squared.
 .RE
 .sp
 \fBremove\-overlaps\fP
@@ -4636,6 +4711,11 @@ annotate sites with the distance to the nearest variant
 \fBvariantkey\-hex\fP
 .RS 4
 generate unsorted VariantKey\-RSid index files in hexadecimal format
+.RE
+.sp
+\fBvcf2table\fP
+.RS 4
+print the variants as a set of tables
 .RE
 .SS "Examples:"
 .sp
@@ -4768,10 +4848,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 verbose debugging output which gives hints about the thresholds and decisions made
 by the program. Note that the exact output can change between versions.
+See also \fBCommon Options\fP
 .RE
 .SS "Algorithm options:"
 .sp
@@ -4919,6 +5000,11 @@ print "." instead
 \fB\-v, \-\-vcf\-list\fP \fIFILE\fP
 .RS 4
 process multiple VCFs listed in the file
+.RE
+.sp
+\fB\-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .SS "Format:"
 .sp
@@ -5092,6 +5178,11 @@ this option is ignored, but left for compatibility with earlier versions of bcft
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -5296,6 +5387,11 @@ see \fBCommon Options\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
 .SS "HMM Options:"
 .sp
 \fB\-a, \-\-hw\-to\-az\fP \fIFLOAT\fP
@@ -5336,6 +5432,11 @@ see \fBCommon Options\fP
 .RS 4
 Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
 then these are replaced with a string that makes the directory name unique.
+.RE
+.sp
+\fB\-v, \-\-verbosity\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-W\fP[\fIFMT\fP]\fB, \-W\fP[=\fIFMT\fP]\fB, \-\-write\-index\fP[=\fIFMT\fP]
@@ -5477,9 +5578,9 @@ see \fBCommon Options\fP
 collect Ts/Tv stats for any tag using the given binning [0:1:100]
 .RE
 .sp
-\fB\-v, \-\-verbose\fP
+\fB\-v, \-\-verbosity\fP \fIINT\fP
 .RS 4
-produce verbose per\-site and per\-sample output
+see \fBCommon Options\fP
 .RE
 .SS "bcftools view [\fIOPTIONS\fP] \fIfile.vcf.gz\fP [\fIREGION\fP [...]]"
 .sp
@@ -5558,6 +5659,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-verbosity\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
 .RE

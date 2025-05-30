@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.22 (30th May 2025)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Add support for matching lines by ID via the --pair-logic and --collapse options (#1739)
