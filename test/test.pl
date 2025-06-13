@@ -285,6 +285,10 @@ run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.2.out',args=>q[-HH -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.1.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 || DP=2']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.2.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 |  DP=2']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.filter',out=>'norm.filter.1.out',args=>qq[-m +both -i 'ID=\@{PATH}/norm.filter.txt']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.filter',out=>'norm.filter.1.out',args=>qq[-m +both -i 'ALT!="C"']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.filter',out=>'norm.filter.2.out',args=>qq[-d both -i 'ID=\@{PATH}/norm.filter.txt']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.filter',out=>'norm.filter.2.out',args=>qq[-d both -i 'ALT!="C"']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.6',fai=>'norm.2',out=>'norm.6.1.out',args=>'-c e');
 run_test(\&test_vcf_norm,$opts,in=>'norm.breakend.1',fai=>'norm.breakend.1',out=>'norm.breakend.1.1.out',args=>'-m -');
 run_test(\&test_vcf_norm,$opts,in=>'norm.sort',out=>'norm.sort.1.out',args=>'-m -');

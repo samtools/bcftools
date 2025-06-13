@@ -3,6 +3,11 @@
 
 Changes affecting specific commands:
 
+* bcftools norm
+
+    - Make the -i/-e filtering option work for all options, such as line merging and
+      duplication removal (#2415)
+
 * bcftools reheader
 
     - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of

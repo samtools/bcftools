@@ -50,7 +50,7 @@ THE SOFTWARE.  */
 #define CHECK_REF_FIX  8
 
 #define MROWS_SPLIT 1
-#define MROWS_MERGE  2
+#define MROWS_MERGE 2
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -82,9 +82,17 @@ cmpals_t;
 
 typedef struct
 {
+    bcf1_t *rec;
+    int pass;
+}
+line_t;
+
+typedef struct
+{
     char *tseq, *seq;
     int mseq;
-    bcf1_t **lines, **tmp_lines, **mrows, *mrow_out;
+    bcf1_t  **tmp_lines, **mrows, *mrow_out;
+    line_t *lines;
     int ntmp_lines, mtmp_lines, nmrows, mmrows, mrows_first;
     map_t *maps;     // mrow map for each buffered record
     char **als;
@@ -2165,37 +2173,42 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
     for (i=0; i<n; i++)
     {
         k = rbuf_shift(&args->rbuf);
+        if ( !args->lines[k].pass )
+        {
+            if ( bcf_write1(file, args->out_hdr, args->lines[k].rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+            continue;
+        }
         if ( args->mrows_op==MROWS_MERGE )
         {
-            if ( mrows_can_flush(args, args->lines[k]) )
+            if ( mrows_can_flush(args, args->lines[k].rec) )
             {
                 while ( (line=mrows_flush(args)) )
                     if ( bcf_write1(file, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
             }
-            mrows_push(args, &args->lines[k]);
+            mrows_push(args, &args->lines[k].rec);
             continue;
         }
         else if ( args->rmdup )
         {
-            int line_type = bcf_get_variant_types(args->lines[k]);
-            if ( prev_rid>=0 && prev_rid==args->lines[k]->rid && prev_pos==args->lines[k]->pos )
+            int line_type = bcf_get_variant_types(args->lines[k].rec);
+            if ( prev_rid>=0 && prev_rid==args->lines[k].rec->rid && prev_pos==args->lines[k].rec->pos )
             {
                 if ( args->rmdup & BCF_SR_PAIR_ANY ) { args->nrmdup++; continue; }   // rmdup by position only
                 if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) { args->nrmdup++; continue; }
                 if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) { args->nrmdup++; continue; }
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k]) ) { args->nrmdup++; continue; }
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, &args->cmpals_out, args->lines[k].rec) ) { args->nrmdup++; continue; }
             }
             else
             {
-                prev_rid  = args->lines[k]->rid;
-                prev_pos  = args->lines[k]->pos;
+                prev_rid  = args->lines[k].rec->rid;
+                prev_pos  = args->lines[k].rec->pos;
                 prev_type = 0;
                 if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(&args->cmpals_out);
             }
             prev_type |= line_type;
-            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k]);
+            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k].rec);
         }
-        if ( bcf_write1(file, args->out_hdr, args->lines[k])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        if ( bcf_write1(file, args->out_hdr, args->lines[k].rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
     if ( args->mrows_op==MROWS_MERGE && !args->rbuf.n )
     {
@@ -2220,7 +2233,7 @@ static void init_data(args_t *args)
         bcf_hdr_printf(args->out_hdr,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX\">",args->old_rec_tag);
 
     rbuf_init(&args->rbuf, 100);
-    args->lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
+    args->lines = (line_t*) calloc(args->rbuf.m, sizeof(*args->lines));
     if ( args->ref_fname )
     {
         args->fai = fai_load(args->ref_fname);
@@ -2279,7 +2292,7 @@ static void destroy_data(args_t *args)
     cmpals_destroy(&args->cmpals_out);
     int i;
     for (i=0; i<args->rbuf.m; i++)
-        if ( args->lines[i] ) bcf_destroy1(args->lines[i]);
+        if ( args->lines[i].rec ) bcf_destroy1(args->lines[i].rec);
     free(args->lines);
     for (i=0; i<args->mtmp_lines; i++)
         if ( args->tmp_lines[i] ) bcf_destroy1(args->tmp_lines[i]);
@@ -2357,18 +2370,19 @@ static void normalize_line(args_t *args, bcf1_t *line)
         }
 
         // insert into sorted buffer
-        rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf.n+1,args->lines);
+        rbuf_expand0(&args->rbuf,line_t,args->rbuf.n+1,args->lines);
         int i,j;
         i = j = rbuf_append(&args->rbuf);
-        if ( args->lines[i] ) bcf_destroy(args->lines[i]);
-        args->lines[i] = bcf_dup(line);
+        if ( args->lines[i].rec ) bcf_destroy(args->lines[i].rec);
+        args->lines[i].rec  = bcf_dup(line);
+        args->lines[i].pass = args->filter_pass;
         while ( rbuf_prev(&args->rbuf,&i) )
         {
-            if ( args->lines[i]->rid==args->lines[j]->rid )
+            if ( args->lines[i].rec->rid==args->lines[j].rec->rid )
             {
-                bcf_unpack(args->lines[i], BCF_UN_STR);
-                bcf_unpack(args->lines[j], BCF_UN_STR);
-                if ( args->cmp_func(&args->lines[i], &args->lines[j]) > 0) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+                bcf_unpack(args->lines[i].rec, BCF_UN_STR);
+                bcf_unpack(args->lines[j].rec, BCF_UN_STR);
+                if ( args->cmp_func(&args->lines[i].rec, &args->lines[j].rec) > 0) SWAP(line_t, args->lines[i], args->lines[j]);
             }
             j = i;
         }
@@ -2443,8 +2457,8 @@ static void normalize_vcf(args_t *args)
             if ( done ) break;      // no more lines available
             int i = args->rbuf.f;
             int j = rbuf_last(&args->rbuf);
-            if ( args->lines[i]->rid != args->lines[j]->rid ) break;
-            if ( args->lines[i]->pos != args->lines[j]->pos ) break;
+            if ( args->lines[i].rec->rid != args->lines[j].rec->rid ) break;
+            if ( args->lines[i].rec->pos != args->lines[j].rec->pos ) break;
         }
         if ( done ) break;
 
@@ -2454,16 +2468,16 @@ static void normalize_vcf(args_t *args)
         int i, j = 0;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
-            if ( args->lines[ifst]->rid != args->lines[ilast]->rid )
+            if ( args->lines[ifst].rec->rid != args->lines[ilast].rec->rid )
             {
                 // there are two chromosomes in the buffer, count how many are on the first chromosome
-                if ( args->lines[ifst]->rid != args->lines[i]->rid ) break;
+                if ( args->lines[ifst].rec->rid != args->lines[i].rec->rid ) break;
                 j++;
                 continue;
             }
             // there is just one chromosome, flush only lines that are unlikely to change order on
             // realigning (the buf_win constant)
-            if ( args->lines[ilast]->pos - args->lines[i]->pos < args->buf_win ) break;
+            if ( args->lines[ilast].rec->pos - args->lines[i].rec->pos < args->buf_win ) break;
             j++;
         }
         if ( j>0 ) flush_buffer(args, args->out, j);
