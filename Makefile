@@ -70,6 +70,7 @@ INSTALL_SCRIPT  = $(INSTALL_PROGRAM)
 PROGRAMS = bcftools
 MISC_SCRIPTS = \
     misc/color-chrs.pl \
+    misc/gff2gff \
     misc/gff2gff.py \
     misc/guess-ploidy.py \
     misc/plot-vcfstats \
