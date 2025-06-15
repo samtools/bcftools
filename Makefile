@@ -71,12 +71,15 @@ INSTALL_SCRIPT  = $(INSTALL_PROGRAM)
 PROGRAMS = bcftools
 MISC_SCRIPTS = \
     misc/color-chrs.pl \
+    misc/gff2gff \
     misc/gff2gff.py \
     misc/guess-ploidy.py \
     misc/plot-vcfstats \
     misc/plot-roh.py \
+    misc/roh-viz \
     misc/run-roh.pl \
-    misc/vcfutils.pl
+    misc/vcfutils.pl \
+    misc/vrfs-variances
 TEST_PROGRAMS = test/test-rbuf test/test-regidx
 
 ALL_CPPFLAGS = -I. $(HTSLIB_CPPFLAGS) $(CPPFLAGS)
