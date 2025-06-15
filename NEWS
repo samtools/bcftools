@@ -3,6 +3,12 @@
 
 Changes affecting specific commands:
 
+* bcftools gtcheck
+
+    - The program is now able to process gVCF blocks. Newly, monoallelic sites are excluded only
+      when the site is monoallelic in both query and genotype file. The new option --keep-refs
+      allows to always include monoallelic sites.
+
 * bcftools reheader
 
     - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of

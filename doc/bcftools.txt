@@ -1765,6 +1765,9 @@ The discordance score can be interpreted as the number of mismatching genotypes 
     Include sites from query file ('qry:') or genotype file ('gt:') for which 'EXPRESSION' is true.
     For valid expressions see *<<expressions,EXPRESSIONS>>*.
 
+*--keep-refs*::
+    Include monoallelic sites in comparison, by default they are excluded
+
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
     to sort by HWE probability rather than the number of discordant sites. Note
