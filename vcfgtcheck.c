@@ -451,6 +451,9 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    int i;
+    for (i=0; i<2; i++)
+        if ( args->rec[i] ) bcf_destroy(args->rec[i]);
     free(args->kstr.s);
     if ( args->gt_filter ) filter_destroy(args->gt_filter);
     if ( args->qry_filter ) filter_destroy(args->qry_filter);
@@ -614,8 +617,13 @@ static void process_line(args_t *args)
         if ( args->gt_hdr )
         {
             if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+            if ( gt_rec->n_allele<2 ) ac[1] = 0;
         }
-        else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+        else
+        {
+            if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+            if ( qry_rec->n_allele<2 ) ac[1] = 0;
+        }
 
         // Calculate HWE probability for each possible qry+gt dosage combination. The alternate allele dosage
         // values returned by gt_to_prob() below are 0,1,2,4 (0=missing, 1<<0, 1<<1, 1<<2). We consider only
@@ -1117,7 +1125,8 @@ static int is_input_okay(args_t *args, int nmatch)
         }
 
         rid = rec->rid;
-        args->rec[i] = rec;
+        if ( args->rec[i] ) bcf_destroy(args->rec[i]);
+        args->rec[i] = bcf_dup(rec);
     }
     if ( skip_filter )
     {
@@ -1127,12 +1136,19 @@ static int is_input_okay(args_t *args, int nmatch)
     }
     if ( args->files->nreaders==2 )
     {
+        bcf1_t **clean = NULL;
         int olap = 1;
         if ( !args->rec[0] || !args->rec[1] ) olap = 0;
-        else if ( args->rec[0]->rid!=rid ) { args->rec[0] = NULL; olap = 0; }
-        else if ( args->rec[1]->rid!=rid ) { args->rec[1] = NULL; olap = 0; }
-        else if ( args->rec[0]->pos + args->rec[0]->rlen - 1 < args->rec[1]->pos ) { args->rec[0] = NULL; olap = 0; }
-        else if ( args->rec[1]->pos + args->rec[1]->rlen - 1 < args->rec[0]->pos ) { args->rec[1] = NULL; olap = 0; }
+        else if ( args->rec[0]->rid!=rid ) clean = &args->rec[0];
+        else if ( args->rec[1]->rid!=rid ) clean = &args->rec[1];
+        else if ( args->rec[0]->pos + args->rec[0]->rlen - 1 < args->rec[1]->pos ) clean = &args->rec[0];
+        else if ( args->rec[1]->pos + args->rec[1]->rlen - 1 < args->rec[0]->pos ) clean = &args->rec[1];
+        if ( clean )
+        {
+            if ( *clean ) bcf_destroy(*clean);
+            *clean = NULL;
+            olap = 0;
+        }
         if ( !olap )
         {
             if ( args->nskip_no_match++ ) return 0;
