@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.20">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2025-02-27 12:33 CET</strong> and refers to bcftools git version <strong>1.21-79-gcef68bc+</strong>.</p>
+<p>This manual page was last updated <strong>2025-06-17 12:11 BST</strong> and refers to bcftools git version <strong>1.22-8-g2d811c52+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -428,6 +428,11 @@ Such a file can be easily created from a VCF using:</p>
 <p>Use multithreading with <em>INT</em> worker threads. The option is currently used only for the compression of the
 output stream, only when <em>--output-type</em> is <em>b</em> or <em>z</em>. Default: 0.</p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>Verbosity level. Values bigger than 3 are passed to the underlying HTSlib library so that network issues
+and other problems occurring at the library level can be investigated.</p>
+</dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
 <p>Automatically index the output files. <em>FMT</em> is optional and can be
@@ -738,6 +743,10 @@ be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
 "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
@@ -1092,6 +1101,10 @@ generated. If not given, a <strong>matplotlib</strong> script will be created bu
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 </div>
@@ -1250,6 +1263,10 @@ is performed and the program throws an error if it is not safe to use the option
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
 <p>Automatically index the output file.  <em>FMT</em> is optional and can be
@@ -1388,6 +1405,10 @@ see <strong><a href="#common_options">Common Options</a></strong></p>
 <dd>
 <p>apply variants of the samples listed in the file. See also the option <strong>-I, --iupac-codes</strong></p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 <div class="paragraph">
@@ -1484,7 +1505,7 @@ one of "tbi" or "csi" depending on output file format.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_vcf_output_options">VCF output options:</h4>
+<h4 id="_general_options_2">General options:</h4>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
@@ -1500,6 +1521,10 @@ one of "tbi" or "csi" depending on output file format.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1841,16 +1866,20 @@ output VCF and are ignored for the prediction analysis.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-c, --custom-tag</strong> <em>STRING</em></dt>
-<dd>
-<p>use this custom tag to store consequences rather than the default BCSQ tag</p>
-</dd>
 <dt class="hdlist1"><strong>-B, --trim-protein-seq</strong> <em>INT</em></dt>
 <dd>
 <p>abbreviate protein-changing predictions to maximum of INT aminoacids.
 For example, instead of writing the whole modified protein sequence with potentially hundreds of
 aminoacids, with <strong>-B 1</strong> only an abbreviated version such as <em>25E..329&gt;25G..94</em> will be
 written.</p>
+</dd>
+<dt class="hdlist1"><strong>-C, --genetic-code</strong> <em>INT</em>|<em>l</em></dt>
+<dd>
+<p>specify the genetic code table to use, <em>l</em> to print a list of supported tables</p>
+</dd>
+<dt class="hdlist1"><strong>-c, --custom-tag</strong> <em>STRING</em></dt>
+<dd>
+<p>use this custom tag to store consequences rather than the default BCSQ tag</p>
 </dd>
 <dt class="hdlist1"><strong>--dump-gff</strong> <em>FILE</em></dt>
 <dd>
@@ -2019,15 +2048,17 @@ plain text output can be printed (<em>t</em>).</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>--unify-chr-names</strong> <em>0</em>|<em>1</em></dt>
+<dt class="hdlist1"><strong>--unify-chr-names</strong> <em>0</em>|<em>LIST</em></dt>
 <dd>
-<p>Automatically detect and unify chromosome naming conventions in the GFF, fasta
-and VCF, such as "chrX" vs "X". The chromosome names in the output VCF will match
-that of the input VCF. The default is to attempt the automatic translation.</p>
+<p>unify chromosome naming by stripping a prefix in VCF, GFF, fasta, respectively.
+For example, if the LIST is "chr,Chromosome,-", the program will trim the "chr" prefix
+in the VCF, "Chromosome" in the GFF, and the fasta will be left unchanged.
+The chromosome names in the output VCF will match that of the input VCF. The default is
+not to modify the sequence names.</p>
 </dd>
-<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
-<p>verbosity level (0-2)</p>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
@@ -2247,6 +2278,10 @@ by the program ("Filter%d"). Applies to records that do not meet filter expressi
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
 <p>Automatically index the output file.  <em>FMT</em> is optional and can be
@@ -2317,6 +2352,10 @@ commands.</p>
 <dd>
 <p>Include sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
 For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>--keep-refs</strong></dt>
+<dd>
+<p>Include monoallelic sites in comparison, by default they are excluded</p>
 </dd>
 <dt class="hdlist1"><strong>--n-matches</strong> <em>INT</em></dt>
 <dd>
@@ -2398,6 +2437,10 @@ Note that when the requested tag is not available, the program will attempt to u
 the other tag. The output includes the number of sites that were matched by the four
 possible modes (for example GT-vs-GT or GT-vs-PL).</p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 <div class="paragraph">
@@ -2450,6 +2493,10 @@ Running with <strong>-s 0</strong> alone outputs the #CHROM header line only. No
 the list of samples, with each sample per line, can be obtained with <code>bcftools query</code> using
 the option <strong>-l, --list-samples</strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 </div>
@@ -2491,6 +2538,10 @@ using the input file name plus a <em>.csi</em> or <em>.tbi</em> extension</p>
 <p>generate TBI-format index for VCF files</p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2601,6 +2652,10 @@ output, their names are controlled via <strong>-p</strong> instead.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2818,6 +2873,10 @@ the same order and consistent with the order of sequences in the VCF header.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3214,6 +3273,10 @@ BQB.</pre>
 </div>
 </div>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
 <p>Automatically index the output file.  <em>FMT</em> is optional and can be
@@ -3604,9 +3667,9 @@ POS only (<em>pos</em>, the default) or by POS and lexicographically by REF+ALT 
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-v, --verbose</strong> <em>INT</em></dt>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
-<p>verbosity level of GFF parsing (0-2)</p>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-w, --site-win</strong> <em>INT</em></dt>
 <dd>
@@ -3674,7 +3737,7 @@ the usage examples that each plugin comes with.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_vcf_output_options_2">VCF output options:</h4>
+<h4 id="_vcf_output_options">VCF output options:</h4>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
@@ -3721,9 +3784,9 @@ one of "tbi" or "csi" depending on output file format.</p>
     in the list of directories.</p>
 </div>
 </dd>
-<dt class="hdlist1"><strong>-v, --verbose</strong></dt>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
-<p>print debugging information to debug plugin failure</p>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-V, --version</strong></dt>
 <dd>
@@ -3748,9 +3811,9 @@ one of "tbi" or "csi" depending on output file format.</p>
 <dd>
 <p>collect AF deviation stats and GT probability distribution given AF and assuming HWE</p>
 </dd>
-<dt class="hdlist1"><strong>afs</strong></dt>
+<dt class="hdlist1"><strong>vrfs</strong></dt>
 <dd>
-<p>assess site noisiness (allelic frequency score) from a large number of unaffected parental samples</p>
+<p>assess site noisiness (variant read frequency score) from a large number of unaffected parental samples</p>
 </dd>
 <dt class="hdlist1"><strong>allele-length</strong></dt>
 <dd>
@@ -3921,8 +3984,9 @@ to <strong>smpl-stats</strong> and <strong>trio-stats</strong></p>
 </dd>
 <dt class="hdlist1"><strong>prune</strong></dt>
 <dd>
-<p>prune sites by missingness, allele frequency or linkage disequilibrium.
-Alternatively, annotate sites with r2, Lewontin&#8217;s D' (PMID:19433632), Ragsdale&#8217;s D (PMID:31697386).</p>
+<p>annotate sites with or prune sites by the number of variants within a window, Lewontin&#8217;s D
+(doi:10.1093/molbev/msz265), Ragsdale&#8217;s D (doi:10.1534/genetics.108.093153), or correlation
+coefficient r-squared.</p>
 </dd>
 <dt class="hdlist1"><strong>remove-overlaps</strong></dt>
 <dd>
@@ -3976,6 +4040,10 @@ See <a href="http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html" clas
 <dt class="hdlist1"><strong>variantkey-hex</strong></dt>
 <dd>
 <p>generate unsorted VariantKey-RSid index files in hexadecimal format</p>
+</dd>
+<dt class="hdlist1"><strong>vcf2table</strong></dt>
+<dd>
+<p>print the variants as a set of tables</p>
 </dd>
 </dl>
 </div>
@@ -4062,7 +4130,7 @@ in by default, see the section <strong>Optional Compilation with GSL</strong> in
 file for help.</p>
 </div>
 <div class="sect3">
-<h4 id="_general_options_2">General options:</h4>
+<h4 id="_general_options_3">General options:</h4>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><strong>-o, --output-dir</strong> <em>path</em></dt>
@@ -4097,10 +4165,11 @@ file for help.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-v, --verbose</strong></dt>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>verbose debugging output which gives hints about the thresholds and decisions made
-by the program. Note that the exact output can change between versions.</p>
+by the program. Note that the exact output can change between versions.
+See also <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 </dl>
 </div>
@@ -4238,6 +4307,10 @@ print "." instead</p>
 <dd>
 <p>process multiple VCFs listed in the file</p>
 </dd>
+<dt class="hdlist1"><strong>--verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 <div class="sect3">
@@ -4361,11 +4434,12 @@ the fai file will be removed</p>
 <dd>
 <p>new VCF header</p>
 </dd>
-<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dt class="hdlist1"><strong>-n, --samples-list</strong> <em>LIST</em></dt>
 <dd>
-<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+<p>comma-separated list of new sample names</p>
 </dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>FILE</em></dt>
+<dt class="hdlist1"><strong>-N, --samples-file</strong> <em>FILE</em></dt>
 <dd>
 <p>new sample names, one name per line, in the same order as they appear
 in the VCF file. Alternatively, only samples which need to be renamed
@@ -4374,11 +4448,19 @@ each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\ a\ good\ sample\ name".</p>
 </dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-T, --temp-prefix</strong> <em>PATH</em></dt>
 <dd>
 <p>this option is ignored, but left for compatibility with earlier versions of bcftools.</p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -4418,7 +4500,7 @@ Transition probabilities:
 </div>
 </div>
 <div class="sect3">
-<h4 id="_general_options_3">General Options:</h4>
+<h4 id="_general_options_4">General Options:</h4>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><strong>--AF-dflt</strong> <em>FLOAT</em></dt>
@@ -4571,6 +4653,10 @@ a compressed output.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 </div>
@@ -4617,6 +4703,10 @@ your system limit on the number of open files ("ulimit") may need to be increase
 <dd>
 <p>Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
 then these are replaced with a string that makes the directory name unique.</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-W</strong>[<em>FMT</em>]<strong>, -W</strong>[=<em>FMT</em>]<strong>, --write-index</strong>[=<em>FMT</em>]</dt>
 <dd>
@@ -4743,9 +4833,9 @@ sites") or which do not have the ID column set ("novel sites").</p>
 <dd>
 <p>collect Ts/Tv stats for any tag using the given binning [0:1:100]</p>
 </dd>
-<dt class="hdlist1"><strong>-v, --verbose</strong></dt>
+<dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
-<p>produce verbose per-site and per-sample output</p>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 </dl>
 </div>
@@ -4823,6 +4913,10 @@ best compression.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -5731,7 +5825,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-02-27 12:28:57 +0100
+Last updated 2025-06-16 10:44:44 +0100
 </div>
 </div>
 </body>

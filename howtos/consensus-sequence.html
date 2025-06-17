@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>Consensus sequence</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -104,24 +104,30 @@ to this, but in brief, the variant calling command in its simplest form is:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre># call variants
+<pre># Call variants
 bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
 bcftools index calls.vcf.gz
 
-# normalize indels
+# Normalize indels
 bcftools norm -f reference.fa calls.vcf.gz -Ob -o calls.norm.bcf
 
-# filter adjacent indels within 5bp
-bcftools filter --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf
+# Filter adjacent indels within 5bp and variants with quality lower than 40.
+# Important:
+#   This is just an example, proper filtering is much more involved;
+#   filtered only like this, the callset will contain many false positives.
+bcftools filter --IndelGap 5 -e 'QUAL&lt;40' calls.norm.bcf -Ob -o calls.norm.flt.bcf
 
-# apply variants to create consensus sequence
-cat reference.fa | bcftools consensus calls.vcf.gz &gt; consensus.fa
+# Apply variants to create consensus sequence
+cat reference.fa | bcftools consensus calls.norm.flt.vcf.gz &gt; consensus.fa
 
-# output IUPAC ambiguity codes based on REF+ALT columns (regardless of genotype)
-cat reference.fa | bcftools consensus --iupac-codes calls.vcf.gz &gt; consensus.fa
+# The examples below are just to show the program access various options that modify its
+# behavior. For the full list of options, see the manual page.
 
-# output IUPAC ambiguity codes based on sample genotypes
-cat reference.fa | bcftools consensus --haplotype I calls.vcf.gz &gt; consensus.fa</pre>
+# Output IUPAC ambiguity codes based on REF+ALT columns (regardless of genotype)
+cat reference.fa | bcftools consensus --iupac-codes calls.norm.flt.vcf.gz &gt; consensus.fa
+
+# Output IUPAC ambiguity codes based on sample genotypes
+cat reference.fa | bcftools consensus --haplotype I calls.norm.flt.vcf.gz &gt; consensus.fa</pre>
 </div>
 </div>
 <div class="paragraph">
