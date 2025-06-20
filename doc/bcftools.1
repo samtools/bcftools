@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2025-05-30
+.\" Generator: Asciidoctor 2.0.23
+.\"      Date: 2025-06-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2025-05-30" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2025-06-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2025\-05\-30\fP and refers to bcftools git version \fB1.22\fP.
+This manual page was last updated \fB2025\-06\-17 12:11 BST\fP and refers to bcftools git version \fB1.22\-8\-g2d811c52+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -546,9 +546,9 @@ column indicating ploidy (0, 1 or 2) or sex (as defined by
 .if n .RS 4
 .nf
 .fam C
-    sample1    1
-    sample2    2
-    sample3    2
+    sample1\&    1
+    sample2\&    2
+    sample3\&    2
 .fam
 .fi
 .if n .RE
@@ -558,9 +558,9 @@ or
 .if n .RS 4
 .nf
 .fam C
-    sample1    M
-    sample2    F
-    sample3    F
+    sample1\&    M
+    sample2\&    F
+    sample3\&    F
 .fam
 .fi
 .if n .RE
@@ -572,8 +572,8 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 .if n .RS 4
 .nf
 .fam C
-    ignored_column  daughterA fatherA  motherA  2
-    ignored_column  sonB      fatherB  motherB  1
+    ignored_column\&  daughterA fatherA\&  motherA\&  2
+    ignored_column\&  sonB\&      fatherB\&  motherB\&  1
 .fam
 .fi
 .if n .RE
@@ -681,8 +681,8 @@ See also \fB\-c, \-\-columns\fP and \fB\-h, \-\-header\-lines\fP.
 .nf
 .fam C
     # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
-    1  752566  SomeString      5
-    1  798959  SomeOtherString 6
+    1\&  752566\&  SomeString\&      5
+    1\&  798959\&  SomeOtherString 6
 .fam
 .fi
 .if n .RE
@@ -751,24 +751,24 @@ See also the \fB\-l, \-\-merge\-logic\fP option.
 .if n .RS 4
 .nf
 .fam C
-    CHROM,POS,TAG       .. match by chromosome and position, transfer annotation from TAG
-    CHROM,POS,\-,TAG     .. same as above, but ignore the third column of the annotation file
-    CHROM,BEG,END,TAG   .. match by region (BEG,END are synonymous to FROM,TO)
-    CHROM,POS,REF,ALT   .. match by CHROM, POS, REF and ALT
+    CHROM,POS,TAG\&       .. match by chromosome and position, transfer annotation from TAG
+    CHROM,POS,\-,TAG\&     .. same as above, but ignore the third column of the annotation file
+    CHROM,BEG,END,TAG\&   .. match by region (BEG,END are synonymous to FROM,TO)
+    CHROM,POS,REF,ALT\&   .. match by CHROM, POS, REF and ALT
 
-    DST_TAG:=SRC_TAG    .. transfer the SRC_TAG using the new name DST_TAG
-    INFO                .. transfer all INFO annotations
-    ^INFO/TAG           .. transfer all INFO annotations except "TAG"
+    DST_TAG:=SRC_TAG\&    .. transfer the SRC_TAG using the new name DST_TAG
+    INFO\&                .. transfer all INFO annotations
+    ^INFO/TAG\&           .. transfer all INFO annotations except "TAG"
 
-    TAG       .. add or overwrite existing target value if source is not "." and skip otherwise
-    +TAG      .. add or overwrite existing target value only if it is "."
-    .TAG      .. add or overwrite existing target value even if source is "."
-    .+TAG     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
-    \-TAG      .. overwrite existing value, never add new if target does not exist
-    =TAG      .. do not overwrite but append value to existing tags
+    TAG\&       .. add or overwrite existing target value if source is not "." and skip otherwise
+    +TAG\&      .. add or overwrite existing target value only if it is "."
+    .TAG\&      .. add or overwrite existing target value even if source is "."
+    .+TAG\&     .. add new but never overwrite existing tag, regardless of its value; can transfer "." if target does not exist
+    \-TAG\&      .. overwrite existing value, never add new if target does not exist
+    =TAG\&      .. do not overwrite but append value to existing tags
 
-    ~FIELD    .. use this column to match lines with \-i/\-e expression (see the description of \-i below)
-    ~ID       .. in addition to CHROM,POS,REF,ALT match by also ID
+    ~FIELD\&    .. use this column to match lines with \-i/\-e expression (see the description of \-i below)
+    ~ID\&       .. in addition to CHROM,POS,REF,ALT match by also ID
     ~INFO/END .. in addition to CHROM,POS,REF,ALT match by also INFO/END
 .fam
 .fi
@@ -846,8 +846,8 @@ file dynamically for each record:
     # to output also records that are not annotated. The third example shows the same concept with
     # a numerical expression.
     bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,REF,ALT,SCORE,~STR \-i\*(AqTAG={STR}\*(Aq \-k input.vcf
-    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~STR     \-i\*(AqTAG={STR}\*(Aq \-k input.vcf
-    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~INT     \-i\*(AqTAG>{INT}\*(Aq \-k input.vcf
+    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~STR\&     \-i\*(AqTAG={STR}\*(Aq \-k input.vcf
+    bcftools annotate \-a annots.tsv.gz \-c CHROM,POS,\-,\-,SCORE,~INT\&     \-i\*(AqTAG>{INT}\*(Aq \-k input.vcf
 .fam
 .fi
 .if n .RE
@@ -1018,7 +1018,7 @@ one of "tbi" or "csi" depending on output file format.
 
     # Transfer the INFO/END tag, matching by POS,REF,ALT and ID. This example assumes
     # that INFO/END is already present in the VCF header.
-    bcftools annotate \-a annots.tab.gz  \-c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
+    bcftools annotate \-a annots.tab.gz\&  \-c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
     # For (many) more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 .fam
@@ -1073,8 +1073,8 @@ below), unlisted regions have ploidy 2. The default ploidy definition is
     Y 1 59373566 F 0
     MT 1 16569 M 1
     MT 1 16569 F 1
-    *  * *     M 2
-    *  * *     F 2
+    *\&  * *\&     M 2
+    *\&  * *\&     F 2
 .fam
 .fi
 .if n .RE
@@ -1906,8 +1906,8 @@ output sex column in the sample file. The FILE format is
 .if n .RS 4
 .nf
 .fam C
-    MaleSample    M
-    FemaleSample  F
+    MaleSample\&    M
+    FemaleSample\&  F
 .fam
 .fi
 .if n .RE
@@ -1982,8 +1982,8 @@ output sex column in the sample file. The FILE format is
 .if n .RS 4
 .nf
 .fam C
-    MaleSample    M
-    FemaleSample  F
+    MaleSample\&    M
+    FemaleSample\&  F
 .fam
 .fi
 .if n .RE
@@ -2052,8 +2052,8 @@ output sex column in the sample file. The FILE format is
 .if n .RS 4
 .nf
 .fam C
-    MaleSample    M
-    FemaleSample  F
+    MaleSample\&    M
+    FemaleSample\&  F
 .fam
 .fi
 .if n .RE
@@ -2204,39 +2204,39 @@ An example of a minimal working GFF file:
     # (the most interesting is "protein_coding").
     #
     # Empty and commented lines are skipped, the following GFF columns are required
-    #   1.  chromosome
-    #   2.  IGNORED
-    #   3.  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
-    #   4.  start of the feature (1\-based)
-    #   5.  end of the feature (1\-based)
-    #   6.  IGNORED
-    #   7.  strand (+ or \-)
-    #   8.  phase (0, 1, 2 or .)
-    #   9.  semicolon\-separated attributes (see below)
+    #\&   1.\&  chromosome
+    #\&   2.\&  IGNORED
+    #\&   3.\&  type (CDS, exon, three_prime_UTR, five_prime_UTR, gene, transcript, etc.)
+    #\&   4.\&  start of the feature (1\-based)
+    #\&   5.\&  end of the feature (1\-based)
+    #\&   6.\&  IGNORED
+    #\&   7.\&  strand (+ or \-)
+    #\&   8.\&  phase (0, 1, 2 or .)
+    #\&   9.\&  semicolon\-separated attributes (see below)
     #
     # Attributes required for
-    #   gene lines:
-    #   \- ID=gene:<gene_id>
-    #   \- biotype=<biotype>
-    #   \- Name=<gene_name>      [optional]
+    #\&   gene lines:
+    #\&   \- ID=gene:<gene_id>
+    #\&   \- biotype=<biotype>
+    #\&   \- Name=<gene_name>\&      [optional]
     #
-    #   transcript lines:
-    #   \- ID=transcript:<transcript_id>
-    #   \- Parent=gene:<gene_id>
-    #   \- biotype=<biotype>
+    #\&   transcript lines:
+    #\&   \- ID=transcript:<transcript_id>
+    #\&   \- Parent=gene:<gene_id>
+    #\&   \- biotype=<biotype>
     #
-    #   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
-    #   \- Parent=transcript:<transcript_id>
+    #\&   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+    #\&   \- Parent=transcript:<transcript_id>
     #
     # Supported biotypes:
-    #   \- see the function gff_parse_biotype() in bcftools/csq.c
+    #\&   \- see the function gff_parse_biotype() in bcftools/csq.c
 
-    1   ignored_field  gene            21  2148  .   \-   .   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
-    1   ignored_field  transcript      21  2148  .   \-   .   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
-    1   ignored_field  three_prime_UTR 21  2054  .   \-   .   Parent=transcript:TranscriptId
-    1   ignored_field  exon            21  2148  .   \-   .   Parent=transcript:TranscriptId
-    1   ignored_field  CDS             21  2148  .   \-   1   Parent=transcript:TranscriptId
-    1   ignored_field  five_prime_UTR  210 2148  .   \-   .   Parent=transcript:TranscriptId
+    1\&   ignored_field\&  gene\&            21\&  2148\&  .\&   \-\&   .\&   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
+    1\&   ignored_field\&  transcript\&      21\&  2148\&  .\&   \-\&   .\&   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
+    1\&   ignored_field\&  three_prime_UTR 21\&  2054\&  .\&   \-\&   .\&   Parent=transcript:TranscriptId
+    1\&   ignored_field\&  exon\&            21\&  2148\&  .\&   \-\&   .\&   Parent=transcript:TranscriptId
+    1\&   ignored_field\&  CDS\&             21\&  2148\&  .\&   \-\&   1\&   Parent=transcript:TranscriptId
+    1\&   ignored_field\&  five_prime_UTR\&  210 2148\&  .\&   \-\&   .\&   Parent=transcript:TranscriptId
 .fam
 .fi
 .if n .RE
@@ -2383,10 +2383,10 @@ one of "tbi" or "csi" depending on output file format.
 
     # Extract the translated haplotype consequences. The following TBCSQ variations
     # are recognised:
-    #   %TBCSQ    .. print consequences in all haplotypes in separate columns
-    #   %TBCSQ{0} .. print the first haplotype only
-    #   %TBCSQ{1} .. print the second haplotype only
-    #   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
+    #\&   %TBCSQ\&    .. print consequences in all haplotypes in separate columns
+    #\&   %TBCSQ{0} .. print the first haplotype only
+    #\&   %TBCSQ{1} .. print the second haplotype only
+    #\&   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
     bcftools query \-f\*(Aq[%CHROM\(rst%POS\(rst%SAMPLE\(rst%TBCSQ\(rsn]\*(Aq out.bcf
 .fam
 .fi
@@ -2400,12 +2400,12 @@ one of "tbi" or "csi" depending on output file format.
     # Two separate VCF records at positions 2:122106101 and 2:122106102
     # change the same codon. This UV\-induced C>T dinucleotide mutation
     # has been annotated fully at the position 2:122106101 with
-    #   \- consequence type
-    #   \- gene name
-    #   \- ensembl transcript ID
-    #   \- coding strand (+ fwd, \- rev)
-    #   \- amino acid position (in the coding strand orientation)
-    #   \- list of corresponding VCF variants
+    #\&   \- consequence type
+    #\&   \- gene name
+    #\&   \- ensembl transcript ID
+    #\&   \- coding strand (+ fwd, \- rev)
+    #\&   \- amino acid position (in the coding strand orientation)
+    #\&   \- list of corresponding VCF variants
     # The annotation at the second position gives the position of the full
     # annotation
     BCSQ=missense|CLASP1|ENST00000545861|\-|1174P>1174L|122106101G>A+122106102G>A
@@ -2478,12 +2478,12 @@ an insertion:
 .fam C
 The SNPs at positions 1 and 7 are filtered, positions 0 and 8 are not:
          0123456789
-    ref  .G.GT..G..
-    del  .A.G\-..A..
+    ref\&  .G.GT..G..
+    del\&  .A.G\-..A..
 Here the positions 1 and 6 are filtered, 0 and 7 are not:
          0123\-456789
-    ref  .G.G\-..G..
-    ins  .A.GT..A..
+    ref\&  .G.G\-..G..
+    ins\&  .A.GT..A..
 .fam
 .fi
 .if n .RE
@@ -2500,12 +2500,12 @@ only one to pass. The following example demonstrates the logic of
 .fam C
 The second indel is filtered:
          012345678901
-    ref  .GT.GT..GT..
-    del  .G\-.G\-..G\-..
+    ref\&  .GT.GT..GT..
+    del\&  .G\-.G\-..G\-..
 And similarly here, the second is filtered:
          01 23 456 78
-    ref  .A\-.A\-..A\-..
-    ins  .AT.AT..AT..
+    ref\&  .A\-.A\-..A\-..
+    ins\&  .AT.AT..AT..
 .fam
 .fi
 .if n .RE
@@ -2683,6 +2683,11 @@ Homozygous genotypes only, useful with low coverage data (requires \fB\-g, \-\-g
 .RS 4
 Include sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for which \fIEXPRESSION\fP is true.
 For valid expressions see \fBEXPRESSIONS\fP.
+.RE
+.sp
+\fB\-\-keep\-refs\fP
+.RS 4
+Include monoallelic sites in comparison, by default they are excluded
 .RE
 .sp
 \fB\-\-n\-matches\fP \fIINT\fP
@@ -3171,15 +3176,15 @@ if two asterisks \fI**\fP are appended, the unobserved allele will be removed al
 .if n .RS 4
 .nf
 .fam C
-\-m none        ..  no new multiallelics, output multiple records instead
-\-m snps        ..  allow multiallelic SNP records
-\-m indels      ..  allow multiallelic indel records
-\-m both        ..  both SNP and indel records can be multiallelic
-\-m both,*      ..  same as above but remove <*> (or <NON_REF>) from variant sites
-\-m both,**     ..  same as above but remove <*> (or <NON_REF>) at all sites
-\-m all         ..  SNP records can be merged with indel records
-\-m snp\-ins\-del ..  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
-\-m id          ..  merge by ID
+\-m none\&        ..\&  no new multiallelics, output multiple records instead
+\-m snps\&        ..\&  allow multiallelic SNP records
+\-m indels\&      ..\&  allow multiallelic indel records
+\-m both\&        ..\&  both SNP and indel records can be multiallelic
+\-m both,*\&      ..\&  same as above but remove <*> (or <NON_REF>) from variant sites
+\-m both,**\&     ..\&  same as above but remove <*> (or <NON_REF>) at all sites
+\-m all\&         ..\&  SNP records can be merged with indel records
+\-m snp\-ins\-del ..\&  allow multiallelic SNVs, insertions, deletions, but don\*(Aqt mix them
+\-m id\&          ..\&  merge by ID
 .fam
 .fi
 .if n .RE
@@ -3316,17 +3321,17 @@ their meaning are defined below.
 .if n .RS 4
 .nf
 .fam C
-Variable    Meaning / formula
-M           The number of matching CIGAR bases (operation "M", "X" or "=").
-X           The number of substitutions with quality >= 13.
-SubQ        The summed quality of substitution bases included in X, capped
+Variable\&    Meaning / formula
+M\&           The number of matching CIGAR bases (operation "M", "X" or "=").
+X\&           The number of substitutions with quality >= 13.
+SubQ\&        The summed quality of substitution bases included in X, capped
             at a maximum of quality 33 per mismatching base.
-ClipQ       The summed quality of soft\-clipped or hard\-clipped bases. This
-            has no minimum or maximum quality threshold per base.  For
+ClipQ\&       The summed quality of soft\-clipped or hard\-clipped bases. This
+            has no minimum or maximum quality threshold per base.\&  For
             hard\-clipped bases the per\-base quality is taken as 13.
 
-T           SubQ \- 10 * log10(M^X / X!) + ClipQ/5
-Cap         MAX(0, INT * sqrt((INT \- T) / INT))
+T\&           SubQ \- 10 * log10(M^X / X!) + ClipQ/5
+Cap\&         MAX(0, INT * sqrt((INT \- T) / INT))
 .fam
 .fi
 .if n .RE
@@ -3456,13 +3461,13 @@ is the opposite of \fBsamtools mpileup \-G\fP.
 .nf
 .fam C
     RG_ID_1
-    RG_ID_2  SAMPLE_A
-    RG_ID_3  SAMPLE_A
-    RG_ID_4  SAMPLE_B
-    RG_ID_5  FILE_1.bam  SAMPLE_A
-    RG_ID_6  FILE_2.bam  SAMPLE_A
-    *        FILE_3.bam  SAMPLE_C
-    ?        FILE_3.bam  SAMPLE_D
+    RG_ID_2\&  SAMPLE_A
+    RG_ID_3\&  SAMPLE_A
+    RG_ID_4\&  SAMPLE_B
+    RG_ID_5\&  FILE_1.bam\&  SAMPLE_A
+    RG_ID_6\&  FILE_2.bam\&  SAMPLE_A
+    *\&        FILE_3.bam\&  SAMPLE_C
+    ?\&        FILE_3.bam\&  SAMPLE_D
 .fam
 .fi
 .if n .RE
@@ -3607,23 +3612,23 @@ on the command line) [null]:
 .if n .RS 4
 .nf
 .fam C
-FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)
-FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
-FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
-FORMAT/DP   .. Number of high\-quality bases (Number=1,Type=Integer)
-FORMAT/SP   .. Phred\-scaled strand bias P\-value (Number=1,Type=Integer)
-FORMAT/SCR  .. Number of soft\-clipped reads (Number=1,Type=Integer)
+FORMAT/AD\&   .. Allelic depth (Number=R,Type=Integer)
+FORMAT/ADF\&  .. Allelic depths on the forward strand (Number=R,Type=Integer)
+FORMAT/ADR\&  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
+FORMAT/DP\&   .. Number of high\-quality bases (Number=1,Type=Integer)
+FORMAT/SP\&   .. Phred\-scaled strand bias P\-value (Number=1,Type=Integer)
+FORMAT/SCR\&  .. Number of soft\-clipped reads (Number=1,Type=Integer)
 
-INFO/AD     .. Total allelic depth (Number=R,Type=Integer)
-INFO/ADF    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
-INFO/ADR    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
-INFO/SCR    .. Number of soft\-clipped reads (Number=1,Type=Integer)
+INFO/AD\&     .. Total allelic depth (Number=R,Type=Integer)
+INFO/ADF\&    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
+INFO/ADR\&    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+INFO/SCR\&    .. Number of soft\-clipped reads (Number=1,Type=Integer)
 
-FORMAT/DV   .. Deprecated in favor of FORMAT/AD; Number of high\-quality non\-reference bases, (Number=1,Type=Integer)
-FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high\-quality ref\-forward, ref\-reverse,
+FORMAT/DV\&   .. Deprecated in favor of FORMAT/AD; Number of high\-quality non\-reference bases, (Number=1,Type=Integer)
+FORMAT/DP4\&  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high\-quality ref\-forward, ref\-reverse,
                alt\-forward and alt\-reverse bases (Number=4,Type=Integer)
-FORMAT/DPR  .. Deprecated in favor of FORMAT/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
-INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
+FORMAT/DPR\&  .. Deprecated in favor of FORMAT/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
+INFO/DPR\&    .. Deprecated in favor of INFO/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
 .fam
 .fi
 .if n .RE
@@ -3679,7 +3684,7 @@ errors are asymmetric.
 .nf
 .fam C
 This option changes the INFO field names produced back to the ones
-used by the earlier Bcftools releases.  For excample BQBZ becomes
+used by the earlier Bcftools releases.\&  For excample BQBZ becomes
 BQB.
 .fam
 .fi
@@ -3711,7 +3716,7 @@ The current values are:
 .if n .RS 4
 .nf
 .fam C
-1.12            \-Q13 \-h100 \-m1
+1.12\&            \-Q13 \-h100 \-m1
 .fam
 .fi
 .if n .RE
@@ -3720,7 +3725,7 @@ The current values are:
 .nf
 .fam C
 bgi
-bgi\-1.20        \-\-indels\-cns \-B \-\-indel\-size 80 \-F0.1 \-\-indel\-bias 0.9
+bgi\-1.20\&        \-\-indels\-cns \-B \-\-indel\-size 80 \-F0.1 \-\-indel\-bias 0.9
                 \-\-seqq\-offset 120
 .fam
 .fi
@@ -3729,7 +3734,7 @@ bgi\-1.20        \-\-indels\-cns \-B \-\-indel\-size 80 \-F0.1 \-\-indel\-bias 0
 .if n .RS 4
 .nf
 .fam C
-illumina\-1.18   [ default values ]
+illumina\-1.18\&   [ default values ]
 .fam
 .fi
 .if n .RE
@@ -3738,7 +3743,7 @@ illumina\-1.18   [ default values ]
 .nf
 .fam C
 illumina
-illumina\-1.20   \-\-indels\-cns \-\-seqq\-offset 125
+illumina\-1.20\&   \-\-indels\-cns \-\-seqq\-offset 125
 .fam
 .fi
 .if n .RE
@@ -3746,7 +3751,7 @@ illumina\-1.20   \-\-indels\-cns \-\-seqq\-offset 125
 .if n .RS 4
 .nf
 .fam C
-ont             \-B \-Q5 \-\-max\-BQ 30 \-I
+ont\&             \-B \-Q5 \-\-max\-BQ 30 \-I
 .fam
 .fi
 .if n .RE
@@ -3755,7 +3760,7 @@ ont             \-B \-Q5 \-\-max\-BQ 30 \-I
 .nf
 .fam C
 ont\-sup
-ont\-sup\-1.20    \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 35 \-\-delta\-BQ 99 \-F0.2
+ont\-sup\-1.20\&    \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 35 \-\-delta\-BQ 99 \-F0.2
                 \-o15 \-e1 \-h110 \-\-del\-bias 0.4 \-\-indel\-bias 0.7
                 \-\-poly\-mqual \-\-seqq\-offset 130 \-\-indel\-size 80
 .fam
@@ -3774,7 +3779,7 @@ pacbio\-ccs\-1.18 \-D \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-M99999
 .nf
 .fam C
 pacbio\-ccs
-pacbio\-ccs\-1.20  \-\-indels\-cns \-B \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-h300
+pacbio\-ccs\-1.20\&  \-\-indels\-cns \-B \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-h300
                  \-\-delta\-BQ 10 \-\-del\-bias 0.4 \-\-poly\-mqual
                  \-\-indel\-bias 0.9 \-\-seqq\-offset 118 \-\-indel\-size 80
                  \-\-score\-vs\-ref 0.7
@@ -3786,7 +3791,7 @@ pacbio\-ccs\-1.20  \-\-indels\-cns \-B \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-h
 .nf
 .fam C
 ultima
-ultima\-1.20      \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 30 \-\-delta\-BQ 10 \-F0.15
+ultima\-1.20\&      \-\-indels\-cns \-B \-Q1 \-\-max\-BQ 30 \-\-delta\-BQ 10 \-F0.15
                  \-o20 \-e10 \-h250 \-\-del\-bias 0.3 \-\-indel\-bias 0.7
                  \-\-poly\-mqual \-\-seqq\-offset 140 \-\-score\-vs\-ref 0.3
                  \-\-indel\-size 80
@@ -3962,20 +3967,20 @@ by shell and must be put in quotes or escaped by a backslash:
 .nf
 .fam C
     # Before atomization:
-    100  CC  C,GG   1/2
+    100\&  CC\&  C,GG\&   1/2
 
     # After:
-    #   bcftools norm \-a \-\-atom\-overlaps .
-    100         C         G      ./1
-    100         CC         C      1/.
-    101         C         G      ./1
+    #\&   bcftools norm \-a \-\-atom\-overlaps .
+    100\&         C\&         G\&      ./1
+    100\&         CC\&         C\&      1/.
+    101\&         C\&         G\&      ./1
 
     # After:
-    #   bcftools norm \-a \-\-atom\-overlaps \*(Aq*\*(Aq
-    #   bcftools norm \-a \-\-atom\-overlaps \(rs*
-    100         C         G,*    2/1
-    100         CC         C,*    1/2
-    101         C         G,*    2/1
+    #\&   bcftools norm \-a \-\-atom\-overlaps \*(Aq*\*(Aq
+    #\&   bcftools norm \-a \-\-atom\-overlaps \(rs*
+    100\&         C\&         G,*\&    2/1
+    100\&         CC\&         C,*\&    1/2
+    101\&         C\&         G,*\&    2/1
 .fam
 .fi
 .if n .RE
@@ -3991,7 +3996,6 @@ cannot be stressed enough, that \fIs\fP will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 .URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" ""
 and
-\c
 .URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
 .RE
 .sp
@@ -5011,30 +5015,30 @@ see \fBCommon Options\fP
 .if n .RS 4
 .nf
 .fam C
-%CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
-%END            End position of the REF allele
-%END0           End position of the REF allele in 0\-based coordinates
-%FIRST_ALT      Alias for %ALT{0}
-%FORMAT         Prints all FORMAT fields or a subset of samples with \-s or \-S
-%GT             Genotype (e.g. 0/1)
-%FUNCTION       Functions supported by the \-i/\-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
-%INFO           Prints the whole INFO column
-%INFO/TAG       Any tag in the INFO column
-%IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
-%LINE           Prints the whole line
-%MASK           Indicates presence of the site in other files (with multiple files)
-%N_PASS(expr)   Number of samples that pass the filtering expression (see *<<expressions,EXPRESSIONS>>*)
-%POS0           POS in 0\-based coordinates
-%PBINOM(TAG)    Calculate phred\-scaled binomial probability, the allele index is determined from GT
-%SAMPLE         Sample name
-%TAG{INT}       Curly brackets to print a subfield (e.g. INFO/TAG{1}, the indexes are 0\-based)
-%TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
-%TGT            Translated genotype (e.g. C/A)
-%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
-%VKX            VariantKey, biallelic hexadecimal encoding of CHROM,POS,REF,ALT (https://github.com/tecnickcom/variantkey)
-[]              Format fields must be enclosed in brackets to loop over all samples
-\(rsn              new line
-\(rst              tab character
+%CHROM\&          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
+%END\&            End position of the REF allele
+%END0\&           End position of the REF allele in 0\-based coordinates
+%FIRST_ALT\&      Alias for %ALT{0}
+%FORMAT\&         Prints all FORMAT fields or a subset of samples with \-s or \-S
+%GT\&             Genotype (e.g. 0/1)
+%FUNCTION\&       Functions supported by the \-i/\-e filtering expressions (e.g. "[ %sSUM(FMT/AD)] %SUM(FMT/AD) %SUM(INFO/AD)")
+%INFO\&           Prints the whole INFO column
+%INFO/TAG\&       Any tag in the INFO column
+%IUPACGT\&        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
+%LINE\&           Prints the whole line
+%MASK\&           Indicates presence of the site in other files (with multiple files)
+%N_PASS(expr)\&   Number of samples that pass the filtering expression (see *<<expressions,EXPRESSIONS>>*)
+%POS0\&           POS in 0\-based coordinates
+%PBINOM(TAG)\&    Calculate phred\-scaled binomial probability, the allele index is determined from GT
+%SAMPLE\&         Sample name
+%TAG{INT}\&       Curly brackets to print a subfield (e.g. INFO/TAG{1}, the indexes are 0\-based)
+%TBCSQ\&          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
+%TGT\&            Translated genotype (e.g. C/A)
+%TYPE\&           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+%VKX\&            VariantKey, biallelic hexadecimal encoding of CHROM,POS,REF,ALT (https://github.com/tecnickcom/variantkey)
+[]\&              Format fields must be enclosed in brackets to loop over all samples
+\(rsn\&              new line
+\(rst\&              tab character
 .fam
 .fi
 .if n .RE
@@ -5052,7 +5056,7 @@ Everything else is printed verbatim.
 .nf
 .fam C
 # Print chromosome, position, ref allele and the first alternate allele
-bcftools query \-f \*(Aq%CHROM  %POS  %REF  %ALT{0}\(rsn\*(Aq file.vcf.gz
+bcftools query \-f \*(Aq%CHROM\&  %POS\&  %REF\&  %ALT{0}\(rsn\*(Aq file.vcf.gz
 .fam
 .fi
 .if n .RE
@@ -5128,7 +5132,7 @@ bcftools query \-f \*(Aq%AC{1}\(rsn\*(Aq \-i \*(AqAC[1]>10\*(Aq file.vcf.gz
 # Print all samples at sites where at least one sample has DP=1 or DP=2. In the second case
 # print only samples with DP=1 or DP=2, the difference is in the logical operator used, || vs |.
 bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 || FMT/DP=2\*(Aq file.vcf
-bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |  FMT/DP=2\*(Aq file.vcf
+bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |\&  FMT/DP=2\*(Aq file.vcf
 .fam
 .fi
 .if n .RE
@@ -5137,7 +5141,7 @@ bcftools query \-f \*(Aq[%SAMPLE %GT %DP\(rsn]\*(Aq \-i \*(AqFMT/DP=1 |  FMT/DP=
 .nf
 .fam C
 # Refer to ID column vs INFO/ID tag vs FORMAT/ID tag
-bcftools query \-f \*(AqcolumnID=%ID   infoID=%INFO/ID  [fmtID=%ID ]  [columnID=%/ID]\*(Aq
+bcftools query \-f \*(AqcolumnID=%ID\&   infoID=%INFO/ID\&  [fmtID=%ID ]\&  [columnID=%/ID]\*(Aq
 .fam
 .fi
 .if n .RE
@@ -5157,12 +5161,12 @@ the fai file will be removed
 new VCF header
 .RE
 .sp
-\fB\-o, \-\-output\fP \fIFILE\fP
+\fB\-n, \-\-samples\-list\fP \fILIST\fP
 .RS 4
-see \fBCommon Options\fP
+comma\-separated list of new sample names
 .RE
 .sp
-\fB\-s, \-\-samples\fP \fIFILE\fP
+\fB\-s, \-\-samples\fP \fIFILE\fP, \fB\-N, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
 new sample names, one name per line, in the same order as they appear
 in the VCF file. Alternatively, only samples which need to be renamed
@@ -5170,6 +5174,11 @@ can be listed as "old_name new_name\(rsn" pairs separated by whitespaces,
 each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\(rs a\(rs good\(rs sample\(rs name".
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-temp\-prefix\fP \fIPATH\fP
@@ -5197,18 +5206,18 @@ the \fBroh\-viz\fP script.
 .nf
 .fam C
 Notation:
-  D  = Data, AZ = autozygosity, HW = Hardy\-Weinberg (non\-autozygosity),
-  f  = non\-ref allele frequency
+  D\&  = Data, AZ = autozygosity, HW = Hardy\-Weinberg (non\-autozygosity),
+  f\&  = non\-ref allele frequency
 
 Emission probabilities:
   oAZ = P_i(D|AZ) = (1\-f)*P(D|RR) + f*P(D|AA)
   oHW = P_i(D|HW) = (1\-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1\-f)*P(D|RA)
 
 Transition probabilities:
-  tAZ = P(AZ|HW)  .. from HW to AZ, the \-a parameter
-  tHW = P(HW|AZ)  .. from AZ to HW, the \-H parameter
+  tAZ = P(AZ|HW)\&  .. from HW to AZ, the \-a parameter
+  tHW = P(HW|AZ)\&  .. from AZ to HW, the \-H parameter
 
-  ci  = P_i(C)  .. probability of cross\-over at site i, from genetic map
+  ci\&  = P_i(C)\&  .. probability of cross\-over at site i, from genetic map
   AZi = P_i(AZ) .. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW)
 
@@ -6140,7 +6149,7 @@ about the distinction between "&&" vs "&" and "||" vs "|".
 .if n .RS 4
 .nf
 .fam C
-&&,  &, ||,  |
+&&,\&  &, ||,\&  |
 .fam
 .fi
 .if n .RE
@@ -6182,13 +6191,13 @@ the FILTER column can be queried as follows:
 .fam C
 FILTER="PASS"
 FILTER="."
-FILTER="A"          .. exact match, for example "A;B" does not pass
-FILTER="A;B"        .. exact match, "A;B" and "B;A" pass, everything else fails
-FILTER!="A"         .. exact match, for example "A;B" does pass
-FILTER~"A"          .. subset match, for example both "A" and "A;B" pass
-FILTER~"A;B"        .. subset match, pass only if both "A" and "B" are present
-FILTER!~"A"         .. complement match, for example both "A" and "A;B" fail
-FILTER!~"A;B"       .. complement match, fail if both "A" and "B" are present
+FILTER="A"\&          .. exact match, for example "A;B" does not pass
+FILTER="A;B"\&        .. exact match, "A;B" and "B;A" pass, everything else fails
+FILTER!="A"\&         .. exact match, for example "A;B" does pass
+FILTER~"A"\&          .. subset match, for example both "A" and "A;B" pass
+FILTER~"A;B"\&        .. subset match, pass only if both "A" and "B" are present
+FILTER!~"A"\&         .. complement match, for example both "A" and "A;B" fail
+FILTER!~"A;B"\&       .. complement match, fail if both "A" and "B" are present
 .fam
 .fi
 .if n .RE
@@ -6344,18 +6353,18 @@ element of the vector, as shown in the examples below.
 .if n .RS 4
 .nf
 .fam C
-INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
-FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
-FORMAT/AD[0:1]               .. first sample, second AD value
-FORMAT/AD[1:0]               .. second sample, first AD value
-DP4[*] == 0                  .. any DP4 value
-FORMAT/DP[0]   > 30          .. DP of the first sample bigger than 30
-FORMAT/DP[1\-3] > 10          .. samples 2\-4
-FORMAT/DP[1\-]  < 7           .. all samples but the first
-FORMAT/DP[0,2\-4] > 20        .. samples 1, 3\-5
-FORMAT/AD[0:1]               .. first sample, second AD field
+INFO/AF[0] > 0.3\&             .. first AF value bigger than 0.3
+FORMAT/AD[0:0] > 30\&          .. first AD value of the first sample bigger than 30
+FORMAT/AD[0:1]\&               .. first sample, second AD value
+FORMAT/AD[1:0]\&               .. second sample, first AD value
+DP4[*] == 0\&                  .. any DP4 value
+FORMAT/DP[0]\&   > 30\&          .. DP of the first sample bigger than 30
+FORMAT/DP[1\-3] > 10\&          .. samples 2\-4
+FORMAT/DP[1\-]\&  < 7\&           .. all samples but the first
+FORMAT/DP[0,2\-4] > 20\&        .. samples 1, 3\-5
+FORMAT/AD[0:1]\&               .. first sample, second AD field
 FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
-FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
+FORMAT/AD[*:1] or AD[:1]\&        .. any sample, second AD field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
 CSQ[*] ~ "missense_variant.*deleterious"
 .fam
@@ -6378,9 +6387,9 @@ For example
 .if n .RS 4
 .nf
 .fam C
-FORMAT/AD[GT] > 10        .. require support of more than 10 reads for each allele
-FORMAT/AD[0:GT] > 10      .. same as above, but in the first sample
-sSUM(FORMAT/AD[GT]) > 20  .. require total sample depth bigger than 20
+FORMAT/AD[GT] > 10\&        .. require support of more than 10 reads for each allele
+FORMAT/AD[0:GT] > 10\&      .. same as above, but in the first sample
+sSUM(FORMAT/AD[GT]) > 20\&  .. require total sample depth bigger than 20
 .fam
 .fi
 .if n .RE
@@ -6457,9 +6466,9 @@ homozygous genotypes.
 .if n .RS 4
 .nf
 .fam C
-binom(FMT/AD)                .. GT can be used to determine the correct index
-binom(AD[0],AD[1])           .. or the fields can be given explicitly
-phred(binom())               .. the same as binom but phred\-scaled
+binom(FMT/AD)\&                .. GT can be used to determine the correct index
+binom(AD[0],AD[1])\&           .. or the fields can be given explicitly
+phred(binom())\&               .. the same as binom but phred\-scaled
 .fam
 .fi
 .if n .RE
@@ -6469,8 +6478,8 @@ phred(binom())               .. the same as binom but phred\-scaled
 .fam C
 fisher(INFO/DP4)
 fisher(FORMAT/DP4)
-fisher(FMT/ADF,FMT/ADR)              .. GT can be used to determine the correct indices
-fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])  .. or the fields can be given explicitly
+fisher(FMT/ADF,FMT/ADR)\&              .. GT can be used to determine the correct indices
+fisher(FMT/ADF[:0,1],FMT/ADR[:0,1])\&  .. or the fields can be given explicitly
 .fam
 .fi
 .if n .RE
@@ -6605,14 +6614,14 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 .if n .RS 4
 .nf
 .fam C
-\-i \*(AqTAG[*]=1\*(Aq   .. true, the record will be printed
-\-i \*(AqTAG[*]!=1\*(Aq  .. true
-\-e \*(AqTAG[*]=1\*(Aq   .. false, the record will be discarded
-\-e \*(AqTAG[*]!=1\*(Aq  .. false
-\-i \*(AqTAG[0]=1\*(Aq   .. true
-\-i \*(AqTAG[0]!=1\*(Aq  .. false
-\-e \*(AqTAG[0]=1\*(Aq   .. false
-\-e \*(AqTAG[0]!=1\*(Aq  .. true
+\-i \*(AqTAG[*]=1\*(Aq\&   .. true, the record will be printed
+\-i \*(AqTAG[*]!=1\*(Aq\&  .. true
+\-e \*(AqTAG[*]=1\*(Aq\&   .. false, the record will be discarded
+\-e \*(AqTAG[*]!=1\*(Aq\&  .. false
+\-i \*(AqTAG[0]=1\*(Aq\&   .. true
+\-i \*(AqTAG[0]!=1\*(Aq\&  .. false
+\-e \*(AqTAG[0]=1\*(Aq\&   .. false
+\-e \*(AqTAG[0]!=1\*(Aq\&  .. true
 .fam
 .fi
 .if n .RE
@@ -6679,7 +6688,7 @@ throw an error when length(A)!=length(B) AND length(A)!=1 AND length(B)!=1
 .if n .RS 4
 .nf
 .fam C
-MIN(DV)>5       .. selects the whole site, evaluates min across all values and samples
+MIN(DV)>5\&       .. selects the whole site, evaluates min across all values and samples
 .fam
 .fi
 .if n .RE
@@ -6687,7 +6696,7 @@ MIN(DV)>5       .. selects the whole site, evaluates min across all values and s
 .if n .RS 4
 .nf
 .fam C
-SMPL_MIN(DV)>5  .. selects matching samples, evaluates within samples
+SMPL_MIN(DV)>5\&  .. selects matching samples, evaluates within samples
 .fam
 .fi
 .if n .RE
@@ -6711,7 +6720,7 @@ MIN(DP)>10 & MIN(DV)>3
 .if n .RS 4
 .nf
 .fam C
-FMT/DP>10  & FMT/GQ>10 .. both conditions must be satisfied within one sample
+FMT/DP>10\&  & FMT/GQ>10 .. both conditions must be satisfied within one sample
 .fam
 .fi
 .if n .RE
@@ -6727,7 +6736,7 @@ FMT/DP>10 && FMT/GQ>10 .. the conditions can be satisfied in different samples
 .if n .RS 4
 .nf
 .fam C
-QUAL>10 |  FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, but selects only samples with GQ>10
+QUAL>10 |\&  FMT/GQ>10\&   .. true for sites with QUAL>10 or a sample with GQ>10, but selects only samples with GQ>10
 .fam
 .fi
 .if n .RE
@@ -6735,7 +6744,7 @@ QUAL>10 |  FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, bu
 .if n .RS 4
 .nf
 .fam C
-QUAL>10 || FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, plus selects all samples at such sites
+QUAL>10 || FMT/GQ>10\&   .. true for sites with QUAL>10 or a sample with GQ>10, plus selects all samples at such sites
 .fam
 .fi
 .if n .RE
@@ -6751,7 +6760,7 @@ TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 .if n .RS 4
 .nf
 .fam C
-COUNT(GT="hom")=0      .. no homozygous genotypes at the site
+COUNT(GT="hom")=0\&      .. no homozygous genotypes at the site
 .fam
 .fi
 .if n .RE
@@ -6759,7 +6768,7 @@ COUNT(GT="hom")=0      .. no homozygous genotypes at the site
 .if n .RS 4
 .nf
 .fam C
-AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
+AVG(GQ)>50\&             .. average (arithmetic mean) of genotype qualities bigger than 50
 .fam
 .fi
 .if n .RE
@@ -6767,7 +6776,7 @@ AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger
 .if n .RS 4
 .nf
 .fam C
-ID=@file               .. selects lines with ID present in the file
+ID=@file\&               .. selects lines with ID present in the file
 .fam
 .fi
 .if n .RE
@@ -6775,7 +6784,7 @@ ID=@file               .. selects lines with ID present in the file
 .if n .RS 4
 .nf
 .fam C
-ID!=@~/file            .. skip lines with ID present in the ~/file
+ID!=@~/file\&            .. skip lines with ID present in the ~/file
 .fam
 .fi
 .if n .RE
@@ -6783,7 +6792,7 @@ ID!=@~/file            .. skip lines with ID present in the ~/file
 .if n .RS 4
 .nf
 .fam C
-INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file
+INFO/TAG=@file\&         .. selects lines with INFO/TAG value present in the file
 .fam
 .fi
 .if n .RE
@@ -6791,7 +6800,7 @@ INFO/TAG=@file         .. selects lines with INFO/TAG value present in the file
 .if n .RS 4
 .nf
 .fam C
-MAF[0]<0.05    .. select rare variants at 5% cutoff
+MAF[0]<0.05\&    .. select rare variants at 5% cutoff
 .fam
 .fi
 .if n .RE
@@ -6799,7 +6808,7 @@ MAF[0]<0.05    .. select rare variants at 5% cutoff
 .if n .RS 4
 .nf
 .fam C
-POS>=100   .. restrict your range query, e.g. 20:100\-200 to strictly sites with POS in that range.
+POS>=100\&   .. restrict your range query, e.g. 20:100\-200 to strictly sites with POS in that range.
 .fam
 .fi
 .if n .RE
@@ -6828,17 +6837,17 @@ interchangeably for the same VCF record type
 .if n .RS 4
 .nf
 .fam C
-REF   ALT
+REF\&   ALT
 \-\-\-\-\-\-\-\-\-
-C     .         .. reference allele / non\-variant site / ref\-only site
-C     T         .. SNP or SNV (single\-nucleotide polymorphism or variant), used interchangeably
-CC    TT        .. MNP (multi\-nucleotide polymorphism)
-CAAA  C         .. indel, deletion (regardless of length)
-C     CAAA      .. indel, insertion (regardless of length)
-C     <*>       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
-C     <NON_REF> .. synonymous to <*>
-C     *         .. overlapping deletion
-C     <INS>     .. symbolic allele, known also as \*(Aqother [than above]\*(Aq
+C\&     .\&         .. reference allele / non\-variant site / ref\-only site
+C\&     T\&         .. SNP or SNV (single\-nucleotide polymorphism or variant), used interchangeably
+CC\&    TT\&        .. MNP (multi\-nucleotide polymorphism)
+CAAA\&  C\&         .. indel, deletion (regardless of length)
+C\&     CAAA\&      .. indel, insertion (regardless of length)
+C\&     <*>\&       .. gVCF block, the allele <*> is a placeholder for alternate allele possibly missed because of low coverage
+C\&     <NON_REF> .. synonymous to <*>
+C\&     *\&         .. overlapping deletion
+C\&     <INS>\&     .. symbolic allele, known also as \*(Aqother [than above]\*(Aq
 .fam
 .fi
 .if n .RE

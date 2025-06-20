@@ -434,6 +434,7 @@ typedef struct _args_t
     struct {
         int unknown_chr,unknown_tscript_biotype,unknown_strand,unknown_phase,duplicate_id;
         int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds,ref_allele_mismatch;
+        int faidx_fetch_failed;
     } warned;
 
     char *gencode_str;          // which genetic code table to use
@@ -2767,14 +2768,32 @@ void vbuf_flush(args_t *args, uint32_t pos)
     args->ncsq_buf = 0;
 }
 
-void tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
+// returns 0 on success, -1 if sequence is not present in the fasta file (eg chrM)
+int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
 {
     int i, len;
     int pad_beg = tr->beg >= N_REF_PAD ? N_REF_PAD : tr->beg;
 
+    // if forced to repeatedly faidx-fetch a non-existent chromosome, turn off hts verbosity, unless
+    // explicitly asked not to
+    int verbose = hts_verbose;
+    if ( args->warned.faidx_fetch_failed && args->verbosity < 2 ) hts_verbose = 0;
     TSCRIPT_AUX(tr)->ref = faidx_fetch_seq(args->fai, chr, tr->beg - pad_beg, tr->end + N_REF_PAD, &len);
+    hts_verbose = verbose;
     if ( !TSCRIPT_AUX(tr)->ref )
-        error("faidx_fetch_seq failed %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
+    {
+        if ( !args->force )
+            error("Error: unable to fetch the region of the fasta reference %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
+
+        else if ( args->verbosity && (!args->warned.faidx_fetch_failed || args->verbosity > 1) )
+        {
+            fprintf(stderr,"Warning: unable to fetch the region of the fasta reference %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
+            if ( args->verbosity < 2 )
+                fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
+        }
+        args->warned.faidx_fetch_failed++;
+        return -1;
+    }
 
     int pad_end = len - (tr->end - tr->beg + 1 + pad_beg);
     if ( pad_beg + pad_end != 2*N_REF_PAD )
@@ -2788,6 +2807,7 @@ void tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
         free(TSCRIPT_AUX(tr)->ref);
         TSCRIPT_AUX(tr)->ref = ref;
     }
+    return 0;
 }
 
 // returns 0 on success, negative number on reference mismatch
@@ -2848,7 +2868,12 @@ int test_cds_local(args_t *args, bcf1_t *rec)
         if ( !TSCRIPT_AUX(tr) )
         {
             tr->aux = calloc(sizeof(tscript_t),1);
-            tscript_init_ref(args, tr, chr_fai);
+            if ( tscript_init_ref(args, tr, chr_fai) )
+            {
+                free(tr->aux);
+                tr->aux = NULL;
+                continue;
+            }
             tscript_splice_ref(tr);
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
@@ -3042,7 +3067,12 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
         {
             // initialize the transcript and its haplotype tree, fetch the reference sequence
             tr->aux = calloc(sizeof(tscript_t),1);
-            tscript_init_ref(args, tr, chr_fai);
+            if ( tscript_init_ref(args, tr, chr_fai) )
+            {
+                free(tr->aux);
+                tr->aux = NULL;
+                continue;
+            }
 
             TSCRIPT_AUX(tr)->root = (hap_node_t*) calloc(1,sizeof(hap_node_t));
             TSCRIPT_AUX(tr)->nhap = args->phase==PHASE_DROP_GT ? 1 : 2*args->smpl->n;     // maximum ploidy = diploid

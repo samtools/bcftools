@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2025-05-30</strong> and refers to bcftools git version <strong>1.22</strong>.</p>
+<p>This manual page was last updated <strong>2025-06-17 12:11 BST</strong> and refers to bcftools git version <strong>1.22-8-g2d811c52+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -2353,6 +2353,10 @@ commands.</p>
 <p>Include sites from query file (<em>qry:</em>) or genotype file (<em>gt:</em>) for which <em>EXPRESSION</em> is true.
 For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>--keep-refs</strong></dt>
+<dd>
+<p>Include monoallelic sites in comparison, by default they are excluded</p>
+</dd>
 <dt class="hdlist1"><strong>--n-matches</strong> <em>INT</em></dt>
 <dd>
 <p>Print only top INT matches for each sample, 0 for unlimited. Use negative value
@@ -3540,7 +3544,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -4430,11 +4434,12 @@ the fai file will be removed</p>
 <dd>
 <p>new VCF header</p>
 </dd>
-<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dt class="hdlist1"><strong>-n, --samples-list</strong> <em>LIST</em></dt>
 <dd>
-<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+<p>comma-separated list of new sample names</p>
 </dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>FILE</em></dt>
+<dt class="hdlist1"><strong>-N, --samples-file</strong> <em>FILE</em></dt>
 <dd>
 <p>new sample names, one name per line, in the same order as they appear
 in the VCF file. Alternatively, only samples which need to be renamed
@@ -4442,6 +4447,10 @@ can be listed as "old_name new_name\n" pairs separated by whitespaces,
 each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\ a\ good\ sample\ name".</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --temp-prefix</strong> <em>PATH</em></dt>
 <dd>
@@ -5816,7 +5825,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-05-30 09:18:27 +0100
+Last updated 2025-06-16 10:44:44 +0100
 </div>
 </div>
 </body>
