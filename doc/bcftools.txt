@@ -4092,8 +4092,8 @@ are intended to select sites, not samples, even when applied on FORMAT tags.
 However, when prefixed with SMPL_ (or "s" for brevity, e.g. SMPL_MAX or sMAX),
 they will evaluate to a vector of per-sample values when applied on FORMAT tags:
 
-        SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
-        sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
+        SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM, SMPL_COUNT,
+        sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM, sCOUNT
 
 * two-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
   value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for

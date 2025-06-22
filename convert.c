@@ -1339,13 +1339,15 @@ static char *set_filter_expr(convert_t *convert, char *key, int is_gtf)
     else if ( !strncasecmp(key,"SMPL_AVG(",9) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"SMPL_STDEV(",11) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"SMPL_SUM(",9) ) { ptr = function(convert,key,is_gtf); } \
+    else if ( !strncasecmp(key,"SMPL_COUNT(",11) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sMAX(",5) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sMIN(",5) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sMEAN(",6) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sMEDIAN(",8) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sAVG(",5) ) { ptr = function(convert,key,is_gtf); } \
     else if ( !strncasecmp(key,"sSTDEV(",7) ) { ptr = function(convert,key,is_gtf); } \
-    else if ( !strncasecmp(key,"sSUM(",5) ) { ptr = function(convert,key,is_gtf); }
+    else if ( !strncasecmp(key,"sSUM(",5) ) { ptr = function(convert,key,is_gtf); } \
+    else if ( !strncasecmp(key,"sCOUNT(",7) ) { ptr = function(convert,key,is_gtf); }
 
 static void set_type(fmt_t *fmt, int type) { fmt->type = type; }
 static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)

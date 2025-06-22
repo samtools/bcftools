@@ -168,6 +168,7 @@ struct _filter_t
 #define TOK_MODULO  40      // %
 #define TOK_EXT     41      // external values set before each filter_test_ext() call, can be one of {},{str},{int},{float}
 #define TOK_FISHER  42
+#define TOK_sCOUNT  43
 
 //                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41
 //                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s                          %
@@ -198,6 +199,7 @@ static int filters_next_token(char **str, int *len)
         tmp = *str;
     }
 
+    if ( !strncasecmp(tmp,"SMPL_COUNT(",11) ) { (*str) += 10; return TOK_sCOUNT; }
     if ( !strncasecmp(tmp,"SMPL_MAX(",9) ) { (*str) += 8; return TOK_sMAX; }
     if ( !strncasecmp(tmp,"SMPL_MIN(",9) ) { (*str) += 8; return TOK_sMIN; }
     if ( !strncasecmp(tmp,"SMPL_MEAN(",10) ) { (*str) += 9; return TOK_sAVG; }
@@ -205,6 +207,7 @@ static int filters_next_token(char **str, int *len)
     if ( !strncasecmp(tmp,"SMPL_AVG(",9) ) { (*str) += 8; return TOK_sAVG; }
     if ( !strncasecmp(tmp,"SMPL_STDEV(",11) ) { (*str) += 10; return TOK_sSTDEV; }
     if ( !strncasecmp(tmp,"SMPL_SUM(",9) ) { (*str) += 8; return TOK_sSUM; }
+    if ( !strncasecmp(tmp,"sCOUNT(",7) ) { (*str) += 6; return TOK_sCOUNT; }
     if ( !strncasecmp(tmp,"sMAX(",5) ) { (*str) += 4; return TOK_sMAX; }
     if ( !strncasecmp(tmp,"sMIN(",5) ) { (*str) += 4; return TOK_sMIN; }
     if ( !strncasecmp(tmp,"sMEAN(",6) ) { (*str) += 5; return TOK_sAVG; }
@@ -1990,6 +1993,35 @@ static int func_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
 
     rtok->nvalues = 1;
     rtok->values[0] = cnt;
+    return 1;
+}
+static int func_smpl_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_max(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i,j;
+    assert( tok->tag && tok->nsamples );
+    if ( tok->tag && tok->nsamples )
+    {
+        // raw number of values in a FMT tag, e.g. COUNT(FMT/TAG)
+        if ( tok->is_str ) error("todo: Type=String for COUNT on FORMAT fields?\n");
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            int cnt = 0;
+            double *ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+                if ( !bcf_double_is_missing_or_vector_end(ptr[j]) ) cnt++;
+            rtok->values[i] = cnt;
+        }
+    }
     return 1;
 }
 static int func_strlen(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
@@ -4088,6 +4120,7 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         else if ( out[i].tok_type==TOK_BINOM ) { out[i].func = func_binom; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_FISHER ) { out[i].func = func_fisher; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_PERLSUB ) { out[i].func = perl_exec; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sCOUNT ) { out[i].func = func_smpl_count; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_sMAX ) { out[i].func = func_smpl_max; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_sMIN ) { out[i].func = func_smpl_min; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_sAVG ) { out[i].func = func_smpl_avg; out[i].tok_type = TOK_FUNC; }
