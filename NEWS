@@ -6,6 +6,10 @@ Changes affecting specific commands:
 
     - Fix Number in the header definition of transferred FILTER and ID tags (#2335)
 
+* bcftools consensus
+
+    - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
+
 * bcftools convert
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
