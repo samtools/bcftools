@@ -61,6 +61,7 @@ run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
 run_test(\&test_vcf_isec,$opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
+#run_test(\&test_vcf_merge,$opts,in=>['merge.broken-phase.a','merge.broken-phase.b'],out=>'merge.broken-phase.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.broken-gvcf.a','merge.broken-gvcf.b'],out=>'merge.broken-gvcf.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.symbolic.1.a','merge.symbolic.1.b'],out=>'merge.symbolic.1.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.multiallelics.1.a','merge.multiallelics.1.b'],out=>'merge.multiallelics.1.1.out',args=>'--merge none');
@@ -119,6 +120,10 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'me
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.gvcf.11.c'],out=>'merge.gvcf.11.1.out',args=>'--gvcf -');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+run_test(\&test_vcf_query,$opts,in=>'smpl-count',out=>'smpl-count.1.out',args=>q[-f '[%CHROM\\t%POS\\t%GT\\t%LAA\\t%smpl_count(FMT/LAA)\\n]\\n']);
+run_test(\&test_vcf_query,$opts,in=>'smpl-count',out=>'smpl-count.2.out',args=>q[-f '[%CHROM\\t%POS\\t%GT\\t%LAA\\t%smpl_count(FMT/LAA)\\n]\\n' -i'smpl_count(LAA)==1']);
+run_test(\&test_vcf_query,$opts,in=>'smpl-count',out=>'smpl-count.3.out',args=>q[-f '[%CHROM\\t%POS\\t%GT\\t%LAA\\t%smpl_count(FMT/LAA)\\n]\\n' -i'smpl_count(LAA)==1 & GT="hom"']);
+run_test(\&test_vcf_query,$opts,in=>'smpl-count',out=>'smpl-count.3.out',args=>q[-f '[%CHROM\\t%POS\\t%GT\\t%LAA\\t%smpl_count(FMT/LAA)\\n]\\n' -i'GT="hom" & smpl_count(LAA)==1']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]="."']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.1.out',args=>q[-f '%TAG' -i 'TAG[*]~"\."']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter.15',out=>'query.filter.15.2.out',args=>q[-f '%TAG' -i 'TAG[*]!="."']);

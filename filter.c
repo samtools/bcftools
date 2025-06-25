@@ -170,9 +170,9 @@ struct _filter_t
 #define TOK_FISHER  42
 #define TOK_sCOUNT  43
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43
 //                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s                          %
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 0};
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 0, 8, 8};
 #define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"       // this is only for debugging, not maintained diligently
 
 static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok);
@@ -2007,8 +2007,7 @@ static int func_smpl_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t *
     if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
     memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
     int i,j;
-    assert( tok->tag && tok->nsamples );
-    if ( tok->tag && tok->nsamples )
+    if ( tok->nsamples )
     {
         // raw number of values in a FMT tag, e.g. COUNT(FMT/TAG)
         if ( tok->is_str ) error("todo: Type=String for COUNT on FORMAT fields?\n");

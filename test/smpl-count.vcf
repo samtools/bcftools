@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=LAA,Number=.,Type=Integer,Description="">
+##contig=<ID=chr,length=123456>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl1	smpl2
+chr	1	.	A	C	.	.	.	GT:LAA	0/0:.	0/1:1
+chr	2	.	A	C,T	.	.	.	GT:LAA	1/1:1	1/2:1,2
