@@ -1093,7 +1093,7 @@ static void consensus(args_t *args)
     BGZF *fasta = bgzf_open(args->ref_fname, "r");
     if ( !fasta ) error("Error reading %s\n", args->ref_fname);
     kstring_t str = {0,0,0};
-    while ( bgzf_getline(fasta, '\n', &str) > 0 )
+    while ( bgzf_getline(fasta, '\n', &str) >= 0 )
     {
         if ( str.s[0]=='>' )
         {

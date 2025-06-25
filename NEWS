@@ -1,5 +1,11 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools consensus
+
+    - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
+
 ## Release 1.22 (30th May 2025)
 
 
