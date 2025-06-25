@@ -1,7 +1,17 @@
 ## Release a.b
 
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The `-i/-e` filtering expressions and `-f` formatting in `query`
+
+    - Add a new function `smpl_COUNT()/sCOUNT()` which returns the number of elements (#2423)
+
 Changes affecting specific commands:
+
+* bcftools consensus
+
+    - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
 * bcftools gtcheck
 
