@@ -68,7 +68,7 @@ indel-stats:: Calculates per-sample or de novo indels stats. The usage and forma
 
 isecGT:: Compares two files and set non-identical genotypes in the first file to missing.
 
-link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsistent genotypes
+link:plugin.mendelian.html[mendelian2]:: Count Mendelian consistent / inconsistent genotypes
 
 missing2ref:: sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.
 

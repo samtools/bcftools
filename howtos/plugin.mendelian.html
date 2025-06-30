@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
-<title>Plugin mendelian</title>
+<meta name="generator" content="Asciidoctor 2.0.23">
+<title>Plugin mendelian2</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -81,7 +81,7 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugin_mendelian">Plugin mendelian</h2>
+<h2 id="_plugin_mendelian2">Plugin mendelian2</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>This plugin is intended for detecting Mendelian inconsistencies. On input the program requires
@@ -89,52 +89,73 @@ a valid VCF and a trio definition, for example:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>$ bcftools +mendelian file.vcf -- -t mother,father,child</pre>
+<pre>$ bcftools +mendelian2 file.vcf -p child,father,mother</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Multiple trios can be tested at once by providing a list of trios:</p>
+<p>Multiple trios can be tested at once by providing a list of trios in ped format:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>$ bcftools +mendelian file.vcf -- -T trios.txt
-$ cat trios.txt
-mother1,father1,child1
-mother2,father2,child2</pre>
+<pre>$ bcftools +mendelian file.vcf -P trios.ped
+$ cat trios.ped
+ignored boy  father mother 1
+ignored girl father mother 1</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The inconsistent genotypes can be deleted by setting to <code>./.</code> (with the <code>-d, --delete</code> option),
-inconsistent sites can be counted (give the <code>-c, --count</code> option) or listed (the <code>-l, --list</code> option).</p>
-</div>
-<div class="paragraph">
-<p>On output three values are printed for each trio</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre># [1]nOK  [2]nBad  [3]nSkipped  [4]Trio
-334518    4621     996          mother,father,child</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>where</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>nOK .. number of genotypes at which the trio had no missingness and no Mendelian error</p>
-</li>
-<li>
-<p>nBad .. number of genotypes at which the trio had a Mendelian error</p>
-</li>
-<li>
-<p>nSkipped .. number of genotypes at which that trio had at least one individual missing and therefore could not be considered</p>
-</li>
-</ul>
+<p>The inconsistent genotypes can be deleted by setting to <code>./.</code> (with the <code>-m d</code> option),
+inconsistent sites can be counted (<code>-m c</code>), listed (<code>-m e</code>), etc.</p>
 </div>
 <div class="paragraph">
 <p>The program takes the genotypes as they are, <strong>not</strong> considering genotype quality (FORMAT/GQ).
 If pre-filtering is desired, the plugin <code>setGT</code> can be used.</p>
+</div>
+<div class="paragraph">
+<p>The complete usage page obtained by <code>bcftools +mendelian2 -h</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>About: Count Mendelian consistent / inconsistent genotypes.
+Usage: bcftools +mendelian2 [Options]
+Common Options:
+   -e, --exclude EXPR              Exclude sites for which the expression is true
+   -i, --include EXPR              Include sites for which the expression is true
+   -o, --output FILE               Output file name [stdout]
+   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]
+   -r, --regions REG               Restrict to comma-separated list of regions
+   -R, --regions-file FILE         Restrict to regions listed in a file
+       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]
+   -t, --targets REG               Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
+       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
+       --no-version                Do not append version and command line to the header
+   -v, --verbosity INT             Verbosity level
+   -W, --write-index[=FMT]         Automatically index the output files [off]
+
+Options:
+   -m, --mode c|[adeEgmMS]         Output mode, the default is `-m c`. Multiple modes can be combined in VCF/BCF
+                                   output and the drop modes take precedence.
+                                   Text stats output:
+                                       c .. print counts, a text summary with the number of errors per trio
+                                   VCF/BCF output:
+                                       a .. add INFO/MERR annotation with the number of inconsistent trios
+                                       d .. delete genotypes in inconsistent trios (set to "./.")
+                                       e .. output sites with at least one erroneous trio
+                                       E .. drop sites with at least one erroneous trio
+                                       g .. output sites with at least one good trio (i.e. non-missing and consistent)
+                                       m .. output sites with missing genotypes in at least one trio
+                                       M .. drop sites with missing genotypes in at least one trio
+                                       S .. drop sites skipped for various reasons when collecting stats
+   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
+   -P, --ped FILE                  PED file with the columns: &lt;ignored&gt;,proband,father,mother,sex(1:male,2:female)
+       --rules ASSEMBLY[?]         Predefined inheritance rules, "list" to print available settings, "list?" for detailed information
+       --rules-file FILE           Inheritance rules, run with `--rules list?` for examples
+
+Example:
+   # Print number of good, erroneous and missing genotypes
+   bcftools +mendelian2 in.vcf -p 1X:Child,Father,Mother -m c</pre>
+</div>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>

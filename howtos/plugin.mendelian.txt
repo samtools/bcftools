@@ -1,39 +1,71 @@
 include::header.inc[]
 
 
-Plugin mendelian
-----------------
+Plugin mendelian2
+-----------------
 
-This plugin is intended for detecting Mendelian inconsistencies. On input the program requires 
+This plugin is intended for detecting Mendelian inconsistencies. On input the program requires
 a valid VCF and a trio definition, for example:
 ----
-$ bcftools +mendelian file.vcf -- -t mother,father,child
+$ bcftools +mendelian2 file.vcf -p child,father,mother
 ----
 
-Multiple trios can be tested at once by providing a list of trios:
+Multiple trios can be tested at once by providing a list of trios in ped format:
 ----
-$ bcftools +mendelian file.vcf -- -T trios.txt
-$ cat trios.txt
-mother1,father1,child1
-mother2,father2,child2
+$ bcftools +mendelian file.vcf -P trios.ped
+$ cat trios.ped
+ignored boy  father mother 1
+ignored girl father mother 1
 ----
 
-The inconsistent genotypes can be deleted by setting to `./.` (with the `-d, --delete` option),
-inconsistent sites can be counted (give the `-c, --count` option) or listed (the `-l, --list` option).
-
-On output three values are printed for each trio
-----
-# [1]nOK  [2]nBad  [3]nSkipped  [4]Trio
-334518    4621     996          mother,father,child
-----
-where
-
-- nOK .. number of genotypes at which the trio had no missingness and no Mendelian error
-- nBad .. number of genotypes at which the trio had a Mendelian error
-- nSkipped .. number of genotypes at which that trio had at least one individual missing and therefore could not be considered
+The inconsistent genotypes can be deleted by setting to `./.` (with the `-m d` option),
+inconsistent sites can be counted (`-m c`), listed (`-m e`), etc.
 
 The program takes the genotypes as they are, *not* considering genotype quality (FORMAT/GQ).
 If pre-filtering is desired, the plugin ``setGT`` can be used.
+
+The complete usage page obtained by `bcftools +mendelian2 -h`:
+----
+About: Count Mendelian consistent / inconsistent genotypes.
+Usage: bcftools +mendelian2 [Options]
+Common Options:
+   -e, --exclude EXPR              Exclude sites for which the expression is true
+   -i, --include EXPR              Include sites for which the expression is true
+   -o, --output FILE               Output file name [stdout]
+   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]
+   -r, --regions REG               Restrict to comma-separated list of regions
+   -R, --regions-file FILE         Restrict to regions listed in a file
+       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]
+   -t, --targets REG               Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
+       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
+       --no-version                Do not append version and command line to the header
+   -v, --verbosity INT             Verbosity level
+   -W, --write-index[=FMT]         Automatically index the output files [off]
+
+Options:
+   -m, --mode c|[adeEgmMS]         Output mode, the default is `-m c`. Multiple modes can be combined in VCF/BCF
+                                   output and the drop modes take precedence.
+                                   Text stats output:
+                                       c .. print counts, a text summary with the number of errors per trio
+                                   VCF/BCF output:
+                                       a .. add INFO/MERR annotation with the number of inconsistent trios
+                                       d .. delete genotypes in inconsistent trios (set to "./.")
+                                       e .. output sites with at least one erroneous trio
+                                       E .. drop sites with at least one erroneous trio
+                                       g .. output sites with at least one good trio (i.e. non-missing and consistent)
+                                       m .. output sites with missing genotypes in at least one trio
+                                       M .. drop sites with missing genotypes in at least one trio
+                                       S .. drop sites skipped for various reasons when collecting stats
+   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
+   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)
+       --rules ASSEMBLY[?]         Predefined inheritance rules, "list" to print available settings, "list?" for detailed information
+       --rules-file FILE           Inheritance rules, run with `--rules list?` for examples
+
+Example:
+   # Print number of good, erroneous and missing genotypes
+   bcftools +mendelian2 in.vcf -p 1X:Child,Father,Mother -m c
+----
 
 include::footer.inc[]
 
