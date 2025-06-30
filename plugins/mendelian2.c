@@ -168,7 +168,7 @@ static const char *usage_text(void)
         "\n"
         "Example:\n"
         "   # Print number of good, erroneous and missing genotypes\n"
-        "   bcftools +mendelian2 in.vcf -p 1X:Child,Father,Mother -c\n"
+        "   bcftools +mendelian2 in.vcf -p 1X:Child,Father,Mother -m c\n"
         "\n";
 }
 
