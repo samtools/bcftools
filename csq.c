@@ -203,17 +203,18 @@
 #define CSQ_UPSTREAM_STOP       (1<<19)     // adds * in front of the csq string
 #define CSQ_INCOMPLETE_CDS      (1<<20)     // to remove START/STOP in incomplete CDS, see ENSG00000173376/synon.vcf
 #define CSQ_CODING_SEQUENCE     (1<<21)     // cannot tell exactly what it is, but it does affect the coding sequence
-#define CSQ_ELONGATION          (1<<22)     // symbolic insertion
-#define CSQ_START_RETAINED      (1<<23)
+#define CSQ_ELONGATION          (1<<22)     // symbolic insertion or complex elongating variant
+#define CSQ_TRUNCATION          (1<<23)     // complex truncating variant
+#define CSQ_START_RETAINED      (1<<24)
 
 // Haplotype-aware consequences, printed in one vcf record only, the rest has a reference @12345
 #define CSQ_COMPOUND (CSQ_SYNONYMOUS_VARIANT|CSQ_MISSENSE_VARIANT|CSQ_STOP_LOST|CSQ_STOP_GAINED| \
                       CSQ_INFRAME_DELETION|CSQ_INFRAME_INSERTION|CSQ_FRAMESHIFT_VARIANT| \
                       CSQ_START_LOST|CSQ_STOP_RETAINED|CSQ_INFRAME_ALTERING|CSQ_INCOMPLETE_CDS| \
-                      CSQ_UPSTREAM_STOP|CSQ_START_RETAINED)
+                      CSQ_UPSTREAM_STOP|CSQ_START_RETAINED|CSQ_ELONGATION|CSQ_TRUNCATION)
 #define CSQ_START_STOP          (CSQ_STOP_LOST|CSQ_STOP_GAINED|CSQ_STOP_RETAINED|CSQ_START_LOST|CSQ_START_RETAINED)
 
-#define CSQ_PRN_STRAND(csq)     ((csq)&CSQ_COMPOUND && !((csq)&(CSQ_SPLICE_ACCEPTOR|CSQ_SPLICE_DONOR|CSQ_SPLICE_REGION)))
+#define CSQ_PRN_STRAND(csq)     ((csq)&CSQ_COMPOUND && !((csq)&(CSQ_SPLICE_ACCEPTOR|CSQ_SPLICE_DONOR|CSQ_SPLICE_REGION|CSQ_ELONGATION|CSQ_TRUNCATION)))
 #define CSQ_PRN_TSCRIPT         (~(CSQ_INTRON|CSQ_NON_CODING))
 #define CSQ_PRN_NMD             (~(CSQ_INTRON|CSQ_NON_CODING))
 #define CSQ_PRN_BIOTYPE         CSQ_NON_CODING
@@ -248,6 +249,7 @@ const char *csq_strings[] =
     NULL,
     "coding_sequence",
     "feature_elongation",
+    "feature_truncation",
     "start_retained"
 };
 
@@ -1032,7 +1034,7 @@ static inline int csq_stage_utr(args_t *args, regitr_t *itr, bcf1_t *rec, uint32
 static inline void csq_stage_splice(args_t *args, bcf1_t *rec, gf_tscript_t *tr, uint32_t type, int ial)
 {
 #if XDBG
-fprintf(stderr,"csq_stage_splice %d: type=%d\n",(int)rec->pos+1,type);
+fprintf(stderr,"csq_stage_splice %d: type=%d ial=%d\n",(int)rec->pos+1,type,ial);
 #endif
     if ( !type ) return;
     csq_t csq;
@@ -1456,6 +1458,7 @@ static inline int splice_csq_mnp(args_t *args, splice_t *splice, uint32_t ex_beg
 fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_utr=%d start,stop,beg,end=%d,%d,%d,%d\n", splice->vcf.ref,splice->vcf.alt,ex_beg,ex_end,splice->ref_beg,splice->ref_end,splice->tbeg,splice->tend,splice->check_utr,splice->check_start,splice->check_stop,splice->check_region_beg,splice->check_region_end);
 #endif
 
+    int ret = SPLICE_INSIDE;
     if ( splice->ref_beg < ex_beg )     // the part before the exon
     {
         if ( splice->check_region_beg )
@@ -1484,6 +1487,7 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         {
             splice->tbeg = splice->ref_beg - splice->vcf.pos;
             splice->ref_beg = ex_beg;
+            ret = SPLICE_OVERLAP;
         }
     }
     if ( ex_end < splice->ref_end )     // the part after the exon
@@ -1514,6 +1518,7 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         {
             splice->tend = splice->vcf.rlen - (splice->ref_end - splice->vcf.pos + 1);
             splice->ref_end = ex_end;
+            ret = SPLICE_OVERLAP;
         }
     }
     if ( splice->ref_end < ex_beg || splice->ref_beg > ex_end )
@@ -1537,11 +1542,18 @@ fprintf(stderr,"mnp: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
     if ( splice->set_refalt )
     {
         splice->vcf.rlen -= splice->tbeg + splice->tend;
+        splice->vcf.alen -= splice->tbeg + splice->tend;
         splice->kref.l = 0; kputsn(splice->vcf.ref + splice->tbeg, splice->vcf.rlen, &splice->kref);
-        splice->kalt.l = 0; kputsn(splice->vcf.alt + splice->tbeg, splice->vcf.rlen, &splice->kalt);
+        splice->kalt.l = 0; kputsn(splice->vcf.alt + splice->tbeg, splice->vcf.alen, &splice->kalt);
     }
     csq_stage_splice(args, splice->vcf.rec, splice->tr, splice->csq, splice->vcf.ial);
-    return SPLICE_INSIDE;
+    return ret;
+}
+static inline int splice_csq_complex(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
+{
+    splice->csq |= splice->vcf.rlen > splice->vcf.alen ? CSQ_TRUNCATION : CSQ_ELONGATION;
+    int ret = splice_csq_mnp(args, splice, ex_beg, ex_end);
+    return ret;
 }
 static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
@@ -1565,9 +1577,14 @@ static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, ui
     }
     splice->tbeg = i;
 
+    int rtrim = splice->vcf.rlen - splice->tbeg - splice->tend;
+    int atrim = splice->vcf.alen - splice->tbeg - splice->tend;
+    if ( splice->vcf.alt[0]=='<' ) rtrim = atrim = 0;
+
     // The mnp, ins and del code was split into near-identical functions for clarity and debugging;
     // possible todo: generalize once stable
     if ( splice->vcf.rlen==splice->vcf.alen ) return splice_csq_mnp(args, splice, ex_beg, ex_end);
+    if ( rtrim>1 && atrim>1 ) return splice_csq_complex(args, splice, ex_beg, ex_end);
     if ( splice->vcf.rlen < splice->vcf.alen ) return splice_csq_ins(args, splice, ex_beg, ex_end);
     if ( splice->vcf.rlen > splice->vcf.alen ) return splice_csq_del(args, splice, ex_beg, ex_end);
 
@@ -1976,11 +1993,14 @@ void tscript_splice_ref(gf_tscript_t *tr)
 int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 {
 #if XDBG
-fprintf(stderr,"csq_push: %d .. %d\n",(int)rec->pos+1,csq->type.type);
+fprintf(stderr,"csq_push: pos=%d .. type=%d  ial=%d\n",(int)rec->pos+1,csq->type.type,csq->type.vcf_ial);
 #endif
     khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
     vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
     if ( !vbuf ) error("This should not happen. %s:%d  %s\n",bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
+
+    if ( csq->type.type&CSQ_INFRAME_INSERTION && csq->type.type&CSQ_ELONGATION ) csq->type.type &= ~CSQ_INFRAME_INSERTION;
+    if ( csq->type.type&CSQ_INFRAME_DELETION && csq->type.type&CSQ_TRUNCATION ) csq->type.type &= ~CSQ_INFRAME_DELETION;
 
     int i;
     for (i=0; i<vbuf->n; i++)
@@ -3350,6 +3370,7 @@ int test_utr(args_t *args, bcf1_t *rec)
         {
             if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
+            splice.vcf.ial = i;
             splice.csq     = 0;
             int splice_ret = splice_csq(args, &splice, utr->beg, utr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;
@@ -3394,6 +3415,7 @@ int test_splice(args_t *args, bcf1_t *rec)
         {
             if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
+            splice.vcf.ial = i;
             splice.csq     = 0;
             splice_csq(args, &splice, exon->beg, exon->end);
             if ( splice.csq ) ret = 1;
@@ -3420,6 +3442,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
         {
             if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
+            splice.vcf.ial = i;
             splice.csq     = 0;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
@@ -3455,7 +3478,10 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
     // only insertions atm
     int beg = rec->pos + 1;
     int end = beg;
-    int csq_class = CSQ_ELONGATION;
+    int csq_class;
+    if ( !strncasecmp("<INS",rec->d.allele[1],4) ) csq_class = CSQ_ELONGATION;
+    else if ( !strncasecmp("<DEL",rec->d.allele[1],4) ) csq_class = CSQ_TRUNCATION;
+    else return;
 
     int hit = 0;
     if ( regidx_overlap(args->idx_cds,chr_gff,beg,end, args->itr) )
@@ -3472,6 +3498,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             csq.type.strand  = tr->strand;
             csq.type.trid    = tr->id;
             csq.type.gene    = tr->gene->name;
+            csq.type.vcf_ial = 1;
             csq_stage(args, &csq, rec);
             hit = 1;
         }
@@ -3490,6 +3517,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             csq.type.strand  = tr->strand;
             csq.type.trid    = tr->id;
             csq.type.gene    = tr->gene->name;
+            csq.type.vcf_ial = 1;
             csq_stage(args, &csq, rec);
             hit = 1;
         }
@@ -3508,6 +3536,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             splice.check_region_beg = splice.tr->beg==exon->beg ? 0 : 1;
             splice.check_region_end = splice.tr->end==exon->end ? 0 : 1;
             splice.vcf.alt = rec->d.allele[1];
+            splice.vcf.ial = 1;
             splice.csq     = csq_class;
             splice_csq(args, &splice, exon->beg, exon->end);
             if ( splice.csq ) hit = 1;
@@ -3524,6 +3553,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             memset(&csq, 0, sizeof(csq_t));
             gf_tscript_t *tr = splice.tr = regitr_payload(args->itr, gf_tscript_t*);
             splice.vcf.alt = rec->d.allele[1];
+            splice.vcf.ial = 1;
             splice.csq     = csq_class;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
@@ -3609,10 +3639,6 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     int call_csq = 1;
     if ( rec->n_allele < 2 ) call_csq = 0;   // no alternate allele
     else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='*' || rec->d.allele[1][1]=='*') ) call_csq = 0;     // gVCF, not an alt allele
-    else if ( rec->d.allele[1][0]=='<' )
-    {
-        if ( strncmp("<INS",rec->d.allele[1], 4) ) call_csq = 0;    // only <INS[:.*]> is supported at the moment
-    }
     if ( call_csq && args->filter )
     {
         call_csq = filter_test(args->filter, rec, NULL);

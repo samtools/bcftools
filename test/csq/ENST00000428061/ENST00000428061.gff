@@ -1,0 +1,10 @@
+22	ensembl_havana	gene	-433	27040	.	+	.	ID=gene:ENSG00000215193;Name=PEX26;biotype=protein_coding;description=peroxisomal biogenesis factor 26 [Source:HGNC Symbol%3BAcc:HGNC:22965];gene_id=ENSG00000215193;logic_name=ensembl_havana_gene_homo_sapiens;version=14
+22	havana	mRNA	21	9763	.	+	.	ID=transcript:ENST00000428061;Parent=gene:ENSG00000215193;Name=PEX26-203;biotype=protein_coding;ccdsid=CCDS56221.1;tag=gencode_basic,gencode_primary;transcript_id=ENST00000428061;transcript_support_level=1;version=2
+22	havana	exon	21	250	.	+	.	Parent=transcript:ENST00000428061;Name=ENSE00001539960;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00001539960;rank=1;version=1
+22	havana	CDS	21	250	.	+	0	ID=CDS:ENSP00000412441;Parent=transcript:ENST00000428061;protein_id=ENSP00000412441;version=2
+22	havana	exon	1518	1658	.	+	.	Parent=transcript:ENST00000428061;Name=ENSE00003915125;constitutive=1;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00003915125;rank=2;version=1
+22	havana	CDS	1518	1658	.	+	1	ID=CDS:ENSP00000412441;Parent=transcript:ENST00000428061;protein_id=ENSP00000412441;version=2
+22	havana	exon	5081	5376	.	+	.	Parent=transcript:ENST00000428061;Name=ENSE00003814046;constitutive=1;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00003814046;rank=3;version=1
+22	havana	CDS	5081	5376	.	+	1	ID=CDS:ENSP00000412441;Parent=transcript:ENST00000428061;protein_id=ENSP00000412441;version=2
+22	havana	CDS	9616	9719	.	+	2	ID=CDS:ENSP00000412441;Parent=transcript:ENST00000428061;protein_id=ENSP00000412441;version=2
+22	havana	exon	9616	9763	.	+	.	Parent=transcript:ENST00000428061;Name=ENSE00001918090;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001918090;rank=4;version=1

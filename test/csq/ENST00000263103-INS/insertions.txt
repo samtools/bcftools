@@ -16,6 +16,6 @@
 315771	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
 315771	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
 
-315772	G	<INS:ME:ALU>	feature_elongation|BICC1|ENST00000373886|protein_coding
-315772	G	<INS:ME:ALU>	feature_elongation|BICC1|ENST00000373886|protein_coding
+315772	G	<DEL>	feature_truncation|BICC1|ENST00000373886|protein_coding
+315772	G	<DEL>	feature_truncation|BICC1|ENST00000373886|protein_coding
 

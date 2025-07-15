@@ -1,0 +1,10 @@
+
+
+110       120       130       140         150
+01234567890123456789012345678901--2-345678901234
+e.........eeeeeeeeeee.........ee--e-eeeeeeee....
+CGTACGTACGTACGTACGTACGTACGTACGTA--C-GTACGTACGTACGTACGT
+                  CC          AACGcC
+
+
+

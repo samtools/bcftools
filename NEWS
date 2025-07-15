@@ -13,6 +13,10 @@ Changes affecting specific commands:
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
+* bcftools csq
+
+    - Add support for complex substitutions, such as AC>TAA
+
 * bcftools gtcheck
 
     - The program is now able to process gVCF blocks. Newly, monoallelic sites are excluded only
