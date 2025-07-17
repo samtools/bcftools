@@ -2328,8 +2328,8 @@ static void destroy_data(args_t *args)
     if ( args->mseq ) free(args->seq);
 }
 
-
-static void normalize_line(args_t *args, bcf1_t *line)
+// return 0 on success, -1 if line was skipped (due to ref mismatch)
+static int normalize_line(args_t *args, bcf1_t *line)
 {
     if ( args->fai )
     {
@@ -2346,7 +2346,7 @@ static void normalize_line(args_t *args, bcf1_t *line)
             if ( ret==ERR_REF_MISMATCH && args->check_ref & CHECK_REF_SKIP )
             {
                 args->nskipped++;
-                return;
+                return -1;
             }
             if ( ret==ERR_DUP_ALLELE )
             {
@@ -2388,9 +2388,10 @@ static void normalize_line(args_t *args, bcf1_t *line)
         }
         if ( !args->filter_pass || args->atomize!=SPLIT ) break;
     }
+    return 0;
 }
 
-// return 0 on success, 1 when done
+// return 0 on success, 1 when done, -1 if line skipped
 static int split_and_normalize(args_t *args)
 {
     if ( !bcf_sr_next_line(args->files) ) return 1;
@@ -2408,8 +2409,7 @@ static int split_and_normalize(args_t *args)
     if ( args->mrows_op!=MROWS_SPLIT || line->n_allele<=2 || !args->filter_pass )
     {
         // normal operation, no splitting
-        normalize_line(args, line);
-        return 0;
+        return normalize_line(args, line);
     }
 
     // any restrictions on variant types to split?
@@ -2418,8 +2418,7 @@ static int split_and_normalize(args_t *args)
         int type = args->mrows_collapse==COLLAPSE_SNPS ? VCF_SNP : VCF_INDEL;
         if ( !(bcf_get_variant_types(line) & type) )
         {
-            normalize_line(args, line);
-            return 0;
+            return normalize_line(args, line);
         }
     }
 
@@ -2428,7 +2427,11 @@ static int split_and_normalize(args_t *args)
 
     int j;
     for (j=0; j<args->ntmp_lines; j++)
-        normalize_line(args, args->tmp_lines[j]);
+    {
+        int ret = normalize_line(args, args->tmp_lines[j]);
+        if (ret)
+            return ret;
+    }
 
     return 0;
 }
@@ -2453,7 +2456,10 @@ static void normalize_vcf(args_t *args)
         int done = 0;
         while (1)
         {
-            done = split_and_normalize(args);
+            do
+            {
+                done = split_and_normalize(args);
+            } while (done < 0); // Skipped line
             if ( done ) break;      // no more lines available
             int i = args->rbuf.f;
             int j = rbuf_last(&args->rbuf);
