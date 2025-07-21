@@ -14,6 +14,11 @@ Changes affecting specific commands:
 
     - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
 
+* bcftools gtcheck
+
+    - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
+      not stripped (#2432)
+
 * bcftools merge
 
     - Fix a bug where an incorrectly formatted gVCF file with overlapping blocks would trigger
