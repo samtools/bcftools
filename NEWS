@@ -23,6 +23,9 @@ Changes affecting specific commands:
       when the site is monoallelic in both query and genotype file. The new option --keep-refs
       allows to always include monoallelic sites.
 
+    - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
+      not stripped (#2432)
+
 * bcftools norm
 
     - Make the -i/-e filtering option work for all options, such as line merging and
