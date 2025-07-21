@@ -6,6 +6,11 @@ Changes affecting specific commands:
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
+* bcftools gtcheck
+
+    - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
+      not stripped (#2432)
+
 ## Release 1.22 (30th May 2025)
 
 
