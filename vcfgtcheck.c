@@ -1324,13 +1324,13 @@ int main_vcfgtcheck(int argc, char *argv[])
                 if ( !strncasecmp("gt:",optarg,3) )
                 {
                     if ( args->gt_filter_str ) error("Error: only one -i or -e expression can be given for gt:, and they cannot be combined\n");
-                    args->gt_filter_str = optarg;
+                    args->gt_filter_str = optarg+3;
                     args->gt_filter_logic |= FLT_EXCLUDE;
                 }
                 else if ( !strncasecmp("qry:",optarg,4) )
                 {
                     if ( args->qry_filter_str ) error("Error: only one -i or -e expression can be given for qry:, and they cannot be combined\n");
-                    args->qry_filter_str = optarg;
+                    args->qry_filter_str = optarg+4;
                     args->qry_filter_logic |= FLT_EXCLUDE;
                 }
                 else
@@ -1355,13 +1355,13 @@ int main_vcfgtcheck(int argc, char *argv[])
                 if ( !strncasecmp("gt:",optarg,3) )
                 {
                     if ( args->gt_filter_str ) error("Error: only one -i or -e expression can be given for gt:, and they cannot be combined\n");
-                    args->gt_filter_str = optarg;
+                    args->gt_filter_str = optarg+3;
                     args->gt_filter_logic |= FLT_INCLUDE;
                 }
                 else if ( !strncasecmp("qry:",optarg,4) )
                 {
                     if ( args->qry_filter_str ) error("Error: only one -i or -e expression can be given for qry:, and they cannot be combined\n");
-                    args->qry_filter_str = optarg;
+                    args->qry_filter_str = optarg+4;
                     args->qry_filter_logic |= FLT_INCLUDE;
                 }
                 else

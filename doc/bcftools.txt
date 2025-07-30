@@ -2308,7 +2308,8 @@ those scenarios.
     This behavior was problematic when working with a combination of
     single- and multi-sample bams, therefore in *bcftools mpileup* the user
     is given the full control (and responsibility), and an informative message
-    is printed instead [250]
+    is printed instead. Passing zero for this option sets it to the highest possible
+    value, effectively removing the depth limit [250]
 
 *-E, --redo-BAQ*::
     Recalculate BAQ on the fly, ignore existing BQ tags
