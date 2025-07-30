@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>Plugin setGT</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -103,7 +103,8 @@
        and the new genotype can be one of:
            .       .. missing ("." or "./.", keeps ploidy)
            0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)
-           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X overrides ploidy)
+           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X, ./., .;  overrides ploidy)
+           i       .. invert the genotype phase (0|1 becomes 1|0)
            m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
            M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)
            X       .. allele with bigger read depth as determined from FMT/AD
