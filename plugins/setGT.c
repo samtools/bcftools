@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015-2024 Genome Research Ltd.
+    Copyright (C) 2015-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -109,12 +109,12 @@ const char *usage(void)
         "           .       .. missing (\".\" or \"./.\", keeps ploidy)\n"
         "           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
         "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X, ./., .;  overrides ploidy)\n"
+        "           i       .. invert the genotype phase (0|1 becomes 1|0)\n"
         "           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           X       .. allele with bigger read depth as determined from FMT/AD\n"
         "           p       .. phase genotype (0/1 becomes 0|1)\n"
         "           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
-        "           i       .. invert the genotype phase (0|1 becomes 1|0)\n"
         "Usage: bcftools +setGT [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
