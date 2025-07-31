@@ -9,6 +9,16 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - Make dynamic variables read from a tab-delimited annotation file (#2151) work
+      also for regions. For example, while the first command below was functional, the
+      second was not (#2441)
+
+        bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,SCORE,~STR   -i'TAG={STR}' -k in.vcf
+        bcftools annotate -a ann.tsv.gz -c CHROM,BEG,END,SCORE,~STR -i'TAG={STR}' -k in.vcf
+
+
 * bcftools consensus
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
