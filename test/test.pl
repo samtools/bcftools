@@ -696,6 +696,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.1.out
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.2.out',cmd=>'+fill-tags --no-version',args=>'-- -d');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-hwe',out=>'fill-tags-hwe.out',cmd=>'+fill-tags --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-hwe',out=>'fill-tags-func.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'XX:1=F_PASS(GT="alt")']);
+run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-rw',out=>'fill-tags-AN0.out',cmd=>'+fill-tags --no-version',args=>'-- -t all,END,TYPE,F_MISSING');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AN0',out=>'fill-tags-AN0.out',cmd=>'+fill-tags --no-version',args=>'-- -t all,END,TYPE,F_MISSING');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-VAF',out=>'fill-tags-VAF.out',cmd=>'+fill-tags --no-version',args=>'-- -t VAF,VAF1');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-AD',out=>'fill-tags-AD.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'INFO/DP:1=int(sum(FMT/AD))']);

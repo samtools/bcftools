@@ -27,6 +27,10 @@ Changes affecting specific commands:
 
     - Add support for complex substitutions, such as AC>TAA
 
+* bcftools +fill-tags
+
+    - Fix header formatting error for INFO/F_MISSING which must be Number=1 (#2442)
+
 * bcftools gtcheck
 
     - The program is now able to process gVCF blocks. Newly, monoallelic sites are excluded only

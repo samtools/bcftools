@@ -490,7 +490,7 @@ uint32_t parse_tags(args_t *args, const char *str)
             // include F_MISSING as part of 'all', which requires explicitly
             // initialising it as a filter expression not just setting a
             // bitfield flag.
-            flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING");
+            flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING");
             args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
@@ -508,7 +508,7 @@ uint32_t parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"VAF1") || !strcasecmp(tags[i],"FORMAT/VAF1") ) { flag |= SET_VAF1; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"END") || !strcasecmp(tags[i],"INFO/END")  ) flag |= SET_END;
         else if ( !strcasecmp(tags[i],"TYPE") || !strcasecmp(tags[i],"INFO/TYPE")  ) flag |= SET_TYPE;
-        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
