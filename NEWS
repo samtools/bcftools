@@ -6,6 +6,10 @@ Changes affecting specific commands:
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
+* bcftools +fill-tags
+
+    - Fix header formatting error for INFO/F_MISSING which must be Number=1 (#2442)
+
 * bcftools gtcheck
 
     - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
