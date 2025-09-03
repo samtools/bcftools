@@ -315,26 +315,32 @@ static int fix_ref(args_t *args, bcf1_t *line)
     // swap genotypes
     int ntmp = args->ntmp_arr1 / sizeof(int32_t); // reuse tmp_arr declared as uint8_t
     int ngts = bcf_get_genotypes(args->hdr, line, &args->tmp_arr1, &ntmp);
-    args->ntmp_arr1 = ntmp * sizeof(int32_t);
-    int32_t *gts = (int32_t*) args->tmp_arr1;
     int ni = 0;
-    for (j=0; j<ngts; j++)
+    if ( ngts>0 )
     {
-        if ( gts[j]==bcf_gt_unphased(0) ) { gts[j] = bcf_gt_unphased(i); ni++; }
-        else if ( gts[j]==bcf_gt_phased(0) ) { gts[j] = bcf_gt_phased(i); ni++; }
-        else if ( gts[j]==bcf_gt_unphased(i) ) gts[j] = bcf_gt_unphased(0);
-        else if ( gts[j]==bcf_gt_phased(i) ) gts[j] = bcf_gt_phased(0);
+        args->ntmp_arr1 = ntmp * sizeof(int32_t);
+        int32_t *gts = (int32_t*) args->tmp_arr1;
+        for (j=0; j<ngts; j++)
+        {
+            if ( gts[j]==bcf_gt_unphased(0) ) { gts[j] = bcf_gt_unphased(i); ni++; }
+            else if ( gts[j]==bcf_gt_phased(0) ) { gts[j] = bcf_gt_phased(i); ni++; }
+            else if ( gts[j]==bcf_gt_unphased(i) ) gts[j] = bcf_gt_unphased(0);
+            else if ( gts[j]==bcf_gt_phased(i) ) gts[j] = bcf_gt_phased(0);
+        }
+        bcf_update_genotypes(args->out_hdr,line,gts,ngts);
     }
-    bcf_update_genotypes(args->out_hdr,line,gts,ngts);
 
     // update AC
     int nac = bcf_get_info_int32(args->hdr, line, "AC", &args->tmp_arr1, &ntmp);
-    args->ntmp_arr1 = ntmp * sizeof(int32_t);
-    if ( i <= nac )
+    if ( nac>0 )
     {
-        int32_t *ac = (int32_t*)args->tmp_arr1;
-        ac[i-1] = ni;
-        bcf_update_info_int32(args->out_hdr, line, "AC", ac, nac);
+        args->ntmp_arr1 = ntmp * sizeof(int32_t);
+        if ( i <= nac )
+        {
+            int32_t *ac = (int32_t*)args->tmp_arr1;
+            ac[i-1] = ni;
+            bcf_update_info_int32(args->out_hdr, line, "AC", ac, nac);
+        }
     }
     return 1;
 }
