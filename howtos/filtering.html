@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>Filtering</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -109,35 +109,45 @@ we use the <code>-e 'FILTER="."'</code> expression to exclude sites where FILTER
 <div class="content">
 <pre>$ bcftools query -i'QUAL&gt;20 &amp;&amp; DP&gt;10' -f'%CHROM %POS %QUAL %DP\n' file.bcf | head -2
 1 14930 31.2757 13
-1 17538 37.9458 12
-
-todo:
-vcf=/lustre/scratch116/vr/projects/hipsci/cnv/exome-validation/mpileup/ffdm#ffdm_3.bcf
-$bt query $vcf -i'QUAL="."' -f' %CHROM %POS %QUAL\n' | head -2
-Comparing string to numeric value: QUAL="."</pre>
+1 17538 37.9458 12</pre>
 </div>
 </div>
 <div class="paragraph">
 <div class="title"><strong>FORMAT columns</strong></div>
 <p>When filtering FORMAT tags, the OR logic is applied with multiple
 samples. For example, if we want to remove sites with an uncalled
-genotype in any sample, the expression <code>-i 'GT!="."'</code> is not going to work:</p>
+genotype in any sample, the expression <code>-i 'GT!="mis"'</code> is not going to work:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>$ bcftools query -i'GT!="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
-1 30923  ./. 1/1
-1 54490  ./. 1/1</pre>
+<pre>$ bcftools view -i'GT!="mis"' file.vcf | bcftools query -f'%CHROM %POS [ %GT]\n' | head -2
+1 3000150  ./. ./. 0/1 1/1
+1 3000151  ./. ./. 0|0 0|0</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Instead, the reverse logic <code>-e 'GT ="."'</code> must be applied:</p>
+<p>Instead, the reverse logic <code>-e 'GT="mis"'</code> must be applied:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>$ bcftools query -e'GT ="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
-1 69511  1/1 1/1
-1 71850  0/0 0/1</pre>
+<pre>$ bcftools view -e'GT="mis"' file.vcf | bcftools query -f'%CHROM %POS [ %GT]\n' | head -2
+1 3062915  0/1 0/1 0/1 0/1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note we used <code>bcftools view .. | bcftools query &#8230;&#8203;</code> to filter first by site, then format the output.
+Using the same filtering expression directly with the <code>query</code> command would not work, because
+<code>query</code> excludes samples that do not satisfy the filtering expression</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -i'GT!="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+1 3000150  0/1 1/1
+1 3000151  0|0 0|0
+
+$ bcftools query -e'GT="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+1 3000150  0/1 1/1
+1 3000151  0|0 0|0</pre>
 </div>
 </div>
 <div class="paragraph">

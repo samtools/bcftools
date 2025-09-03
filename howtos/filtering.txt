@@ -24,28 +24,34 @@ In this example, we use the `-i 'QUAL>20 && DP>10'` expression to include only s
 $ bcftools query -i'QUAL>20 && DP>10' -f'%CHROM %POS %QUAL %DP\n' file.bcf | head -2
 1 14930 31.2757 13
 1 17538 37.9458 12
-
-todo:
-vcf=/lustre/scratch116/vr/projects/hipsci/cnv/exome-validation/mpileup/ffdm#ffdm_3.bcf
-$bt query $vcf -i'QUAL="."' -f' %CHROM %POS %QUAL\n' | head -2
-Comparing string to numeric value: QUAL="."
 ----
 
 
 .**FORMAT columns**
 When filtering FORMAT tags, the OR logic is applied with multiple
 samples. For example, if we want to remove sites with an uncalled
-genotype in any sample, the expression `-i 'GT!="."'` is not going to work:
+genotype in any sample, the expression `-i 'GT!="mis"'` is not going to work:
 ----
-$ bcftools query -i'GT!="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
-1 30923  ./. 1/1
-1 54490  ./. 1/1
+$ bcftools view -i'GT!="mis"' file.vcf | bcftools query -f'%CHROM %POS [ %GT]\n' | head -2
+1 3000150  ./. ./. 0/1 1/1
+1 3000151  ./. ./. 0|0 0|0
 ----
-Instead, the reverse logic `-e 'GT ="."'` must be applied:
+Instead, the reverse logic `-e 'GT="mis"'` must be applied:
 ----
-$ bcftools query -e'GT ="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
-1 69511  1/1 1/1
-1 71850  0/0 0/1
+$ bcftools view -e'GT="mis"' file.vcf | bcftools query -f'%CHROM %POS [ %GT]\n' | head -2
+1 3062915  0/1 0/1 0/1 0/1
+----
+Note we used `bcftools view .. | bcftools query ...` to filter first by site, then format the output.
+Using the same filtering expression directly with the `query` command would not work, because
+`query` excludes samples that do not satisfy the filtering expression
+----
+$ bcftools query -i'GT!="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+1 3000150  0/1 1/1
+1 3000151  0|0 0|0
+
+$ bcftools query -e'GT="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+1 3000150  0/1 1/1
+1 3000151  0|0 0|0
 ----
 
 
@@ -68,7 +74,7 @@ $ bcftools query -i'FMT/DP>10 && FMT/GQ>20' -f'%POS[\t%SAMPLE:DP=%DP GQ=%GQ]\n' 
 
 Similarly, the `|` operator can select just the matching samples:
 ----
-$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 | FMT/DP="."' test/view.filter.vcf 
+$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 | FMT/DP="."' test/view.filter.vcf
 3162006 A 19
 
 3162007 A .
@@ -76,7 +82,7 @@ $ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 | FMT/DP="."' test/view
 ----
 or the whole record when `||` is used:
 ----
-$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 || FMT/DP="."' test/view.filter.vcf 
+$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 || FMT/DP="."' test/view.filter.vcf
 3162006 A 19
 3162006 B 1
 
