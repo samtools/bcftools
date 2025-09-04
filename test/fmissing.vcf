@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1,length=2>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled Genotype Quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	AAA1	AAA2	BBB1	BBB2	BBB3	BBB4	BBB5	BBB6	BBB7	BBB8
+chr1	1	.	C	T	30	PASS	DP=2470	GT:PL:DP:AD:GQ	./.:0,18,181:6:6,0:21	0/0:0,30,255:10:10,0:33	./.:70,0,141:9:6,3:66	0/1:244,0,180:18:8,10:127	./.:0,18,152:6:6,0:21	0/0:0,48,255:16:16,0:127	0/0:0,30,255:11:10,0:127	./.:0,24,233:8:8,0:127	0/0:0,57,255:19:19,0:127	0/0:0,84,255:28:28,0:127
+chr1	2	.	G	A	30	PASS	DP=2450	GT:PL:DP:AD:GQ	./.:184,21,0:7:0,7:25	1/1:255,33,0:11:0,11:37	0/1:169,0,69:10:3,7:64	0/1:206,0,244:18:9,9:127	./.:166,18,0:6:0,6:22	0/0:0,45,255:15:15,0:127	0/0:0,36,255:12:12,0:127	./.:0,27,235:9:9,0:127	0/0:0,57,255:19:19,0:127	0/0:0,24,255:28:27,1:127
