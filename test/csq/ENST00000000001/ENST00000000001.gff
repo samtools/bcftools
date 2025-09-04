@@ -1,0 +1,4 @@
+##gff-version 3
+example	custom	gene	1	10	.	+	.	ID=gene00000000001;biotype=protein_coding
+example	custom	transcript	1	10	.	+	.	ID=transcript00000000001;Parent=gene00000000001;biotype=protein_coding
+example	custom	CDS	1	10	.	+	0	Parent=transcript00000000001
