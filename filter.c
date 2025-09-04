@@ -1366,6 +1366,9 @@ static void filters_set_alt_string(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
 {
+    if ( !tok->nsamples ) error("The function %s works with FORMAT fields\n", tok->tag);
+    assert(tok->usmpl);
+
     bcf_unpack(line, BCF_UN_FMT);
     if ( !line->n_sample )
     {
@@ -1384,11 +1387,13 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
         return;
     }
 
-    int j,nmissing = 0;
+    int j,nsmpl = 0, nmissing = 0;
     #define BRANCH(type_t, convert, is_vector_end) { \
         for (i=0; i<line->n_sample; i++) \
         { \
+            if ( !tok->usmpl[i] ) continue; \
             uint8_t *ptr = fmt->p + i*fmt->size; \
+            nsmpl++; \
             for (j=0; j<fmt->n; j++) \
             { \
                 type_t val = convert(&ptr[j * sizeof(type_t)]); \
@@ -1405,7 +1410,7 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
     }
     #undef BRANCH
     tok->nvalues = 1;
-    tok->values[0] = tok->tag[0]=='N' ? nmissing : (double)nmissing / line->n_sample;
+    tok->values[0] = tok->tag[0]=='N' ? nmissing : (nsmpl ? (double)nmissing / nsmpl : 0);
 }
 static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
@@ -1414,16 +1419,17 @@ static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     if ( !tok->nsamples ) error("The function %s works with FORMAT fields\n", rtok->tag);
     assert(tok->usmpl);
 
-    int i, npass = 0;
+    int i, nsmpl = 0, npass = 0;
     for (i=0; i<tok->nsamples; i++)
     {
         if ( !tok->usmpl[i] ) continue;
+        nsmpl++;
         if ( tok->pass_samples[i] ) npass++;
     }
     hts_expand(double,1,rtok->mvalues,rtok->values);
     rtok->nsamples = 0;
     rtok->nvalues = 1;
-    rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
+    rtok->values[0] = rtok->tag[0]=='N' ? npass : (nsmpl ? 1.0*npass/nsmpl : 0);
 
     return 1;
 }
@@ -3144,6 +3150,14 @@ static int filters_init1_ext(filter_t *filter, char *str, int len, token_t *tok)
     filter->ext[filter->n_ext-1] = tok->ht_type;
     return 0;
 }
+static void init_usmpl(filter_t *flt, token_t *tok)
+{
+    if ( tok->nsamples ) return;
+    int i;
+    tok->nsamples = bcf_hdr_nsamples(flt->hdr);
+    tok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    for (i=0; i<tok->nsamples; i++) tok->usmpl[i] = 1;
+}
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
 {
     tok->vl_len   = BCF_VL_FIXED;
@@ -3295,6 +3309,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("N_MISSING");
             tok->ht_type = BCF_HT_INT;
+            init_usmpl(filter,tok);
             return 0;
         }
         else if ( !strncasecmp(str,"F_MISSING",len) )
@@ -3303,6 +3318,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("F_MISSING");
             tok->ht_type = BCF_HT_REAL;
+            init_usmpl(filter,tok);
             return 0;
         }
     }
@@ -3335,13 +3351,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         if ( tok->idx==-3 && bcf_hdr_id2length(filter->hdr,BCF_HL_FMT,tok->hdr_id)!=BCF_VL_R )
             error("Error: GT subscripts can be used only with Number=R tags\n");
     }
-    else if ( is_fmt && !tok->nsamples )
-    {
-        int i;
-        tok->nsamples = bcf_hdr_nsamples(filter->hdr);
-        tok->usmpl = (uint8_t*) malloc(tok->nsamples);
-        for (i=0; i<tok->nsamples; i++) tok->usmpl[i] = 1;
-    }
+    else if ( is_fmt ) init_usmpl(filter,tok);
 
     tok->hl_type = is_fmt ? BCF_HL_FMT : BCF_HL_INFO;
     if ( tok->hdr_id >= 0 ) tok->vl_len = bcf_hdr_id2length(filter->hdr,tok->hl_type,tok->hdr_id);

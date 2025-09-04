@@ -682,6 +682,9 @@ run_test(\&test_vcf_plugin,$opts,in=>'tag2tag.LPL.1',out=>'tag2tag.LPL.1.3.vcf',
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'query.add-variantkey.vcf',cmd=>'+add-variantkey',args=>'');
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'variantkey-hex.out',cmd=>'+variantkey-hex',args=>'test/');
 run_test(\&test_vcf_plugin,$opts,in=>'query.nucleotide',out=>'query.allele-length.tsv',cmd=>'+allele-length',args=>'');
+run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'F_MISSING' | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'F_MISSING:1=F_PASS(GT="mis")' | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'N_MISSING:1=int(N_PASS(GT="mis"))' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/DP4))']);
 run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/ADF[0,2],INFO/ADR[0,2]))']);
 run_test(\&test_vcf_plugin,$opts,in=>'fisher',out=>'fisher.3.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FT:1=phred(fisher(INFO/ADF,INFO/ADR))']);

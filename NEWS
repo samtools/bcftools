@@ -31,6 +31,8 @@ Changes affecting specific commands:
 
     - Fix header formatting error for INFO/F_MISSING which must be Number=1 (#2442)
 
+    - Make `-t 'F_MISSING'` work with `-S groups.txt` (#2447)
+
 * bcftools gtcheck
 
     - The program is now able to process gVCF blocks. Newly, monoallelic sites are excluded only

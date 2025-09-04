@@ -532,7 +532,7 @@ void list_tags(void)
         "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
         "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
         "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
-        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)\n"
+        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes, synonymous with 'F_MISSING=F_PASS(GT=\"mis\")'\n"
         "INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
         "INFO/MAF       Number:1  Type:Float    ..  Frequency of the second most common allele\n"
         "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"
