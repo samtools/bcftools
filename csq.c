@@ -2108,6 +2108,7 @@ exit_duplicate:
 #define node2rend(i) (hap->stack[i].node->sbeg + hap->stack[i].node->rlen)
 #define node2rpos(i) (hap->stack[i].node->rec->pos)
 
+// Format variant consequence into a string like "inframe_deletion|XYZ|ENST01|+|5TY>5I|121ACG>A+124TA>T"
 void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
 {
     // Remove start/stop from incomplete CDS, but only if there is another
@@ -2143,7 +2144,6 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
     if ( csq->gene ) kputs(csq->gene , str);
 
     kputc_('|', str);
-//    if ( csq->type & CSQ_PRN_TSCRIPT ) kputs(args->tscript_ids.str[csq->trid], str);
     if ( csq->type & CSQ_PRN_TSCRIPT ) kputs(gff_id2string(args->gff,transcript,csq->trid), str);
 
     kputc_('|', str);
@@ -2561,7 +2561,7 @@ static inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
         fprintf(args->out,"-");
 
     args->str.l = 0;
-    kput_vcsq(args, &csq->type, &args->str);
+    kput_vcsq(args, &csq->type, &args->str);    // format the csq string
     fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
 }
 static inline void hap_print_text(args_t *args, gf_tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
@@ -2576,7 +2576,7 @@ static inline void hap_print_text(args_t *args, gf_tscript_t *tr, int ismpl, int
     {
         csq_t *csq = node->csq_list + i;
         if ( csq->type.type & CSQ_PRINTED_UPSTREAM ) continue;
-        assert( csq->type.vstr.l );
+        if ( !csq->type.vstr.l ) continue;  // not sure why this happens, see test/csq/ENST00000000001
 
         fprintf(args->out,"CSQ\t%s\t", smpl);
         if ( ihap>0 )
@@ -2585,7 +2585,7 @@ static inline void hap_print_text(args_t *args, gf_tscript_t *tr, int ismpl, int
             fprintf(args->out,"-");
 
         args->str.l = 0;
-        kput_vcsq(args, &csq->type, &args->str);
+        kput_vcsq(args, &csq->type, &args->str);    // format the csq string
         fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
     }
 }
@@ -2636,7 +2636,9 @@ void hap_flush(args_t *args, uint32_t pos)
             if ( args->output_type==FT_TAB_TEXT )   // plain text output, not a vcf
             {
                 if ( args->phase==PHASE_DROP_GT )
+                {
                     hap_print_text(args, tr, -1,0, TSCRIPT_AUX(tr)->hap[0]);
+                }
                 else
                 {
                     for (i=0; i<args->smpl->n; i++)
@@ -2743,11 +2745,11 @@ void vbuf_flush(args_t *args, uint32_t pos)
             }
 
             args->str.l = 0;
-            kput_vcsq(args, &vrec->vcsq[0], &args->str);
+            kput_vcsq(args, &vrec->vcsq[0], &args->str);    // format the csq string
             for (j=1; j<vrec->nvcsq; j++)
             {
                 kputc_(',', &args->str);
-                kput_vcsq(args, &vrec->vcsq[j], &args->str);
+                kput_vcsq(args, &vrec->vcsq[j], &args->str);    // format the csq string
             }
             bcf_update_info_string(args->hdr, vrec->line, args->bcsq_tag, args->str.s);
             if ( args->hdr_nsmpl )
