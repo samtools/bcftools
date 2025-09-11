@@ -182,8 +182,8 @@ int parse_genotype(gt_t *gt, int32_t *ptr);
 
 inline int parse_genotype(gt_t *gt, int32_t *ptr)
 {
-    if ( ptr[0]==bcf_gt_missing ) return 0;
-    if ( ptr[1]==bcf_gt_missing ) return 0;
+    if ( bcf_gt_is_missing(ptr[0]) ) return 0;
+    if ( bcf_gt_is_missing(ptr[1]) ) return 0;
     if ( ptr[1]==bcf_int32_vector_end ) return 0;
     gt->phased = bcf_gt_is_phased(ptr[1]) ? 1 : 0;
     gt->a = bcf_gt_allele(ptr[0]); if ( gt->a > 1 ) return 0;  // consider only the first two alleles at biallelic sites
