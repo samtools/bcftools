@@ -121,7 +121,7 @@ bcf1_t *process(bcf1_t *rec)
     // replace gts
     for (i=0; i<ngts; i++)
     {
-        if ( gts[i]==bcf_gt_missing )
+        if ( bcf_gt_is_missing(gts[i]) )
         {
             gts[i] = new_gt;
             changed++;
