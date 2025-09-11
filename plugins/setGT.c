@@ -403,7 +403,7 @@ static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
     {
         if ( args->custom.gt[i]==MINOR_ALLELE ) new_allele = args->custom.m_allele;
         else if ( args->custom.gt[i]==MAJOR_ALLELE ) new_allele = args->custom.M_allele;
-        else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = args->custom.x_vaf_allele==bcf_gt_missing ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
+        else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = bcf_gt_is_missing(args->custom.x_vaf_allele) ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
         else if ( args->custom.gt[i]==MISSING_ALLELE ) new_allele = nals; // this is to trigger the `new_allele = bcf_gt_missing` branch below
         else new_allele = args->custom.gt[i];
         if ( new_allele >= nals ) // cannot set, the requested index is bigger than there are alleles in ALT

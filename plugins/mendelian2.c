@@ -566,12 +566,12 @@ static int parse_gt(int32_t *gt, int ngt, uint64_t *a, uint64_t *b)
 {
     *a = *b = 0;
 
-    if ( gt[0]==bcf_gt_missing || gt[0]==bcf_int32_vector_end ) return 0;
+    if ( bcf_gt_is_missing(gt[0]) || gt[0]==bcf_int32_vector_end ) return 0;
     *a |= 1<<bcf_gt_allele(gt[0]);
 
     if ( ngt==1 || gt[1]==bcf_int32_vector_end ) return 1;
 
-    if ( gt[1]==bcf_gt_missing ) return 0;
+    if ( bcf_gt_is_missing(gt[1]) ) return 0;
     *b |= 1<<bcf_gt_allele(gt[1]);
 
     return 2;
