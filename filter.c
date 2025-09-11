@@ -1397,7 +1397,7 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
             { \
                 type_t val = convert(&ptr[j * sizeof(type_t)]); \
                 if ( val==is_vector_end ) break; \
-                if ( val==bcf_gt_missing ) { nmissing++; break; } \
+                if ( bcf_gt_is_missing(val) ) { nmissing++; break; } \
             } \
         } \
     }
