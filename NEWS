@@ -10,9 +10,7 @@ Changes affecting specific commands:
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
-* bcftools convert
-
-    - The command `convert --gvcf2vcf` was not filling the REF allele when BCF was output (#243)
+    - Fix a bug which causes `--absent` miss some absent positions
 
 * bcftools +fill-tags
 
