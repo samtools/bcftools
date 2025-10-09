@@ -3182,9 +3182,9 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
         for (ismpl=0; ismpl<args->smpl->n; ismpl++)
         {
             int32_t *gt = args->gt_arr + args->smpl->idx[ismpl]*ngts;
-            if ( gt[0]==bcf_gt_missing ) continue;
+            if ( bcf_gt_is_missing(gt[0]) ) continue;
 
-            if ( ngts>1 && gt[1]!=bcf_gt_missing && gt[1]!=bcf_int32_vector_end && bcf_gt_allele(gt[0])!=bcf_gt_allele(gt[1]) )
+            if ( ngts>1 && !bcf_gt_is_missing(gt[1]) && gt[1]!=bcf_int32_vector_end && bcf_gt_allele(gt[0])!=bcf_gt_allele(gt[1]) )
             {
                 if ( args->phase==PHASE_MERGE )
                 {
@@ -3206,7 +3206,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 
             for (ihap=0; ihap<ngts; ihap++)
             {
-                if ( gt[ihap]==bcf_gt_missing || gt[ihap]==bcf_int32_vector_end ) continue;
+                if ( bcf_gt_is_missing(gt[ihap]) || gt[ihap]==bcf_int32_vector_end ) continue;
 
                 i = 2*ismpl + ihap;
 
@@ -3311,7 +3311,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
             int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
             for (j=0; j<ngt; j++)
             {
-                if ( gt[j]==bcf_gt_missing || gt[j]==bcf_int32_vector_end ) continue;
+                if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
                 int ial = bcf_gt_allele(gt[j]);
                 if ( !ial || ial!=csq->type.vcf_ial ) continue;
                 csq_print_text(args, csq, args->smpl->idx[i],j+1);
@@ -3326,7 +3326,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
         int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
         for (j=0; j<ngt; j++)
         {
-            if ( gt[j]==bcf_gt_missing || gt[j]==bcf_int32_vector_end ) continue;
+            if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
             int ial = bcf_gt_allele(gt[j]);
             if ( !ial || ial!=csq->type.vcf_ial ) continue;
 
