@@ -23,6 +23,8 @@ Changes affecting specific commands:
 
     - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
 
+    - Fix a bug which causes `--absent` miss some absent positions
+
 * bcftools csq
 
     - Add support for complex substitutions, such as AC>TAA
