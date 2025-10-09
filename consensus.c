@@ -430,7 +430,7 @@ static void flush_fa_buffer(args_t *args, int len)
 {
     if ( !args->fa_buf.l ) return;
     int nwr = 0;
-    while ( nwr + 60 <= args->fa_buf.l && args->fa_ori_pos + nwr + 60 < args->fa_frz_pos )
+    while ( nwr + 60 <= args->fa_buf.l && (!len || args->fa_ori_pos + nwr + 60 < args->fa_frz_pos) )
     {
         if ( fwrite(args->fa_buf.s+nwr,1,60,args->fp_out) != 60 ) error("Could not write: %s\n", args->output_fname);
         if ( fwrite("\n",1,1,args->fp_out) != 1 ) error("Could not write: %s\n", args->output_fname);
