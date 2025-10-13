@@ -622,6 +622,8 @@ static void filters_cmp_string_hash(token_t *atok, token_t *btok, token_t *rtok,
     }
     if ( rtok->tok_type!=TOK_EQ && rtok->tok_type!=TOK_NE )
         error("Only == and != operators are supported for strings read from a file\n");
+    if ( !btok->is_str )
+        error("Error: Lookup of values from a file is currenlty supported only for strings\n");
 
     // INFO
     if ( !btok->nsamples )
