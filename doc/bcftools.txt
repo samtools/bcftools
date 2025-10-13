@@ -356,14 +356,17 @@ Add or remove annotations.
 
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
-    (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
+    (see also *-a, --annotations*).
+    {nbsp} +
+    {nbsp} +
+    *If the annotation file is not a VCF/BCF*,
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-".
     {nbsp} +
     {nbsp} +
-    If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
-    order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
+    *If the annotation file is a VCF/BCF*, only the edited columns/tags must be present
+    (i.e. leave out CHROM, POS, REF, ALT) and their order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
     The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".

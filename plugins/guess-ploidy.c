@@ -167,7 +167,7 @@ void process_region_guess(args_t *args)
                 int32_t *ptr = args->arr + ismpl*ngt;
                 double *tmp = args->tmpf + ismpl*3;
 
-                if ( ptr[0]==bcf_gt_missing )
+                if ( bcf_gt_is_missing(ptr[0]) )
                 {
                     tmp[0] = -1;
                     continue;
