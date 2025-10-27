@@ -281,10 +281,6 @@ sub generate_html
     .line { fill: none; }
   </style>
 
-  <script src="https://d3js.org/d3.v6.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
-
-
   $d3js
   $pakojs
   <script type="text/javascript" defer>
@@ -779,7 +775,7 @@ sub embed_js
         {
             my $tmp = "$$opts{outfile}.rmme";
             cmd(qq[wget -O $tmp $file]);
-            my $dat = join('',`cat $tmp`);
+            $dat = join('',`cat $tmp`);
             unlink($tmp);
         }
         return $dat;
