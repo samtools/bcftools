@@ -807,6 +807,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.11.out',cmd=>'+
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.2.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d -H]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.3.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A tab -d -HH]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.12.4.out',cmd=>'+split-vep',args=>qq[-t 1:14464 -f '%POS\\t%CSQ\\n' -A @@@ -d -H]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n' -a BCSQ -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n'         -A tab -d]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep.4',out=>'split-vep.13.1.out',cmd=>'+split-vep',args=>qq[-f '%POS\\t%BCSQ\\n' -a BCSQ -A tab -d -s ::worst]);

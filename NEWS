@@ -58,6 +58,10 @@ Changes affecting specific commands:
     - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of
       samples on command line, rather than from a file of sample names (#2383)
 
+* bcftools +split-vep
+
+    - Fix the option `-A, --all-fields`, it was not working properly and could lead to a segfault (#2473)
+
 
 ## Release 1.22 (30th May 2025)
 
