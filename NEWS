@@ -28,6 +28,10 @@ Changes affecting specific commands:
     - Fix a bug where an incorrectly formatted gVCF file with overlapping blocks would trigger
       an infinite loop in the program (#2410)
 
+* bcftools +split-vep
+
+    - Fix the option `-A, --all-fields`, it was not working properly and could lead to a segfault (#2473)
+
 
 ## Release 1.21 (12th September 2024)
 
