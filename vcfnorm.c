@@ -110,10 +110,10 @@ typedef struct
     bcf_hdr_t *hdr, *out_hdr;
     cmpals_t cmpals_in, cmpals_out;
     faidx_t *fai;
-    struct { int tot, set, swap; } nref;
+    struct { uint64_t tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
-    int nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
+    uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
     abuf_opt_t atomize;
@@ -2506,10 +2506,10 @@ static void normalize_vcf(args_t *args)
     }
     if ( hts_close(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
-    fprintf(stderr,"Lines   total/split/joined/realigned/mismatch_removed/dup_removed/skipped:\t%d/%d/%d/%d/%d/%d/%d\n",
+    fprintf(stderr,"Lines   total/split/joined/realigned/mismatch_removed/dup_removed/skipped:\t%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"\n",
         args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nrmdup,args->nfilter);
     if ( args->check_ref & CHECK_REF_FIX )
-        fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
+        fprintf(stderr,"REF/ALT total/modified/added:  \t%"PRIu64"/%"PRIu64"/%"PRIu64"\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
 
 static void usage(void)
