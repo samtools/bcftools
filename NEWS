@@ -19,6 +19,11 @@ Changes affecting specific commands:
     - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
       not stripped (#2432)
 
+* bcftools +split-vep
+
+    - Fix the option `-A, --all-fields`, it was not working properly and could lead to a segfault (#2473)
+
+
 ## Release 1.22 (30th May 2025)
 
 

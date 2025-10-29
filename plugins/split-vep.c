@@ -1037,6 +1037,7 @@ static void init_data(args_t *args)
 }
 static void destroy_data(args_t *args)
 {
+    free(args->all_fields_delim);
     free(args->list_tr);
     if ( args->tr_expr.regex ) regfree(args->tr_expr.regex);
     free(args->tr_expr.regex);
@@ -1553,7 +1554,7 @@ int run(int argc, char **argv)
     {
         {"drop-sites",no_argument,0,'x'},
         {"keep-sites",no_argument,0,'X'},
-        {"all-fields",no_argument,0,'A'},
+        {"all-fields",required_argument,0,'A'},
         {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
         {"gene-list",required_argument,0,'g'},
@@ -1593,9 +1594,14 @@ int run(int argc, char **argv)
             case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
             case 'A':
-                if ( !strcasecmp(optarg,"tab") ) args->all_fields_delim = "\t";
-                else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
-                else args->all_fields_delim = optarg;
+                if ( !strcasecmp(optarg,"tab") ) args->all_fields_delim = strdup("\t");
+                else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = strdup(" ");
+                else
+                {
+                    args->all_fields_delim = calloc(strlen(optarg)+2,1);
+                    args->all_fields_delim[0] = '\\';
+                    memcpy(args->all_fields_delim+1,optarg,strlen(optarg));
+                }
                 break;
             case 'H': args->print_header++; break;
             case 'x': drop_sites = 1; break;
