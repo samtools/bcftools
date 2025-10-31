@@ -4379,15 +4379,10 @@ const double *filter_get_doubles(filter_t *filter, int *nval, int *nval1)
     {
         *nval  = tok->nvalues;
         *nval1 = tok->nval1;
+        return tok->values;
     }
-    else
-    {
-        if ( !tok->values ) error("fixme in filter_get_doubles(): %s\n", filter->str);
-        *nval  = 1;
-        *nval1 = 1;
-        tok->values[0] = filter->flt_stack[0]->pass_site;
-    }
-    return tok->values;
+    *nval = *nval1 = 0;
+    return NULL;
 }
 
 void filter_set_samples(filter_t *filter, const uint8_t *samples)

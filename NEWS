@@ -53,6 +53,11 @@ Changes affecting specific commands:
     - Make the -i/-e filtering option work for all options, such as line merging and
       duplication removal (#2415)
 
+* bcftools query
+
+    - Numerical functions, such as SUM(INFO/DP), would previously return the value 0 when
+      executed on missing values. This was incorrect, newly a missing value is printed.
+
 * bcftools reheader
 
     - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of

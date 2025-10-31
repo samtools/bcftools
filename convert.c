@@ -1183,7 +1183,7 @@ static void process_filter_expr(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
             val = filter_get_doubles(dat->filter,&nval,&nval1);
             if ( fmt->is_gt_field )
             {
-                if ( !dat->nval )
+                if ( nval && !dat->nval )
                 {
                     dat->nval = nval;
                     dat->val = malloc(nval*sizeof(double));
@@ -1204,7 +1204,8 @@ static void process_filter_expr(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
     }
     if ( isample<0 ) isample = 0;
     if ( isample>=nval ) isample = 0;
-    kputd(val[isample], str);
+    if ( nval ) kputd(val[isample], str);
+    else kputc('.', str);
 }
 static void destroy_filter_expr(void *usr)
 {
