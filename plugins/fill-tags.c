@@ -318,6 +318,9 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
     }
     else
     {
+        if ( nval1*rec->n_sample > nval )
+            error("Error: The expression returned %d value(s) total but %d value(s) per sample are required; there are %d samples\n",nval,nval1,rec->n_sample);
+
         int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval1;
         int ncopy = nval1 < nfill ? nval1 : nfill;
         if ( ftf->type==BCF_HT_REAL )
