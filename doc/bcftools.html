@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.23">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2025-06-17 12:11 BST</strong> and refers to bcftools git version <strong>1.22-8-g2d811c52+</strong>.</p>
+<p>This manual page was last updated <strong>2025-12-16</strong> and refers to bcftools git version <strong>1.23</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -495,14 +495,17 @@ See also <strong>-c, --columns</strong> and <strong>-h, --header-lines</strong>.
 <dt class="hdlist1"><strong>-c, --columns</strong> <em>list</em></dt>
 <dd>
 <p>Comma-separated list of columns or tags to carry over from the annotation file
-(see also <strong>-a, --annotations</strong>). If the annotation file is not a VCF/BCF,
+(see also <strong>-a, --annotations</strong>).
+&#160;<br>
+&#160;<br>
+<strong>If the annotation file is not a VCF/BCF</strong>,
 <em>list</em> describes the columns of the annotation file and must include CHROM,
 POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "-".
 &#160;<br>
 &#160;<br>
-If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
-order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
+<strong>If the annotation file is a VCF/BCF</strong>, only the edited columns/tags must be present
+(i.e. leave out CHROM, POS, REF, ALT) and their order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
 can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
 and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
 The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
@@ -3033,7 +3036,8 @@ in <strong>samtools mpileup</strong> the default was highly likely to be increas
 This behavior was problematic when working with a combination of
 single- and multi-sample bams, therefore in <strong>bcftools mpileup</strong> the user
 is given the full control (and responsibility), and an informative message
-is printed instead [250]</p>
+is printed instead. Passing zero for this option sets it to the highest possible
+value, effectively removing the depth limit [250]</p>
 </dd>
 <dt class="hdlist1"><strong>-E, --redo-BAQ</strong></dt>
 <dd>
@@ -3544,7 +3548,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -5497,8 +5501,8 @@ they will evaluate to a vector of per-sample values when applied on FORMAT tags:
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
-sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM</pre>
+<pre>SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM, SMPL_COUNT,
+sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM, sCOUNT</pre>
 </div>
 </div>
 </li>
@@ -5825,7 +5829,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-06-16 10:44:44 +0100
+Last updated 2025-12-16 09:18:14 UTC
 </div>
 </div>
 </body>
