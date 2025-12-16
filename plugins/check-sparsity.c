@@ -206,7 +206,7 @@ static void test_region(args_t *args, char *reg)
             int8_t *ptr = (int8_t*) (fmt_gt->p + args->smpl[i]*fmt_gt->size);
             int ial = 0;
             for (ial=0; ial<fmt_gt->n; ial++)
-                if ( ptr[ial]==bcf_gt_missing || ptr[ial]==bcf_int8_vector_end ) break;
+                if ( bcf_gt_is_missing(ptr[ial]) || ptr[ial]==bcf_int8_vector_end ) break;
             if ( ial==0 ) continue;     // missing
             if ( ++args->nsites[i] < args->min_sites ) continue;
             if ( i+1<args->nsmpl )

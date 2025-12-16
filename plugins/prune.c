@@ -62,7 +62,7 @@ typedef struct
     int ld_max_set[VCFBUF_LD_N];
     char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N], *cluster_annot;
     int ld_mask;
-    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed, clevel;
+    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed, clevel, record_cmd_line;
     int max_cluster;
     char *nsites_mode;
     int keep_sites;
@@ -93,6 +93,7 @@ static const char *usage_text(void)
         "   -a, --annotate count|LD|RD|r2   Annotate with the number of variants within the -w window (\"count\"),\n"
         "                                   or with the biggest LD, RD, or r2 value and the position of the record\n"
         "   -f, --set-filter STR            Apply soft filter STR instead of discarding the site (only with -m)\n"
+        "       --no-version                Do not append version and command line to the header\n"
         "   -m, --max count|LD|RD|r2=NUM    Remove clusters of more than NUM sites (\"count\") or sites with LD, RD, or r2 bigger than NUM\n"
         "   -n, --nsites-per-win N          Keep at most N sites in the -w window. See also -N, --nsites-per-win-mode\n"
         "   -N, --nsites-per-win-mode STR   Keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
@@ -195,6 +196,8 @@ static void init_data(args_t *args)
     }
     if ( args->cluster_annot  )
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The number of variants within %d bp of the site\">",args->cluster_annot,args->ld_win);
+    if (args->record_cmd_line)
+        bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_plugin_prune");
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( init_index2(args->out_fh,args->hdr,args->output_fname,
                      &args->index_fn, args->write_index)<0 )
@@ -334,12 +337,14 @@ int run(int argc, char **argv)
     args->nsites_mode = "maxAF";
     args->rseed = time(NULL);
     args->clevel = -1;
+    args->record_cmd_line = 1;
     static struct option loptions[] =
     {
         {"keep-sites",no_argument,NULL,'k'},
         {"randomize-missing",no_argument,NULL,1},
         {"AF-tag",required_argument,NULL,2},
         {"random-seed",required_argument,NULL,3},
+        {"no-version",no_argument,NULL,4},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"annotate",required_argument,NULL,'a'},
@@ -371,6 +376,7 @@ int run(int argc, char **argv)
                 args->rseed = strtol(optarg,&tmp,10);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --random-seed %s\n", optarg);
                 break;
+            case  4 : args->record_cmd_line = 0; break;
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);

@@ -29,7 +29,7 @@
 129	A	C	@128,splice_region|XYZ|ENST00000000001|protein_coding
 
 140	TA	AACG	inframe_insertion|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region|XYZ|ENST00000000001|protein_coding
-140	TA	AACG	inframe_insertion|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region|XYZ|ENST00000000001|protein_coding
+140	TA	AACG	feature_elongation|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region&feature_elongation|XYZ|ENST00000000001|protein_coding
 
 142	C	CC	@140,splice_region|XYZ|ENST00000000001|protein_coding
 142	C	CC	@140,splice_region|XYZ|ENST00000000001|protein_coding

@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1,length=248956422>
+##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	b
+chr1	1	.	A	C	.	.	.	GT	0/1
+chr1	2	.	A	<*>	.	.	END=5	GT	0/0
+chr1	6	.	A	.	.	.	.	GT	0/0
+chr1	7	.	A	<*>	.	.	END=10	GT	0/0

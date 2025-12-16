@@ -1,3 +1,74 @@
+## Release 1.23 (16th December 2025)
+
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The `-i/-e` filtering expressions and `-f` formatting in `query`
+
+    - Add a new function `smpl_COUNT()/sCOUNT()` which returns the number of elements (#2423)
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - Make dynamic variables read from a tab-delimited annotation file (#2151) work
+      also for regions. For example, while the first command below was functional, the
+      second was not (#2441)
+
+        bcftools annotate -a ann.tsv.gz -c CHROM,POS,-,SCORE,~STR   -i'TAG={STR}' -k in.vcf
+        bcftools annotate -a ann.tsv.gz -c CHROM,BEG,END,SCORE,~STR -i'TAG={STR}' -k in.vcf
+
+
+* bcftools consensus
+
+    - Fix a bug which prevented reading fasta files containing empty lines in their entirety (#2424)
+
+    - Fix a bug which causes `--absent` miss some absent positions
+
+* bcftools csq
+
+    - Add support for complex substitutions, such as AC>TAA
+
+* bcftools +fill-tags
+
+    - Fix header formatting error for INFO/F_MISSING which must be Number=1 (#2442)
+
+    - Make `-t 'F_MISSING'` work with `-S groups.txt` (#2447)
+
+* bcftools gtcheck
+
+    - The program is now able to process gVCF blocks. Newly, monoallelic sites are excluded only
+      when the site is monoallelic in both query and genotype file. The new option --keep-refs
+      allows to always include monoallelic sites.
+
+    - Fix an error in parsing -i/-e command line options where the `qry:` and `gt:` prefix was
+      not stripped (#2432)
+
+* bcftools mpileup
+
+    - Make `-d, --max-depth 0` set the depth to unlimited (#2435)
+
+* bcftools norm
+
+    - Make the -i/-e filtering option work for all options, such as line merging and
+      duplication removal (#2415)
+
+* bcftools query
+
+    - Numerical functions, such as SUM(INFO/DP), would previously return the value 0 when
+      executed on missing values. This was incorrect, newly a missing value is printed.
+
+* bcftools reheader
+
+    - Add options `--samples-list` and `--samples-file` to allow renaming samples from a list of
+      samples on command line, rather than from a file of sample names (#2383)
+
+* bcftools +split-vep
+
+    - Fix the option `-A, --all-fields`, it was not working properly and could lead to a segfault (#2473)
+
+
 ## Release 1.22 (30th May 2025)
 
 

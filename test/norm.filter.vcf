@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	789241	1_789241_A_C	A	C	.	.	.
+1	789241	1_789241_A_G	A	G	.	.	.
+1	789241	1_789241_A_T	A	T	.	.	.
+1	789242	1_789241_A_C	A	C	.	.	.
+1	789242	1_789241_A_G	A	G	.	.	.
+1	789242	1_789241_A_T	A	T	.	.	.

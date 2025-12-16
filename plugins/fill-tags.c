@@ -318,6 +318,9 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
     }
     else
     {
+        if ( nval1*rec->n_sample > nval )
+            error("Error: The expression returned %d value(s) total but %d value(s) per sample are required; there are %d samples\n",nval,nval1,rec->n_sample);
+
         int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval1;
         int ncopy = nval1 < nfill ? nval1 : nfill;
         if ( ftf->type==BCF_HT_REAL )
@@ -490,7 +493,7 @@ uint32_t parse_tags(args_t *args, const char *str)
             // include F_MISSING as part of 'all', which requires explicitly
             // initialising it as a filter expression not just setting a
             // bitfield flag.
-            flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING");
+            flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING");
             args->warned = ~(SET_END|SET_TYPE);
             args->unpack |= BCF_UN_FMT;
         }
@@ -508,7 +511,7 @@ uint32_t parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"VAF1") || !strcasecmp(tags[i],"FORMAT/VAF1") ) { flag |= SET_VAF1; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"END") || !strcasecmp(tags[i],"INFO/END")  ) flag |= SET_END;
         else if ( !strcasecmp(tags[i],"TYPE") || !strcasecmp(tags[i],"INFO/TYPE")  ) flag |= SET_TYPE;
-        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
@@ -532,7 +535,7 @@ void list_tags(void)
         "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
         "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
         "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
-        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)\n"
+        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes, synonymous with 'F_MISSING=F_PASS(GT=\"mis\")'\n"
         "INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
         "INFO/MAF       Number:1  Type:Float    ..  Frequency of the second most common allele\n"
         "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"

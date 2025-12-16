@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015-2024 Genome Research Ltd.
+    Copyright (C) 2015-2025 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -109,12 +109,12 @@ const char *usage(void)
         "           .       .. missing (\".\" or \"./.\", keeps ploidy)\n"
         "           0       .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
         "           c:GT    .. custom genotype (e.g. 0/0, 0, 0/1, m/M, 0/X, ./., .;  overrides ploidy)\n"
+        "           i       .. invert the genotype phase (0|1 becomes 1|0)\n"
         "           m       .. minor (the second most common) allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           M       .. major allele as determined from INFO/AC or FMT/GT (e.g. 1/1 or 1, keeps ploidy)\n"
         "           X       .. allele with bigger read depth as determined from FMT/AD\n"
         "           p       .. phase genotype (0/1 becomes 0|1)\n"
         "           u       .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
-        "           i       .. invert the genotype phase (0|1 becomes 1|0)\n"
         "Usage: bcftools +setGT [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -403,7 +403,7 @@ static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
     {
         if ( args->custom.gt[i]==MINOR_ALLELE ) new_allele = args->custom.m_allele;
         else if ( args->custom.gt[i]==MAJOR_ALLELE ) new_allele = args->custom.M_allele;
-        else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = args->custom.x_vaf_allele==bcf_gt_missing ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
+        else if ( args->custom.gt[i]==X_VAF_ALLELE ) new_allele = bcf_gt_is_missing(args->custom.x_vaf_allele) ? nals : bcf_gt_allele(args->custom.x_vaf_allele);
         else if ( args->custom.gt[i]==MISSING_ALLELE ) new_allele = nals; // this is to trigger the `new_allele = bcf_gt_missing` branch below
         else new_allele = args->custom.gt[i];
         if ( new_allele >= nals ) // cannot set, the requested index is bigger than there are alleles in ALT

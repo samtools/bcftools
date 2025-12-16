@@ -12,4 +12,4 @@
 10	315641	.	G	<INS:ME:ALU>	.	.	END=315641;type=ENST00000373886:60588520-G-<INS:ME:ALU>;EXP=splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
 10	315642	.	A	<INS:ME:ALU>	.	.	END=315642;type=ENST00000373886:60588521-A-<INS:ME:ALU>;EXP=splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
 10	315771	.	A	<INS:ME:ALU>	.	.	END=315771;type=ENST00000373886:60588651-A-<INS:ME:ALU>;EXP=coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
-10	315772	.	G	<INS:ME:ALU>	.	.	END=315772;type=ENST00000373886:60588651-G-<INS:ME:ALU>;EXP=feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315772	.	G	<DEL>	.	.	END=315775;type=ENST00000373886:60588651-G-<DEL>;EXP=feature_truncation|BICC1|ENST00000373886|protein_coding

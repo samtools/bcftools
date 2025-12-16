@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=248956422>
+##INFO=<ID=AF,Number=1,Type=Float,Description="">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	11029	.	AA	A	.	.	SVTYPE=DEL
+1	11029	.	A	AC	.	.	SVTYPE=INS
+1	11029	.	AA	CC	.	.	SVTYPE=MNP

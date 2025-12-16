@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2025-05-30
+.\"      Date: 2025-12-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2025-05-30" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2025-12-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2025\-05\-30\fP and refers to bcftools git version \fB1.22\fP.
+This manual page was last updated \fB2025\-12\-16\fP and refers to bcftools git version \fB1.23\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -690,7 +690,12 @@ See also \fB\-c, \-\-columns\fP and \fB\-h, \-\-header\-lines\fP.
 \fB\-c, \-\-columns\fP \fIlist\fP
 .RS 4
 Comma\-separated list of columns or tags to carry over from the annotation file
-(see also \fB\-a, \-\-annotations\fP). If the annotation file is not a VCF/BCF,
+(see also \fB\-a, \-\-annotations\fP).
+\~
+.br
+\~
+.br
+\fBIf the annotation file is not a VCF/BCF\fP,
 \fIlist\fP describes the columns of the annotation file and must include CHROM,
 POS (or, alternatively, FROM,TO or BEG,END), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "\-".
@@ -698,8 +703,8 @@ columns which should be ignored can be indicated by "\-".
 .br
 \~
 .br
-If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
-order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
+\fBIf the annotation file is a VCF/BCF\fP, only the edited columns/tags must be present
+(i.e. leave out CHROM, POS, REF, ALT) and their order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
 can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
 and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
 The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
@@ -2685,6 +2690,11 @@ Include sites from query file (\fIqry:\fP) or genotype file (\fIgt:\fP) for whic
 For valid expressions see \fBEXPRESSIONS\fP.
 .RE
 .sp
+\fB\-\-keep\-refs\fP
+.RS 4
+Include monoallelic sites in comparison, by default they are excluded
+.RE
+.sp
 \fB\-\-n\-matches\fP \fIINT\fP
 .RS 4
 Print only top INT matches for each sample, 0 for unlimited. Use negative value
@@ -3418,7 +3428,8 @@ in \fBsamtools mpileup\fP the default was highly likely to be increased and the
 This behavior was problematic when working with a combination of
 single\- and multi\-sample bams, therefore in \fBbcftools mpileup\fP the user
 is given the full control (and responsibility), and an informative message
-is printed instead [250]
+is printed instead. Passing zero for this option sets it to the highest possible
+value, effectively removing the depth limit [250]
 .RE
 .sp
 \fB\-E, \-\-redo\-BAQ\fP
@@ -5157,12 +5168,12 @@ the fai file will be removed
 new VCF header
 .RE
 .sp
-\fB\-o, \-\-output\fP \fIFILE\fP
+\fB\-n, \-\-samples\-list\fP \fILIST\fP
 .RS 4
-see \fBCommon Options\fP
+comma\-separated list of new sample names
 .RE
 .sp
-\fB\-s, \-\-samples\fP \fIFILE\fP
+\fB\-s, \-\-samples\fP \fIFILE\fP, \fB\-N, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
 new sample names, one name per line, in the same order as they appear
 in the VCF file. Alternatively, only samples which need to be renamed
@@ -5170,6 +5181,11 @@ can be listed as "old_name new_name\(rsn" pairs separated by whitespaces,
 each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\(rs a\(rs good\(rs sample\(rs name".
+.RE
+.sp
+\fB\-o, \-\-output\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-temp\-prefix\fP \fIPATH\fP
@@ -6435,8 +6451,8 @@ they will evaluate to a vector of per\-sample values when applied on FORMAT tags
 .if n .RS 4
 .nf
 .fam C
-SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
-sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
+SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM, SMPL_COUNT,
+sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM, sCOUNT
 .fam
 .fi
 .if n .RE
