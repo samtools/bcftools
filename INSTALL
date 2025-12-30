@@ -10,6 +10,7 @@ The latest source code can be downloaded from github and compiled using:
      #   autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters
     make
 
+For detailed documentation, visit the BCFtools online manual at https://samtools.github.io/bcftools/.
 
     IMPORTANT:
     ---
@@ -267,4 +268,3 @@ mingw-w64-x86_64-xz mingw-w64-x86_64-curl mingw-w64-x86_64-autotools
 mingw-w64-x86_64-tools-git
 
 (The last is only needed for building libraries compatible with MSVC.)
-
