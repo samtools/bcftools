@@ -341,7 +341,7 @@ static void expand_csq_expression(args_t *args, kstring_t *str)
     char *ptr = strstr(args->format_str,str->s);
     if ( !ptr ) return;
     char *end = ptr + str->l, tmp = *end;
-    if ( isalnum(tmp) || tmp=='_' || tmp=='.' ) return;
+    if ( isalnum_c(tmp) || tmp=='_' || tmp=='.' ) return;
     *end = 0;
 
     str->l = 0;
@@ -396,11 +396,11 @@ static void init_column2type(args_t *args)
         tmp.l = 0;
         kputc('^',&tmp);
         char *ptr = type[i];
-        while ( *ptr && !isspace(*ptr) ) ptr++;
+        while ( *ptr && !isspace_c(*ptr) ) ptr++;
         if ( !*ptr ) error("Error: failed to parse the column type \"%s\"\n",type[i]);
         kputsn(type[i],ptr-type[i],&tmp);
         kputc('$',&tmp);
-        while ( *ptr && isspace(*ptr) ) ptr++;
+        while ( *ptr && isspace_c(*ptr) ) ptr++;
         if ( !*ptr ) error("Error: failed to parse the column type \"%s\"\n",type[i]);
         args->ncolumn2type++;
         args->column2type = (col2type_t*) realloc(args->column2type,sizeof(*args->column2type)*args->ncolumn2type);
@@ -463,7 +463,7 @@ static int query_has_field(char *fmt, char *field, kstring_t *str)
         ptr = strstr(ptr,str->s);
         if ( !ptr ) return 0;
         end = ptr[str->l];
-        if ( isalnum(end) || end=='_' || end=='.' )
+        if ( isalnum_c(end) || end=='_' || end=='.' )
         {
             ptr++;
             continue;
@@ -948,13 +948,13 @@ static void init_data(args_t *args)
     {
         if ( *ep=='#' )
         {
-            while ( *ep && *ep!='\n' ) { *ep = tolower(*ep); ep++; }
+            while ( *ep && *ep!='\n' ) { *ep = tolower_c(*ep); ep++; }
             if ( !*ep ) break;
             ep++;
             continue;
         }
         char *bp = ep;
-        while ( *ep && !isspace(*ep) ) { *ep = tolower(*ep); ep++; }
+        while ( *ep && !isspace_c(*ep) ) { *ep = tolower_c(*ep); ep++; }
         char tmp = *ep;
         *ep = 0;
         args->nscale++;
@@ -965,7 +965,7 @@ static void init_data(args_t *args)
         if ( !tmp ) break;
         if ( tmp=='\n' ) severity++;
         ep++;
-        while ( *ep && isspace(*ep) ) ep++;
+        while ( *ep && isspace_c(*ep) ) ep++;
     }
 
     // Transcript and consequence selection
@@ -1098,7 +1098,7 @@ static void csq_to_severity(args_t *args, char *csq, int *min_severity, int *max
     while ( *ep )
     {
         char *bp = ep;
-        while ( *ep && *ep!='&' ) { *ep = tolower(*ep); ep++; }
+        while ( *ep && *ep!='&' ) { *ep = tolower_c(*ep); ep++; }
         char tmp = *ep;
         *ep = 0;
 

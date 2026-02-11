@@ -171,14 +171,14 @@ void parse_samples(args_t *args, char *fname)
         // NA12400 GRP1
         // NA18507 GRP1,GRP2
         char *pop_names = str.s + str.l - 1;
-        while ( pop_names >= str.s && isspace(*pop_names) ) pop_names--;
+        while ( pop_names >= str.s && isspace_c(*pop_names) ) pop_names--;
         if ( pop_names <= str.s ) error("Could not parse the file: %s\n", str.s);
         pop_names[1] = 0;   // trailing spaces
-        while ( pop_names >= str.s && !isspace(*pop_names) ) pop_names--;
+        while ( pop_names >= str.s && !isspace_c(*pop_names) ) pop_names--;
         if ( pop_names <= str.s ) error("Could not parse the file: %s\n", str.s);
 
         char *smpl = pop_names++;
-        while ( smpl >= str.s && isspace(*smpl) ) smpl--;
+        while ( smpl >= str.s && isspace_c(*smpl) ) smpl--;
         if ( smpl <= str.s+1 ) error("Could not parse the file: %s\n", str.s);
         smpl[1] = 0;
         smpl = str.s;
