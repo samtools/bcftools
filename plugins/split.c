@@ -203,7 +203,7 @@ void init_subsets(args_t *args)
             while ( *ptr )
             {
                 if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-                if ( isspace(*ptr) && !escaped ) break;
+                if ( isspace_c(*ptr) && !escaped ) break;
                 if ( *ptr==',' ) set->nsmpl++;      // todo: allow commas in sample names
                 kputc(*ptr, &str);
                 escaped = 0;
@@ -228,16 +228,16 @@ void init_subsets(args_t *args)
             }
             if ( !j ) continue;
 
-            while ( *ptr && isspace(*ptr) ) ptr++;
+            while ( *ptr && isspace_c(*ptr) ) ptr++;
             j = 0;
             if ( *ptr )     // optional second column with new sample names
             {
                 set->rename = (char**) calloc(set->nsmpl, sizeof(*set->rename));
                 beg = ptr;
-                while ( *beg && !isspace(*beg) )
+                while ( *beg && !isspace_c(*beg) )
                 {
                     ptr = beg;
-                    while ( *ptr && *ptr!=',' && !isspace(*ptr) ) ptr++;
+                    while ( *ptr && *ptr!=',' && !isspace_c(*ptr) ) ptr++;
                     char tmp = *ptr;
                     *ptr = 0;
                     if ( !strcmp("-",beg) )
@@ -248,7 +248,7 @@ void init_subsets(args_t *args)
                     }
                     set->rename[j++] = strdup(beg);
                     *ptr = tmp;
-                    if ( !tmp || isspace(tmp) ) break;
+                    if ( !tmp || isspace_c(tmp) ) break;
                     beg = ptr + 1;
                     if ( j >= set->nsmpl )
                         error("Expected the same number of samples in the first and second column: %s\n",files[i]);
@@ -262,7 +262,7 @@ void init_subsets(args_t *args)
                 }
             }
 
-            while ( *ptr && isspace(*ptr) ) ptr++;
+            while ( *ptr && isspace_c(*ptr) ) ptr++;
             if ( *ptr )     // optional third column with file name
             {
                 free(set->fname);
@@ -293,7 +293,7 @@ void init_subsets(args_t *args)
             while ( *ptr )
             {
                 if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-                if ( isspace(*ptr) && !escaped ) break;
+                if ( isspace_c(*ptr) && !escaped ) break;
                 escaped = 0;
                 ptr++;
             }
@@ -311,18 +311,18 @@ void init_subsets(args_t *args)
             if ( tmp )      // two columns: new sample name
             {
                 rename = ptr + 1;
-                while ( *rename && isspace(*rename) ) rename++;
+                while ( *rename && isspace_c(*rename) ) rename++;
                 if ( !*rename ) rename = NULL;  // trailing space
                 else
                 {
                     ptr = rename;
-                    while ( *ptr && !isspace(*ptr) ) ptr++;
+                    while ( *ptr && !isspace_c(*ptr) ) ptr++;
                     tmp = *ptr;
                     *ptr = 0;
                     if ( !strcmp("-",rename) ) rename = NULL;
                     if ( tmp ) ptr++;
                 }
-                while ( *ptr && isspace(*ptr) ) ptr++;
+                while ( *ptr && isspace_c(*ptr) ) ptr++;
             }
 
             if ( !*ptr )    // no third column, use sample name as file name

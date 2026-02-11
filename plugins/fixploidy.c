@@ -87,11 +87,11 @@ void set_samples(char *fname, bcf_hdr_t *hdr, ploidy_t *ploidy, int *sample2sex)
     while ( hts_getline(fp, KS_SEP_LINE, &tmp) > 0 )
     {
         char *ss = tmp.s;
-        while ( *ss && isspace(*ss) ) ss++;
+        while ( *ss && isspace_c(*ss) ) ss++;
         if ( !*ss ) error("Could not parse: %s\n", tmp.s);
         if ( *ss=='#' ) continue;
         char *se = ss;
-        while ( *se && !isspace(*se) ) se++;
+        while ( *se && !isspace_c(*se) ) se++;
         char x = *se; *se = 0;
 
         int ismpl = bcf_hdr_id2int(hdr, BCF_DT_SAMPLE, ss);
@@ -99,10 +99,10 @@ void set_samples(char *fname, bcf_hdr_t *hdr, ploidy_t *ploidy, int *sample2sex)
 
         *se = x;
         ss = se+1;
-        while ( *ss && isspace(*ss) ) ss++;
+        while ( *ss && isspace_c(*ss) ) ss++;
         if ( !*ss )  error("Could not parse: %s\n", tmp.s);
         se = ss;
-        while ( *se && !isspace(*se) ) se++;
+        while ( *se && !isspace_c(*se) ) se++;
         if ( se==ss ) error("Could not parse: %s\n", tmp.s);
 
         sample2sex[ismpl] = ploidy_add_sex(ploidy, ss);

@@ -2844,7 +2844,7 @@ static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
     int i = 0;
     while ( ref[i] && vcf[i] )
     {
-        if ( ref[i]!=vcf[i] && toupper(ref[i])!=toupper(vcf[i]) )
+        if ( ref[i]!=vcf[i] && toupper_c(ref[i])!=toupper_c(vcf[i]) )
         {
             if ( !args->force )
                 error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",

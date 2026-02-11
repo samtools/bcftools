@@ -492,7 +492,7 @@ static int mplp_add_bam(mpileup_t *mplp, char *bam, int is_file)
                 char *tmp = names[i];
                 while ( *tmp )
                 {
-                    if ( !isprint(*tmp) ) break;
+                    if ( !isprint((unsigned char) *tmp) ) break;
                     tmp++;
                 }
                 if ( !*tmp )
