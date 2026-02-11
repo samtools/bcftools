@@ -278,7 +278,7 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
 
 static inline int nt2int(char nt)
 {
-    nt = toupper(nt);
+    nt = toupper_c(nt);
     if ( nt=='A' ) return 0;
     if ( nt=='C' ) return 1;
     if ( nt=='G' ) return 2;

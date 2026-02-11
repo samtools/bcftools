@@ -130,7 +130,7 @@ static void init_groups(args_t *args)
     char *rmme_str = strdup(args->group_by), *beg = rmme_str;
     while ( *beg )
     {
-        while ( *beg && isspace(*beg) ) beg++;
+        while ( *beg && isspace_c(*beg) ) beg++;
         if ( !beg ) break;
         char *end = beg;
         while ( *end && *end!=':' ) end++;
@@ -155,8 +155,8 @@ static void init_groups(args_t *args)
         if ( !strcmp(flt,"PASS") ) grp->flt_id = -1;
 
         // remove trailing spaces
-        beg = grp->expr + strlen(grp->expr); while ( beg >= grp->expr && isspace(*beg) ) { *beg = 0; beg--; }
-        beg = grp->expr; while ( *beg && isspace(*beg) ) beg++;
+        beg = grp->expr + strlen(grp->expr); while ( beg >= grp->expr && isspace_c(*beg) ) { *beg = 0; beg--; }
+        beg = grp->expr; while ( *beg && isspace_c(*beg) ) beg++;
 
         grp->flt = strcmp("-",beg) ? filter_init(args->hdr_in, grp->expr) : NULL;
 

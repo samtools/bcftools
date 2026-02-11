@@ -37,6 +37,9 @@
 #include <time.h>
 #include "regidx.h"
 
+// Avoid having to include all of bcftools.h
+static inline int isspace_c(char c) { return isspace((unsigned char) c); }
+
 static int verbose = 0;
 
 void HTS_FORMAT(HTS_PRINTF_FMT, 1, 2)
@@ -75,18 +78,18 @@ int custom_parse(const char *line, char **chr_beg, char **chr_end, uint32_t *beg
 
     // Skip the fields that were parsed above
     char *ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     for (i=0; i<3; i++)
     {
-        while ( *ss && !isspace(*ss) ) ss++;
+        while ( *ss && !isspace_c(*ss) ) ss++;
         if ( !*ss ) return -2;  // wrong number of fields
-        while ( *ss && isspace(*ss) ) ss++;
+        while ( *ss && isspace_c(*ss) ) ss++;
     }
     if ( !*ss ) return -2;
 
     // Parse the payload
     char *se = ss;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     char **dat = (char**) payload;
     *dat = (char*) malloc(se-ss+1);
     memcpy(*dat,ss,se-ss+1);

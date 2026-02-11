@@ -117,12 +117,12 @@ void mkdir_p(const char *fmt, ...) HTS_FORMAT(HTS_PRINTF_FMT, 1, 2);
 int regidx_parse_reg_name(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
 {
     char *ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     if ( !*ss ) return -1;      // skip blank lines
     if ( *ss=='#' ) return -1;  // skip comments
 
     char *se = ss;
-    while ( *se && *se!=':' && !isspace(*se) ) se++;
+    while ( *se && *se!=':' && !isspace_c(*se) ) se++;
 
     *chr_beg = ss;
     *chr_end = se-1;
@@ -140,9 +140,9 @@ int regidx_parse_reg_name(const char *line, char **chr_beg, char **chr_end, uint
         if ( *beg==0 ) { fprintf(stderr,"Could not parse reg line, expected 1-based coordinate: %s\n", line); return -2; }
         (*beg)--;
 
-        if ( !se[0] || isspace(se[0])) {
+        if ( !se[0] || isspace_c(se[0])) {
             *end = *beg;
-        } else if ( se[0] == '-' && (!se[1] || isspace(se[1])) ) {
+        } else if ( se[0] == '-' && (!se[1] || isspace_c(se[1])) ) {
            *end = MAX_COOR_0;
            se++;
         } else {
@@ -155,7 +155,7 @@ int regidx_parse_reg_name(const char *line, char **chr_beg, char **chr_end, uint
     }
 
     ss = se;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     if ( !ss[0] ) ss = (char *)line;
 
     int *idx = (int *)payload;
@@ -180,7 +180,7 @@ static void open_set(subset_t *set, args_t *args)
     int k, l = args->str.l;
     if (args->prefix) kputs(args->prefix, &args->str);
     kputs(set->fname, &args->str);
-    for (k=l; k<args->str.l; k++) if ( isspace(args->str.s[k]) ) args->str.s[k] = '_';
+    for (k=l; k<args->str.l; k++) if ( isspace_c(args->str.s[k]) ) args->str.s[k] = '_';
     if ( args->output_type & FT_BCF ) kputs(".bcf", &args->str);
     else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &args->str);
     else kputs(".vcf", &args->str);
