@@ -133,7 +133,7 @@ static inline int replace_iupac_codes(char *seq, int nseq)
     int i, n = 0;
     for (i=0; i<nseq; i++)
     {
-        char c = toupper(seq[i]);
+        char c = toupper_c(seq[i]);
         if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) { seq[i] = 'N'; n++; }
     }
     return n;
@@ -143,7 +143,7 @@ static inline int has_non_acgtn(char *seq, int nseq)
     char *end = seq + nseq;
     while ( *seq && seq<end )
     {
-        char c = toupper(*seq);
+        char c = toupper_c(*seq);
         if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) return 1;
         seq++;
     }
@@ -401,7 +401,7 @@ static hts_pos_t realign_left(args_t *args, bcf1_t *line)
         int min_len = als[0].l;
         for (i=1; i<line->n_allele; i++)
         {
-            if ( toupper(als[0].s[ als[0].l-1 ]) != toupper(als[i].s[ als[i].l-1 ]) ) break;
+            if ( toupper_c(als[0].s[ als[0].l-1 ]) != toupper_c(als[i].s[ als[i].l-1 ]) ) break;
             if ( als[i].l < min_len ) min_len = als[i].l;
         }
         if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
@@ -442,7 +442,7 @@ static hts_pos_t realign_left(args_t *args, bcf1_t *line)
         int min_len = als[0].l - ntrim_left;
         for (i=1; i<line->n_allele; i++)
         {
-            if ( toupper(als[0].s[ntrim_left]) != toupper(als[i].s[ntrim_left]) ) break;
+            if ( toupper_c(als[0].s[ntrim_left]) != toupper_c(als[i].s[ntrim_left]) ) break;
             if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
         }
         if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed
@@ -476,7 +476,7 @@ static hts_pos_t realign_right(args_t *args, bcf1_t *line)
         for (i=1; i<line->n_allele; i++)
         {
             if ( als[0].l!=als[i].l ) has_indel = 1;
-            if ( toupper(als[0].s[ntrim_left]) != toupper(als[i].s[ntrim_left]) ) break;
+            if ( toupper_c(als[0].s[ntrim_left]) != toupper_c(als[i].s[ntrim_left]) ) break;
             if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
         }
         if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed further
@@ -511,7 +511,7 @@ static hts_pos_t realign_right(args_t *args, bcf1_t *line)
         int min_len = als[0].l;
         for (i=1; i<line->n_allele; i++)
         {
-            if ( toupper(als[0].s[ als[0].l-1 ]) != toupper(als[i].s[ als[i].l-1 ]) ) break;
+            if ( toupper_c(als[0].s[ als[0].l-1 ]) != toupper_c(als[i].s[ als[i].l-1 ]) ) break;
             if ( min_len > als[i].l ) min_len = als[i].l;
         }
         if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed more
