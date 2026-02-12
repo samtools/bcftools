@@ -1458,6 +1458,7 @@ int main_vcfgtcheck(int argc, char *argv[])
             if ( args->dry_run ) break;
         }
     }
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     if ( !args->dry_run )
     {
         report(args);
