@@ -3447,6 +3447,7 @@ void merge_vcf(args_t *args)
         clean_buffer(args);
         // debug_state(args);
     }
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     free(rid_tab);
     if ( args->do_gvcf )
         gvcf_flush(args,1);
