@@ -262,6 +262,7 @@ void isec_vcf(args_t *args)
             }
         }
     }
+    if ( files->errnum ) error("Error: %s\n", bcf_sr_strerror(files->errnum));
     if ( str.s ) free(str.s);
     if ( out_fh )
     {

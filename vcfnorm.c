@@ -2495,6 +2495,7 @@ static void normalize_vcf(args_t *args)
         if ( j>0 ) flush_buffer(args, args->out, j);
     }
     flush_buffer(args, args->out, args->rbuf.n);
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     if ( args->write_index )
     {
         if ( bcf_idx_save(args->out)<0 )
