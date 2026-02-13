@@ -411,6 +411,7 @@ static bcf1_t **next_vcf_line(args_t *args)
         }
         return &args->files->readers[0].buffer[0];
     }
+    if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     return NULL;
 }
 static void unread_vcf_line(args_t *args, bcf1_t **rec_ptr)

@@ -3918,6 +3918,7 @@ int main_csq(int argc, char *argv[])
     {
         process(args, &args->sr->readers[0].buffer[0]);
     }
+    if ( args->sr->errnum ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     process(args,NULL);
 
     destroy_data(args);
