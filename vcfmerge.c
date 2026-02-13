@@ -793,12 +793,12 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
         for (i=0; i<na; i++)
         {
             int len = strlen(a[i]);
-            for (j=0; j<len; j++) a[i][j] = toupper(a[i][j]);
+            for (j=0; j<len; j++) a[i][j] = toupper_c(a[i][j]);
         }
         for (i=0; i<*nb; i++)
         {
             int len = strlen(b[i]);
-            for (j=0; j<len; j++) b[i][j] = toupper(b[i][j]);
+            for (j=0; j<len; j++) b[i][j] = toupper_c(b[i][j]);
         }
     }
 
