@@ -292,7 +292,7 @@ regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib
 consensus.o: consensus.c $(htslib_vcf_h) $(htslib_kstring_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) regidx.h $(bcftools_h) rbuf.h $(filter_h) $(smpl_ilist_h)
 mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_hts_os_h) regidx.h $(bcftools_h) $(bam2bcf_h) $(bam_sample_h) $(gvcf_h)
 mpileup2/mpileup.o: mpileup2/mpileup.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_faidx_h) regidx.h $(mpileup2_mpileup_h) $(bam_sample_h)
-bam2bcf.o: bam2bcf.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(bam2bcf_h) mw.h
+bam2bcf.o: bam2bcf.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(bam2bcf_h) mw.h $(bcftools_h)
 bam2bcf_indel.o: bam2bcf_indel.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(htslib_ksort_h) $(str_finder_h)
 bam2bcf_iaux.o: bam2bcf_iaux.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bcftools_h) $(bam2bcf_h) $(htslib_ksort_h) $(read_consensus_h) $(cigar_state_h)
 bam2bcf_edlib.o: bam2bcf_edlib.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(str_finder_h) $(htslib_ksort_h) edlib.h

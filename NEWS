@@ -1,8 +1,27 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools +af-dist
+
+    - New `-s, --samples` to print per-sample HWE probability, geometric mean
+
+* bcftools mpileup
+
+    - Remove unused experimental INFO/MIN_PL_SUM annotation
+
+    - Add new FORMAT/QM annotation, to be used with the new `bcftools +trio-dnm3 --use-ALM` model.
+
+* bcftools +trio-dnm3
+
+    - Add a new TrioDNM model and make it the new default. To prevent confusion, the
+      old +trio-dnm2 plugin was removed and replaced with +trio-dnm3. The original
+      +trio-dnm3 model can be run as
+
+        bcftools +trio-dnm3 --use-ALM
+
+
 ## Release 1.23 (16th December 2025)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 

@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##reference=file:///ref.fa
+##contig=<ID=chr3>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Phred-score allele quality sum used by `call -mG` and `+trio-dnm`">
+##FORMAT=<ID=QM,Number=R,Type=Integer,Description="Phred-score allele quality mean used by `+trio-dnm`">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected trio-dnm result">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	child	dad	mom
+chr3	48419708	.	C	G,T	.	.	EXP=tp-mosaic	PL:AD:QS:QM	174,0,255,255,255,255:56,11,1:2735,476,25:28,38,25	0,241,255,241,255,255:80,0,0:3175,0,0:29,0,0	0,211,255,211,255,255:70,0,0:2887,0,0:29,0,0

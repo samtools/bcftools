@@ -74,6 +74,21 @@ int parse_overlap_option(const char *arg);
 int cmp_bcf_pos(const void *aptr, const void *bptr);
 int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr);
 
+static inline double qual2err(int qual)
+{
+    static int init = 0;
+    static double tbl[255];
+    if ( !init )
+    {
+        int i;
+        for (i=0; i<255; i++) tbl[i] = pow(10.0, -0.1*i);
+        init = 1;
+    }
+    if ( qual < 0 ) qual = 0;
+    if ( qual >= 255 ) qual = 254;
+    return tbl[qual];
+}
+
 static inline int iupac2bitmask(char iupac)
 {
     const int A = 1;
