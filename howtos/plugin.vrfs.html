@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.23">
+<title>Plugin vrfs</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+<li>
+<p><a href="publications.html">Publications</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="annotate.html">Adding annotation</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="scaling.html">Performance and Scaling</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_plugin_vrfs">Plugin vrfs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This plugin can be used to assess site noisiness from a large number of unaffected parental samples.
+It generates the variant read frequency score (VRFS) which quantifies
+recurrence of the alternate allele across unrelated samples, enabling
+identification of loci that most likely reflect sequencing artefacts
+or, if truly recurrent, are unlikely to be clinically relevant.</p>
+</div>
+<div class="paragraph">
+<p>For more information and math notes see PAPER.</p>
+</div>
+<div class="paragraph">
+<p>The list of plugin-specific options can be obtained by running
+<code>bcftools +vrfs</code>, which will print the following usage page:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Usage: bcftools +vrfs [OPTIONS]
+
+Required options:
+   -a, --alns FILE               List of BAM/CRAM files
+   -f, --fasta-ref FILE          Reference file in fasta format
+   -s, --sites FILE              A tab-delimited file name of sites to assess (chr,pos,ref,alt)
+
+Model options:
+   -d, --min-depth INT           Minimum depth of calls to include in the profile [10]
+   -n, --nbins INT               Number of VAF bins [20]
+   -r, --recalc TYPE             Recalculate scores based on provided variances [hc]
+                                   data .. as observed in the data
+                                   file .. read profile from a file, one value per line (-r file:/path/to/file.txt)
+                                   hc   .. hard-coded profile
+
+Other options:
+   -b, --batch I/N               Run I-th batch out of N, 1-based
+   -i, --use-index               Use index to jump the alignments, rather than stream (faster with few sites)
+   -m, --merge-batches FILE      Merge files produced with -b, --batch, FILE is a list of batch files
+   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files
+   -o, --output FILE             Output file name [stdout]
+   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]
+   -v, --verbosity INT           Verbosity level, eg can print the elapsed and estimated total running time
+
+Example:
+   # Typical run
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores.txt
+
+   # Run in batches. Let's say one batch can have at most 3 bams and there are 5 bams in total
+   #   1) find out the number of required batches with `--batch k=3` (the program outputs: 2)
+   #   2) run all batches individually with `--batch 1/2` and `--batch 2/2`
+   #   3) create a list of outputs and merge with `--merge-batches list.txt`
+   bcftools +vrfs -a bams.txt --batch k=3     # prints 2
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores1.txt --batch 1/2
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores2.txt --batch 2/2
+   bcftools +vrfs --merge-batches list.txt</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by 
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

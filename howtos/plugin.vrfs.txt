@@ -1,0 +1,60 @@
+include::header.inc[]
+
+
+Plugin vrfs
+-----------
+
+This plugin can be used to assess site noisiness from a large number of unaffected parental samples.
+It generates the variant read frequency score (VRFS) which quantifies
+recurrence of the alternate allele across unrelated samples, enabling
+identification of loci that most likely reflect sequencing artefacts
+or, if truly recurrent, are unlikely to be clinically relevant.
+
+For more information and math notes see PAPER.
+
+
+The list of plugin-specific options can be obtained by running
+`bcftools +vrfs`, which will print the following usage page:
+----
+Usage: bcftools +vrfs [OPTIONS]
+
+Required options:
+   -a, --alns FILE               List of BAM/CRAM files
+   -f, --fasta-ref FILE          Reference file in fasta format
+   -s, --sites FILE              A tab-delimited file name of sites to assess (chr,pos,ref,alt)
+
+Model options:
+   -d, --min-depth INT           Minimum depth of calls to include in the profile [10]
+   -n, --nbins INT               Number of VAF bins [20]
+   -r, --recalc TYPE             Recalculate scores based on provided variances [hc]
+                                   data .. as observed in the data
+                                   file .. read profile from a file, one value per line (-r file:/path/to/file.txt)
+                                   hc   .. hard-coded profile
+
+Other options:
+   -b, --batch I/N               Run I-th batch out of N, 1-based
+   -i, --use-index               Use index to jump the alignments, rather than stream (faster with few sites)
+   -m, --merge-batches FILE      Merge files produced with -b, --batch, FILE is a list of batch files
+   -M, --merge-files FILE ...    Same as -m, FILE is one or more batch files
+   -o, --output FILE             Output file name [stdout]
+   -O, --output-type t|z[0-9]    t/z: un/compressed text file, 0-9: compression level [t]
+   -v, --verbosity INT           Verbosity level, eg can print the elapsed and estimated total running time
+
+Example:
+   # Typical run
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores.txt
+
+   # Run in batches. Let's say one batch can have at most 3 bams and there are 5 bams in total
+   #   1) find out the number of required batches with `--batch k=3` (the program outputs: 2)
+   #   2) run all batches individually with `--batch 1/2` and `--batch 2/2`
+   #   3) create a list of outputs and merge with `--merge-batches list.txt`
+   bcftools +vrfs -a bams.txt --batch k=3     # prints 2
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores1.txt --batch 1/2
+   bcftools +vrfs -f ref.fa -a bams.txt -s sites.txt -o scores2.txt --batch 2/2
+   bcftools +vrfs --merge-batches list.txt
+----
+
+
+include::footer.inc[]
+
+

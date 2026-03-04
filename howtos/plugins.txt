@@ -20,11 +20,11 @@ Please read link:plugin.api.html[here].
 ad-bias:: Finds positions with ALT allele frequency significantly different
     between two samples. Performs a Fisher test on the FORMAT/AD annotation.
 
-add-variantkey:: add VariantKey INFO fields VKX and RSX
+add-variantkey:: Add VariantKey INFO fields VKX and RSX
 
 link:plugin.af-dist.html[af-dist]:: Collects AF deviation stats and GT probability distribution given AF and assuming HWE
 
-allele-length:: count the frequency of the length of REF, ALT and REF+ALT
+allele-length:: Count the frequency of the length of REF, ALT and REF+ALT
 
 check-ploidy:: Checks if ploidy of samples is consistent for all sites.
 
@@ -60,7 +60,7 @@ GTsubset:: Outputs sites where the requested samples all exclusively share a gen
 
 guess-ploidy:: Determines sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT) in the non-PAR region of chrX.
 
-gvcfz:: compress gVCF file by resizing non-variant blocks according to specified criteria
+gvcfz:: Compress gVCF file by resizing non-variant blocks according to specified criteria
 
 impute-info:: Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.
 
@@ -70,31 +70,31 @@ isecGT:: Compares two files and set non-identical genotypes in the first file to
 
 link:plugin.mendelian.html[mendelian2]:: Count Mendelian consistent / inconsistent genotypes
 
-missing2ref:: sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.
+missing2ref:: Sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.
 
-parental-origin:: determine parental origin of a CNV region
+parental-origin:: Determine parental origin of a CNV region
 
 prune:: Prune sites by missingness, allele frequency or linkage disequilibrium. Alternatively, annotate sites with r2, Lewontin's D' (PMID:19433632), Ragsdale's D (PMID:31697386).
 
 link:plugin.setGT.html[setGT]:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
 
-smpl-stats:: calculates basic per-sample stats. The usage and format is similar to ``indel-stats`` and ``trio-stats``.
+smpl-stats:: Calculates basic per-sample stats. The usage and format is similar to ``indel-stats`` and ``trio-stats``.
 
-split:: split VCF by sample, creating single-sample VCFs
+split:: Split VCF by sample, creating single-sample VCFs
 
-link:plugin.split-vep.html[split-vep]:: extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These can be added as a new INFO field to the VCF or in a custom text format
+link:plugin.split-vep.html[split-vep]:: Extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These can be added as a new INFO field to the VCF or in a custom text format
 
 link:plugin.tag2tag.html[tag2tag]:: Converts between similar tags, such as GL,PL,GP or QR,QA,QS or localized alleles, eg LPL,LAD.
 
-link:plugin.trio-dnm2.html[trio-dnm2]:: screen variants for possible de-novo mutations in trios
+link:plugin.trio-dnm3.html[trio-dnm3]:: Screen variants for possible de-novo mutations in trios
 
 trio-stats:: Calculate transmission rate in trio children. The usage and format is similar to ``indel-stats`` and ``smpl-stats``.
 
 trio-switch-rate:: Calculates phase switch rate in trio children.
 
-variantkey-hex:: generate unsorted VariantKey-RSid index files in hexadecimal format
+variantkey-hex:: Generate unsorted VariantKey-RSid index files in hexadecimal format
 
-vrfs:: Assess site noisiness (variant read frequency score) from a large number of reference samples
+link:plugin.vrfs.html[vrfs]:: Assess site noisiness (variant read frequency score) from a large number of reference samples
 
 include::footer.inc[]
 

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
-<title>Plugin trio-dnm2</title>
+<meta name="generator" content="Asciidoctor 2.0.23">
+<title>Plugin trio-dnm3</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -81,7 +81,7 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugin_trio_dnm2">Plugin trio-dnm2</h2>
+<h2 id="_plugin_trio_dnm3">Plugin trio-dnm3</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>This plugin can be used to screen variants for possible de-novo mutations in trios (i.e. in samples with parental data available).</p>
@@ -103,7 +103,7 @@
 </ul>
 </div>
 <div class="paragraph">
-<p>There are three calling models are available:</p>
+<p>There are several calling models are available:</p>
 </div>
 <div class="dlist">
 <dl>
@@ -117,49 +117,65 @@ This model is activated as</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +trio-dnm2 -P samples.ped --use-NAIVE</pre>
+<pre>bcftools +trio-dnm3 -P samples.ped --use-NAIVE</pre>
 </div>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">DeNovoGear model</dt>
+<dt class="hdlist1">DNG, DeNovoGear model</dt>
 <dd>
-<p>The original DeNovoGear model with fixed bugs (<code>--with-pPL</code>) or with bugs left as is (<code>--use-DNG</code>)
+<p>The original DeNovoGear model (<code>--use-DNG</code>) or with some problems fixed (<code>--use-ALM --with-pPL</code>)
 This model is activated as</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +trio-dnm2 -P samples.ped --with-pPL
-bcftools +trio-dnm2 -P samples.ped --use-DNG</pre>
+<pre>bcftools +trio-dnm3 -P samples.ped --use-DNG
+bcftools +trio-dnm3 -P samples.ped --use-ALM --with-pPL</pre>
 </div>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">Trio-DNM model</dt>
+<dt class="hdlist1">ALM, allele-likelihood model</dt>
 <dd>
-<p>A new calling model which results in a cleaner callset at the cost of decreased sensitivity to parental mosaics.
-This model is executed by default</p>
+<p>A newer calling model that produces a cleaner call set and addresses the main
+limitation of DNG, namely its insensitivity to parental emission of the <em>de novo</em> allele.
+This model is activated as</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +trio-dnm2 -P samples.ped</pre>
+<pre>bcftools +trio-dnm3 -P samples.ped --use-ALM</pre>
 </div>
 </div>
-<div class="paragraph">
-<p>For more information and math notes see <a href="http://samtools.github.io/bcftools/trio-dnm.pdf" class="bare">http://samtools.github.io/bcftools/trio-dnm.pdf</a></p>
-</div>
-<div class="paragraph">
-<p>The list of plugin-specific options can be obtained by running
-<code>bcftools +trio-dnm2</code>, which will print the following usage page:</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">DMM, Dirichlet-multinomial model</dt>
+<dd>
+<p>The newest calling model that addresses the main limitation of ALM - its
+overconfidence at low parental depth - which can lead to misclassification of inherited variants as <em>de
+novo</em> due to binomial sampling.
+This model is the default and can be explicitly activated as</p>
+</dd>
+</dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>About: Screen variants for possible de-novo mutations in trios
-Usage: bcftools +trio-dnm2 [OPTIONS]
+<pre>bcftools +trio-dnm3 -P samples.ped --use-DMM</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For more information and math notes see PAPER.</p>
+</div>
+<div class="paragraph">
+<p>The list of plugin-specific options can be obtained by running
+<code>bcftools +trio-dnm3</code>, which will print the following usage page:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Usage: bcftools +trio-dnm3 [OPTIONS]
 Common options:
    -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)
    -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)
@@ -172,9 +188,11 @@ Common options:
    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
        --no-version                Do not append version and command line to the header
+   -v, --verbosity INT             Verbosity level
+   -W, --write-index[=FMT]         Automatically index the output files [off]
 
 General options:
-   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM
+   -m, --min-score NUM             Do not add FMT/DNM annotation if the log score is smaller than NUM
    -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
    -P, --ped FILE                  PED file with the columns: &lt;ignored&gt;,proband,father,mother,sex(1:male,2:female)
    -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]
@@ -189,32 +207,57 @@ General options:
        --va TAG                    Output tag name for the variant allele [VA]
        --vaf TAG                   Output tag name for variant allele fraction [VAF]
 
+Models:
+       --use-NAIVE                 v0, Naive calling model which uses only FMT/GT to determine DNMs
+       --use-DNG                   v1, Original DeNovoGear model, implies --dng-priors
+       --use-ALM                   v2, Basic allele-likelihood model (the default until v1.24)
+       --use-DMM                   v3, Dirichlet-multinomial model with site noise awareness (the default since v1.24)
+
 Model options:
        --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)
        --mrate NUM                 Mutation rate [1e-8]
-       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]
-       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]
-       --use-DNG                   The original DeNovoGear model, implies --dng-priors
-       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs
+   -n, --strictly-novel            When Mendelian inheritance is violiated, score highly only novel alleles (e.g. in LoH regions)
        --with-pAD                  Do not use FMT/QS but parental FMT/AD
-       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)
+
+Model options specific to --use-ALM:
+   --ad, --allele-dropout NUM      Mixture weight for missed inherited alleles due to low read depth [0]
+         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring, by default off for ALM [0]
+   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]
+         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]
+         --pns FRAC[,NUM][:TYPE]   Maximum allowed parental noise, fraction or number of reads; TYPE is snv, indel, or both;
+         --pn  FRAC[,NUM][:TYPE]       --pn is the same as --pns applied for alleles observed in both parents, defaults:
+                                       --pns 0.045,0:snv --pn 0.011,0:snv --pns 0:indel --pn 0:indel
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]
+         --with-pPL                Do not use FMT/QS but parental FMT/PL (inflates FDR)
+
+Model options specific to --use-DMM:
+         --max-QM NUM              Maximum QM value (phred); negative value to ignore FORMAT/QM annotation [30]
+         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring [0.2]
+   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]
+         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]
+         --pns FRAC[,NUM][:TYPE]   See above [--pns 0.045,0:snv --pns 0:indel]
+         --pn  FRAC[,NUM][:TYPE]   See above [--pn 0.011,0:snv --pn 0:indel]
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [1e-2]
+
+Model options specific to --use-DNG:
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]
 
 Example:
    # Annotate VCF with FORMAT/DNM, run for a single trio
-   bcftools +trio-dnm2 -p proband,father,mother file.bcf
+   bcftools +trio-dnm3 -p proband,father,mother file.bcf
 
    # Same as above, but read the trio(s) from a PED file
-   bcftools +trio-dnm2 -P file.ped file.bcf
+   bcftools +trio-dnm3 -P file.ped file.bcf
 
    # Same as above plus extract a list of significant DNMs using the bcftools/query command
-   bcftools +trio-dnm2 -P file.ped file.bcf -Ou | bcftools query -i'DNM&gt;10' -f'[%CHROM:%POS %SAMPLE %DNM\n]'
+   bcftools +trio-dnm3 -P file.ped file.bcf -Ou | bcftools query -i'DNM&gt;10' -f'[%CHROM:%POS %SAMPLE %DNM\n]'
 
    # A complete example with a variant calling step. Note that this is one long
    # command and should be on a single line. Also note that a filtering step is
    # recommended, e.g. by depth and VAF (not shown here):
-   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |
+   bcftools mpileup -a AD,QM,SP -f ref.fa -Ou proband.bam father.bam mother.bam |
        bcftools call -mv -Ou |
-       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz</pre>
+       bcftools +trio-dnm3 -p proband,father,mother -Oz -o output.vcf.gz</pre>
 </div>
 </div>
 <div class="sect2">

@@ -1,0 +1,143 @@
+include::header.inc[]
+
+
+Plugin trio-dnm3
+----------------
+
+This plugin can be used to screen variants for possible de-novo mutations in trios (i.e. in samples with parental data available).
+
+The program adds the following annotations:
+
+* FORMAT/DNM: posterior probability of the variant being DNM (see `--dnm-tag` option)
+* FORMAT/VA: the variant allele given as a 0-based index to REF,ALT alleles (see `--va` option)
+* FORMAT/VAF: the fraction of reads supporting the de novo allele (see `--vaf` option)
+
+There are several calling models are available:
+
+Naive model::  This simply looks at sample genotypes (FORMAT/GT) and identifies sites that violate
+Mendelian inheritance, taking into account sex inheritance patterns on sex chromosomes and in pseudo-autosomal regions.
+This model is activated as
+----
+bcftools +trio-dnm3 -P samples.ped --use-NAIVE
+----
+
+
+DNG, DeNovoGear model:: The original DeNovoGear model (`--use-DNG`) or with some problems fixed (`--use-ALM --with-pPL`)
+This model is activated as
+----
+bcftools +trio-dnm3 -P samples.ped --use-DNG
+bcftools +trio-dnm3 -P samples.ped --use-ALM --with-pPL
+----
+
+
+ALM, allele-likelihood model:: A newer calling model that produces a cleaner call set and addresses the main
+limitation of DNG, namely its insensitivity to parental emission of the _de novo_ allele.
+This model is activated as
+----
+bcftools +trio-dnm3 -P samples.ped --use-ALM
+----
+
+
+DMM, Dirichlet-multinomial model:: The newest calling model that addresses the main limitation of ALM - its
+overconfidence at low parental depth - which can lead to misclassification of inherited variants as _de
+novo_ due to binomial sampling.
+This model is the default and can be explicitly activated as
+----
+bcftools +trio-dnm3 -P samples.ped --use-DMM
+----
+
+For more information and math notes see PAPER.
+
+
+The list of plugin-specific options can be obtained by running
+`bcftools +trio-dnm3`, which will print the following usage page:
+----
+Usage: bcftools +trio-dnm3 [OPTIONS]
+Common options:
+   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)
+   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)
+   -o, --output FILE               Output file name [stdout]
+   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]
+   -r, --regions REG               Restrict to comma-separated list of regions
+   -R, --regions-file FILE         Restrict to regions listed in a file
+       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]
+   -t, --targets REG               Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
+       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
+       --no-version                Do not append version and command line to the header
+   -v, --verbosity INT             Verbosity level
+   -W, --write-index[=FMT]         Automatically index the output files [off]
+
+General options:
+   -m, --min-score NUM             Do not add FMT/DNM annotation if the log score is smaller than NUM
+   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
+   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)
+   -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]
+                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043
+                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381
+       --dnm-tag TAG[:type]        Output tag with DNM quality score and its type [DNM:log]
+                                       log   .. log-scaled quality (-inf,0; float)
+                                       flag  .. is a DNM, implies --use-NAIVE (1; int)
+                                       phred .. phred quality (0-255; int)
+                                       prob  .. probability (0-1; float)
+       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!
+       --va TAG                    Output tag name for the variant allele [VA]
+       --vaf TAG                   Output tag name for variant allele fraction [VAF]
+
+Models:
+       --use-NAIVE                 v0, Naive calling model which uses only FMT/GT to determine DNMs
+       --use-DNG                   v1, Original DeNovoGear model, implies --dng-priors
+       --use-ALM                   v2, Basic allele-likelihood model (the default until v1.24)
+       --use-DMM                   v3, Dirichlet-multinomial model with site noise awareness (the default since v1.24)
+
+Model options:
+       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)
+       --mrate NUM                 Mutation rate [1e-8]
+   -n, --strictly-novel            When Mendelian inheritance is violiated, score highly only novel alleles (e.g. in LoH regions)
+       --with-pAD                  Do not use FMT/QS but parental FMT/AD
+
+Model options specific to --use-ALM:
+   --ad, --allele-dropout NUM      Mixture weight for missed inherited alleles due to low read depth [0]
+         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring, by default off for ALM [0]
+   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]
+         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]
+         --pns FRAC[,NUM][:TYPE]   Maximum allowed parental noise, fraction or number of reads; TYPE is snv, indel, or both;
+         --pn  FRAC[,NUM][:TYPE]       --pn is the same as --pns applied for alleles observed in both parents, defaults:
+                                       --pns 0.045,0:snv --pn 0.011,0:snv --pns 0:indel --pn 0:indel
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]
+         --with-pPL                Do not use FMT/QS but parental FMT/PL (inflates FDR)
+
+Model options specific to --use-DMM:
+         --max-QM NUM              Maximum QM value (phred); negative value to ignore FORMAT/QM annotation [30]
+         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring [0.2]
+   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]
+         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]
+         --pns FRAC[,NUM][:TYPE]   See above [--pns 0.045,0:snv --pns 0:indel]
+         --pn  FRAC[,NUM][:TYPE]   See above [--pn 0.011,0:snv --pn 0:indel]
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [1e-2]
+
+Model options specific to --use-DNG:
+   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]
+
+Example:
+   # Annotate VCF with FORMAT/DNM, run for a single trio
+   bcftools +trio-dnm3 -p proband,father,mother file.bcf
+
+   # Same as above, but read the trio(s) from a PED file
+   bcftools +trio-dnm3 -P file.ped file.bcf
+
+   # Same as above plus extract a list of significant DNMs using the bcftools/query command
+   bcftools +trio-dnm3 -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\n]'
+
+   # A complete example with a variant calling step. Note that this is one long
+   # command and should be on a single line. Also note that a filtering step is
+   # recommended, e.g. by depth and VAF (not shown here):
+   bcftools mpileup -a AD,QM,SP -f ref.fa -Ou proband.bam father.bam mother.bam |
+       bcftools call -mv -Ou |
+       bcftools +trio-dnm3 -p proband,father,mother -Oz -o output.vcf.gz
+----
+
+
+include::footer.inc[]
+
+
