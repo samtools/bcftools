@@ -3031,7 +3031,7 @@ By default, appropriate system directories are searched for installed plugins.
     Convert between similar tags, such as GL,PL,GP or QR,QA,QS or tags with localized alleles e.g. LPL,LAD.
     See <http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html> for more.
 
-*trio-dnm2*::
+*trio-dnm3*::
     screen variants for possible de-novo mutations in trios
 
 *trio-stats*::
@@ -3049,6 +3049,9 @@ By default, appropriate system directories are searched for installed plugins.
 
 *vcf2table*::
     print the variants as a set of tables
+
+*vrfs*::
+    assess site noisiness (variant read frequency score) from a large number of reference samples
 
 ==== Examples:
 
