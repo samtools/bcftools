@@ -2373,6 +2373,6 @@ sub test_vcf_merge_big
 sub test_trio_dnm3
 {
     my ($opts,%args) = @_;
-    test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; export PATH=$$opts{bin}:\$PATH; $$opts{path}/trio-dnm3/test.sh],out=>'trio-dnm3.1.out');
+    test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{path}/trio-dnm3/test.sh $$opts{bin}/bcftools],out=>'trio-dnm3.1.out');
 }
 
