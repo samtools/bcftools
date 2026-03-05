@@ -968,8 +968,6 @@ static double ldirichlet_multinom_dbl(int ncnt, double *cnt, const double *prob,
     return ll;
 }
 
-static inline double sigmoid(double x, double x0, double k) { return 1.0 / (1.0 + exp(-k*(x - x0))); }
-
 // Small fractions of parental alternate reads should not be always taken as an evidence for a heterozygous genotype,
 // sometimes they can be better explained as low-level contamination/mismapped reads.
 static double ldirichlet_multinom_with_spurious(args_t *args, int ndp, int *dp, double *err, int als, int strict)
@@ -1020,37 +1018,6 @@ static double ldirichlet_multinom_with_spurious(args_t *args, int ndp, int *dp, 
     if ( kmax > cnt[2] ) kmax = cnt[2];
     cnt[2] -= kmax;
     return ldirichlet_multinom_dbl(3,cnt,prob,phi);
-}
-static inline void set_prob_gt(args_t *args, int nprob, double *prob, int als, double *err)
-{
-    double eps = 1e-12;     // to avoid singularities in dirichlet calculation
-    double sum = 0;
-    int i;
-    for (i=0; i<nprob; i++)
-    {
-        int in_als = (als >> i) & 1;
-
-        prob[i] = in_als ? (1 - err[i]) : err[i];
-
-        if ( prob[i] < eps ) prob[i] = eps;
-        else if ( prob[i] > 1 - eps ) prob[i] = 1 - eps;
-
-        sum += prob[i];
-    }
-    if ( sum>0 )
-        for (i=0; i<nprob; i++) prob[i] /= sum;
-}
-
-// log Beta(a,b) via lgamma
-static inline double lbeta(double a, double b)
-{
-    return kf_lgamma(a) + kf_lgamma(b) - kf_lgamma(a + b);
-}
-
-// log(n choose k) via lgamma, stable for integer n,k
-static inline double lchoose(int n, int k)
-{
-    return kf_lgamma((double)n + 1.0) - kf_lgamma((double)k + 1.0) - kf_lgamma((double)(n - k) + 1.0);
 }
 
 // Given a known per-read error rate, how surprising is it to see >=k unexpected reads?
