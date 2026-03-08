@@ -154,7 +154,7 @@ sub process_data
 	my ($opts) = @_;
 
     print STDERR "Parsing $$opts{outdir}/roh.txt\n";
-    open(my $in, '-|', 'zless', $$opts{roh_file}) or error("zless $$opts{roh_file}: $!");
+    open(my $in, '-|', 'gunzip', '-cfq', $$opts{roh_file}) or error("gunzip $$opts{roh_file}: $!");
     while (my $line=<$in>)
     {
         chomp($line);
@@ -175,7 +175,7 @@ sub process_data
             push @{$$opts{roh}{$chr}{$smpl}},"$beg,$end,$nsnp,$qual";
         }
     }
-    close($in) or error("close failed: zless $$opts{roh_file} (status=$?, error=$!)");
+    close($in) or error("close failed: gunzip $$opts{roh_file} (status=$?, error=$!)");
 
     my $bin_size = $$opts{bin_size};
     my %chr_len = ();
