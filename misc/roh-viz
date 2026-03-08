@@ -175,7 +175,7 @@ sub process_data
             push @{$$opts{roh}{$chr}{$smpl}},"$beg,$end,$nsnp,$qual";
         }
     }
-    close($in) or error("close failed: zless $$opts{in_file}");
+    close($in) or error("close failed: zless $$opts{roh_file} (status=$?, error=$!)");
 
     my $bin_size = $$opts{bin_size};
     my %chr_len = ();
