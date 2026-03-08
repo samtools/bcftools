@@ -154,7 +154,7 @@ sub process_data
 	my ($opts) = @_;
 
     print STDERR "Parsing $$opts{outdir}/roh.txt\n";
-    open(my $in,"zless $$opts{roh_file} |") or error("zless $$opts{roh_file}: $!");
+    open(my $in, '-|', 'zless', $$opts{roh_file}) or error("zless $$opts{roh_file}: $!");
     while (my $line=<$in>)
     {
         chomp($line);
