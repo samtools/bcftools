@@ -109,7 +109,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.23
+PACKAGE_VERSION = 1.23.1
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -231,7 +231,7 @@ bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h) $(htslib_synced_bcf
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 variantkey_h = variantkey.h hex.h
 convert_h = convert.h $(htslib_vcf_h)
-tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
+tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h) $(bcftools_h)
 filter_h = filter.h $(htslib_vcf_h)
 gvcf_h = gvcf.h $(bcftools_h)
 khash_str2str_h = khash_str2str.h $(htslib_khash_h)

@@ -235,12 +235,12 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
 
     // eat any leading spaces
     char *ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     if ( !*ss ) return -1;      // skip empty lines
 
     // sex id, e.g. 1X or 2X
     char keep, *tmp, *se = ss;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     if ( !*se ) error("Could not parse the sex ID in the region line: %s\n", line);
     keep = *se;
     *se = 0;
@@ -252,13 +252,13 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
         sex_id = args->nsex_id++;
     }
     *se = keep;
-    while ( *se && isdigit(*se) ) se++;
-    while ( *se && isspace(*se) ) se++;
+    while ( *se && isdigit_c(*se) ) se++;
+    while ( *se && isspace_c(*se) ) se++;
     ss = se;
 
     // chromosome name, beg, end
-    while ( se[1] && !isspace(se[1]) ) se++;
-    while ( se > ss && isdigit(*se) ) se--;
+    while ( se[1] && !isspace_c(se[1]) ) se++;
+    while ( se > ss && isdigit_c(*se) ) se--;
     if ( *se!='-' ) error("Could not parse the region: %s\n",line);
     *end = strtol(se+1, &tmp, 10) - 1;
     if ( tmp==se+1 ) error("Could not parse the region: %s\n",line);
@@ -270,8 +270,8 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
     *chr_end = se-1;
 
     // skip region
-    while ( *ss && !isspace(*ss) ) ss++;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && !isspace_c(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
 
     rule_t *rule = (rule_t*) payload;
     rule->sex_id = sex_id;
@@ -279,7 +279,7 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
     rule->ploidy   = 0;
 
     // alleles inherited from mother (M), father (F), both (MF), none (.)
-    while ( *ss && !isspace(*ss) )
+    while ( *ss && !isspace_c(*ss) )
     {
         if ( *ss=='M' ) { rule->inherits |= 1<<iMOM; rule->ploidy++; }
         else if ( *ss=='F' ) { rule->inherits |= 1<<iDAD; rule->ploidy++; }

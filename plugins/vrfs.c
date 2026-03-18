@@ -161,12 +161,12 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
 
     // CHR part
     char *ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     if ( !*ss ) return -1;      // skip blank lines
     if ( *ss=='#' ) return -1;  // skip comments
 
     char *se = ss;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
 
     *chr_beg = ss;
     *chr_end = se-1;
@@ -180,9 +180,9 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     (*beg)--;
 
     // REF part and REF length
-    while ( *se && isspace(*se) ) se++;
+    while ( *se && isspace_c(*se) ) se++;
     ss = se;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     int ref_len = se - ss;
     if ( !ref_len ) error("Could not parse the REF part of the line: %s\n",line);
     *end = *beg;    // we are interested in overlaps at the POS only, not variant length
@@ -195,9 +195,9 @@ static int parse_sites(const char *line, char **chr_beg, char **chr_end, uint32_
     site->dist = calloc(args->profile.nbins,sizeof(*site->dist));
 
     // ALT part
-    while ( *se && isspace(*se) ) se++;
+    while ( *se && isspace_c(*se) ) se++;
     ss = se;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     int alt_len = se - ss;
     if ( !alt_len ) error("Could not parse the ALT part of the line: %s\n",line);
     site->alt = malloc(alt_len+1);
@@ -738,7 +738,7 @@ static double *parse_float_array(const char *line, int *narray)
     const char *ptr = line;
     while ( *ptr )
     {
-        while ( *ptr && !isspace(*ptr) ) ptr++;
+        while ( *ptr && !isspace_c(*ptr) ) ptr++;
         n++;
         if ( *ptr ) ptr++;
     }
@@ -748,7 +748,7 @@ static double *parse_float_array(const char *line, int *narray)
     {
         char *tmp;
         array[i] = strtod(ptr,&tmp);
-        if ( *tmp && !isspace(*tmp) ) error("Could not parse the float array: %s\n",line);
+        if ( *tmp && !isspace_c(*tmp) ) error("Could not parse the float array: %s\n",line);
         ptr = tmp+1;
     }
     *narray = n;
@@ -771,11 +771,11 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
 
     // CHR part
     char *ss = (char*) line + 5;
-    while ( *ss && isspace(*ss) ) ss++;
+    while ( *ss && isspace_c(*ss) ) ss++;
     if ( !*ss ) return -2;      // unexpected format
 
     char *se = ss;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
 
     *chr_beg = ss;
     *chr_end = se-1;
@@ -790,7 +790,7 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
 
     // REF part
     ss = ++se;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     int ref_len = se - ss;
     *end = *beg;
 
@@ -802,18 +802,18 @@ static int parse_batch(const char *line, char **chr_beg, char **chr_end, uint32_
 
     // ALT part
     ss = ++se;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     int alt_len = se - ss;
     site->alt = malloc(alt_len+1);
     strncpy(site->alt,ss,alt_len);
     site->alt[alt_len] = 0;
 
     // skip the SCORE part
-    while ( *se && isspace(*se) ) se++;
+    while ( *se && isspace_c(*se) ) se++;
     ss = se;
-    while ( *se && !isspace(*se) ) se++;
+    while ( *se && !isspace_c(*se) ) se++;
     if ( !*se ) error("Could not parse the SCORE part of the line: %s\n",line);
-    while ( *se && isspace(*se) ) se++;
+    while ( *se && isspace_c(*se) ) se++;
     if ( !*se ) error("Could not parse the SCORE part of the line: %s\n",line);
 
     // read the PROFILE part
