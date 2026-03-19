@@ -21,6 +21,20 @@ Changes affecting specific commands:
         bcftools +trio-dnm3 --use-ALM
 
 
+## Release 1.23.1 (18th March 2026)
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* This release bundles HTSlib 1.23.1, which includes many important
+  bug fixes.  Please see htslib/NEWS for details.
+
+* Fix silent output truncation due to missing checks for read errors in
+  the annotate, cnv, concat, convert, consensus, csq, filter, gtcheck,
+  isec, merge, norm, query and stats commands; and all plugins.  They
+  will now print an error and return a non-zero exit code if an error
+  is encountered when reading input data. (#2503)
+
+
 ## Release 1.23 (16th December 2025)
 
 Changes affecting the whole of bcftools, or multiple commands:

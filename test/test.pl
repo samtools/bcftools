@@ -1173,7 +1173,9 @@ sub parse_params
     if ( $$opts{htsdir} ) {
         if ($^O eq 'cygwin' || $^O =~ /^msys/) {
             # Set PATH so against-htslib-source builds can find the htslib dll
-            $ENV{PATH} = "$$opts{htsdir}:"."$$opts{htsdir}/bin:"."$$opts{htsdir}/lib:".$ENV{PATH};
+            my $abs_htsdir = abs_path($$opts{htsdir});
+            $ENV{PATH} = "$abs_htsdir:"."$abs_htsdir/bin:"."$abs_htsdir/lib:".$ENV{PATH};
+            print "Setting Windows PATH to $ENV{PATH}\n";
         }
     }
     $$opts{tmp} = $$opts{keep_files} ? $$opts{keep_files} : safe_tempdir;
