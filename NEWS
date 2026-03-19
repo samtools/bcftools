@@ -12,6 +12,13 @@ Changes affecting specific commands:
 
     - Add new FORMAT/QM annotation, to be used with the new `bcftools +trio-dnm3 --use-ALM` model.
 
+* bcftools +prune
+
+    - When pruning by window length in base pairs, one out-of-window record would
+      be incorrectly accessed. Not only this by-one error would calculate LD in
+      unwanted pair of records, it also led to unexpected behavior when the first
+      out-of-window record would change by filtering (#2475)
+
 * bcftools +trio-dnm3
 
     - Add a new TrioDNM model and make it the new default. To prevent confusion, the
