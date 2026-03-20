@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -216,7 +216,8 @@ static int fix_ref(args_t *args, bcf1_t *line)
     }
 
     char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr,line), line->pos, line->pos+maxlen-1, &len);
-    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+    if ( !ref ) error("Error: unable to fetch %d bp from the reference sequence at %s:%"PRId64"\n",maxlen, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+    if ( len != maxlen ) error("Error: unable to fetch %d bp from the reference sequence at %s:%"PRId64" .. requested %d bp, got %d\n", maxlen,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,maxlen,len);
     replace_iupac_codes(ref,len);
 
     args->nref.tot++;
