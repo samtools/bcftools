@@ -127,9 +127,9 @@ typedef struct
     double mrate;                   // --mrate, mutation rate
     pnoise_t pn_snv, pn_indel;      // --pn and --pns for SNVs and indels
     pnoise_t *pn_cur;               // current site - snv or indel?
-    int with_ppl, with_pad;         // --with-pPL or --with-pAD
-    int use_dng_priors;             // --dng-priors
-    int need_QS;
+    int with_ppl, with_pad, with_cad;   // --with-pPL, --with-pAD, --with-cAD
+    int use_dng_priors;                 // --dng-priors
+    int need_QS, need_PL;
     int strictly_novel;
     priors_t priors, priors_X, priors_XX;
     char *index_fn;
@@ -189,7 +189,7 @@ static const char *usage_text(void)
         "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
         "       --mrate NUM                 Mutation rate [1e-8]\n"
         "   -n, --strictly-novel            When Mendelian inheritance is violiated, score highly only novel alleles (e.g. in LoH regions)\n"
-        "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
+        "       --with-pAD                  Use parental FMT/AD instead of FMT/QS\n"
         "\n"
         "Model options specific to --use-ALM:\n"
         "   --ad, --allele-dropout NUM      Mixture weight for missed inherited alleles due to low read depth [0]\n"
@@ -200,7 +200,7 @@ static const char *usage_text(void)
         "         --pn  FRAC[,NUM][:TYPE]       --pn is the same as --pns applied for alleles observed in both parents, defaults:\n"
         "                                       --pns 0.045,0:snv --pn 0.011,0:snv --pns 0:indel --pn 0:indel\n"
         "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]\n"
-        "         --with-pPL                Do not use FMT/QS but parental FMT/PL (inflates FDR)\n"
+        "         --with-pPL                Use parental FMT/PL instead of FMT/QS (inflates FDR)\n"
         "\n"
         "Model options specific to --use-DMM:\n"
         "         --max-QM NUM              Maximum QM value (phred); negative value to ignore FORMAT/QM annotation [30]\n"
@@ -210,6 +210,7 @@ static const char *usage_text(void)
         "         --pns FRAC[,NUM][:TYPE]   See above [--pns 0.045,0:snv --pns 0:indel]\n"
         "         --pn  FRAC[,NUM][:TYPE]   See above [--pn 0.011,0:snv --pn 0:indel]\n"
         "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [1e-2]\n"
+        "         --with-cAD                Use child's FMT/AD instead of FMT/PL (useful when PLs come from callers other than bcftools/mpileup)\n"
         "\n"
         "Model options specific to --use-DNG:\n"
         "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]\n"
@@ -723,6 +724,11 @@ static void init_data(args_t *args)
     }
     if ( !args->use_model ) args->use_model = USE_DMM;
 
+    if ( args->min_vaf < 0 )
+        args->min_vaf = args->use_model==USE_DMM ? 0.2 : 0;
+    if ( args->sb_coeff < 0 )
+        args->sb_coeff = args->use_model==USE_DMM ? 1e-2 : 0;
+
     args->sr = bcf_sr_init();
     if ( args->regions )
     {
@@ -746,8 +752,13 @@ static void init_data(args_t *args)
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
             error("Error: the tag FORMAT/GT is not present in %s\n", args->fname);
     }
-    else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
-        error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
+    else
+    {
+        args->need_PL = 1;
+        if ( args->with_cad && args->use_model==USE_DMM ) args->need_PL = 0;
+        if ( args->need_PL && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) )
+            error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
+    }
     if ( args->use_model!=USE_NAIVE )
     {
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
@@ -1020,6 +1031,61 @@ static double ldirichlet_multinom_with_spurious(args_t *args, int ndp, int *dp, 
     return ldirichlet_multinom_dbl(3,cnt,prob,phi);
 }
 
+static inline void norm_prob(int n, double *prob)
+{
+    double eps = 1e-12;
+    double sum = 0;
+    int i;
+    for (i=0; i<3; i++)
+    {
+        if ( prob[i] < eps ) prob[i] = eps;
+        else if ( prob[i] > 1 - eps ) prob[i] = 1 - eps;
+        sum += prob[i];
+    }
+    for (i=0; i<3; i++) prob[i] /= sum;
+}
+
+// AD-based genotype likelihood
+static double ldirichlet_multinom_AD(args_t *args, int ndp, int *dp, double *err, int als)
+{
+    // init probabilities
+    double cnt[3]  = {0,0,0};   // allele1, allele2, other
+    double prob[3] = {0,0,0};
+    int i, nals = 0;
+    for (i=0; i<ndp; i++)
+    {
+        int in_als = (als >> i) & 1;
+        if ( !in_als ) cnt[2] += dp[i];
+        else if ( !nals ) cnt[nals++] = dp[i];
+        else { cnt[1] = dp[i]; nals++; }
+    }
+    if ( cnt[0]+cnt[1]==0 ) return -INFINITY;
+
+    // homozygous genotype
+    if ( nals==1 )
+    {
+        prob[0] = 1 - fabs(args->min_qm);
+        prob[1] = fabs(args->min_qm);
+        prob[2] = fabs(args->min_qm);
+        norm_prob(3, prob);
+        return ldirichlet_multinom_dbl(3,cnt,prob,args->phi);
+    }
+
+    double ll_max = -INFINITY, vaf;
+    if ( cnt[0] < cnt[1] ) { double tmp = cnt[0]; cnt[0] = cnt[1]; cnt[1] = tmp; }
+    for (vaf=0.5; vaf>=args->min_vaf; vaf-=0.1)
+    {
+        prob[0] = (1 - fabs(args->min_qm)) * (1 - vaf);
+        prob[1] = (1 - fabs(args->min_qm)) * vaf;
+        prob[2] = fabs(args->min_qm);
+        norm_prob(3, prob);
+        double ll = ldirichlet_multinom_dbl(3,cnt,prob,args->phi);
+        if ( ll < ll_max ) return ll_max;
+        ll_max = ll;
+    }
+    return ll_max;
+}
+
 // Given a known per-read error rate, how surprising is it to see >=k unexpected reads?
 // Upper binomial tail
 static double site_noise(args_t *args, int nad, int *ad, int als, double err, double lprior)
@@ -1155,7 +1221,7 @@ static double process_trio_DMM(args_t *args, priors_t *priors, int nals, double 
         for (cb=0; cb<=ca; cb++)
         {
             int cals = (1<<ca)|(1<<cb);
-            double cpl = pl[iCHILD][ci];
+            double cpl = args->with_cad ? ldirichlet_multinom_AD(args, nad, ad[iCHILD], qm[iCHILD], cals) : pl[iCHILD][ci];
 
             int fi = 0;
             for (fa=0; fa<nals; fa++)       // fa,fb: father's genotypes
@@ -1532,19 +1598,23 @@ static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, d
             memcpy(ad[i],args->alt_int,4*sizeof(*args->alt_int));
         }
     }
-    for (i=0; i<3; i++)
-    {
-        for (j=0; j<4; j++)
-            for (k=0; k<=j; k++)
-            {
-                int idst = bcf_alleles2gt(j,k);
-                int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
-                args->alt_dbl[idst] = pl[i][isrc];
-            }
-        memcpy(pl[i],args->alt_dbl,10*sizeof(*args->alt_dbl));
-    }
-    *_nals = 4;
     *_npl  = 10;
+    *_nals = 4;
+    if ( pl[0] )
+    {
+        for (i=0; i<3; i++)
+        {
+            for (j=0; j<4; j++)
+                for (k=0; k<=j; k++)
+                {
+                    int idst = bcf_alleles2gt(j,k);
+                    int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
+                    args->alt_dbl[idst] = pl[i][isrc];
+                }
+            memcpy(pl[i],args->alt_dbl,10*sizeof(*args->alt_dbl));
+        }
+    }
+    else *_npl = 0;
 }
 static void many_alts_translate(args_t *args, int *al0, int *al1)
 {
@@ -1858,9 +1928,13 @@ static bcf1_t *process_record(args_t *args, bcf1_t *rec)
         error("Error: the FMT/AD tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
 
     nret = bcf_get_format_int32(args->hdr,rec,"PL",&args->pl,&args->mpl);
-    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-    int npl1  = nret/nsmpl;
-    if ( npl1!=rec->n_allele*(rec->n_allele+1)/2 )
+    if ( nret<=0 )
+    {
+        if ( args->need_PL ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        nret = 0;
+    }
+    int npl1 = nret/nsmpl;
+    if ( npl1 && npl1!=rec->n_allele*(rec->n_allele+1)/2 )
         error("todo: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
     if ( n_ad ) hts_expand(int32_t,3*n_ad,args->mad3,args->ad3);
@@ -1878,9 +1952,11 @@ static bcf1_t *process_record(args_t *args, bcf1_t *rec)
                 static int missing_AD_warned = 0;
                 if ( !missing_AD_warned )
                 {
+                    const char *chr = bcf_seqname(args->hdr, rec);
+                    if (!chr) chr = "NA";
                     hts_log_warning(
                         "Neither FMT/QS nor FMT/AD present at %s:%"PRId64", cannot trim the number of alleles to four, skipping.\n"
-                        "This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+                        "This warning is printed only once", chr,(int64_t)rec->pos+1);
                     missing_AD_warned = 1;
                 }
                 return rec;
@@ -1933,8 +2009,8 @@ static bcf1_t *process_record(args_t *args, bcf1_t *rec)
         if ( args->filter && !args->trio[i].pass ) continue;
 
         // Samples can be in any order in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
-        double *ppl[3];
-        set_trio_PL(args,&args->trio[i],ppl,npl1);
+        double *ppl[3] = {NULL,NULL,NULL};
+        if ( npl1 ) set_trio_PL(args,&args->trio[i],ppl,npl1);
 
         double *pqs[3], *pqm[3] = {NULL,NULL,NULL};
         if ( args->use_model==USE_DMM  )
@@ -2155,6 +2231,8 @@ int run(int argc, char **argv)
         {"no-version",no_argument,NULL,12},
         {"with-pAD",no_argument,0,13},
         {"with-pad",no_argument,0,13},
+        {"with-cAD",no_argument,0,24},
+        {"with-cad",no_argument,0,24},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"strictly-novel",no_argument,0,'n'},
@@ -2286,6 +2364,7 @@ int run(int argc, char **argv)
                 break;
             case 12 : args->record_cmd_line = 0; break;
             case 13 : args->with_pad = 1; break;
+            case 24 : args->with_cad = 1; break;
             case 14 :
                 args->regions_overlap = parse_overlap_option(optarg);
                 if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
@@ -2350,10 +2429,6 @@ int run(int argc, char **argv)
 
     if ( !args->ped_fname && !args->pfm ) error("Missing the -p or -P option\n");
     if ( args->ped_fname && args->pfm ) error("Expected only -p or -P option, not both\n");
-    if ( args->min_vaf < 0 )
-        args->min_vaf = args->use_model==USE_DMM ? 0.2 : 0;
-    if ( args->sb_coeff < 0 )
-        args->sb_coeff = args->use_model==USE_DMM ? 1e-2 : 0;
 
     init_data(args);
 
