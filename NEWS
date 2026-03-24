@@ -6,6 +6,11 @@ Changes affecting specific commands:
 
     - New `-s, --samples` to print per-sample HWE probability, geometric mean
 
+* bcftools conveert
+
+    - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
+      the next record
+
 * bcftools mpileup
 
     - Remove unused experimental INFO/MIN_PL_SUM annotation
