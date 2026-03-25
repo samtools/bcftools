@@ -785,7 +785,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
     if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
-    int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
+    int ntmpi2 = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
     if ( ntmpi2 < ndst ) hts_expand(int32_t,ndst,args->mtmpi2,args->tmpi2);
 
     int i;
@@ -911,7 +911,11 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
-        return setter_ARinfo_int32(args,line,col,tab->nals,tab->als,ntmpi);
+    {
+        int _nals = tab ? tab->nals : line->n_allele;
+        char **_als = tab ? tab->als : line->d.allele;
+        return setter_ARinfo_int32(args,line,col,_nals,_als,ntmpi);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -1095,7 +1099,11 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
-        return setter_ARinfo_real(args,line,col,tab->nals,tab->als,ntmpf);
+    {
+        int _nals = tab ? tab->nals : line->n_allele;
+        char **_als = tab ? tab->als : line->d.allele;
+        return setter_ARinfo_real(args,line,col,_nals,_als,ntmpf);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -1932,10 +1940,10 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
             args->src_smpl_pld = (uint8_t*) malloc(nsmpl_src);
             args->dst_smpl_pld = (uint8_t*) malloc(nsmpl_dst);
         }
-        int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
+        int pld_src = determine_ploidy(rec->n_allele, (int*)args->tmpf, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
-        int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
+        int pld_dst = determine_ploidy(line->n_allele, (int*)args->tmpf2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
