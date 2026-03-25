@@ -215,11 +215,12 @@ void hmm_reset(hmm_t *hmm, void *_snapshot)
 
 void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob)
 {
+    int old_ntprob_arr = hmm->ntprob_arr;
     hmm->ntprob_arr = ntprob;
     if ( ntprob<=0 ) ntprob = 1;
 
-    if ( !hmm->tprob_arr )
-        hmm->tprob_arr  = (double*) malloc(sizeof(double)*hmm->nstates*hmm->nstates*ntprob);
+    if ( !hmm->tprob_arr || ntprob != old_ntprob_arr )
+        hmm->tprob_arr  = (double*) realloc(hmm->tprob_arr, sizeof(double)*hmm->nstates*hmm->nstates*ntprob);
 
     memcpy(hmm->tprob_arr,tprob,sizeof(double)*hmm->nstates*hmm->nstates);
 

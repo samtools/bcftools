@@ -1037,7 +1037,7 @@ static void cnv_flush_viterbi(args_t *args)
     for (isite=0; isite<args->nsites; isite++)
     {
         int state = vpath[args->nstates*isite];
-        double *pval = fwd + isite*args->nstates;
+        double *pval = fwd + (isite+1)*args->nstates;
 
         qual += pval[start_cn];
 

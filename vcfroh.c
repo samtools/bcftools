@@ -525,7 +525,7 @@ static void flush_viterbi(args_t *args, int ismpl)
         for (i=0; i<end; i++)
         {
             int state = vpath[i*2]==STATE_AZ ? 1 : 0;
-            double qual = phred_score(1.0 - fwd[i*2 + state]);
+            double qual = phred_score(1.0 - fwd[(i+1)*2 + state]);
             if ( args->output_type & OUTPUT_ST )
             {
                 args->str.l = 0;
