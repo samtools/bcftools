@@ -141,7 +141,8 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     int has_I16, is_var;
     float fq, r;
     anno16_t a;
-    float tmpf[4], tmpi;
+    float tmpf[4];
+    int32_t tmpi;
 
     bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16);
 
