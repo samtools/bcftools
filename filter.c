@@ -458,7 +458,7 @@ static int filters_cache_genotypes(filter_t *flt, bcf1_t *line)
                 flt->cached_GT.nbuf = 0;
                 return -1;
             }
-            flt->cached_GT.mask[i] |= 1<<allele;
+            flt->cached_GT.mask[i] |= 1ULL<<allele;
         }
     }
     return 0;
@@ -1001,7 +1001,7 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
             int k, j = 0;
             for (k=0; k<nsrc1; k++) // source values are AD[0..nsrc1]
             {
-                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                if ( !(flt->cached_GT.mask[i] & (1ULL<<k)) ) continue;
                 dst[j++] = src[k];
             }
             if ( !j ) { bcf_double_set_missing(dst[j]); j++; }
@@ -1086,7 +1086,7 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
             int k, j = 0;
             for (k=0; k<nsrc1; k++) // source values are AF[0..nsrc1]
             {
-                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                if ( !(flt->cached_GT.mask[i] & (1ULL<<k)) ) continue;
                 if ( bcf_float_is_missing(src[k]) )
                     bcf_double_set_missing(dst[j]);
                 else if ( bcf_float_is_vector_end(src[k]) )
@@ -1167,7 +1167,7 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
             }
             else if ( tok->idx == -3 )  // given by GT index, e.g. AD[:GT]
             {
-                if ( flt->cached_GT.mask[i] & (1<<idx) ) keep = 1;
+                if ( flt->cached_GT.mask[i] & (1ULL<<idx) ) keep = 1;
             }
             else    // given as a list, e.g. AD[:0,3]
             {
@@ -1753,7 +1753,7 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
 static int func_smpl_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_median(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -1831,7 +1831,7 @@ static int func_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
 static int func_smpl_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_stddev(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -1903,7 +1903,7 @@ static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
 static int func_smpl_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_sum(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -2006,7 +2006,7 @@ static int func_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
 static int func_smpl_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_max(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_count(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -2888,7 +2888,6 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         {
             token_t *tok = atok->regex ? btok : atok;
             rtok->pass_site = _regex_vector_strings(regex, tok->str_value.s, tok->str_value.l, logic, missing_logic);
-    fprintf(stderr,"pass=%d [%s]\n",rtok->pass_site,tok->str_value.s);
         }
         return;
     }
