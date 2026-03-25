@@ -1135,7 +1135,7 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
         case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[isrc]==bcf_int32_vector_end, src_vals[isrc]==bcf_int32_missing, dst_vals[idst]=bcf_int32_vector_end, dst_vals[idst]=bcf_int32_missing); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(src_vals[idst])); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(dst_vals[idst])); break;
     }
     #undef BRANCH_NUMERIC
 }
