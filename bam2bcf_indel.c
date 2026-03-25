@@ -702,7 +702,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
     int i, s, j, k, t, n_types, *types, max_rd_len, left, right, max_ins;
     int *score, max_ref2;
-    int N, K, l_run, ref_type, n_alt;
+    int N, K = 0, l_run, ref_type, n_alt;
     char *inscns = 0, *ref2, *query, **ref_sample;
 
     // determine if there is a gap
