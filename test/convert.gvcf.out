@@ -3,7 +3,7 @@
 ##reference=file://some/path/human_g1k_v37.fasta
 ##FORMAT=<ID=GQX,Number=1,Type=Integer,Description="Minimum of {Genotype quality assuming variant position,Genotype quality assuming non-variant position}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=GQ,Number=1,Type=Float,Description="Genotype Quality">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Filtered basecall depth used for site genotyping">
 ##FORMAT=<ID=DPF,Number=1,Type=Integer,Description="Basecalls filtered from input prior to site genotyping">
 ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed. For indels this value only includes reads which confidently support each allele (posterior prob 0.999 or higher that read contains indicated allele vs all other intersecting indel alleles)">
@@ -57,7 +57,7 @@
 ##FORMAT=<ID=OPL,Number=.,Type=Integer,Description="Original PL value before ploidy correction">
 ##INFO=<ID=phastCons,Number=0,Type=Flag,Description="overlaps a phastCons element">
 ##INFO=<ID=AA,Number=1,Type=String,Description="Ancestral Allele, ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/pilot_data/technical/reference/ancestral_alignments/README">
-##INFO=<ID=AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=AF,Number=A,Type=Float,Description="1000 Genomes Allele Frequency based on AC/AN; Format: Allele:AlleleFrequency">
 ##INFO=<ID=AMR_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from AMR population based on AC/AN; Format: Allele:AlleleFrequency">
 ##INFO=<ID=ASN_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from ASN population based on AC/AN; Format: Allele:AlleleFrequency">
 ##INFO=<ID=AFR_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from AFR population based on AC/AN; Format: Allele:AlleleFrequency">
