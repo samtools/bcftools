@@ -312,12 +312,12 @@ static inline int gff_parse_biotype(char *line)
         case 'M':
             if ( !strncmp(line,"Mt_tRNA_pseudogene",18) ) return GF_MT_tRNA_PSEUDOGENE;
             else if ( !strncasecmp(line,"Mt_tRNA",7) ) return GF_MT_tRNA;
-            else if ( !strncasecmp(line,"Mt_rRNA",7) ) return GF_MT_tRNA;
+            else if ( !strncasecmp(line,"Mt_rRNA",7) ) return GF_MT_rRNA;
             else if ( !strncasecmp(line,"MRNA",4) ) return GF_PROTEIN_CODING;
             break;
         case 'l':
             if ( !strncmp(line,"lincRNA",7) ) return GF_lincRNA;
-            if ( !strncmp(line,"lncRNA",7) ) return GF_lncRNA;
+            if ( !strncmp(line,"lncRNA",6) ) return GF_lncRNA;
             break;
         case 'm':
             if ( !strncmp(line,"macro_lncRNA",12) ) return GF_macro_lncRNA;

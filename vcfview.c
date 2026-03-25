@@ -415,7 +415,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
     {
         if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) return 0; // min AC
         else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) return 0; // min minor AC
-        else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>args->ac[1]) return 0; // min 1st alternate AC
+        else if (args->min_ac_type == ALLELE_ALT1 && (line->n_allele<2 || args->min_ac>args->ac[1])) return 0; // min 1st alternate AC
         else if (args->min_ac_type == ALLELE_MAJOR && args->min_ac > major_ac) return 0; // min major AC
         else if (args->min_ac_type == ALLELE_NONMAJOR && args->min_ac > an-major_ac) return 0; // min non-major AC
     }
@@ -423,7 +423,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
     {
         if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) return 0; // max AC
         else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) return 0; // max minor AC
-        else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
+        else if (args->max_ac_type == ALLELE_ALT1 && line->n_allele>=2 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
         else if (args->max_ac_type == ALLELE_MAJOR && args->max_ac < major_ac) return 0; // max major AC
         else if (args->max_ac_type == ALLELE_NONMAJOR && args->max_ac < an-major_ac) return 0; // max non-major AC
     }
@@ -432,7 +432,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (an == 0) return 0; // freq not defined, skip site
         if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) return 0; // min AF
         else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) return 0; // min minor AF
-        else if (args->min_af_type == ALLELE_ALT1 && args->min_af>args->ac[1]/(double)an) return 0; // min 1st alternate AF
+        else if (args->min_af_type == ALLELE_ALT1 && (line->n_allele<2 || args->min_af>args->ac[1]/(double)an)) return 0; // min 1st alternate AF
         else if (args->min_af_type == ALLELE_MAJOR && args->min_af > major_ac/(double)an) return 0; // min major AF
         else if (args->min_af_type == ALLELE_NONMAJOR && args->min_af > (an-major_ac)/(double)an) return 0; // min non-major AF
     }
@@ -441,7 +441,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (an == 0) return 0; // freq not defined, skip site
         if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) return 0; // max AF
         else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) return 0; // max minor AF
-        else if (args->max_af_type == ALLELE_ALT1 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
+        else if (args->max_af_type == ALLELE_ALT1 && line->n_allele>=2 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
         else if (args->max_af_type == ALLELE_MAJOR && args->max_af < major_ac/(double)an) return 0; // max major AF
         else if (args->max_af_type == ALLELE_NONMAJOR && args->max_af < (an-major_ac)/(double)an) return 0; // max non-major AF
     }

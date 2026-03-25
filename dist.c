@@ -97,7 +97,7 @@ uint32_t dist_insert_n(dist_t *dist, uint32_t value, uint32_t cnt)
     if ( !cnt ) return 0;
     int ibin = dist_insert(dist, value);
     dist->bins[ibin] += cnt - 1;
-    dist->nvalues += cnt;
+    dist->nvalues += cnt - 1;
     return ibin;
 }
 

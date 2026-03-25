@@ -310,7 +310,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( k_flush || !line )
         {
             // Select the best indel from the cluster of k_flush indels
-            int k = 0, max_ac = -1, imax_ac = -1, max_qual = -1, imax_qual = -1;
+            int k = 0, max_ac = -1, imax_ac = -1, imax_qual = -1; float max_qual = -1;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
                 k++;

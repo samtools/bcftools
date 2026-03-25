@@ -1014,10 +1014,10 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
         else
         {
             kputw(bcf_gt_allele(ptr[0]),str);
-            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            if ( !bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
             str->s[str->l++] = ' ';
             kputw(bcf_gt_allele(ptr[1]),str);
-            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            if ( !bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
             str->s[str->l++] = ' ';
         }
     }
@@ -1140,10 +1140,10 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
         else
         {
             kputw(bcf_gt_allele(ptr[0]),str);
-            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            if ( !bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
             str->s[str->l++] = ' ';
             kputw(bcf_gt_allele(ptr[1]),str);
-            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            if ( !bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
             str->s[str->l++] = ' ';
         }
     }
@@ -1250,7 +1250,7 @@ static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
 
         // Check that the first field is GT
         int gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
-        if ( !bcf_hdr_idinfo_exists(convert->header, BCF_HL_FMT, fmt->id)  ) error("Error: FORMAT/GT is not defined in the header\n");
+        if ( !bcf_hdr_idinfo_exists(convert->header, BCF_HL_FMT, gt_id)  ) error("Error: FORMAT/GT is not defined in the header\n");
         for (i=0; i<(int)line->n_fmt; i++)
             if ( line->d.fmt[i].id==gt_id ) { fmt->usr = &line->d.fmt[i]; break; }  // it should always be first according to VCF spec, but...
 
@@ -1268,7 +1268,7 @@ static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
     {
         if ( bcf_gt_is_missing(gt[i]) || gt[i] == bcf_int8_vector_end ) goto invalid;
         int al = bcf_gt_allele(gt[i]);
-        if ( al > line->n_allele || al >= fmt->fmt->n ) goto invalid;
+        if ( al >= line->n_allele || al >= fmt->fmt->n ) goto invalid;
 
         #define BRANCH(type_t, convert, missing, vector_end) { \
             type_t val = convert(&fmt->fmt->p[(al + isample*fmt->fmt->n)*sizeof(type_t)]); \
