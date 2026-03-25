@@ -304,6 +304,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.split.5',out=>'norm.split.5.1.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic.3',out=>'norm.symbolic.3.1.out',fai=>'norm.symbolic.3',args=>'');
 run_test(\&test_vcf_norm,$opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
+run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.1.out',args=>'-m- -a');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.3',out=>'norm.split.3.out',args=>'-m- --force');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.4',out=>'norm.split.4.1.out',args=>'-m-');

@@ -12,6 +12,10 @@ Changes affecting specific commands:
 
     - Add new FORMAT/QM annotation, to be used with the new `bcftools +trio-dnm3 --use-ALM` model.
 
+* bcftools norm
+
+    - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
+
 * bcftools +prune
 
     - When pruning by window length in base pairs, one out-of-window record would
