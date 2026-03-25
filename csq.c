@@ -570,10 +570,13 @@ const uint8_t cnt4[] =
     4,3,4,2, 4,4,4,1, 4,4,4,4, 4,4,4,4,
     4,4,4,4, 0
 };
-#define dna2aa(x)    gencode->code[  nt4[(uint8_t)(x)[0]]<<4 |  nt4[(uint8_t)(x)[1]]<<2 |  nt4[(uint8_t)(x)[2]] ]
-#define cdna2aa(x)   gencode->code[ cnt4[(uint8_t)(x)[2]]<<4 | cnt4[(uint8_t)(x)[1]]<<2 | cnt4[(uint8_t)(x)[0]] ]
-#define dna2stop(x)  gencode->stop[  nt4[(uint8_t)(x)[0]]<<4 |  nt4[(uint8_t)(x)[1]]<<2 |  nt4[(uint8_t)(x)[2]] ]
-#define cdna2stop(x) gencode->stop[ cnt4[(uint8_t)(x)[2]]<<4 | cnt4[(uint8_t)(x)[1]]<<2 | cnt4[(uint8_t)(x)[0]] ]
+#define _codon_idx(a,b,c) ((a)<<4 | (b)<<2 | (c))
+#define _dna_idx(x)   _codon_idx(nt4[(uint8_t)(x)[0]],  nt4[(uint8_t)(x)[1]],  nt4[(uint8_t)(x)[2]])
+#define _cdna_idx(x)  _codon_idx(cnt4[(uint8_t)(x)[2]], cnt4[(uint8_t)(x)[1]], cnt4[(uint8_t)(x)[0]])
+#define dna2aa(x)    (_dna_idx(x)  > 63 ? 'X' : gencode->code[ _dna_idx(x)])
+#define cdna2aa(x)   (_cdna_idx(x) > 63 ? 'X' : gencode->code[_cdna_idx(x)])
+#define dna2stop(x)  (_dna_idx(x)  > 63 ? 0   : gencode->stop[ _dna_idx(x)])
+#define cdna2stop(x) (_cdna_idx(x) > 63 ? 0   : gencode->stop[_cdna_idx(x)])
 
 static inline int ncsq2_to_nfmt(int ncsq2)
 {
@@ -1983,7 +1986,7 @@ void tscript_splice_ref(gf_tscript_t *tr)
         memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[i]->beg - tr->beg, tr->cds[i]->len);
         len += tr->cds[i]->len;
     }
-    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg, N_REF_PAD);
+    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg + tr->cds[tr->ncds-1]->len, N_REF_PAD);
     len += N_REF_PAD;
 
     TSCRIPT_AUX(tr)->sref[len] = 0;
@@ -2208,7 +2211,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         }
         for (i=0; i<hap->tseq_stop.l; i++)
             if ( hap->tseq_stop.s[i]=='*' ) break;
-        if ( i!=hap->tseq.l )
+        if ( i!=hap->tseq_stop.l )
         {
             hap->tseq.l = i+1;
             hap->tseq.s[i+1] = 0;
@@ -2955,7 +2958,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                 }
                 for (j=0; j<tseq_stop->l; j++)
                     if ( tseq_stop->s[j]=='*' ) break;
-                if ( j!=tseq->l )
+                if ( j!=tseq_stop->l )
                 {
                     tseq->l = j+1;
                     tseq->s[j+1] = 0;
@@ -3415,7 +3418,7 @@ int test_splice(args_t *args, bcf1_t *rec)
 
         for (i=1; i<rec->n_allele; i++)
         {
-            if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
             splice.vcf.ial = i;
             splice.csq     = 0;
