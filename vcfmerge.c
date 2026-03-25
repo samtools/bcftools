@@ -3023,6 +3023,9 @@ static inline int types_compatible(args_t *args, selected_t *selected, buffer_t 
     }
     if ( k==rec->n_allele ) return 0;   // this record has a new allele rec->d.allele[k]
 
+    // In -m none mode, require exact allele match, not just a subset
+    if ( args->collapse==COLLAPSE_NONE && rec->n_allele!=maux->nals ) return 0;
+
     if ( selected->types&other_mask && rec_types&other_mask )
     {
         // both records have symbolic alleles and the alleles are the same
