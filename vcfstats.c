@@ -1103,8 +1103,10 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     int is;
     for (is=0; is<args->files->n_smpl; is++)
     {
+        int ismpl = reader->samples[is];    // VCF column index for this sample
+
         // Determine depth
-        int dp = calc_sample_depth(args,is,ad_fmt_ptr,dp_fmt_ptr);
+        int dp = calc_sample_depth(args,ismpl,ad_fmt_ptr,dp_fmt_ptr);
         if ( dp>0 )
         {
             (*idist(&stats->dp, dp))++;
@@ -1116,7 +1118,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         int ial, jal, gt=GT_UNKN;
         if ( gt_fmt_ptr )
         {
-            gt = bcf_gt_type(gt_fmt_ptr, reader->samples[is], &ial, &jal);
+            gt = bcf_gt_type(gt_fmt_ptr, ismpl, &ial, &jal);
             sample_gt_stats(args,stats,line,is,gt,ial,jal);
         }
 
@@ -1126,12 +1128,12 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             float iad = 0, jad = 0;
             if ( gt==GT_UNKN )    // GT not available
             {
-                iad = get_ad(line,ad_fmt_ptr,is,&ial);
+                iad = get_ad(line,ad_fmt_ptr,ismpl,&ial);
             }
             else if ( gt!=GT_UNKN )
             {
-                iad = ial==0 ? 0 : get_iad(line,ad_fmt_ptr,is,ial);
-                jad = jal==0 ? 0 : get_iad(line,ad_fmt_ptr,is,jal);
+                iad = ial==0 ? 0 : get_iad(line,ad_fmt_ptr,ismpl,ial);
+                jad = jal==0 ? 0 : get_iad(line,ad_fmt_ptr,ismpl,jal);
             }
             if ( iad )
             {
