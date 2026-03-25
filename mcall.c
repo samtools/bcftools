@@ -1659,7 +1659,8 @@ int mcall(call_t *call, bcf1_t *rec)
         int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
         bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
 
-        int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
+        int32_t dp4_sum = call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3];
+        int32_t mq = dp4_sum > 0 ? (call->anno16[8]+call->anno16[10])/dp4_sum : 0;
         bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
 
         if ( call->output_tags & CALL_FMT_PV4 )
