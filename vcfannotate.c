@@ -184,6 +184,8 @@ typedef struct _args_t
     char *min_overlap_str;
     float min_overlap_ann, min_overlap_vcf;
     int rename_annots_nmap;
+    int nrename_id_map;             // number of ID remappings needed
+    int *rename_id_old, *rename_id_new, *rename_id_type;  // old_id -> new_id for type (BCF_HL_INFO or BCF_HL_FMT)
     kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
     int columns_is_file, has_append_mode, pair_logic;
@@ -2854,7 +2856,6 @@ static void rename_chrs(args_t *args, char *fname)
     for (i=0; i<n; i++) free(map[i]);
     free(map);
 }
-// Dirty: this relies on bcf_hdr_sync NOT being called
 static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
 {
     int type;
@@ -2883,18 +2884,58 @@ static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
         if ( type != BCF_HL_FLT ) error("Cannot transfer %s to FILTER\n", ori_tag);
         new_tag += 7;
     }
+    char *ptr = new_tag;
+    while ( *ptr && !isspace_c(*ptr) ) ptr++;
+    *ptr = 0;
+
     int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, ori_tag);
     if ( id<0 ) return 1;
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, type, "ID", ori_tag, NULL);
     if ( !hrec ) return 1;  // the ID attribute not present
-    int j = bcf_hrec_find_key(hrec, "ID");
-    assert( j>=0 );
-    free(hrec->vals[j]);
-    char *ptr = new_tag;
-    while ( *ptr && !isspace_c(*ptr) ) ptr++;
-    *ptr = 0;
-    hrec->vals[j] = strdup(new_tag);
-    args->hdr_out->id[BCF_DT_ID][id].key = hrec->vals[j];
+
+    // Check if another header type also uses this tag name. If the tag name
+    // is shared (e.g. INFO/DP and FORMAT/DP both exist), we cannot simply
+    // rename the shared dictionary key as that would rename both types.
+    int other_type = -1;
+    if ( type == BCF_HL_INFO && bcf_hdr_get_hrec(args->hdr_out, BCF_HL_FMT, "ID", ori_tag, NULL) )
+        other_type = BCF_HL_FMT;
+    else if ( type == BCF_HL_FMT && bcf_hdr_get_hrec(args->hdr_out, BCF_HL_INFO, "ID", ori_tag, NULL) )
+        other_type = BCF_HL_INFO;
+
+    if ( other_type < 0 )
+    {
+        // No conflict: safe to rename the shared dictionary key directly
+        int j = bcf_hrec_find_key(hrec, "ID");
+        assert( j>=0 );
+        free(hrec->vals[j]);
+        hrec->vals[j] = strdup(new_tag);
+        args->hdr_out->id[BCF_DT_ID][id].key = hrec->vals[j];
+    }
+    else
+    {
+        // Another type shares this tag name. We must create a separate
+        // dictionary entry for the renamed tag to avoid renaming both.
+        kstring_t tmp = {0,0,0};
+        bcf_hrec_format_rename(hrec, new_tag, &tmp);
+        bcf_hdr_remove(args->hdr_out, type, ori_tag);
+        if ( bcf_hdr_append(args->hdr_out, tmp.s) )
+            error("[%s] Failed to append header line: %s\n", __func__, tmp.s);
+        if ( bcf_hdr_sync(args->hdr_out) < 0 )
+            error_errno("[%s] Failed to update header", __func__);
+        free(tmp.s);
+
+        // The old ID in input records still refers to the old tag name.
+        // Record the mapping so we can fix up IDs per-record.
+        int new_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, new_tag);
+        assert( new_id >= 0 );
+        args->nrename_id_map++;
+        args->rename_id_old  = (int*) realloc(args->rename_id_old,  sizeof(int)*args->nrename_id_map);
+        args->rename_id_new  = (int*) realloc(args->rename_id_new,  sizeof(int)*args->nrename_id_map);
+        args->rename_id_type = (int*) realloc(args->rename_id_type, sizeof(int)*args->nrename_id_map);
+        args->rename_id_old[args->nrename_id_map-1]  = id;
+        args->rename_id_new[args->nrename_id_map-1]  = new_id;
+        args->rename_id_type[args->nrename_id_map-1] = type;
+    }
     return 0;
 }
 static void rename_annots(args_t *args)
@@ -3183,6 +3224,9 @@ static void destroy_data(args_t *args)
         for (i=0; i<args->rename_annots_nmap; i++) free(args->rename_annots_map[i]);
         free(args->rename_annots_map);
     }
+    free(args->rename_id_old);
+    free(args->rename_id_new);
+    free(args->rename_id_type);
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
     free(args->tmpks.s);
     free(args->tmpi);
@@ -3595,6 +3639,48 @@ static int annotate_from_self(args_t *args, bcf1_t *line)
     }
     return 0;
 }
+// Remap tag IDs for renamed annotations that had a name conflict
+// (e.g. INFO/DP renamed but FORMAT/DP kept). The input record still
+// carries the old shared ID; we must update it to the new ID for the
+// renamed type so that the correct tag name is written out.
+static void remap_renamed_ids(args_t *args, bcf1_t *line)
+{
+    int i;
+    for (i=0; i<args->nrename_id_map; i++)
+    {
+        int old_id = args->rename_id_old[i];
+        int new_id = args->rename_id_new[i];
+        int type   = args->rename_id_type[i];
+        if ( type == BCF_HL_INFO )
+        {
+            if ( !(line->unpacked & BCF_UN_INFO) ) bcf_unpack(line, BCF_UN_INFO);
+            int j;
+            for (j=0; j<line->n_info; j++)
+            {
+                if ( line->d.info[j].key == old_id )
+                {
+                    line->d.info[j].key = new_id;
+                    line->d.shared_dirty |= BCF1_DIRTY_INF;
+                    break;
+                }
+            }
+        }
+        else if ( type == BCF_HL_FMT )
+        {
+            if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+            int j;
+            for (j=0; j<line->n_fmt; j++)
+            {
+                if ( line->d.fmt[j].id == old_id )
+                {
+                    line->d.fmt[j].id = new_id;
+                    line->d.indiv_dirty = 1;
+                    break;
+                }
+            }
+        }
+    }
+}
 static int annotate_line(args_t *args, bcf1_t *line)
 {
     args->current_rec = line;
@@ -3888,6 +3974,8 @@ int main_vcfannotate(int argc, char *argv[])
                 line->errcode = 0;
             }
         }
+        if ( args->nrename_id_map )
+            remap_renamed_ids(args, line);
         if ( args->filter )
         {
             int pass = filter_test(args->filter, line, NULL);
