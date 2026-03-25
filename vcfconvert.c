@@ -204,8 +204,8 @@ static int _set_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( *se!='_' ) return -1;
     kputsn(ss,se-ss,&args->str);
     ss = ++se;
-    while ( se < tsv->se && *se!='_' && isspace_c(*tsv->se) ) se++;
-    if ( se < tsv->se && *se!='_' && isspace_c(*tsv->se) ) return -1;
+    while ( se < tsv->se && *se!='_' && !isspace_c(*se) ) se++;
+    if ( se < tsv->se && *se!='_' && !isspace_c(*se) ) return -1;
     kputc(',',&args->str);
     kputsn(ss,se-ss,&args->str);
 
@@ -920,7 +920,7 @@ static void vcf_to_gensample(args_t *args)
     free(files);
 
     if ( gen_fname && (strlen(gen_fname)<3 || strcasecmp(".gz",gen_fname+strlen(gen_fname)-3)) ) gen_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (gen_fname) fprintf(stderr, "Gen file: %s\n", gen_fname);
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
@@ -1045,7 +1045,7 @@ static void vcf_to_haplegendsample(args_t *args)
 
     if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
     if ( legend_fname && (strlen(legend_fname)<3 || strcasecmp(".gz",legend_fname+strlen(legend_fname)-3)) ) legend_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (hap_fname) fprintf(stderr, "Hap file: %s\n", hap_fname);
     if (legend_fname) fprintf(stderr, "Legend file: %s\n", legend_fname);
@@ -1081,7 +1081,7 @@ static void vcf_to_haplegendsample(args_t *args)
 
     // open haps and legend outputs
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
-    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
+    if ( hout && hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
     BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "wg" : "wu") : NULL;
     if (legend_fname) {
         str.l = 0;
@@ -1194,7 +1194,7 @@ static void vcf_to_hapsample(args_t *args)
     free(files);
 
     if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (hap_fname) fprintf(stderr, "Hap file: %s\n", hap_fname);
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
@@ -1232,7 +1232,7 @@ static void vcf_to_hapsample(args_t *args)
 
     // open haps output
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
-    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
+    if ( hout && hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
 
     int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
