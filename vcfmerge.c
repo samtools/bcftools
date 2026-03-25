@@ -1653,7 +1653,7 @@ void init_local_alleles(args_t *args, bcf1_t *out, int ifmt_PL)
         }
         switch (fmt_ori->type)
         {
-            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val); break;
+            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             default: error("Unexpected case: %d, PL\n", fmt_ori->type);
@@ -1689,7 +1689,7 @@ void update_local_alleles(args_t *args, bcf1_t *out)
                 }
             }
             if ( j==0 ) dst[j++] = bcf_int32_missing;
-            for (; j<ma->nlaa; j++) src[j] = bcf_int32_vector_end;
+            for (; j<ma->nlaa; j++) dst[j] = bcf_int32_vector_end;
             ismpl++;
         }
     }
@@ -2014,7 +2014,7 @@ void merge_localized_numberG_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf
         {
             case BCF_BT_INT8:  BRANCH(int32_t, int8_t,  le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
             case BCF_BT_INT16: BRANCH(int32_t, int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
-            case BCF_BT_INT32: BRANCH(int32_t, int32_t, le_to_i16, val==bcf_int32_missing, val==bcf_int32_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
+            case BCF_BT_INT32: BRANCH(int32_t, int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
             case BCF_BT_FLOAT: BRANCH(float, float, le_to_float, bcf_float_is_missing(val), bcf_float_is_vector_end(val), bcf_float_set_missing(tgt[tgt_idx]), bcf_float_set_vector_end(tgt[tgt_idx])); break;
             default: error("Unexpected case: %d, %s\n", fmt_ori->type, key);
         }
