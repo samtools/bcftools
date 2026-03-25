@@ -1,5 +1,12 @@
-## Release 1.22.2 (9th July 2026)
+## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools norm
+
+    - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
+
+## Release 1.22.2 (9th July 2026)
 
 This release bundles HTSlib 1.22.3, which includes many important
 bug fixes.  There are no changes to BCFtools.  Please see htslib/NEWS
