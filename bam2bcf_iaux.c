@@ -228,7 +228,7 @@ static int iaux_init_ins_types(indel_aux_t *iaux)
         iaux->minscns = ncns;
     }
     else cns = iaux->inscns;
-    memset(aux,0,ncns*sizeof(*cns));
+    memset(cns,0,ncns*sizeof(*cns));
 
     // use the majority rule to construct the consensus
     for (t=0; t<iaux->ntypes; t++)
