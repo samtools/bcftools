@@ -871,8 +871,9 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
     for (i=0; i<args->nsites; i++)
     {
         float baf = smpl->baf[i];
+        if ( baf>4/5.) continue;        // skip AA genotypes
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
-        if ( baf<1/5.) continue;        // skip RR,AA genotypes
+        if ( baf<1/5.) continue;        // skip RR genotypes
 
         double prob_cn3 = args->tmpf[k++];
         baf_dev2 += prob_cn3 * (baf - mean_cn3)*(baf - mean_cn3);
@@ -1037,7 +1038,7 @@ static void cnv_flush_viterbi(args_t *args)
     for (isite=0; isite<args->nsites; isite++)
     {
         int state = vpath[args->nstates*isite];
-        double *pval = fwd + isite*args->nstates;
+        double *pval = fwd + (isite+1)*args->nstates;
 
         qual += pval[start_cn];
 
@@ -1157,10 +1158,11 @@ static void cnv_next_line(args_t *args, bcf1_t *line)
     if ( !(baf_fmt = bcf_get_fmt(args->hdr, line, "BAF")) ) return;
     if ( args->lrr_bias>0 && !(lrr_fmt = bcf_get_fmt(args->hdr, line, "LRR")) ) return;
 
-    float baf1,lrr1,baf2,lrr2;
+    float baf1,lrr1,baf2=-1,lrr2=0;
     int ret = 0;
     ret += parse_lrr_baf(&args->query_sample,  baf_fmt,lrr_fmt,&baf1,&lrr1);
-    ret += parse_lrr_baf(&args->control_sample,baf_fmt,lrr_fmt,&baf2,&lrr2);
+    if ( args->control_sample.name && args->control_sample.idx >= 0 )
+        ret += parse_lrr_baf(&args->control_sample,baf_fmt,lrr_fmt,&baf2,&lrr2);
     if ( !ret ) return;
 
     // Realloc buffers needed to store observed data and used by viterbi and fwd-bwd
