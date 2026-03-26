@@ -211,7 +211,6 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
     if ( call->ADF ) memset(call->ADF,0,sizeof(int32_t)*(call->n+1)*B2B_MAX_ALLELES);
     if ( call->ADR ) memset(call->ADR,0,sizeof(int32_t)*(call->n+1)*B2B_MAX_ALLELES);
     if ( call->SCR ) memset(call->SCR,0,sizeof(*call->SCR)*(call->n+1));
-    if ( call->SCR ) memset(call->SCR,0,sizeof(*call->SCR)*(call->n+1));
     if ( bca->fmt_flag&B2B_FMT_NMBZ )
     {
         memset(call->ref_nm,0,sizeof(*call->ref_nm)*(call->n+1)*B2B_N_NM);
