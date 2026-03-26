@@ -6,6 +6,11 @@ Changes affecting specific commands:
 
     - New `-s, --samples` to print per-sample HWE probability, geometric mean
 
+* bcftools annotate
+
+    - Fix a bug in annotation renaming via `--rename-annots` and `-c NEW:=OLD`,
+      where renaming INFO/TAG would simultaneously rename also FORMAT/TAG (#2489)
+
 * bcftools conveert
 
     - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
