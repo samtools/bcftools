@@ -389,11 +389,14 @@ char *expand_path(char *path)
         if ( !path[1] || path[1] == '/' )
         {
 #ifdef _WIN32
-            kputs(getenv("HOMEDRIVE"), &str);
-            kputs(getenv("HOMEPATH"), &str);
+            char *homedrive = getenv("HOMEDRIVE");
+            char *homepath = getenv("HOMEPATH");
+            if (homedrive) kputs(homedrive, &str);
+            if (homepath) kputs(homepath, &str);
 #else
             // ~ or ~/path
-            kputs(getenv("HOME"), &str);
+            char *home = getenv("HOME");
+            if (home) kputs(home, &str); else kputc('.', &str);
             if ( path[1] ) kputs(path+1, &str);
 #endif
         }

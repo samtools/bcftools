@@ -815,7 +815,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         // forward
         int ntrim = args->fa_frz_pos - rec->pos + 1;
         int nref  = strlen(rec->d.allele[0]);
-        assert( ntrim < nref );
+        if ( ntrim >= nref )
+            error("Error: failed to trim overlapping variant at %s:%"PRId64", ntrim=%d >= nref=%d. Is the VCF normalized?\n",
+                bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1,ntrim,nref);
         rec->pos  += ntrim;
         rec->rlen -= ntrim;
         memmove(rec->d.allele[0],rec->d.allele[0]+ntrim,nref-ntrim);
@@ -853,7 +855,6 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
         else if ( strlen(ref_allele) < -idx )   // the ref allele is shorter but overlaps the fa sequence? This should never happen
         {
-            assert(0);
             fprintf(stderr,"Warning: ignoring overlapping variant starting at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
             return;
         }
@@ -1002,7 +1003,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     if ( len_diff <= 0 )
     {
         // deletion or same size event
-        assert( args->fa_buf.l >= idx+rec->rlen );
+        if ( args->fa_buf.l < idx+rec->rlen )
+            error("Error: fasta buffer too short at %s:%"PRId64" (buf length %zu, need %"PRId64"). Is the reference fasta correct?\n",
+                bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1,(size_t)args->fa_buf.l,(int64_t)(idx+rec->rlen));
         args->prev_base = args->fa_buf.s[idx+rec->rlen-1];
         args->prev_base_pos = rec->pos + rec->rlen - 1;
         args->prev_is_insert = 0;
