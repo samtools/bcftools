@@ -2295,6 +2295,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
 
     if ( hap->stack[ibeg].node->type == HAP_SSS  )
     {
+        node->csq_list[icsq].pos          = hap->stack[ibeg].node->rec->pos;
         node->csq_list[icsq].type.type   |= hap->stack[ibeg].node->csq & ~rm_csq;
         node->csq_list[icsq].type.ref     = hap->stack[ibeg].node->rec;
         node->csq_list[icsq].type.biotype = tr->type;
