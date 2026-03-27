@@ -33,6 +33,10 @@ Changes affecting specific commands:
       unwanted pair of records, it also led to unexpected behavior when the first
       out-of-window record would change by filtering (#2475)
 
+* bcftools stats
+
+    - Fix per-sample stats when samples provided in different order via -s/-S (#2534)
+
 * bcftools +trio-dnm3
 
     - Add a new TrioDNM model and make it the new default. To prevent confusion, the

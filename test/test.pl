@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2025 Genome Research Ltd.
+#   Copyright (C) 2012-2026 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -44,6 +44,8 @@ run_test(\&test_vcf_idxstats,$opts,in=>'empty',args=>'-s',out=>'empty.idx.out');
 run_test(\&test_vcf_idxstats,$opts,in=>'empty',args=>'-n',out=>'empty.idx_count.out');
 run_test(\&test_vcf_check,$opts,in=>'check',out=>'check.chk');
 run_test(\&test_vcf_check_merge,$opts,in=>'check',out=>'check_merge.chk');
+run_test(\&test_vcf_stats,$opts,in=>['stats-smpl-order'],out=>'stats-smpl-order.chk',args=>'-s A,B',pipe=>'sort');
+run_test(\&test_vcf_stats,$opts,in=>['stats-smpl-order'],out=>'stats-smpl-order.chk',args=>'-s B,A',pipe=>'sort');
 run_test(\&test_vcf_stats,$opts,in=>['stats.a','stats.b'],out=>'stats.chk',args=>'-s -');
 run_test(\&test_vcf_stats,$opts,in=>['stats.a','stats.b'],out=>'stats.B.chk',args=>'-s B');
 run_test(\&test_vcf_stats,$opts,in=>['stats.counts'],out=>'stats.counts.chk',args=>'-s -');
@@ -1511,7 +1513,9 @@ sub test_vcf_stats
         bgzip_tabix_vcf($opts,$file);
         $files .= " $$opts{tmp}/$file.vcf.gz";
     }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats $args{args} $files | grep -v '^#' | grep -v '^ID\t'");
+    my $pipe = qq[grep -v '^#' | grep -v '^ID\t' ];
+    if ( exists($args{pipe}) ) { $pipe .= ' | '. $args{pipe}; }
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats $args{args} $files | $pipe");
 }
 sub test_vcf_merge
 {
