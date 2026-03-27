@@ -2003,7 +2003,7 @@ void tscript_splice_ref(gf_tscript_t *tr)
         memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[i]->beg - tr->beg, tr->cds[i]->len);
         len += tr->cds[i]->len;
     }
-    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg, N_REF_PAD);
+    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg + tr->cds[tr->ncds-1]->len, N_REF_PAD);
     len += N_REF_PAD;
 
     TSCRIPT_AUX(tr)->sref[len] = 0;
