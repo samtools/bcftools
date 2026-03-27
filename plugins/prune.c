@@ -198,6 +198,12 @@ static void init_data(args_t *args)
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The number of variants within %d bp of the site\">",args->cluster_annot,args->ld_win);
     if (args->record_cmd_line)
         bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_plugin_prune");
+    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
+    {
+        bcf_hdr_printf(args->hdr,"##bcftools_plugin_prune_RandomSeed=%u", args->rseed);
+        fprintf(stderr,"Using random seed: %u\n",args->rseed);
+        hts_srand48(args->rseed);
+    }
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( init_index2(args->out_fh,args->hdr,args->output_fname,
                      &args->index_fn, args->write_index)<0 )
@@ -219,11 +225,6 @@ static void init_data(args_t *args)
     if ( args->ld_max_set[VCFBUF_LD_IDX_R2] ) vcfbuf_set(args->vcfbuf,LD_MAX_R2,args->ld_max[VCFBUF_LD_IDX_R2]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_LD] ) vcfbuf_set(args->vcfbuf,LD_MAX_LD,args->ld_max[VCFBUF_LD_IDX_LD]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_HD] ) vcfbuf_set(args->vcfbuf,LD_MAX_HD,args->ld_max[VCFBUF_LD_IDX_HD]);
-    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
-    {
-        fprintf(stderr,"Using random seed: %d\n",args->rseed);
-        hts_srand48(args->rseed);
-    }
     if ( args->rand_missing ) vcfbuf_set(args->vcfbuf,LD_RAND_MISSING,1);
     if ( args->max_cluster )
     {
@@ -335,7 +336,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     args->ld_win = -100e3;
     args->nsites_mode = "maxAF";
-    args->rseed = time(NULL);
+    args->rseed = make_seed();
     args->clevel = -1;
     args->record_cmd_line = 1;
     static struct option loptions[] =

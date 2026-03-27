@@ -182,3 +182,5 @@ int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname)
 {
     return init_index2(fh,hdr, fname, idx_fname, HTS_FMT_CSI);
 }
+
+

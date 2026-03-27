@@ -1,6 +1,6 @@
 /*  bcftools.h -- utility function declarations.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -32,6 +32,14 @@ THE SOFTWARE.  */
 #include <htslib/kfunc.h>
 #include <math.h>
 #include <ctype.h>
+#include <time.h>
+#include <stdint.h>
+#ifdef _WIN32
+  #include <process.h>
+  #define getpid _getpid
+#else
+  #include <unistd.h>
+#endif
 
 #define FT_TAB_TEXT 0       // custom tab-delimited text file
 #define FT_GZ 1
@@ -70,6 +78,12 @@ void set_wmode(char dst[8], int file_type, const char *fname, int compression_le
 char *init_tmp_prefix(const char *prefix);
 int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
 int parse_overlap_option(const char *arg);
+
+// make random seed which safe for parallelization
+static inline uint32_t make_seed(void)
+{
+    return (uint32_t)(time(NULL) ^ (getpid() << 16) ^ clock());
+}
 
 // Default sort order: chr,pos,alleles
 int cmp_bcf_pos(const void *aptr, const void *bptr);
