@@ -2213,10 +2213,13 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         csq->type.type |= hap->stack[i].node->csq & CSQ_COMPOUND;
     if ( dlen==0 && indel ) csq->type.type |= CSQ_INFRAME_ALTERING;
 
+    assert(hap->tref_stop.l==hap->tref.l);
+    assert(hap->tseq_stop.l==hap->tseq.l);
+
     int has_upstream_stop = hap->upstream_stop;
     if ( hap->stack[ibeg].node->type != HAP_SSS )
     {
-        // check for truncating stops
+        // check for truncating stops; this is safe, note t*_stop vs t* are of the same length, see the asserts above
         for (i=0; i<hap->tref_stop.l; i++)
             if ( hap->tref_stop.s[i]=='*' ) break;
         if ( i!=hap->tref_stop.l )
@@ -2228,7 +2231,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         }
         for (i=0; i<hap->tseq_stop.l; i++)
             if ( hap->tseq_stop.s[i]=='*' ) break;
-        if ( i!=hap->tseq.l )
+        if ( i!=hap->tseq_stop.l )
         {
             hap->tseq.l = i+1;
             hap->tseq.s[i+1] = 0;
@@ -3435,7 +3438,7 @@ int test_splice(args_t *args, bcf1_t *rec)
 
         for (i=1; i<rec->n_allele; i++)
         {
-            if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
             splice.vcf.ial = i;
             splice.csq     = 0;
