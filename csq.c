@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2024 Genome Research Ltd.
+   Copyright (c) 2016-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -464,9 +464,18 @@ const uint8_t cnt4[] =
     4,3,4,2, 4,4,4,1, 4,4,4,4, 4,4,4,4,
     4,4,4,4, 0
 };
-#define dna2aa(x)  gencode[  nt4[(uint8_t)(x)[0]]<<4 |  nt4[(uint8_t)(x)[1]]<<2 |  nt4[(uint8_t)(x)[2]] ]
-#define cdna2aa(x) gencode[ cnt4[(uint8_t)(x)[2]]<<4 | cnt4[(uint8_t)(x)[1]]<<2 | cnt4[(uint8_t)(x)[0]] ]
-
+static inline char dna2aa(char *codon)
+{
+    if (!codon) return 'X';
+    int idx = (nt4[(uint8_t)codon[0]] << 4) | (nt4[(uint8_t)codon[1]] << 2) | nt4[(uint8_t)codon[2]];
+    return (idx > 63) ? 'X' : gencode[idx];
+}
+static inline char cdna2aa(char *codon)
+{
+    if (!codon) return 'X';
+    int idx = (cnt4[(uint8_t)codon[2]] << 4) | (cnt4[(uint8_t)codon[1]] << 2) | cnt4[(uint8_t)codon[0]];
+    return (idx > 63) ? 'X' : gencode[idx];
+}
 static inline int ncsq2_to_nfmt(int ncsq2)
 {
     return 1 + (ncsq2 - 1) / 30;

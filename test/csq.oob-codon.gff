@@ -1,0 +1,5 @@
+##gff-version 3
+test_ref	.	gene	1	20	.	+	.	ID=gene:ENSG001;Name=TestGene;biotype=protein_coding
+test_ref	.	transcript	1	20	.	+	.	ID=transcript:ENST001;Parent=gene:ENSG001;biotype=protein_coding
+test_ref	.	exon	1	20	.	+	.	Parent=transcript:ENST001
+test_ref	.	CDS	1	20	.	+	0	Parent=transcript:ENST001
