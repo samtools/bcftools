@@ -2888,7 +2888,6 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         {
             token_t *tok = atok->regex ? btok : atok;
             rtok->pass_site = _regex_vector_strings(regex, tok->str_value.s, tok->str_value.l, logic, missing_logic);
-    fprintf(stderr,"pass=%d [%s]\n",rtok->pass_site,tok->str_value.s);
         }
         return;
     }
