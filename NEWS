@@ -7,6 +7,11 @@ Changes affecting specific commands:
     - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
       are split across multiple records.
 
+* bcftools merge
+
+    - Fixes in memory access with localized alleles, it could result in printing
+      printing trailing garbage in localized FORMAT fields (#2520)
+
 * bcftools norm
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
