@@ -793,7 +793,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
     if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
-    int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
+    int ntmpi2 = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
     if ( ntmpi2 < ndst ) hts_expand(int32_t,ndst,args->mtmpi2,args->tmpi2);
 
     int i;
@@ -1751,36 +1751,47 @@ static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void 
     for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++) free(args->tmpp[ismpl]);
     return ret;
 }
-static int determine_ploidy(int nals, int *vals, int nvals1, uint8_t *smpl, int nsmpl)
-{
-    int i, j, ndip = nals*(nals+1)/2, max_ploidy = 0;
-    for (i=0; i<nsmpl; i++)
-    {
-        int *ptr = vals + i*nvals1;
-        int has_value = 0;
-        for (j=0; j<nvals1; j++)
-        {
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-            if ( ptr[j]!=bcf_int32_missing ) has_value = 1;
-        }
-        if ( has_value )
-        {
-            if ( j==ndip )
-            {
-                smpl[i] = 2;
-                max_ploidy = 2;
-            }
-            else if ( j==nals )
-            {
-                smpl[i] = 1;
-                if ( !max_ploidy ) max_ploidy = 1;
-            }
-            else return -j;
-        }
-        else smpl[i] = 0;
-    }
-    return max_ploidy;
+#define DEFINE_DETERMINE_PLOIDY(NAME, TYPE, IS_MISSING, IS_VECTOR_END)         \
+static int NAME(int nals, TYPE *vals, int nvals1, uint8_t *smpl, int nsmpl)    \
+{                                                                              \
+    int i, j, ndip = nals*(nals+1)/2, max_ploidy = 0;                          \
+    for (i=0; i<nsmpl; i++)                                                    \
+    {                                                                          \
+        TYPE *ptr = vals + i*nvals1;                                           \
+        int has_value = 0;                                                     \
+        for (j=0; j<nvals1; j++)                                               \
+        {                                                                      \
+            if ( IS_VECTOR_END(ptr[j]) ) break;                                \
+            if ( !IS_MISSING(ptr[j]) ) has_value = 1;                          \
+        }                                                                      \
+        if ( has_value )                                                       \
+        {                                                                      \
+            if ( j==ndip )                                                     \
+            {                                                                  \
+                smpl[i] = 2;                                                   \
+                max_ploidy = 2;                                                \
+            }                                                                  \
+            else if ( j==nals )                                                \
+            {                                                                  \
+                smpl[i] = 1;                                                   \
+                if ( !max_ploidy ) max_ploidy = 1;                             \
+            }                                                                  \
+            else return -j;                                                    \
+        }                                                                      \
+        else smpl[i] = 0;                                                      \
+    }                                                                          \
+    return max_ploidy;                                                         \
 }
+
+#define INT32_IS_MISSING(x)    ((x) == bcf_int32_missing)
+#define INT32_IS_VECTOR_END(x) ((x) == bcf_int32_vector_end)
+
+#define FLOAT_IS_MISSING(x)    bcf_float_is_missing(x)
+#define FLOAT_IS_VECTOR_END(x) bcf_float_is_vector_end(x)
+
+DEFINE_DETERMINE_PLOIDY(determine_ploidy_int32, int32_t, INT32_IS_MISSING, INT32_IS_VECTOR_END)
+DEFINE_DETERMINE_PLOIDY(determine_ploidy_float, float,   FLOAT_IS_MISSING, FLOAT_IS_VECTOR_END)
+
 static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
@@ -1833,10 +1844,10 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
             args->src_smpl_pld = (uint8_t*) malloc(nsmpl_src);
             args->dst_smpl_pld = (uint8_t*) malloc(nsmpl_dst);
         }
-        int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
+        int pld_src = determine_ploidy_int32(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
-        int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
+        int pld_dst = determine_ploidy_int32(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
@@ -1940,10 +1951,10 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
             args->src_smpl_pld = (uint8_t*) malloc(nsmpl_src);
             args->dst_smpl_pld = (uint8_t*) malloc(nsmpl_dst);
         }
-        int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
+        int pld_src = determine_ploidy_float(rec->n_allele, args->tmpf, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
-        int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
+        int pld_dst = determine_ploidy_float(line->n_allele, args->tmpf2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
