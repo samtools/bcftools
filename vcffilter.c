@@ -420,14 +420,14 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
             if ( args->set_gts==SET_GTS_MISSING && !bcf_gt_is_missing(gts[j]) )
             {
                 int ial = bcf_gt_allele(gts[j]);
-                if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                if ( has_ac && ial>0 && ial<line->n_allele ) args->tmp_ac[ ial-1 ]--;
                 an--;
             }
             else if ( args->set_gts==SET_GTS_REF )
             {
                 int ial = bcf_gt_allele(gts[j]);
                 if ( bcf_gt_is_missing(gts[j]) ) an++;
-                else if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                else if ( has_ac && ial>0 && ial<line->n_allele ) args->tmp_ac[ ial-1 ]--;
             }
             gts[j] = new_gt;
         }
