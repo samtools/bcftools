@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2025 Genome Research Ltd.
+   Copyright (c) 2014-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -85,9 +85,11 @@ typedef void (*set_tprob_f) (hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *
  *              see the MAT macro above.
  *   @ntprob:   number of precalculated tprob matrices or 0 for constant probs, independent
  *              of distance
+ *
+ *   Returns 0 on success, negative value on error
  */
 hmm_t *hmm_init(int nstates, double *tprob, int ntprob);
-void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
+int hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
 
 #define HMM_VIT 1
 #define HMM_FWD 2
@@ -138,16 +140,13 @@ void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data);
  *   @nsites:   number of sites
  *   @eprob:    emission probabilities for each site and state (nsites x nstates)
  *   @sites:    list of positions
- *
- *   When done, hmm->vpath[] contains the calculated Viterbi path. The states
- *   are indexed starting from 0, a state at i-th site can be accessed as
- *   vpath[nstates*i].
  */
 void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 
 /**
- *   hmm_get_viterbi_path() - the viterbi path: state at ith site is the
- *      (nstates*isite)-th element
+ *   hmm_get_viterbi_path() - returns the the viterbi path: state at i-th site
+ *      can be accessed with the macro HMM_VPATH(arr,nstates,i). Both the site
+ *      index and the state index are 0-based.
  */
 uint8_t *hmm_get_viterbi_path(hmm_t *hmm);
 
@@ -160,8 +159,9 @@ uint8_t *hmm_get_viterbi_path(hmm_t *hmm);
 void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 
 /**
- *   hmm_get_fwd_bwd_prob() - the probability of i-th state at j-th site can
- *      be accessed as fwd_bwd[j*nstates+i].
+ *   hmm_get_fwd_bwd_prob() - returns the posterior forward-backward probabilities.
+ *      The probability of i-th state at j-th site (both indices 0-based)
+ *      can be accessed with the macro HMM_PPROB(arr,nstates,j,i).
  */
 double *hmm_get_fwd_bwd_prob(hmm_t *hmm);
 

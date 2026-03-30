@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2025 Genome Research Ltd.
+   Copyright (c) 2014-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -43,13 +43,14 @@ struct _hmm_t
 {
     int nstates;    // number of states
 
-    double *vprob, *vprob_tmp;  // viterbi probs [nstates]
-    uint8_t *vpath;             // viterbi path [nstates*nvpath]
-    double *bwd, *bwd_tmp;      // bwd probs [nstates]
-    double *fwd;                // fwd probs [nstates*(nfwd+1)]
+    double *vprob, *vprob_tmp;  // Viterbi probs [nstates]
+    uint8_t *vpath;             // Viterbi path [nstates*nvpath]
+    double *bwd, *bwd_tmp;      // Bwd probs [nstates]
+    double *fwd;                // Fwd probs [nstates*(nfwd+1)]
     int nvpath, nfwd;
 
-    int ntprob_arr;             // number of pre-calculated tprob matrices
+    int mtprob_arr;             // Number of allocated tprob matrices
+    int ntprob_arr;             // Number of pre-calculated tprob matrices
     double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for
                                 //  one site (that is, one step of Viterbi algorithm)
     double *tprob_arr;          // Array of transition matrices, precalculated to ntprob_arr
@@ -158,9 +159,18 @@ hmm_t *hmm_init(int nstates, double *tprob, int ntprob)
     hmm->nstates = nstates;
     hmm->curr_tprob = (double*) malloc(sizeof(double)*nstates*nstates);
     hmm->tmp = (double*) malloc(sizeof(double)*nstates*nstates);
-    hmm_set_tprob(hmm, tprob, ntprob);
+    if ( !hmm->curr_tprob || !hmm->tmp )
+    {
+        fprintf(stderr,"Failed to allocate memory\n");
+        goto err;
+    }
+    if ( hmm_set_tprob(hmm, tprob, ntprob) !=0 ) goto err;
     hmm_init_states(hmm, NULL);
     return hmm;
+
+err:
+    hmm_destroy(hmm);
+    return NULL;
 }
 
 void *hmm_snapshot(hmm_t *hmm, void *_snapshot, uint32_t pos)
@@ -213,19 +223,33 @@ void hmm_reset(hmm_t *hmm, void *_snapshot)
     memcpy(hmm->state.fwd_prob,hmm->init.fwd_prob,sizeof(double)*hmm->nstates);
 }
 
-void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob)
+int hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob)
 {
-    hmm->ntprob_arr = ntprob;
-    if ( ntprob<=0 ) ntprob = 1;
+    int ntprob_logic = ntprob;      // ntprob_logic controls the logic
+    if ( ntprob<=0 ) ntprob = 1;    // ntprob the number of precompputed matrices
 
-    if ( !hmm->tprob_arr )
-        hmm->tprob_arr  = (double*) malloc(sizeof(double)*hmm->nstates*hmm->nstates*ntprob);
+    size_t nmat = (size_t)hmm->nstates * hmm->nstates;
 
-    memcpy(hmm->tprob_arr,tprob,sizeof(double)*hmm->nstates*hmm->nstates);
+    if ( !hmm->tprob_arr || hmm->mtprob_arr < ntprob )
+    {
+        size_t nbytes = sizeof(*hmm->tprob_arr) * nmat * ntprob;
+        double *tmp = (double*) realloc(hmm->tprob_arr, nbytes);
+        if ( !tmp )
+        {
+            fprintf(stderr,"Error: Could not allocate %zu bytes\n",nbytes);
+            return -1;
+        }
+        hmm->mtprob_arr = ntprob;
+        hmm->tprob_arr  = tmp;
+    }
+
+    hmm->ntprob_arr = ntprob_logic;
+    memcpy(hmm->tprob_arr,tprob,sizeof(*hmm->tprob_arr)*nmat);
 
     int i;
     for (i=1; i<ntprob; i++)
-        multiply_matrix(hmm->nstates, hmm->tprob_arr, hmm->tprob_arr+(i-1)*hmm->nstates*hmm->nstates, hmm->tprob_arr+i*hmm->nstates*hmm->nstates, hmm->tmp);
+        multiply_matrix(hmm->nstates, hmm->tprob_arr, hmm->tprob_arr+(i-1)*nmat, hmm->tprob_arr+i*nmat, hmm->tmp);
+    return 0;
 }
 
 void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data)
