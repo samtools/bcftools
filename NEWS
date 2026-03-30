@@ -25,6 +25,9 @@ Changes affecting specific commands:
     - Fixes in memory access with localized alleles, it could result in printing
       printing trailing garbage in localized FORMAT fields (#2520)
 
+    - Add new `-m exact` mode to merge only records with the exact same alleles
+      (#2498)
+
 * bcftools mpileup
 
     - Remove unused experimental INFO/MIN_PL_SUM annotation

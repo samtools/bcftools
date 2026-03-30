@@ -2141,6 +2141,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     '\*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
     if two asterisks '**' are appended, the unobserved allele will be removed all sites.
 ----
+-m exact       ..  require the exact same alleles
 -m none        ..  no new multiallelics, output multiple records instead
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
