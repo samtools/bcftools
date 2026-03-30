@@ -11,7 +11,11 @@ Changes affecting specific commands:
     - Fix a bug in annotation renaming via `--rename-annots` and `-c NEW:=OLD`,
       where renaming INFO/TAG would simultaneously rename also FORMAT/TAG (#2489)
 
-* bcftools conveert
+* bcftools cnv
+
+    - Fix off-by-one error in reporting HMM qualities
+
+* bcftools convert
 
     - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
       the next record
@@ -32,6 +36,10 @@ Changes affecting specific commands:
       be incorrectly accessed. Not only this by-one error would calculate LD in
       unwanted pair of records, it also led to unexpected behavior when the first
       out-of-window record would change by filtering (#2475)
+
+* bcftools roh
+
+    - Fix off-by-one error in reporting HMM qualities
 
 * bcftools stats
 
