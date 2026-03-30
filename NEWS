@@ -7,6 +7,10 @@ Changes affecting specific commands:
     - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
       are split across multiple records.
 
+* bcftools cnv
+
+    - Fix off-by-one error in reporting HMM qualities
+
 * bcftools csq
 
     - Fix a segfault caused by incorrect handling of symbolic ALT alleles
@@ -23,6 +27,10 @@ Changes affecting specific commands:
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
+
+* bcftools roh
+
+    - Fix off-by-one error in reporting HMM qualities
 
 ## Release 1.23.2 (9th July 2026)
 
