@@ -1653,7 +1653,7 @@ void init_local_alleles(args_t *args, bcf1_t *out, int ifmt_PL)
         }
         switch (fmt_ori->type)
         {
-            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
+            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val>=0 ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             default: error("Unexpected case: %d, PL\n", fmt_ori->type);
