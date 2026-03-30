@@ -11,6 +11,11 @@ Changes affecting specific commands:
 
     - Fix a segfault caused by incorrect handling of symbolic ALT alleles
 
+* bcftools merge
+
+    - Fixes in memory access with localized alleles, it could result in printing
+      printing trailing garbage in localized FORMAT fields (#2520)
+
 * bcftools norm
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
