@@ -20,6 +20,11 @@ Changes affecting specific commands:
     - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
       the next record
 
+* bcftools merge
+
+    - Fixes in memory access with localized alleles, it could result in printing
+      printing trailing garbage in localized FORMAT fields (#2520)
+
 * bcftools mpileup
 
     - Remove unused experimental INFO/MIN_PL_SUM annotation
