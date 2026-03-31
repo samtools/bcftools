@@ -309,6 +309,12 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
 
     int i, fai_ref_len;
     char *fai_ref = faidx_fetch_seq(ctx->ref, chr, pos-1, pos+win_size, &fai_ref_len);
+    if ( !fai_ref )
+    {
+        *nrep = 0;
+        *nlen = 0;
+        return alt_len - ref_len;
+    }
     for (i=0; i<fai_ref_len; i++)
         if ( (int)fai_ref[i]>96 ) fai_ref[i] -= 32;
 
