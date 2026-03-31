@@ -565,7 +565,9 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--s
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
-+run_test(\&test_vcf_annotate,$opts,in=>'annotate.int.dst',vcf=>'annotate.int.src',out=>'annotate.int.1.out',args=>q[-c +INFO/IA,+INFO/IR]);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.AR',tab=>'annotate.AR',out=>'annotate.AR.1.out',args=>q[-c CHROM,POS,REF,ALT,+INFO/IA,+INFO/FA,+INFO/IR,+INFO/FR]);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.AR',tab=>'annotate.AR',out=>'annotate.AR.2.out',args=>q[-c CHROM,POS,REF,ALT,INFO/IA,INFO/FA,INFO/IR,INFO/FR]);
+run_test(\&test_vcf_annotate,$opts,in=>'annotate.int.dst',vcf=>'annotate.int.src',out=>'annotate.int.1.out',args=>q[-c +INFO/IA,+INFO/IR]);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.rename',out=>'annotate.rename.1.out',args=>q[-c INFO/ii:=INFO/XX]);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.rename',out=>'annotate.rename.2.out',args=>q[-c FORMAT/ff:=FORMAT/XX]);
 run_test(\&test_vcf_annotate,$opts,in=>'annotate36',bed=>'annots36',out=>'annotate36.1.out',args=>q[-c CHROM,POS,-,~X,-,AF,-,-,- -i'SVTYPE={X}' -k]);

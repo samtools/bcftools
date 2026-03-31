@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1>
+##INFO=<ID=IR,Number=R,Type=Integer,Description="">
+##INFO=<ID=FR,Number=R,Type=Float,Description="">
+##INFO=<ID=IA,Number=A,Type=Integer,Description="">
+##INFO=<ID=FA,Number=A,Type=Float,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100	.	A	C,G	.	.	.

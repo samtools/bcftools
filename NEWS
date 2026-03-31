@@ -11,6 +11,9 @@ Changes affecting specific commands:
     - Fix a bug in annotation renaming via `--rename-annots` and `-c NEW:=OLD`,
       where renaming INFO/TAG would simultaneously rename also FORMAT/TAG (#2489)
 
+    - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
+      are split across multiple records.
+
 * bcftools cnv
 
     - Fix off-by-one error in reporting HMM qualities
