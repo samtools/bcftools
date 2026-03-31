@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1>
+##INFO=<ID=SRC,Number=.,Type=String,Description="">
+##INFO=<ID=II,Number=1,Type=Integer,Description="">
+##INFO=<ID=FF,Number=1,Type=Float,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	123456	.	C	CT	.	.	SRC=chr5|123456|C|A,CT,G|2;FF=1.1;II=111
+1	123456	.	C	CT	.	.	SRC=chr5|123457|TA|AA,CA,TGA|3;FF=2.2;II=222
