@@ -2,6 +2,11 @@
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
+      are split across multiple records.
+
 * bcftools norm
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
