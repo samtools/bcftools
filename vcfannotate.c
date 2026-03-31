@@ -802,7 +802,8 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 
         args->tmpi2[i] = args->tmpi[ map[i] ];
     }
-    return bcf_update_info_int32(args->hdr_out,line,col->hdr_key_dst,args->tmpi2,ndst);
+    int ret = bcf_update_info_int32(args->hdr_out,line,col->hdr_key_dst,args->tmpi2,ndst);
+    return ret<0 ? ret : 1;
 }
 static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -911,7 +912,10 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
+    {
+        assert(tab);
         return setter_ARinfo_int32(args,line,col,tab->nals,tab->als,ntmpi);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -967,7 +971,8 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 
         args->tmpf2[i] = args->tmpf[ map[i] ];
     }
-    return bcf_update_info_float(args->hdr_out,line,col->hdr_key_dst,args->tmpf2,ndst);
+    int ret = bcf_update_info_float(args->hdr_out,line,col->hdr_key_dst,args->tmpf2,ndst);
+    return ret<0 ? ret : 1;
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -1095,7 +1100,10 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
+    {
+        assert(tab);
         return setter_ARinfo_real(args,line,col,tab->nals,tab->als,ntmpf);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -3590,7 +3598,7 @@ static int annotate_from_vcf(args_t *args, bcf1_t *line)
     for (j=0; j<args->ncols; j++)
     {
         if ( !args->cols[j].setter ) continue;
-        if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
+        if ( args->cols[j].setter(args,line,&args->cols[j],aline) < 0 )
             error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     }
     return 1;
@@ -3601,7 +3609,7 @@ static int annotate_from_self(args_t *args, bcf1_t *line)
     for (j=0; j<args->ncols; j++)
     {
         if ( !args->cols[j].setter ) continue;
-        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) )
+        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) < 0 )
             error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     }
     return 0;
