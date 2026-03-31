@@ -871,6 +871,7 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
     for (i=0; i<args->nsites; i++)
     {
         float baf = smpl->baf[i];
+        if ( baf>4/5.) continue;        // skip AA genotypes
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR,AA genotypes
 
@@ -1118,6 +1119,10 @@ static void cnv_flush_viterbi(args_t *args)
 
 static int parse_lrr_baf(sample_t *smpl, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fmt, float *baf, float *lrr)
 {
+    *baf = -0.1;
+    *lrr = 0;
+    if ( !smpl->name || smpl->idx<0 ) return 0;
+
     *baf = ((float*)(baf_fmt->p + baf_fmt->size*smpl->idx))[0];
     if ( bcf_float_is_missing(*baf) || isnan(*baf) ) *baf = -0.1;    // arbitrary negative value == missing value
 
