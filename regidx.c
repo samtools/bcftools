@@ -442,7 +442,7 @@ int regidx_overlap(regidx_t *regidx, const char *chr, uint32_t beg, uint32_t end
         if ( !i )
         {
             int iend = iBIN(end);
-            if ( iend >= list->nidx ) iend = list->nidx - 1;
+            if ( iend > list->nidx ) iend = list->nidx; // NB: this is correct, nidx+1 items were allocated
             for (i=ibeg; i<=iend; i++)
                 if ( list->idx[i] ) break;
             if ( i>iend ) return 0;
