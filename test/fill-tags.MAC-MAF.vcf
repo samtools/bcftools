@@ -1,0 +1,23 @@
+##fileformat=VCFv4.2
+##reference=file:///ref.fa
+##contig=<ID=11,length=135006516>
+##contig=<ID=20,length=63025520>
+##contig=<ID=X,length=155270560>
+##contig=<ID=Y,length=59373566>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
+11	2343543	.	A	.	.	.	.	GT	0/0	0/0	0/0
+11	5464562	.	C	T	.	.	.	GT	./.	./.	./.
+20	76962	.	T	C	.	.	.	GT	0/1	1/1	1/1
+20	126310	.	ACC	A	.	.	.	GT	0/1	0/1	1/1
+20	138125	.	G	T	.	.	.	GT	0/1	0/1	1/1
+20	138148	.	C	T	.	.	.	GT	0/1	0/1	1/1
+20	271225	.	T	TTTA,TA	.	.	.	GT	0/2	0/1	1/2
+20	304568	.	C	T	.	.	.	GT	0|1	0|1	1|1
+20	326891	.	A	AC	.	.	.	GT	0|1	0|1	./.
+X	2928329	.	C	T	.	.	.	GT	0	0	0/1
+X	2933066	.	G	C	.	.	.	GT	0	0	0/1
+X	2942109	.	T	C	.	.	.	GT	0	1	1/1
+X	3048719	.	T	C	.	.	.	GT	0	1	0|1
+Y	8657215	.	C	A	.	.	.	GT	0	1	.
+Y	10011673	.	G	A	.	.	.	GT	1	1	.

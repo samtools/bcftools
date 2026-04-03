@@ -23,6 +23,15 @@ Changes affecting specific commands:
     - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
       the next record
 
+* bcftools +fill-tags
+
+    - Fix custom functions to use rounding instead of truncation when converting to
+      integer, so that -t 'MAC:1=float(MAF*AN)' and -t 'MAC:1=int(MAF*AN)' return
+      consistent values.
+
+    - Support per-population annotation for embedded functions, such as in
+      -t 'MAC:1=int(MAF*AN)' -S groups.txt (#2514)
+
 * bcftools merge
 
     - Fixes in memory access with localized alleles, it could result in printing
