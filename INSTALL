@@ -268,3 +268,6 @@ mingw-w64-x86_64-tools-git
 
 (The last is only needed for building libraries compatible with MSVC.)
 
+
+
+For detailed documentation, visit the BCFtools online manual at https://samtools.github.io/bcftools/.
