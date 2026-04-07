@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr>
+##INFO=<ID=END,Number=1,Type=Integer,Description="">
+##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="SVLEN">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr	56	.	G	<DUP>	.	.	END=61;SVLEN=5

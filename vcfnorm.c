@@ -112,7 +112,8 @@ typedef struct
     faidx_t *fai;
     struct { uint64_t tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
-    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
+    uint32_t do_realign;
+    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, clevel;
     uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
@@ -708,6 +709,7 @@ static int realign(args_t *args, bcf1_t *line)
     {
         als[0].l = 1;
         als[0].s[ als[0].l ] = 0;
+        new_reflen = line->rlen;
     }
     if ( new_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
@@ -2345,7 +2347,7 @@ static int normalize_line(args_t *args, bcf1_t *line)
             old_rec_tag_init(args,line);
             if ( fix_ref(args,line) ) old_rec_tag_set(args,line,0);
         }
-        if ( args->do_indels )
+        if ( line->rlen < args->do_realign )
         {
             int ret = args->filter_pass ? realign(args, line) : ERR_OK;
 
@@ -2537,7 +2539,7 @@ static void usage(void)
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
     fprintf(stderr, "        --no-version                Do not append version and command line to the header\n");
-    fprintf(stderr, "    -N, --do-not-normalize          Do not normalize indels (with -m or -c s)\n");
+    fprintf(stderr, "    -N, --no-realign [NUM]          Skip realignment; optionally only for events longer than NUM bp (e.g. -N1000, no space)\n");
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
     fprintf(stderr, "    -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
@@ -2577,7 +2579,6 @@ int main_vcfnorm(int argc, char *argv[])
     args->aln_win = 100;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
-    args->do_indels = 1;
     args->ma_use_ref_allele = 1;
     args->clevel = -1;
     int region_is_file  = 0;
@@ -2587,6 +2588,7 @@ int main_vcfnorm(int argc, char *argv[])
     int regions_overlap = 1;
     int targets_overlap = 0;
     args->cmp_func = cmp_bcf_pos;
+    args->do_realign = UINT32_MAX;
 
     static struct option loptions[] =
     {
@@ -2602,7 +2604,8 @@ int main_vcfnorm(int argc, char *argv[])
         {"sort",required_argument,NULL,'S'},
         {"gff-annot",required_argument,NULL,'g'},
         {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
-        {"do-not-normalize",no_argument,NULL,'N'},
+        {"do-not-normalize",no_argument,NULL,16},
+        {"no-realign",optional_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
         {"multi-overlaps",required_argument,NULL,13},
         {"regions",required_argument,NULL,'r'},
@@ -2626,7 +2629,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:i:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN::ag:W::v:S:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2668,7 +2671,17 @@ int main_vcfnorm(int argc, char *argv[])
                     error("Unsupported index format '%s'\n", optarg);
                 break;
             case 15 : args->right_align = 1; break;
-            case 'N': args->do_indels = 0; break;
+            case 16 : args->do_realign = 0; break;
+            case 'N':
+                if ( !optarg ) args->do_realign = 0;
+                else
+                {
+                    errno = 0;
+                    double val = strtod(optarg,&tmp);
+                    if ( errno || tmp == optarg || *tmp || val < 0 || val > UINT32_MAX ) error("Could not parse argument: -N, --no-realign %s\n", optarg);
+                    args->do_realign = (uint32_t)val;
+                }
+                break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;
                 else if ( !strcmp("indels",optarg) ) args->rmdup = BCF_SR_PAIR_INDELS;

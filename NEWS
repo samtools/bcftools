@@ -50,6 +50,12 @@ Changes affecting specific commands:
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
 
+    - Fix erroneous INFO/END recalculation of symbolic alleles (#2500).
+
+    - Added `--no-realign[=NUM]` to skip realignment during normalization; when NUM is given,
+      only events longer than NUM bp are skipped. This deprecates the option `--do-not-normalize`
+      (equivalent to `--no-realign=0`). See also #2500.
+
 * bcftools +prune
 
     - When pruning by window length in base pairs, one out-of-window record would
