@@ -692,7 +692,7 @@ void merge_headers(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix,
 
             int len = strlen(name) + strlen(clash_prefix) + 1;
             char *tmp = (char*) malloc(sizeof(char)*(len+1));
-            sprintf(tmp,"%s:%s",clash_prefix,name);
+            snprintf(tmp,len + 1,"%s:%s",clash_prefix,name);
             free(rmme);
             rmme = name = tmp;
         }
