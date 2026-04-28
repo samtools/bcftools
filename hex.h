@@ -53,9 +53,9 @@
  *              If the buffer size is not sufficient, then the return value is the number of characters required for
  *              buffer string, including the terminating null byte.
  */
-static inline size_t hex_uint64_t(uint64_t n, char *str)
+static inline size_t hex_uint64_t(uint64_t n, char str[static 17])
 {
-    return sprintf(str, "%016" PRIx64, n);
+    return snprintf(str, 17, "%016" PRIx64, n);
 }
 
 /** @brief Parses a 16 chars hexadecimal string and returns the code.
