@@ -76,7 +76,7 @@ bcf1_t *process(bcf1_t *rec)
     char rsid[9];
     char *ptr = rec->d.id;
     ptr += 2; // remove 'rs'
-    sprintf(rsid, "%08" PRIx32, (uint32_t)strtoul(ptr, NULL, 10));
+    snprintf(rsid, sizeof(rsid), "%08" PRIx32, (uint32_t)strtoul(ptr, NULL, 10));
     bcf_update_info_string(out_hdr, rec, "RSX", rsid);
     return rec;
 }
