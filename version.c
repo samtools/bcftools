@@ -160,7 +160,7 @@ int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
 
     if ( !fname || !*fname || !strcmp(fname, "-") ) return -1;
 
-    char *delim = strstr(fname, HTS_IDX_DELIM);
+    const char *delim = strstr(fname, HTS_IDX_DELIM);
     if (delim) {
         delim += strlen(HTS_IDX_DELIM);
         *idx_fname = strdup(delim);
