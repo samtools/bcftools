@@ -1,6 +1,9 @@
 For the impatient
 =================
 
+For detailed documentation, visit the BCFtools online manual at https://samtools.github.io/bcftools/.
+
+
 The latest source code can be downloaded from github and compiled using:
 
     git clone --recurse-submodules https://github.com/samtools/htslib.git
