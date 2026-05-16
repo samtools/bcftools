@@ -67,6 +67,7 @@ typedef struct _args_t
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_list, *regions_list;
     int regions_overlap, targets_overlap;
+    int regions_fastpath_disabled;  // --no-regions-fastpath suppresses the htslib opt-in (#2557)
     int argc, clevel, n_threads, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
     int trim_alts, sites_only, known, novel, min_alleles, max_alleles, private_vars, uncalled, phased;
     int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type, gt_type;
@@ -521,6 +522,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in FILE\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "        --no-regions-fastpath         Disable the dense-single-base BED auto-promotion (#2557); always index-jump\n");
     fprintf(stderr, "    -t, --targets [^]REGION           Similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "    -T, --targets-file [^]FILE        Similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "        --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
@@ -611,6 +613,7 @@ int main_vcfview(int argc, char *argv[])
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"regions-overlap",required_argument,NULL,3},
+        {"no-regions-fastpath",no_argument,NULL,11},
         {"min-ac",required_argument,NULL,'c'},
         {"max-ac",required_argument,NULL,'C'},
         {"min-af",required_argument,NULL,'q'},
@@ -755,6 +758,7 @@ int main_vcfview(int argc, char *argv[])
             case 10 :
                 if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
+            case 11 : args->regions_fastpath_disabled = 1; break;
 
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
@@ -784,6 +788,15 @@ int main_vcfview(int argc, char *argv[])
     if ( args->regions_list )
     {
         bcf_sr_set_opt(args->files,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
+        // #2557: opt into the htslib dense-single-base auto-promotion when
+        // the regions are a file AND no -T is set (BCF_SR_AUTO_TARGETS_FROM_REGIONS
+        // populates readers->targets, which conflicts with a subsequent
+        // bcf_sr_set_targets() call). The htslib sniffer decides per-file
+        // whether the file actually qualifies for the streaming-targets path;
+        // sparse / small / wide BEDs fall back to the seek-per-region default.
+        // --no-regions-fastpath suppresses the opt unconditionally.
+        if ( regions_is_file && !args->targets_list && !args->regions_fastpath_disabled )
+            bcf_sr_set_opt(args->files, BCF_SR_AUTO_TARGETS_FROM_REGIONS);
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }

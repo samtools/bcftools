@@ -426,6 +426,12 @@ run_test(\&test_vcf_view,$opts,in=>'idx.3',out=>'idx.3.out',args=>q[-H -R {PATH}
 run_test(\&test_vcf_view,$opts,in=>'idx.4',out=>'idx.4.out',args=>q[-H -R {PATH}/idx.4.bed]);
 run_test(\&test_vcf_view,$opts,in=>'view-t',out=>'view-t.1.out',args=>'-Ht 2',reg=>'');
 run_test(\&test_vcf_view,$opts,in=>'view-t',out=>'view-t.2.out',args=>'-Ht 3',reg=>'');
+# Regression for samtools/bcftools#2557. The fixture has 300 single-base
+# BED entries (> htslib SNIFF_LINES=256) at dense ~100bp spacing, so the
+# htslib sniffer accepts it and the opt routes -R FILE through the
+# streaming-targets path. All three modes (fastpath, --no-regions-fastpath,
+# -T) must produce the same expected output.
+run_test(\&test_vcf_view_regions_fastpath,$opts,in=>'regions-fastpath',bed=>'regions-fastpath',out=>'regions-fastpath.out');
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.0.out',args=>q[-H -r chr1:100-200 --regions-overlap 0]);
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.1.out',args=>q[-H -r chr1:100-200 --regions-overlap 1]);
 run_test(\&test_vcf_view,$opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -r chr1:100-200 --regions-overlap 2]);
@@ -1700,6 +1706,25 @@ sub test_vcf_view
     unless ($args{args} =~ /-H/) {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | $$opts{bin}/bcftools view | grep -v ^##bcftools_", exp_fix=>1);
     }
+}
+sub test_vcf_view_regions_fastpath
+{
+    # Regression test for samtools/bcftools#2557. bcftools view -R FILE
+    # opts into BCF_SR_AUTO_TARGETS_FROM_REGIONS in htslib when no -T is
+    # given, which routes a dense single-base BED through the streaming-
+    # targets path (300x+ faster than per-region tabix seeks at panel
+    # sizes). All three modes must produce the same output:
+    #   - fastpath (default, opt enabled, sniffer accepts the 300-entry BED)
+    #   - slow path (--no-regions-fastpath; suppresses the opt)
+    #   - -T FILE   (control: existing streaming-targets path)
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts, $args{in});
+    bgzip_tabix($opts, file=>$args{bed}, suffix=>'bed');
+    my $vcf = "$$opts{tmp}/$args{in}.vcf.gz";
+    my $bed = "$$opts{tmp}/$args{bed}.bed.gz";
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version -H -R $bed $vcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version -H -R $bed --no-regions-fastpath $vcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version -H -T $bed $vcf");
 }
 sub test_vcf_64bit
 {

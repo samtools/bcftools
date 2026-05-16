@@ -79,6 +79,19 @@ Changes affecting specific commands:
 
         bcftools +trio-dnm3 --use-ALM
 
+* bcftools view
+
+    - `-R FILE` now opts into htslib's `BCF_SR_AUTO_TARGETS_FROM_REGIONS`
+      when no `-T` is given.  Dense single-base BEDs (HGDP+1kGP, AADR 1240k,
+      PGS Catalog and similar panels) are routed through the streaming-
+      targets path instead of doing one tabix iterator setup per BED entry;
+      the htslib-side sniffer decides per-file whether the file qualifies,
+      and small / sparse / wide BEDs fall back to the existing seek-per-
+      region default.  Pass `--no-regions-fastpath` to disable.  Production
+      panels see roughly 200-300x speedups at the bcftools-view level (1M
+      entries: 156 s → 0.7 s on the synthetic reproducer).  Requires the
+      matching htslib change (samtools/htslib PR for #2557).
+
 
 ## Release 1.23.1 (18th March 2026)
 
