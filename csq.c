@@ -2192,7 +2192,7 @@ void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *stop,
 
 void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg, int iend, int dlen, int indel)
 {
-    int i;
+    int i, suppress_aa = 0;
     gf_tscript_t *tr = hap->tr;
     assert( tr->strand==STRAND_FWD || tr->strand==STRAND_REV );
     int ref_node = tr->strand==STRAND_FWD ? ibeg : iend;
@@ -2308,7 +2308,13 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         //    4959	GA	G	start_lost|NBPF3|ENST00000318249|protein_coding|+
         //    4959	GA	G	start_lost|NBPF3|ENST00000318249|protein_coding|+|1M>1?|4959GA>G
         rm_csq |= CSQ_FRAMESHIFT_VARIANT;
-        hap->stack[ibeg].node->type = HAP_SSS;
+
+        //  Once the start codon is lost, the amino-acid prediction obtained
+        //  by translating from the original CDS start is misleading. Suppress
+        //  the AA-change string, but for compound events still keep the DNA
+        //  haplotype below
+        suppress_aa = 1;
+        if ( ibeg == iend ) hap->stack[ibeg].node->type = HAP_SSS;
     }
     if ( has_upstream_stop ) csq->type.type |= CSQ_UPSTREAM_STOP;
     csq->type.type &= ~rm_csq;
@@ -2324,20 +2330,37 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
 
     kstring_t str = node->csq_list[icsq].type.vstr;
     str.l = 0;
-
-    // create the aa variant string
-    int aa_rbeg = tr->strand==STRAND_FWD ? node2rbeg(ibeg)/3+1 : (TSCRIPT_AUX(hap->tr)->nsref - 2*N_REF_PAD - node2rend(iend))/3+1;
-    int aa_sbeg = tr->strand==STRAND_FWD ? node2sbeg(ibeg)/3+1 : (tlen - node2send(iend))/3+1;
-    kputc_('|', &str);
-    kputw(aa_rbeg, &str);
-    kprint_aa_prediction(args,aa_rbeg,&hap->tref,&hap->tref_stop,&str);
-    if ( !(csq->type.type & CSQ_SYNONYMOUS_VARIANT) )
+    if ( suppress_aa )
     {
-        kputc_('>', &str);
-        kputw(aa_sbeg, &str);
-        kprint_aa_prediction(args,aa_sbeg,&hap->tseq,&hap->tseq_stop,&str);
+        // Leave amino_acid_change empty and keep only the DNA haplotype.
+        //
+        // kput_vcsq() prints:
+        //   Consequence|gene|transcript|biotype|strand
+        //
+        // Therefore this leading "||" gives:
+        //   ...|strand||dna_change
+        //
+        // For example:
+        //   start_lost|hypF|...|protein_coding|-||2214T>G+2216A>AT
+        //
+        kputs("||", &str);
     }
-    kputc_('|', &str);
+    else
+    {
+        // create the aa variant string
+        int aa_rbeg = tr->strand==STRAND_FWD ? node2rbeg(ibeg)/3+1 : (TSCRIPT_AUX(hap->tr)->nsref - 2*N_REF_PAD - node2rend(iend))/3+1;
+        int aa_sbeg = tr->strand==STRAND_FWD ? node2sbeg(ibeg)/3+1 : (tlen - node2send(iend))/3+1;
+        kputc_('|', &str);
+        kputw(aa_rbeg, &str);
+        kprint_aa_prediction(args,aa_rbeg,&hap->tref,&hap->tref_stop,&str);
+        if ( !(csq->type.type & CSQ_SYNONYMOUS_VARIANT) )
+        {
+            kputc_('>', &str);
+            kputw(aa_sbeg, &str);
+            kprint_aa_prediction(args,aa_sbeg,&hap->tseq,&hap->tseq_stop,&str);
+        }
+        kputc_('|', &str);
+    }
 
     // create the dna variant string and, in case of combined variants,
     // insert silent CSQ_PRINTED_UPSTREAM variants
