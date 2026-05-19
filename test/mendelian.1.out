@@ -32,11 +32,11 @@
 6	601	.	A	G	100	PASS	.	GT	0/1	1/1	0/1
 6	602	.	A	G	100	PASS	.	GT	0/1	1/1	1/1
 X	100	.	A	G	100	PASS	.	GT	0/0	1	0
-X	101	.	A	G	100	PASS	.	GT	./.	.	.
+X	101	.	A	G	100	PASS	.	GT	0/0	1	1
 X	102	.	A	G	100	PASS	.	GT	0/0	1	0/1
 X	103	.	A	G	100	PASS	.	GT	./.	.	./.
 X	104	.	A	G	100	PASS	.	GT	.	0	1
 X	105	.	A	G	100	PASS	.	GT	.	0	0/1
 Y	101	.	A	G	100	PASS	.	GT	.	0	0
-Y	102	.	A	G	100	PASS	.	GT	.	.	.
+Y	102	.	A	G	100	PASS	.	GT	.	0	1
 Y	103	.	A	G	100	PASS	.	GT	.	0	.

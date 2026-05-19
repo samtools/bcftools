@@ -37,6 +37,11 @@ Changes affecting specific commands:
     - Support per-population annotation for embedded functions, such as in
       -t 'MAC:1=int(MAF*AN)' -S groups.txt (#2514)
 
+* bcftools +mendelian2
+
+    - Number of fixes and improvements, including a fix in assigning 1X vs 2X
+      inheritance rules with -p (#2545)
+
 * bcftools merge
 
     - Fixes in memory access with localized alleles, it could result in printing

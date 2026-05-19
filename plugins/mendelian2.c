@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2025 Genome Research Ltd.
+   Copyright (c) 2015-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -68,11 +68,11 @@ typedef struct
     int nno_gt,         // number of rows with no FMT/GT
         nnot_diploid,   // FMT/GT2 not diploid
         nfail,          // number of -i/-e filters failed
-        nmiss,          // number of genotypes with a missing allele in the trio
-        ngood,          // number of good genotypes (after any -i/-e filters applied)
-        nmerr,          // number of mendelian errors
-        ngood_alt,      // number of error-free non-ref genotypes
-        nrule;          // number of genotypes with no rule to apply
+        nmiss,          // non-evaluable trio/site
+        ngood,          // Mendelian-consistent, evaluable trio/site
+        nmerr,          // definite Mendelian error
+        ngood_alt,      // good trio/site with at least one non-reference allele
+        nrule;          // no inheritance rule applies
 }
 stats_t;
 
@@ -112,7 +112,7 @@ typedef struct _args_t
     int nsex_id;                // number of sexes (expect 2 for human
     rule_t *rule;               // the current site's inheritance for both sexes
     int mode;
-    int32_t *gt_arr, nmerr;
+    int32_t *gt_arr, nmerr, nmiss, ngood, nrule;
     int ngt_arr;
     stats_t stats;              // common per-site and per-sample stats
     int nref_only, nmany_als;   // per-site stats
@@ -163,7 +163,7 @@ static const char *usage_text(void)
         "                                       S .. drop sites skipped for various reasons when collecting stats\n"
         "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
         "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
-        "       --rules ASSEMBLY[?]         Predefined inheritance rules, \"list\" to print available settings, \"list?\" for detailed information\n"
+        "       --rules ASSEMBLY[?]         Predefined inheritance rules, \"list\" to print available settings, \"list?\" for details [GRCh37]\n"
         "       --rules-file FILE           Inheritance rules, run with `--rules list?` for examples\n"
         "\n"
         "Example:\n"
@@ -439,8 +439,9 @@ static void init_data(args_t *args)
         args->ntrio = 1;
         args->trio  = (trio_t*) calloc(1,sizeof(trio_t));
         list = hts_readlist(args->pfm, 0, &n);
-        if ( n!=3 ) error("Expected three sample names with -t\n");
+        if ( n!=3 ) error("Expected three sample names with -p\n");
         const int ped_idx[3] = {2,1,0};  // sample order is different on the command line (P,F,M) and in the code (M,F,P)
+        const char *sex = "2X";
         for (i=0; i<3; i++)
             args->trio[0].idx[i] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[ped_idx[i]]);
         if ( args->trio[0].idx[iKID] < 0 )
@@ -448,12 +449,13 @@ static void init_data(args_t *args)
             if ( strlen(list[0])>3 && !strncasecmp(list[0],"1X:",3) )
             {
                 args->trio[0].idx[iKID] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[0]+3);
-                args->trio[0].sex_id = iDAD;
+                sex = "1X";
+
             }
             else if ( strlen(list[0])>3 && !strncasecmp(list[0],"2X:",3) )
             {
                 args->trio[0].idx[iKID] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, list[0]+3);
-                args->trio[0].sex_id = iMOM;
+                sex = "2X";
             }
         }
         for (i=0; i<3; i++)
@@ -462,6 +464,8 @@ static void init_data(args_t *args)
             free(list[ped_idx[i]]);
         }
         free(list);
+        if ( khash_str2int_get(args->str2sex_id, sex, &args->trio[0].sex_id)<0 )
+            error("Missing the sex \"%s\", it's not in the rules :-/\n",sex);
     }
     else
     {
@@ -471,7 +475,12 @@ static void init_data(args_t *args)
 
     args->hdr_out = bcf_hdr_dup(args->hdr);
     if ( args->mode&MODE_ANNOTATE )
+    {
         bcf_hdr_append(args->hdr_out,"##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Number of trios with Mendelian errors\">");
+        bcf_hdr_append(args->hdr_out,"##INFO=<ID=MGOOD,Number=1,Type=Integer,Description=\"Number of trios that are evaluable and Mendelian-consistent\">");
+        bcf_hdr_append(args->hdr_out,"##INFO=<ID=MMISS,Number=1,Type=Integer,Description=\"Number of trios with missing or unusable genotype information\">");
+        bcf_hdr_append(args->hdr_out,"##INFO=<ID=MNORULE,Number=1,Type=Integer,Description=\"Number of trios with no applicable inheritance rule\">");
+    }
     if ( args->record_cmd_line )
         bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm2");
 
@@ -562,17 +571,24 @@ static int test_filters(args_t *args, bcf1_t *rec)
     return 1;
 }
 
+// Note: in this version
+//  - half-missing genotypes are not supported
+//  - only haploid + diploid genotypes
 static int parse_gt(int32_t *gt, int ngt, uint64_t *a, uint64_t *b)
 {
     *a = *b = 0;
 
     if ( bcf_gt_is_missing(gt[0]) || gt[0]==bcf_int32_vector_end ) return 0;
-    *a |= 1<<bcf_gt_allele(gt[0]);
+    *a |= (uint64_t)1<<bcf_gt_allele(gt[0]);
 
     if ( ngt==1 || gt[1]==bcf_int32_vector_end ) return 1;
 
-    if ( bcf_gt_is_missing(gt[1]) ) return 0;
-    *b |= 1<<bcf_gt_allele(gt[1]);
+    if ( bcf_gt_is_missing(gt[1]) )
+    {
+        *a = *b = 0;
+        return 0;
+    }
+    *b |= (uint64_t)1<<bcf_gt_allele(gt[1]);
 
     return 2;
 }
@@ -589,9 +605,10 @@ static void delete_gt(int32_t *gt, int ngt)
 #define HAS_GOOD 1
 #define HAS_MERR 2
 #define HAS_MISS 4
+#define HAS_NORULE 8
 static int collect_stats(args_t *args, bcf1_t *rec)
 {
-    args->nmerr = 0;
+    args->nmerr = args->nmiss = args->ngood = args->nrule = 0;
 
     int ret = 0;
     int ngt = bcf_get_genotypes(args->hdr, rec, &args->gt_arr, &args->ngt_arr);
@@ -607,7 +624,7 @@ static int collect_stats(args_t *args, bcf1_t *rec)
     }
     ngt /= bcf_hdr_nsamples(args->hdr);
 
-    int i,j,itr_set = regidx_overlap(args->rules, bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen-1, args->itr);
+    int i,itr_set = regidx_overlap(args->rules, bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen-1, args->itr);
     for (i=0; i<args->nsex_id; i++)
     {
         args->rule[i].sex_id   = i;
@@ -630,22 +647,52 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             continue;
         }
         rule_t *rule = &args->rule[trio->sex_id];
-        if ( !rule->inherits ) { trio->stats.nrule++; continue; }
-        uint64_t kid1, kid2, parent, mom, dad;
-        int nal = parse_gt(&args->gt_arr[ngt*trio->idx[iKID]],ngt,&kid1,&kid2);
-        if ( nal < rule->ploidy ) { ret |= HAS_MISS; trio->stats.nmiss++; continue; }
-        if ( nal==1 )
+        if ( !rule->inherits )
         {
-            for (j=0; j<args->nsex_id; j++)
+            ret |= HAS_NORULE;
+            trio->stats.nrule++;
+            args->nrule++;
+            continue;
+        }
+
+        uint64_t kid1, kid2, parent, mom, dad;
+
+        // Note we only handle haploid or diploid genotypes
+        int nal = parse_gt(&args->gt_arr[ngt*trio->idx[iKID]],ngt,&kid1,&kid2);
+
+        // Too few alleles: count as missing
+        if ( nal<rule->ploidy ) { ret |= HAS_MISS; trio->stats.nmiss++; args->nmiss++; continue; }
+
+        // Too many alleles: treat hom diploid calls in haploid regions as haploid, i.e. 1/1 is interpreted as 1
+        int ploidy_err = 0;
+        if ( nal>rule->ploidy )
+        {
+            if ( kid1!=kid2 ) ploidy_err = 1;
+            else nal = rule->ploidy;
+        }
+        if ( rule->ploidy==1 )
+        {
+            int ipar = rule->inherits & (1<<iMOM) ? iMOM : iDAD;
+            int nal_parent = parse_gt(&args->gt_arr[ngt*trio->idx[ipar]],ngt,&parent,&parent);
+            if ( !nal_parent )
             {
-                if ( rule->inherits & (1<<j) ) break;
+                ret |= HAS_MISS;
+                trio->stats.nmiss++;
+                args->nmiss++;
             }
-            nal = parse_gt(&args->gt_arr[ngt*trio->idx[j]],ngt,&parent,&parent);
-            if ( !nal ) { ret |= HAS_MISS; trio->stats.nmiss++; continue; }
+            if ( ploidy_err )
+            {
+                ret |= HAS_MERR;
+                trio->stats.nmerr++;
+                trio->has_merr = 1;
+                args->nmerr++;
+            }
+            if ( !nal_parent || ploidy_err ) continue;
             if ( parent&kid1 )
             {
                 ret |= HAS_GOOD;
                 trio->stats.ngood++;
+                args->ngood++;
                 if ( parent!=1 || parent!=kid1 ) trio->stats.ngood_alt++;
                 continue;
             }
@@ -662,10 +709,11 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             // both children's alleles phased
             ret |= HAS_GOOD;
             trio->stats.ngood++;
+            args->ngood++;
             if ( dad!=1 || mom!=1 || (kid1|kid2)!=1 ) trio->stats.ngood_alt++;
             continue;
         }
-        if ( !nal_mom || !nal_dad ) { ret |= HAS_MISS; trio->stats.nmiss++; }       // one or both parents missing
+        if ( !nal_mom || !nal_dad ) { ret |= HAS_MISS; trio->stats.nmiss++; args->nmiss++; }       // one or both parents missing
         if ( !nal_mom && !nal_dad ) continue;                                       // both parents missing
         if ( !nal_mom && ((kid1|kid2)&dad) ) continue;                              // one parent missing but the kid is consistent with the other
         if ( !nal_dad && ((kid1|kid2)&mom) ) continue;
@@ -712,6 +760,7 @@ static int process_record(args_t *args, bcf1_t *rec)    // returns 1 to print re
     if ( ret&HAS_MERR ) args->stats.nmerr++;
     if ( ret&HAS_MISS ) args->stats.nmiss++;
     if ( ret&HAS_GOOD ) args->stats.ngood++;
+    if ( ret&HAS_NORULE ) args->stats.nrule++;
     if ( args->mode&MODE_COUNT ) return 0;
     if ( args->mode&MODE_DROP_ERR && ret&HAS_MERR ) return 0;
     if ( args->mode&MODE_DROP_MISS && ret&HAS_MISS ) return 0;
@@ -719,6 +768,9 @@ static int process_record(args_t *args, bcf1_t *rec)    // returns 1 to print re
     if ( args->mode&MODE_ANNOTATE )
     {
         bcf_update_info_int32(args->hdr_out,rec,"MERR",&args->nmerr,1);
+        bcf_update_info_int32(args->hdr_out,rec,"MGOOD",&args->ngood,1);
+        bcf_update_info_int32(args->hdr_out,rec,"MMISS",&args->nmiss,1);
+        bcf_update_info_int32(args->hdr_out,rec,"MNORULE",&args->nrule,1);
     }
 
     if ( args->mode&LIST_MODES )
@@ -748,9 +800,11 @@ static void print_stats(args_t *args)
     fprintf(log_fh,"sites_fail\t%d\t# skipped because of failed -i/-e filter\n", args->stats.nfail);
     fprintf(log_fh,"sites_no_GT\t%d\t# skipped because of absent FORMAT/GT field\n", args->stats.nno_gt);
     fprintf(log_fh,"sites_not_diploid\t%d\t# skipped because FORMAT/GT not formatted diploid\n", args->stats.nnot_diploid);
-    fprintf(log_fh,"sites_missing\t%d\t# number of sites with at least one trio GT missing\n", args->stats.nmiss);
-    fprintf(log_fh,"sites_merr\t%d\t# number of sites with at least one Mendelian error\n", args->stats.nmerr);
-    fprintf(log_fh,"sites_good\t%d\t# number of sites with at least one good trio\n", args->stats.ngood);
+    fprintf(log_fh,"sites_no_rule\t%d\t# number of sites with no applicable inheritance rule in at least one trio\n", args->stats.nrule);
+    fprintf(log_fh,"sites_missing\t%d\t# number of sites with missing or unusable GT information in at least one trio\n", args->stats.nmiss);
+    fprintf(log_fh,"sites_merr\t%d\t# number of sites with at least one definite Mendelian error\n", args->stats.nmerr);
+    fprintf(log_fh,"sites_good\t%d\t# number of sites with at least one evaluable and Mendelian-consistent trio\n", args->stats.ngood);
+    fprintf(log_fh,"# Note: sites_missing, sites_merr, sites_good, and sites_no_rule are not mutually exclusive with multiple trios.\n");
 
     int i;
     fprintf(log_fh,"# Per-trio stats, each column corresponds to one trio. List of trios is below.\n");
@@ -775,6 +829,10 @@ static void print_stats(args_t *args)
 
     fprintf(log_fh,"nfail");
     for (i=0; i<args->ntrio; i++) fprintf(log_fh,"\t%d",args->trio[i].stats.nfail);
+    fprintf(log_fh,"\n");
+
+    fprintf(log_fh,"nno_rule");
+    for (i=0; i<args->ntrio; i++) fprintf(log_fh,"\t%d",args->trio[i].stats.nrule);
     fprintf(log_fh,"\n");
 
     fprintf(log_fh,"# List of trios. Their ids are in the same order as the values listed in the stats lines above. For\n");
@@ -898,7 +956,12 @@ int run(int argc, char **argv)
     if ( optind==argc )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) args->fname = "-";  // reading from stdin
-        else { error("%s", usage_text()); }
+        else
+        {
+            if ( args->rules_str ) init_rules(args, args->rules_str);
+            else if ( args->rules_fname ) regidx_init(args->rules_fname, parse_rules, NULL, sizeof(rule_t), args);
+            error("%s", usage_text());
+        }
     }
     else if ( optind+1!=argc ) error("%s", usage_text());
     else args->fname = argv[optind];
