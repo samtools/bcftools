@@ -2131,30 +2131,32 @@ exit_duplicate:
 // Format variant consequence into a string like "inframe_deletion|XYZ|ENST01|+|5TY>5I|121ACG>A+124TA>T"
 void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
 {
+    uint32_t csq_type = csq->type;
+
     // Remove start/stop from incomplete CDS, but only if there is another
     // consequence as something must be reported
-    if ( csq->type & CSQ_INCOMPLETE_CDS && (csq->type & ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS|CSQ_UPSTREAM_STOP)) ) csq->type &= ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS);
+    if ( csq_type & CSQ_INCOMPLETE_CDS && (csq_type & ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS|CSQ_UPSTREAM_STOP)) ) csq_type &= ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS);
 
     // Remove missense from start/stops
-    if ( csq->type & CSQ_START_STOP && csq->type & CSQ_MISSENSE_VARIANT ) csq->type &= ~CSQ_MISSENSE_VARIANT;
+    if ( csq_type & CSQ_START_STOP && csq_type & CSQ_MISSENSE_VARIANT ) csq_type &= ~CSQ_MISSENSE_VARIANT;
 
-    if ( csq->type & CSQ_PRINTED_UPSTREAM && csq->ref )
+    if ( csq_type & CSQ_PRINTED_UPSTREAM && csq->ref )
     {
         kputc_('@',str);
         kputw(csq->ref->pos+1, str);
         return;
     }
-    if ( csq->type & CSQ_UPSTREAM_STOP )
+    if ( csq_type & CSQ_UPSTREAM_STOP )
         kputc_('*',str);
 
     int has_csq = 0, i, n = sizeof(csq_strings)/sizeof(char*);
     for (i=1; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputs(csq_strings[i],str); break; }
+        if ( csq_strings[i] && csq_type&(1<<i) ) { has_csq = 1; kputs(csq_strings[i],str); break; }
     i++;
     for (; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputc_('&',str); kputs(csq_strings[i],str); }
+        if ( csq_strings[i] && csq_type&(1<<i) ) { has_csq = 1; kputc_('&',str); kputs(csq_strings[i],str); }
 
-    if ( (csq->biotype==GF_NMD) && (csq->type & CSQ_PRN_NMD) )
+    if ( (csq->biotype==GF_NMD) && (csq_type & CSQ_PRN_NMD) )
     {
         if ( has_csq ) kputc_('&',str); // just in case, this should always be true
         kputs("NMD_transcript",str);
@@ -2164,12 +2166,12 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
     if ( csq->gene ) kputs(csq->gene , str);
 
     kputc_('|', str);
-    if ( csq->type & CSQ_PRN_TSCRIPT ) kputs(gff_id2string(args->gff,transcript,csq->trid), str);
+    if ( csq_type & CSQ_PRN_TSCRIPT ) kputs(gff_id2string(args->gff,transcript,csq->trid), str);
 
     kputc_('|', str);
     kputs(gf_type2gff_string(csq->biotype), str);
 
-    if ( CSQ_PRN_STRAND(csq->type) || csq->vstr.l )
+    if ( CSQ_PRN_STRAND(csq_type) || csq->vstr.l )
         kputs(csq->strand==STRAND_FWD ? "|+" : (csq->strand==STRAND_REV ? "|-" : "|."), str);
 
     if ( csq->vstr.l )
