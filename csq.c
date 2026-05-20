@@ -286,11 +286,21 @@ struct _vcsq_t
 };
 typedef struct
 {
+    int idx;        // index into vrec_t::vcsq[]
+    int ismpl;      // header sample index, or -1 when no GT/sample is available
+    int ihap;       // 1 or 2 for phased haplotypes, 0 when no haplotype is available
+}
+txt_csq_t;
+typedef struct
+{
     bcf1_t *line;
     uint32_t *fmt_bm;   // bitmask of sample consequences with first/second haplotype interleaved
     uint32_t nfmt:4,    // the bitmask size (the number of integers per sample)
              nvcsq:28, mvcsq;
     vcsq_t *vcsq;       // there can be multiple consequences for a single VCF record
+    int ntxt, mtxt;     // delayed text-output annotations, printed from canonical vcsq[] entries
+    txt_csq_t *txt;
+
 }
 vrec_t;
 typedef struct
@@ -846,6 +856,7 @@ void destroy_data(args_t *args)
             if ( vbuf->vrec[j]->line ) bcf_destroy(vbuf->vrec[j]->line);
             free(vbuf->vrec[j]->fmt_bm);
             free(vbuf->vrec[j]->vcsq);
+            free(vbuf->vrec[j]->txt);
             free(vbuf->vrec[j]);
         }
         free(vbuf->vrec);
@@ -2129,7 +2140,7 @@ exit_duplicate:
 #define node2rpos(i) (hap->stack[i].node->rec->pos)
 
 // Format variant consequence into a string like "inframe_deletion|XYZ|ENST01|+|5TY>5I|121ACG>A+124TA>T"
-void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
+void kput_vcsq(args_t *args, const vcsq_t *csq, kstring_t *str)
 {
     uint32_t csq_type = csq->type;
 
@@ -2595,47 +2606,58 @@ void hap_finalize(args_t *args, hap_t *hap)
     }
 }
 
-static inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
+static inline void text_stage(args_t *args, csq_t *csq, int ismpl, int ihap)
 {
-    if ( csq->type.type & CSQ_PRINTED_UPSTREAM ) return;
+    if ( args->output_type!=FT_TAB_TEXT ) return;
+    if ( !csq->vrec ) return;
 
-    char *smpl = ismpl >= 0 ? args->hdr->samples[ismpl] : "-";
-    const char *chr = bcf_hdr_id2name(args->hdr,args->rid);
+    vrec_t *vrec = csq->vrec;
+    if ( csq->idx < 0 || (uint32_t) csq->idx >= vrec->nvcsq ) return;
+
+    int i;
+    for (i=0; i<vrec->ntxt; i++)
+    {
+        if ( vrec->txt[i].idx   != csq->idx ) continue;
+        if ( vrec->txt[i].ismpl != ismpl ) continue;
+        if ( vrec->txt[i].ihap  != ihap ) continue;
+        return;
+    }
+
+    hts_expand0(txt_csq_t, vrec->ntxt+1, vrec->mtxt, vrec->txt);
+    vrec->txt[vrec->ntxt].idx   = csq->idx;
+    vrec->txt[vrec->ntxt].ismpl = ismpl;
+    vrec->txt[vrec->ntxt].ihap  = ihap;
+    vrec->ntxt++;
+}
+static inline void hap_stage_text(args_t *args, hap_node_t *node, int ismpl, int ihap)
+{
+    if ( !node || !node->ncsq_list ) return;
+    int i;
+    for (i=0; i<node->ncsq_list; i++)
+        text_stage(args, node->csq_list + i, ismpl, ihap);
+}
+static inline void text_print_vcsq(args_t *args, vrec_t *vrec, txt_csq_t *txt)
+{
+    if ( txt->idx < 0 || (uint32_t) txt->idx >= vrec->nvcsq ) return;
+
+    vcsq_t *vcsq = &vrec->vcsq[txt->idx];
+
+    // CSQ_PRINTED_UPSTREAM is VCF-only bookkeeping. Tab-delimited output is
+    // consequence-centric, so print only the canonical consequence record.
+    if ( vcsq->type & CSQ_PRINTED_UPSTREAM ) return;
+
+    const char *smpl = txt->ismpl >= 0 ? args->hdr->samples[txt->ismpl] : "-";
+    const char *chr  = bcf_seqname(args->hdr, vrec->line);
 
     fprintf(args->out,"CSQ\t%s\t", smpl);
-    if ( ihap>0 )
-        fprintf(args->out,"%d", ihap);
+    if ( txt->ihap>0 )
+        fprintf(args->out,"%d", txt->ihap);
     else
         fprintf(args->out,"-");
 
     args->str.l = 0;
-    kput_vcsq(args, &csq->type, &args->str);    // format the csq string
-    fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
-}
-static inline void hap_print_text(args_t *args, gf_tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
-{
-    if ( !node || !node->ncsq_list ) return;
-
-    char *smpl = ismpl >= 0 ? args->hdr->samples[ismpl] : "-";
-    const char *chr = bcf_hdr_id2name(args->hdr,args->rid);
-
-    int i;
-    for (i=0; i<node->ncsq_list; i++)
-    {
-        csq_t *csq = node->csq_list + i;
-        if ( csq->type.type & CSQ_PRINTED_UPSTREAM ) continue;
-        if ( !csq->type.vstr.l ) continue;  // not sure why this happens, see test/csq/ENST00000000001
-
-        fprintf(args->out,"CSQ\t%s\t", smpl);
-        if ( ihap>0 )
-            fprintf(args->out,"%d", ihap);
-        else
-            fprintf(args->out,"-");
-
-        args->str.l = 0;
-        kput_vcsq(args, &csq->type, &args->str);    // format the csq string
-        fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
-    }
+    kput_vcsq(args, vcsq, &args->str);
+    fprintf(args->out,"\t%s\t%d\t%s\n", chr, (int)vrec->line->pos+1, args->str.s);
 }
 
 static inline void hap_stage_vcf(args_t *args, gf_tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
@@ -2684,15 +2706,13 @@ void hap_flush(args_t *args, uint32_t pos)
             if ( args->output_type==FT_TAB_TEXT )   // plain text output, not a vcf
             {
                 if ( args->phase==PHASE_DROP_GT )
-                {
-                    hap_print_text(args, tr, -1,0, TSCRIPT_AUX(tr)->hap[0]);
-                }
+                     hap_stage_text(args, TSCRIPT_AUX(tr)->hap[0], -1,0);
                 else
                 {
                     for (i=0; i<args->smpl->n; i++)
                     {
                         for (j=0; j<2; j++)
-                            hap_print_text(args, tr, args->smpl->idx[i],j+1, TSCRIPT_AUX(tr)->hap[i*2+j]);
+                            hap_stage_text(args, TSCRIPT_AUX(tr)->hap[i*2+j], args->smpl->idx[i],j+1);
                     }
                 }
             }
@@ -2741,7 +2761,10 @@ vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
         vbuf->vrec[vbuf->n - 1] = (vrec_t*) calloc(1,sizeof(vrec_t));
 
     vrec_t *vrec = vbuf->vrec[vbuf->n - 1];
-    if ( args->phase!=PHASE_DROP_GT && args->smpl->n )
+    vrec->nvcsq = 0;
+    vrec->ntxt  = 0;
+    vrec->nfmt  = 0;
+    if ( args->out_fh && args->phase!=PHASE_DROP_GT && args->smpl->n )
     {
         if ( !vrec->fmt_bm ) vrec->fmt_bm = (uint32_t*) calloc(args->hdr_nsmpl,sizeof(*vrec->fmt_bm) * args->nfmt_bcsq);
         else memset(vrec->fmt_bm,0,args->hdr_nsmpl*sizeof(*vrec->fmt_bm) * args->nfmt_bcsq);
@@ -2774,13 +2797,20 @@ void vbuf_flush(args_t *args, uint32_t pos)
         i = rbuf_shift(&args->vcf_rbuf);
         assert( i>=0 );
         vbuf = args->vcf_buf[i];
-        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
+        int vbuf_pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
         for (i=0; i<vbuf->n; i++)
         {
             vrec_t *vrec = vbuf->vrec[i];
-            if ( !args->out_fh ) // not a VCF output
+            if ( !args->out_fh ) // tab-delimited text output
             {
+                for (j=0; j<vrec->ntxt; j++)
+                    text_print_vcsq(args, vrec, &vrec->txt[j]);
+                vrec->ntxt  = 0;
                 vrec->nvcsq = 0;
+                vrec->nfmt  = 0;
+                int save_pos = vrec->line->pos;
+                bcf_empty(vrec->line);
+                vrec->line->pos = save_pos;  // this is necessary for compound variants
                 continue;
             }
             if ( !vrec->nvcsq )
@@ -2813,9 +2843,9 @@ void vbuf_flush(args_t *args, uint32_t pos)
             bcf_empty(vrec->line);
             vrec->line->pos = save_pos;
         }
-        if ( pos!=-1 )
+        if ( vbuf_pos!=-1 )
         {
-            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, pos);
+            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, vbuf_pos);
             if ( k != kh_end(args->pos2vbuf) ) kh_del(pos2vbuf, args->pos2vbuf, k);
         }
         vbuf->n = 0;
@@ -3333,9 +3363,8 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 
 void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
 {
-    // known issues: tab output leads to unsorted output. This is because
-    // coding haplotypes are printed in one go and buffering is not used
-    // with tab output. VCF output is OK though.
+    // Text output is delayed via vbuf so it is printed from the same
+    // canonical consequence objects as VCF output.
     if ( csq_push(args, csq, rec)!=0 && args->phase==PHASE_DROP_GT ) return;    // the consequence already exists
 
     int i,j,ngt = 0;
@@ -3346,42 +3375,30 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
     }
     if ( ngt<=0 )
     {
-        if ( args->output_type==FT_TAB_TEXT )
-            csq_print_text(args, csq, -1,0);
+        text_stage(args, csq, -1,0);
         return;
     }
     assert( ngt<=2 );
 
-    if ( args->output_type==FT_TAB_TEXT )
-    {
-        for (i=0; i<args->smpl->n; i++)
-        {
-            int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
-            for (j=0; j<ngt; j++)
-            {
-                if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
-                int ial = bcf_gt_allele(gt[j]);
-                if ( !ial || ial!=csq->type.vcf_ial ) continue;
-                csq_print_text(args, csq, args->smpl->idx[i],j+1);
-            }
-        }
-        return;
-    }
-
     vrec_t *vrec = csq->vrec;
     for (i=0; i<args->smpl->n; i++)
     {
-        int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
+        int ismpl = args->smpl->idx[i];
+        int32_t *gt = args->gt_arr + ismpl*ngt;
         for (j=0; j<ngt; j++)
         {
             if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
             int ial = bcf_gt_allele(gt[j]);
             if ( !ial || ial!=csq->type.vcf_ial ) continue;
+            if ( args->output_type==FT_TAB_TEXT )
+            {
+                text_stage(args, csq, ismpl, j+1);
+                continue;
+            }
 
             int icsq2 = 2*csq->idx + j;
             if ( icsq2 >= args->ncsq2_max ) // more than ncsq_max consequences, so can't fit it in FMT
             {
-                int ismpl = args->smpl->idx[i];
                 if ( args->verbosity && (!args->ncsq2_small_warned || args->verbosity > 1) )
                 {
                     fprintf(stderr,
@@ -3397,7 +3414,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
             int ival, ibit;
             icsq2_to_bit(icsq2, &ival,&ibit);
             if ( vrec->nfmt < 1 + ival ) vrec->nfmt = 1 + ival;
-            vrec->fmt_bm[i*args->nfmt_bcsq + ival] |= 1 << ibit;
+            vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1u << ibit;
         }
     }
 }

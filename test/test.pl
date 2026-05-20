@@ -1074,6 +1074,7 @@ run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-fil
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.1)],ref=>'annot-NMBZ.1.fa',out=>'mpileup/annot-NMBZ.1.1.out',args=>q[-a -AD,INFO/NMBZ -r chr19:69-99]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.2)],ref=>'annot-NMBZ.2.fa',out=>'mpileup/annot-NMBZ.2.1.out',args=>q[-a -AD,INFO/NMBZ -r chr6:75]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.3.1 annot-NMBZ.3.2)],ref=>'annot-NMBZ.3.fa',out=>'mpileup/annot-NMBZ.3.1.out',args=>q[-a -AD,INFO/NMBZ -r chr16:75]);
+run_test(\&test_csq,$opts,in=>'csq.ismpl',out=>'csq.ismpl.1.out',cmd=>'-f {PATH}/csq.ismpl.fa -g {PATH}/csq.ismpl.gff',fmt=>'[%SAMPLE %GT %BCSQ %TBCSQ\n]');
 run_test(\&test_csq,$opts,in=>'csq.splice.issue-2543',out=>'csq.splice.issue-2543.1.out',cmd=>'-f {PATH}/csq.splice.issue-2543.fa -g {PATH}/csq.splice.issue-2543.gff');
 run_test(\&test_csq,$opts,in=>'csq.oob-codon',out=>'csq.oob-codon.out',cmd=>'-f {PATH}/csq.oob-codon.fa -g {PATH}/csq.oob-codon.gff');
 run_test(\&test_csq,$opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
@@ -2195,7 +2196,11 @@ sub test_csq
 {
     my ($opts,%args) = @_;
     $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
-    if ( $args{tbcsq} )
+    if ( exists($args{fmt}) )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools query -f'$args{fmt}'");
+    }
+    elsif ( $args{tbcsq} )
     {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools query -f'[%TBCSQ\\n]' | perl -pe 's/[\\t,]/\\n/g' | sort");
     }

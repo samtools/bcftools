@@ -1,0 +1,6 @@
+##gff-version 3
+chr1	.	gene	1	12	.	+	.	ID=gene:g1;biotype=protein_coding;Name=G1
+chr1	.	transcript	1	12	.	+	.	ID=transcript:t1;Parent=gene:g1;biotype=protein_coding
+chr1	.	five_prime_UTR	1	3	.	+	.	Parent=transcript:t1
+chr1	.	exon	1	12	.	+	.	Parent=transcript:t1
+chr1	.	CDS	4	12	.	+	0	Parent=transcript:t1
