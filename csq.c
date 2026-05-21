@@ -243,7 +243,7 @@ const char *csq_strings[] =
     "3_prime_utr",
     "non_coding",
     "intron",
-    "intergenic",
+    NULL,
     "inframe_altering",
     NULL,
     NULL,
@@ -474,7 +474,7 @@ args_t;
 // AAA, AAC, ...
 gencode_t gencode_tables[] =
 {
-    {.id=0, .name="Standard sipmlified",
+    {.id=0, .name="Standard simplified",
      .code="KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF",
      .stop="--------------M---------------------------------*-*-----*-------" },
     {.id=1, .name="Standard",
@@ -2686,10 +2686,11 @@ static inline void hap_stage_vcf(args_t *args, gf_tscript_t *tr, int ismpl, int 
         int ival, ibit;
         icsq2_to_bit(icsq2, &ival,&ibit);
         if ( vrec->nfmt < 1 + ival ) vrec->nfmt = 1 + ival;
-        vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1 << ibit;
+        vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1u << ibit;
     }
 }
 
+// hap_flush: Finish transcript and haplotype analysis
 void hap_flush(args_t *args, uint32_t pos)
 {
     int i,j;
@@ -2779,6 +2780,7 @@ vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
     return vbuf;
 }
 
+// vbuf_flush: Write out buffered records
 void vbuf_flush(args_t *args, uint32_t pos)
 {
     int i,j;
