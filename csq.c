@@ -293,6 +293,12 @@ typedef struct
 txt_csq_t;
 typedef struct
 {
+    uint32_t trid;
+    uint32_t vcf_ial;
+}
+tr_alt_t;
+typedef struct
+{
     bcf1_t *line;
     uint32_t *fmt_bm;   // bitmask of sample consequences with first/second haplotype interleaved
     uint32_t nfmt:4,    // the bitmask size (the number of integers per sample)
@@ -300,7 +306,8 @@ typedef struct
     vcsq_t *vcsq;       // there can be multiple consequences for a single VCF record
     int ntxt, mtxt;     // delayed text-output annotations, printed from canonical vcsq[] entries
     txt_csq_t *txt;
-
+    int nclaimed, mclaimed; // transcript/ALT pairs handled by CDS/UTR/splice logic, used by --greedy
+    tr_alt_t *claimed;      // to recognise if intron needs to be reported
 }
 vrec_t;
 typedef struct
@@ -434,7 +441,7 @@ typedef struct _args_t
     char *outdir, **argv, *fa_fname, *gff_fname, *output_fname;
     char *bcsq_tag;
     int argc, output_type, clevel;
-    int phase, verbosity, local_csq, record_cmd_line;
+    int phase, verbosity, local_csq, greedy, record_cmd_line;
     int ncsq2_max, nfmt_bcsq;   // maximum number of csq per site that can be accessed from FORMAT/BCSQ (*2 and 1 bit skipped to avoid BCF missing values)
     int ncsq2_small_warned;
     int brief_predictions;
@@ -857,6 +864,7 @@ void destroy_data(args_t *args)
             free(vbuf->vrec[j]->fmt_bm);
             free(vbuf->vrec[j]->vcsq);
             free(vbuf->vrec[j]->txt);
+            free(vbuf->vrec[j]->claimed);
             free(vbuf->vrec[j]);
         }
         free(vbuf->vrec);
@@ -878,6 +886,58 @@ void destroy_data(args_t *args)
     free(args->str2.s);
     free(args->unify_chr_names_err);
 }
+
+static inline vrec_t *rec2vrec(args_t *args, bcf1_t *rec)
+{
+    khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)rec->pos);
+    vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
+    if ( !vbuf ) error("This should not happen. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec), (int64_t) rec->pos+1);
+
+    int i;
+    for (i=0; i<vbuf->n; i++)
+        if ( vbuf->vrec[i]->line==rec ) return vbuf->vrec[i];
+
+    error("This should not happen.. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec), (int64_t) rec->pos+1);
+    return NULL;
+}
+static inline void claim_tscript_allele(args_t *args, bcf1_t *rec, uint32_t trid, uint32_t vcf_ial)
+{
+    if ( !args->greedy ) return;
+
+    vrec_t *vrec = rec2vrec(args, rec);
+    int i;
+    for (i=0; i<vrec->nclaimed; i++)
+        if ( vrec->claimed[i].trid==trid && vrec->claimed[i].vcf_ial==vcf_ial ) return;
+
+    hts_expand0(tr_alt_t, vrec->nclaimed+1, vrec->mclaimed, vrec->claimed);
+    vrec->claimed[vrec->nclaimed].trid = trid;
+    vrec->claimed[vrec->nclaimed].vcf_ial = vcf_ial;
+    vrec->nclaimed++;
+}
+static inline void claim_tscript_alleles(args_t *args, bcf1_t *rec, uint32_t trid)
+{
+    if ( !args->greedy ) return;
+
+    int ial;
+    for (ial=1; ial<rec->n_allele; ial++)
+    {
+        if ( rec->d.allele[ial][0]=='<' || rec->d.allele[ial][0]=='*' ) continue;
+        claim_tscript_allele(args, rec, trid, ial);
+    }
+}
+static inline int tscript_allele_is_claimed(args_t *args, bcf1_t *rec, uint32_t trid, uint32_t vcf_ial)
+{
+    if ( !args->greedy ) return 0;
+
+    vrec_t *vrec = rec2vrec(args, rec);
+    int i;
+    for (i=0; i<vrec->nclaimed; i++)
+        if ( vrec->claimed[i].trid==trid && vrec->claimed[i].vcf_ial==vcf_ial ) return 1;
+
+    return 0;
+}
+
+
 
 /*
     The splice_* functions are for consequences around splice sites: start,stop,splice_*
@@ -1057,6 +1117,7 @@ static inline int csq_stage_utr(args_t *args, regitr_t *itr, bcf1_t *rec, uint32
         csq.type.trid    = tr->id;
         csq.type.vcf_ial = ial;
         csq.type.gene    = tr->gene->name;
+        claim_tscript_allele(args, rec, tr->id, ial);
         csq_stage(args, &csq, rec);
         return csq.type.type;
     }
@@ -1077,6 +1138,7 @@ fprintf(stderr,"csq_stage_splice %d: type=%d ial=%d\n",(int)rec->pos+1,type,ial)
     csq.type.trid    = tr->id;
     csq.type.vcf_ial = ial;
     csq.type.gene    = tr->gene->name;
+    claim_tscript_allele(args, rec, tr->id, ial);
     csq_stage(args, &csq, rec);
 }
 static inline const char *unify_chr_name(args_t *args, const char *chr, int isrc, int idst)
@@ -2020,29 +2082,24 @@ void tscript_splice_ref(gf_tscript_t *tr)
     TSCRIPT_AUX(tr)->sref[len] = 0;
 }
 
+
 // returns: 0 if consequence was added, 1 if it already exists or could not be added
 int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 {
 #if XDBG
 fprintf(stderr,"csq_push: pos=%d .. type=%d  ial=%d\n",(int)rec->pos+1,csq->type.type,csq->type.vcf_ial);
 #endif
-    khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
-    vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
-    if ( !vbuf ) error("This should not happen. %s:%d  %s\n",bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
+    assert( csq->pos==rec->pos );   // if not, extend rec2vrec to pass csq->pos
+    vrec_t *vrec = rec2vrec(args, rec);
 
     if ( csq->type.type&CSQ_INFRAME_INSERTION && csq->type.type&CSQ_ELONGATION ) csq->type.type &= ~CSQ_INFRAME_INSERTION;
     if ( csq->type.type&CSQ_INFRAME_DELETION && csq->type.type&CSQ_TRUNCATION ) csq->type.type &= ~CSQ_INFRAME_DELETION;
-
-    int i;
-    for (i=0; i<vbuf->n; i++)
-        if ( vbuf->vrec[i]->line==rec ) break;
-    if ( i==vbuf->n ) error("This should not happen.. %s:%d  %s\n", bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
-    vrec_t *vrec = vbuf->vrec[i];
 
     // if the variant overlaps donor/acceptor and also splice region, report only donor/acceptor
     if ( csq->type.type & CSQ_SPLICE_REGION && csq->type.type & (CSQ_SPLICE_DONOR|CSQ_SPLICE_ACCEPTOR) )
         csq->type.type &= ~CSQ_SPLICE_REGION;
 
+    int i;
     if ( csq->type.type & CSQ_PRINTED_UPSTREAM )
     {
         for (i=0; i<vrec->nvcsq; i++)
@@ -2735,6 +2792,7 @@ void hap_flush(args_t *args, uint32_t pos)
     }
 }
 
+
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 
 vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
@@ -2765,6 +2823,7 @@ vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
     vrec->nvcsq = 0;
     vrec->ntxt  = 0;
     vrec->nfmt  = 0;
+    vrec->nclaimed = 0;
     if ( args->out_fh && args->phase!=PHASE_DROP_GT && args->smpl->n )
     {
         if ( !vrec->fmt_bm ) vrec->fmt_bm = (uint32_t*) calloc(args->hdr_nsmpl,sizeof(*vrec->fmt_bm) * args->nfmt_bcsq);
@@ -2972,6 +3031,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             tr->aux = calloc(sizeof(tscript_t),1);
             if ( tscript_init_ref(args, tr, chr_fai) )
             {
+                claim_tscript_alleles(args, rec, tr->id);
                 free(tr->aux);
                 tr->aux = NULL;
                 continue;
@@ -2980,7 +3040,11 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
 
-        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
+        if ( sanity_check_ref(args, tr, rec)<0 )
+        {
+            claim_tscript_alleles(args, rec, tr->id);
+            continue;
+        }
 
         kstring_t sref;
         sref.s = TSCRIPT_AUX(tr)->sref;
@@ -2990,7 +3054,9 @@ int test_cds_local(args_t *args, bcf1_t *rec)
         for (i=1; i<rec->n_allele; i++)
         {
             if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
-            if ( hap_init(args, &root, &node, cds, rec, i)!=0 ) continue;
+            int hap_ret = hap_init(args, &root, &node, cds, rec, i);
+            if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, i);    // new or overlapping variant
+            if ( hap_ret ) continue;
 
             csq_t csq;
             memset(&csq, 0, sizeof(csq_t));
@@ -3171,6 +3237,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             tr->aux = calloc(sizeof(tscript_t),1);
             if ( tscript_init_ref(args, tr, chr_fai) )
             {
+                claim_tscript_alleles(args, rec, tr->id);
                 free(tr->aux);
                 tr->aux = NULL;
                 continue;
@@ -3186,7 +3253,11 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             khp_insert(trhp, args->active_tr, &tr);
         }
 
-        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
+        if ( sanity_check_ref(args, tr, rec)<0 )
+        {
+            claim_tscript_alleles(args, rec, tr->id);
+            continue;
+        }
 
         if ( args->phase==PHASE_DROP_GT )
         {
@@ -3194,6 +3265,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             hap_node_t *parent = TSCRIPT_AUX(tr)->hap[0] ? TSCRIPT_AUX(tr)->hap[0] : TSCRIPT_AUX(tr)->root;
             hap_node_t *child  = (hap_node_t*)calloc(1,sizeof(hap_node_t));
             hap_ret = hap_init(args, parent, child, cds, rec, 1);
+            if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, 1);
             if ( hap_ret!=0 )
             {
                 // overlapping or intron variant, cannot apply
@@ -3211,7 +3283,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     if ( args->out )
                         fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
-                else ret = 1;   // prevent reporting as intron in test_tscript
+                else ret = 1;   // no csq in the CDS path; --greedy may still add intron via test_tscript
                 hap_destroy(child);
                 continue;
             }
@@ -3257,6 +3329,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             }
             if ( args->out )
                 fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+            claim_tscript_alleles(args, rec, tr->id);
             continue;
         }
         for (ismpl=0; ismpl<args->smpl->n; ismpl++)
@@ -3275,7 +3348,16 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     if ( args->phase==PHASE_REQUIRE )
                         error("Unphased heterozygous genotype at %s:%"PRId64", sample %s. See the --phase option.\n", chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
                     if ( args->phase==PHASE_SKIP )
+                    {
+                        if ( !args->greedy ) continue;
+
+                        int a0 = bcf_gt_allele(gt[0]);
+                        int a1 = bcf_gt_allele(gt[1]);
+
+                        if ( a0>0 && a0<rec->n_allele && rec->d.allele[a0][0] != '<' && rec->d.allele[a0][0] != '*' ) claim_tscript_allele(args, rec, tr->id, a0);
+                        if ( a1>0 && a1<rec->n_allele && rec->d.allele[a1][0] != '<' && rec->d.allele[a1][0] != '*' ) claim_tscript_allele(args, rec, tr->id, a1);
                         continue;
+                    }
                     if ( args->phase==PHASE_NON_REF )
                     {
                         if ( !bcf_gt_allele(gt[0]) ) gt[0] = gt[1];
@@ -3299,6 +3381,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                 if ( parent->cur_rec==rec && parent->cur_child[ial]>=0 )
                 {
                     // this haplotype has been seen in another sample
+                    claim_tscript_allele(args, rec, tr->id, ial);
                     TSCRIPT_AUX(tr)->hap[i] = parent->child[ parent->cur_child[ial] ];
                     TSCRIPT_AUX(tr)->hap[i]->nend++;
                     parent->nend--;
@@ -3307,6 +3390,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 
                 hap_node_t *child = (hap_node_t*)calloc(1,sizeof(hap_node_t));
                 hap_ret = hap_init(args, parent, child, cds, rec, ial);
+                if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, ial);
                 if ( hap_ret!=0 )
                 {
                     // overlapping or intron variant, cannot apply
@@ -3452,6 +3536,7 @@ int test_utr(args_t *args, bcf1_t *rec)
             csq.type.trid    = tr->id;
             csq.type.vcf_ial = i;
             csq.type.gene    = tr->gene->name;
+            claim_tscript_allele(args, rec, tr->id, i);
             csq_stage(args, &csq, rec);
             ret = 1;
         }
@@ -3487,7 +3572,11 @@ int test_splice(args_t *args, bcf1_t *rec)
             splice.vcf.ial = i;
             splice.csq     = 0;
             splice_csq(args, &splice, exon->beg, exon->end);
-            if ( splice.csq ) ret = 1;
+            if ( splice.csq )
+            {
+                claim_tscript_allele(args, rec, splice.tr->id, i);
+                ret = 1;
+            }
         }
     }
     free(splice.kref.s);
@@ -3513,6 +3602,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
             splice.vcf.alt = rec->d.allele[i];
             splice.vcf.ial = i;
             splice.csq     = 0;
+            if ( GF_is_coding(tr->type) && tscript_allele_is_claimed(args, rec, tr->id, i) ) continue;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
             csq_t csq;
@@ -3522,6 +3612,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
             csq.type.biotype = tr->type;
             csq.type.strand  = tr->strand;
             csq.type.trid    = tr->id;
+            csq.type.vcf_ial = i;
             csq.type.gene    = tr->gene->name;
             csq_stage(args, &csq, rec);
             ret = 1;
@@ -3568,6 +3659,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             csq.type.trid    = tr->id;
             csq.type.gene    = tr->gene->name;
             csq.type.vcf_ial = 1;
+            claim_tscript_allele(args, rec, tr->id, 1);
             csq_stage(args, &csq, rec);
             hit = 1;
         }
@@ -3587,6 +3679,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             csq.type.trid    = tr->id;
             csq.type.gene    = tr->gene->name;
             csq.type.vcf_ial = 1;
+            claim_tscript_allele(args, rec, tr->id, 1);
             csq_stage(args, &csq, rec);
             hit = 1;
         }
@@ -3608,10 +3701,14 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             splice.vcf.ial = 1;
             splice.csq     = csq_class;
             splice_csq(args, &splice, exon->beg, exon->end);
-            if ( splice.csq ) hit = 1;
+            if ( splice.csq )
+            {
+                claim_tscript_allele(args, rec, splice.tr->id, 1);
+                hit = 1;
+            }
         }
     }
-    if ( !hit && regidx_overlap(args->idx_tscript,chr_gff,beg,end, args->itr) )
+    if ( (!hit || args->greedy) && regidx_overlap(args->idx_tscript,chr_gff,beg,end, args->itr) )
     {
         splice_t splice;
         splice_init(&splice, rec);
@@ -3624,6 +3721,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             splice.vcf.alt = rec->d.allele[1];
             splice.vcf.ial = 1;
             splice.csq     = csq_class;
+            if ( GF_is_coding(tr->type) && tscript_allele_is_claimed(args, rec, tr->id, 1) ) continue;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
             csq.type.type    = (GF_is_coding(tr->type) ? CSQ_INTRON : CSQ_NON_CODING) | csq_class;
@@ -3631,6 +3729,7 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
             csq.type.biotype = tr->type;
             csq.type.strand  = tr->strand;
             csq.type.trid    = tr->id;
+            csq.type.vcf_ial = 1;
             csq.type.gene    = tr->gene->name;
             csq_stage(args, &csq, rec);
         }
@@ -3735,7 +3834,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         int hit = args->local_csq ? test_cds_local(args, rec) : test_cds(args, rec, vbuf);
         hit += test_utr(args, rec);
         hit += test_splice(args, rec);
-        if ( !hit ) test_tscript(args, rec);
+        if ( !hit || args->greedy ) test_tscript(args, rec);
     }
     else
         test_symbolic_alt(args, rec);
@@ -3764,6 +3863,7 @@ static const char *usage(void)
         "   -B, --trim-protein-seq INT        Abbreviate protein-changing predictions to max INT aminoacids\n"
         "   -C, --genetic-code INT|l          Specify the genetic code table to use, 'l' to print a list [0]\n"
         "   -c, --custom-tag STRING           Use this tag instead of the default BCSQ\n"
+        "   -G, --greedy 0|1                  Also check transcript-level consequences after feature hits [0]\n"
         "   -l, --local-csq                   Localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq INT                    Maximum number of per-haplotype consequences to consider for each site [15]\n"
         "   -p, --phase a|m|r|R|s             How to handle unphased heterozygous genotypes: [r]\n"
@@ -3828,6 +3928,7 @@ int main_csq(int argc, char *argv[])
         {"custom-tag",1,0,'c'},
         {"local-csq",0,0,'l'},
         {"gff-annot",1,0,'g'},
+        {"greedy",required_argument,0,'G'},
         {"fasta-ref",1,0,'f'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
@@ -3855,7 +3956,7 @@ int main_csq(int argc, char *argv[])
     int regions_overlap = 1;
     int targets_overlap = 0;
     char *targets_list = NULL, *regions_list = NULL, *tmp;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:C:ln:bB:v:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:C:G:ln:bB:v:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -3875,6 +3976,10 @@ int main_csq(int argc, char *argv[])
                     break;
             case 'l': args->local_csq = 1; break;
             case 'C': args->gencode_str = optarg; break;
+            case 'G':
+                    args->greedy = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->greedy<0 || args->greedy>1 ) error("Could not parse argument: --greedy %s\n", optarg);
+                    break;
             case 'c': args->bcsq_tag = optarg; break;
             case 'q': error("Error: the -q option has been deprecated, use -v, --verbose instead.\n"); break;
             case 'v':

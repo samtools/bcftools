@@ -28,6 +28,9 @@ Changes affecting specific commands:
     - Fix a start_lost issue in haplotype mode: suppress formatting of amino-acid changes
       of variants that follow on the same haplotype, but still print DNA changes (#2543)
 
+    - Add a new -G, --greedy option which forces the program to check intronic
+      consequences after feature hits (#2548)
+
 * bcftools +fill-tags
 
     - Fix custom functions to use rounding instead of truncation when converting to
