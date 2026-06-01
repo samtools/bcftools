@@ -1,5 +1,12 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Calculation of MAC and MAF in `-i/-e` filtering expressions
+
+    - Minor allele count and minor allele frequency were calculated
+      incorrectly at multiallelic sites.
+
 Changes affecting specific commands:
 
 * bcftools +af-dist
