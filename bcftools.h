@@ -152,6 +152,29 @@ static inline int iupac_consistent(char iupac, char nt)
     return iupac_mask[(int)iupac] & nt ? 1 : 0;
 }
 
+static inline unsigned char iupac2first(unsigned char c)
+{
+    static const unsigned char lut[256] =
+    {
+        ['A'] = 'A', ['a'] = 'a',
+        ['C'] = 'C', ['c'] = 'c',
+        ['G'] = 'G', ['g'] = 'g',
+        ['T'] = 'T', ['t'] = 't',
+        ['N'] = 'N', ['n'] = 'n',
+        ['R'] = 'A', ['r'] = 'a',
+        ['Y'] = 'C', ['y'] = 'c',
+        ['S'] = 'C', ['s'] = 'c',
+        ['W'] = 'A', ['w'] = 'a',
+        ['K'] = 'G', ['k'] = 'g',
+        ['M'] = 'A', ['m'] = 'a',
+        ['B'] = 'C', ['b'] = 'c',
+        ['D'] = 'A', ['d'] = 'a',
+        ['H'] = 'A', ['h'] = 'a',
+        ['V'] = 'A', ['v'] = 'a',
+    };
+    return lut[c];
+}
+
 static inline char nt_to_upper(char nt)
 {
     if ( nt < 97 ) return nt;

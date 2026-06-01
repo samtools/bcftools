@@ -76,6 +76,9 @@ Changes affecting specific commands:
       only events longer than NUM bp are skipped. This deprecates the option `--do-not-normalize`
       (equivalent to `--no-realign=0`). See also #2500.
 
+    - Convert ambiguous IUPAC bases to their lexicographically first concrete base, as required by
+      the VCF specification (#2551)
+
 * bcftools +prune
 
     - When pruning by window length in base pairs, one out-of-window record would
