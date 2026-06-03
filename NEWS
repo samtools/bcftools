@@ -94,6 +94,12 @@ Changes affecting specific commands:
 
     - Fix per-sample stats when samples provided in different order via -s/-S (#2534)
 
+* bcftools +tag2tag
+
+    - Make the advertised default for `-t, --threshold` match the implementation:
+      0, not 0.1. Also clarify that the value is the maximum allowed GP error
+      (`call if GP >= 1 - FLOAT`), not a minimum GP threshold (#2564)
+
 * bcftools +trio-dnm3
 
     - Add a new TrioDNM model and make it the new default. To prevent confusion, the
