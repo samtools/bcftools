@@ -82,7 +82,7 @@ int parse_overlap_option(const char *arg);
 // make random seed which safe for parallelization
 static inline uint32_t make_seed(void)
 {
-    return (uint32_t)(time(NULL) ^ (getpid() << 16) ^ clock());
+    return (uint32_t)(time(NULL) ^ (getpid() << 16) ^ (uint32_t) clock());
 }
 
 // Default sort order: chr,pos,alleles
