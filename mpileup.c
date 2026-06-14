@@ -294,7 +294,7 @@ static int mplp_func(void *data, bam1_t *b)
         else if ((ma->conf->flag&MPLP_NO_ORPHAN) && (b->core.flag&BAM_FPAIRED) && !(b->core.flag&BAM_FPROPER_PAIR)) continue;
 
         return ret;
-    };
+    }
     return ret;
 }
 
