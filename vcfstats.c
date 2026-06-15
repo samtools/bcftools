@@ -37,6 +37,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/faidx.h>
+#include <htslib/hts_endian.h>
 #include <inttypes.h>
 #include "bcftools.h"
 #include "filter.h"
@@ -899,19 +900,20 @@ static inline int get_ad(bcf1_t *line, bcf_fmt_t *ad_fmt_ptr, int ismpl, int *ia
 {
     int iv, ad = 0;
     *ial = 0;
-    #define BRANCH_INT(type_t,missing,vector_end) { \
-        type_t *ptr = (type_t *) (ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl); \
+    #define BRANCH_INT(type_t,convert,missing,vector_end) { \
+        uint8_t *x = ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl; \
         for (iv=1; iv<ad_fmt_ptr->n && iv<line->n_allele; iv++) \
         { \
-            if ( ptr[iv]==vector_end ) break; \
-            if ( ptr[iv]==missing ) continue; \
-            if ( ad < ptr[iv] ) { ad = ptr[iv]; *ial = iv; }\
+            type_t val = convert(&x[iv * sizeof(type_t)]); \
+            if ( val==vector_end ) break; \
+            if ( val==missing ) continue; \
+            if ( ad < val ) { ad = val; *ial = iv; }\
         } \
     }
     switch (ad_fmt_ptr->type) {
-        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
-        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
-        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  le_to_i8,  bcf_int8_missing, bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, le_to_i16, bcf_int16_missing, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, le_to_i32, bcf_int32_missing, bcf_int32_vector_end); break;
         default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, ad_fmt_ptr->type); exit(1); break;
     }
     #undef BRANCH_INT
@@ -919,16 +921,16 @@ static inline int get_ad(bcf1_t *line, bcf_fmt_t *ad_fmt_ptr, int ismpl, int *ia
 }
 static inline int get_iad(bcf1_t *line, bcf_fmt_t *ad_fmt_ptr, int ismpl, int ial)
 {
-    #define BRANCH_INT(type_t,missing,vector_end) { \
-        type_t *ptr = (type_t *) (ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl); \
-        if ( ptr[ial]==vector_end ) return 0; \
-        if ( ptr[ial]==missing ) return 0; \
-        return ptr[ial]; \
+    #define BRANCH_INT(type_t,convert,missing,vector_end) { \
+        type_t val = convert(ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl + ial*sizeof(type_t)); \
+        if ( val==vector_end ) return 0; \
+        if ( val==missing ) return 0; \
+        return val; \
     }
     switch (ad_fmt_ptr->type) {
-        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
-        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
-        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  le_to_i8,  bcf_int8_missing, bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, le_to_i16, bcf_int16_missing, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, le_to_i32, bcf_int32_missing, bcf_int32_vector_end); break;
         default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, ad_fmt_ptr->type); exit(1); break;
     }
     #undef BRANCH_INT
@@ -957,15 +959,15 @@ static inline int calc_sample_depth(args_t *args, int ismpl, bcf_fmt_t *ad_fmt_p
 {
     if ( dp_fmt_ptr )
     {
-        #define BRANCH_INT(type_t,missing,vector_end) { \
-            type_t *ptr = (type_t *) (dp_fmt_ptr->p + dp_fmt_ptr->size*ismpl); \
-            if ( *ptr==missing || *ptr==vector_end ) return -1; \
-            return *ptr; \
+        #define BRANCH_INT(type_t,convert,missing,vector_end) { \
+            type_t val = convert(dp_fmt_ptr->p + dp_fmt_ptr->size*ismpl); \
+            if ( val==missing || val==vector_end ) return -1; \
+            return val; \
         }
         switch (dp_fmt_ptr->type) {
-            case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
-            case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
-            case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+            case BCF_BT_INT8:  BRANCH_INT(int8_t,  le_to_i8,  bcf_int8_missing, bcf_int8_vector_end); break;
+            case BCF_BT_INT16: BRANCH_INT(int16_t, le_to_i16, bcf_int16_missing, bcf_int16_vector_end); break;
+            case BCF_BT_INT32: BRANCH_INT(int32_t, le_to_i32, bcf_int32_missing, bcf_int32_vector_end); break;
             default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, dp_fmt_ptr->type); exit(1); break;
         }
         #undef BRANCH_INT
@@ -973,20 +975,21 @@ static inline int calc_sample_depth(args_t *args, int ismpl, bcf_fmt_t *ad_fmt_p
     if ( ad_fmt_ptr )
     {
         int iv, dp = 0, has_value = 0;
-        #define BRANCH_INT(type_t,missing,vector_end) { \
-            type_t *ptr = (type_t *) (ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl); \
+        #define BRANCH_INT(type_t,convert,missing,vector_end) { \
+            uint8_t *x = ad_fmt_ptr->p + ad_fmt_ptr->size*ismpl; \
             for (iv=0; iv<ad_fmt_ptr->n; iv++) \
             { \
-                if ( ptr[iv]==vector_end ) break; \
-                if ( ptr[iv]==missing ) continue; \
+                type_t val = convert(&x[iv * sizeof(type_t)]); \
+                if ( val==vector_end ) break; \
+                if ( val==missing ) continue; \
                 has_value = 1; \
-                dp += ptr[iv]; \
+                dp += val; \
             } \
         }
         switch (ad_fmt_ptr->type) {
-            case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
-            case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
-            case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+            case BCF_BT_INT8:  BRANCH_INT(int8_t,  le_to_i8,  bcf_int8_missing, bcf_int8_vector_end); break;
+            case BCF_BT_INT16: BRANCH_INT(int16_t, le_to_i16, bcf_int16_missing, bcf_int16_vector_end); break;
+            case BCF_BT_INT32: BRANCH_INT(int32_t, le_to_i32, bcf_int32_missing, bcf_int32_vector_end); break;
             default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, ad_fmt_ptr->type); exit(1); break;
         }
         #undef BRANCH_INT
