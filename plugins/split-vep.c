@@ -985,6 +985,7 @@ static void init_data(args_t *args)
             kputc('\n', &str);
         }
         free(tmp.s);
+        hts_close(fp);
     }
     else
         kputs(default_severity(),&str);
