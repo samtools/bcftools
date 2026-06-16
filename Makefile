@@ -130,7 +130,13 @@ endif
 # version.h: force
 #	echo '#define BCFTOOLS_VERSION "`git describe --always --dirty`"' > $@
 version.h:
-	echo '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"' > $@
+	@if test 'x$(PACKAGE_VERSION)' != x ; then \
+		echo "echo '#define BCFTOOLS_VERSION "'"$(PACKAGE_VERSION)"'"' > $@" ; \
+		echo '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"' > $@ ; \
+	else \
+		echo "Error: PACKAGE_VERSION is not defined." 1>&2 ; \
+		false ; \
+	fi
 
 print-version:
 	@echo $(PACKAGE_VERSION)
