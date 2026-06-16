@@ -1170,6 +1170,9 @@ int main_vcfcall(int argc, char *argv[])
     }
     else args.bcf_fname = argv[optind++];
 
+    if ( !args.gvcf && !(args.aux.flag & CALL_VARONLY) && (args.flag & CF_MCALL) )
+        fprintf(stderr, "Warning: `bcftools call -m` emits all callable sites, not just variants; use -v for variants only\n");
+
     if ( !ploidy_fname && !ploidy )
     {
         if ( !args.samples_is_file ) fprintf(stderr,"Note: none of --samples-file, --ploidy or --ploidy-file given, assuming all sites are diploid\n");

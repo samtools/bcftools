@@ -1,5 +1,12 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Calculation of MAC and MAF in `-i/-e` filtering expressions
+
+    - Minor allele count and minor allele frequency were calculated
+      incorrectly at multiallelic sites.
+
 Changes affecting specific commands:
 
 * bcftools +af-dist
@@ -69,6 +76,9 @@ Changes affecting specific commands:
       only events longer than NUM bp are skipped. This deprecates the option `--do-not-normalize`
       (equivalent to `--no-realign=0`). See also #2500.
 
+    - Convert ambiguous IUPAC bases to their lexicographically first concrete base, as required by
+      the VCF specification (#2551)
+
 * bcftools +prune
 
     - When pruning by window length in base pairs, one out-of-window record would
@@ -90,6 +100,12 @@ Changes affecting specific commands:
 * bcftools stats
 
     - Fix per-sample stats when samples provided in different order via -s/-S (#2534)
+
+* bcftools +tag2tag
+
+    - Make the advertised default for `-t, --threshold` match the implementation:
+      0, not 0.1. Also clarify that the value is the maximum allowed GP error
+      (`call if GP >= 1 - FLOAT`), not a minimum GP threshold (#2564)
 
 * bcftools +trio-dnm3
 

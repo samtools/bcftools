@@ -98,7 +98,7 @@ const char *usage(void)
         "   -s, --skip-nalt INT        Do not modify sites with fewer (--XX-to-LXX) or more (--LXX-to-XX)\n"
         "                              than INT alternate alleles, 0=all sites [0]\n"
         "   -r, --replace              Drop the source tag\n"
-        "   -t, --threshold FLOAT      Threshold for GP to GT hard-call [0.1]\n"
+        "   -t, --threshold FLOAT      Max allowed error for GP to GT hard-call, call if GP>=1-FLOAT [0]\n"
         "\n"
         "Examples:\n"
         "   bcftools +tag2tag in.vcf -- -r --GP-to-GL\n"
@@ -226,6 +226,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args->src = args->dst = UNKN;
     args->dflt_AD = bcf_int32_missing;
     args->dflt_PL = bcf_int32_missing;
+    args->gp_th = 0.1;
 
     static struct option loptions[] =
     {

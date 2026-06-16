@@ -122,7 +122,7 @@ struct _filter_t
         int n_samples;  // to be able to calculate F_MISSING
         int AN;
         int m_als;      // the size of allocated AC and AF
-        int32_t *AC;    // AC,AF are of size n_allele+1, idx=0 is for the REF allele, i.e. Number=R, not VCF's Number=A
+        int32_t *AC;    // AC,AF are of size n_allele, idx=0 is for the REF allele, i.e. Number=R, not VCF's Number=A
         double *AF;
     } cached_site;
 #if ENABLE_PERL_FILTERS
@@ -1554,12 +1554,20 @@ static void filters_set_an(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void filters_set_mac(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    // Note: this one does not make much sense if nvalues!=1
-    filters_set_ac(flt,line,tok);
-    if ( !tok->nvalues ) return;
-    int i;
-    for (i=0; i<tok->nvalues; i++)
-        if ( tok->values[i] > 0.5*CACHED.AN ) tok->values[i] = CACHED.AN - tok->values[i];
+    if ( filters_cache_AC_stats(flt,line)!=0 || !CACHED.AN )
+    {
+        tok->nvalues = 0;
+        return;
+    }
+
+    tok->nvalues = 1;
+    int i, min = INT_MAX;
+    for (i=0; i<line->n_allele; i++)
+        if ( CACHED.AC[i] && CACHED.AC[i] < min ) min = CACHED.AC[i];
+
+    if ( !min ) tok->nvalues = 0;
+    else if ( min==CACHED.AN ) tok->values[0] = 0;
+    else tok->values[0] = min;
 }
 static void filters_set_af(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -1590,13 +1598,21 @@ static void filters_set_af(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void filters_set_maf(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    filters_set_af(flt,line,tok);
-    if ( !tok->nvalues ) return;
-    int i;
-    for (i=0; i<tok->nvalues; i++)
+    if ( filters_cache_AC_stats(flt,line)!=0 || !CACHED.AN )
     {
-        if ( tok->values[i] > 0.5 ) tok->values[i] = 1 - tok->values[i];
+        tok->nvalues = 0;
+        return;
     }
+
+    tok->nvalues = 1;
+    int i;
+    double min = INFINITY;
+    for (i=0; i<line->n_allele; i++)
+        if ( CACHED.AF[i] && CACHED.AF[i] < min ) min = CACHED.AF[i];
+
+    if ( !min ) tok->nvalues = 0;
+    else if ( min==1 ) tok->values[0] = 0;
+    else tok->values[0] = min;
 }
 #undef CACHED
 
@@ -3539,6 +3555,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         filter->max_unpack |= BCF_UN_FMT;
         tok->setter = &filters_set_ac;
         tok->tag = strdup("AC");
+        tok->idx = -2;
         tok->ht_type = BCF_HT_INT;
         free(tmp.s);
         return 0;
@@ -3557,6 +3574,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_af;
         tok->tag = strdup("AF");
+        tok->idx = -2;
         tok->ht_type = BCF_HT_REAL;
         free(tmp.s);
         return 0;
