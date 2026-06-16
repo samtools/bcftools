@@ -115,6 +115,12 @@ Changes affecting specific commands:
 
         bcftools +trio-dnm3 --use-ALM
 
+* bcftools view
+
+    - Fix the -v/V, --types/--exclude-types option to work with ref and extend
+      for all types supported by htslib: snps,indels,mnps,ref,bnd,other,overlap
+      (#2567)
+
 
 ## Release 1.23.1 (18th March 2026)
 

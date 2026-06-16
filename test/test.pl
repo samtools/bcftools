@@ -378,6 +378,13 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.o
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.5.out',args=>q[-m - -i 'type="snp"']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.1.out',args=>q[-Hv ref]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.2.out',args=>q[-Hv snps]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.3.out',args=>q[-Hv mnps]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.4.out',args=>q[-Hv indels]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.5.out',args=>q[-Hv other]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.6.out',args=>q[-Hv bnd]);
+run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.7.out',args=>q[-Hv overlap]);
 run_test(\&test_vcf_view,$opts,in=>'filter.mac',out=>'filter.mac.1.out',args=>q[-Hi 'MAC>=2']);
 run_test(\&test_vcf_view,$opts,in=>'filter.mac',out=>'filter.mac.1.out',args=>q[-Hi 'MAF>=0.09']);
 run_test(\&test_vcf_view,$opts,in=>'filter.mac',out=>'filter.mac.1.out',args=>q[-Hi 'MAF*AN>=2']);
