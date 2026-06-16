@@ -80,6 +80,13 @@ Changes affecting specific commands:
 
     - Fix off-by-one error in reporting HMM qualities
 
+* bcftools +split-vep
+
+    - Add support for SnpEff output, add a new option --csq-field, --consequence-field
+      which allows to override the default consequence field name 'Consequence' (#2566)
+
+    - Stop converting consequence severity to lower case
+
 * bcftools stats
 
     - Fix per-sample stats when samples provided in different order via -s/-S (#2534)

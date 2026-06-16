@@ -808,6 +808,11 @@ run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.2',out=>'remove-overlaps.2
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme]);
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.1.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme --missing 0]);
 run_test(\&test_vcf_plugin,$opts,in=>'remove-overlaps.3',out=>'remove-overlaps.3.2.out',cmd=>'+remove-overlaps',args=>q[-m 'min(QUAL)' -M rmme --missing DP]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.icase.1',out=>'split-vep.icase.1.1.out',cmd=>'+split-vep',args=>qq[--csq-field Annotation_Impact -S {PATH}/split-vep.icase.1.severity -s :MODERATE+ -f '%Annotation_Impact\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.icase.1',out=>'split-vep.icase.1.1.out',cmd=>'+split-vep',args=>qq[--csq-field Annotation_Impact -S {PATH}/split-vep.icase.1.severity -s :moderate+ -f '%Annotation_Impact\\n']);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.12',out=>'split-vep.12.1.out',cmd=>'+split-vep',args=>qq[-s all:any:worst -f '%CHROM\\t%POS\\t%Annotation\\n' | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.11',out=>'split-vep.11.1.out',cmd=>'+split-vep',args=>qq[--csq-field Annotation -a XXX -f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%XXX\\n' -d -A tab | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'split-vep.11',out=>'split-vep.11.2.out',cmd=>'+split-vep',args=>qq[--csq-field Annotation -a XXX -f '%POS %xAnnotation\\n' -p x | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.1.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.1.1.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+:worst | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'split-vep',out=>'split-vep.2.out',cmd=>'+split-vep',args=>qq[-c Consequence -s worst:missense+ | $$opts{bin}/bcftools query -f'%POS\\t%Consequence\\n' -i'Consequence!="."']);

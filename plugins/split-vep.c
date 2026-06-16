@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2025 Genome Research Ltd.
+   Copyright (c) 2019-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -122,6 +122,7 @@ typedef struct
         *select,        // the --select option
         *column_str,    // the --columns option
         *column_types,  // the --columns-types option
+        *csq_field,     // the --consequence-field option
         *annot_prefix,  // the --annot-prefix option
         *genes_fname,   // the --gene-list option
         *gene_fields_str;   // the --gene-list-fields option
@@ -158,7 +159,7 @@ args_t args;
 
 const char *about(void)
 {
-    return "Query structured annotations such as INFO/CSQ produced by VEP of INFO/BCSQ produced by bctools/csq.\n";
+    return "Query structured annotations such as INFO/CSQ produced by VEP, BCSQ by bcftools/csq, or ANN by SnpEff.\n";
 }
 
 static const char *default_severity(void)
@@ -199,6 +200,7 @@ static const char *default_column_types(void)
         //      "CDS_position               Integer\n"
         //      "Protein_position           Integer\n"
         "DISTANCE                   Integer\n"
+        "Distance                   Integer\n"
         "STRAND                     Integer\n"
         "TSL                        Integer\n"
         "GENE_PHENO                 Integer\n"
@@ -219,24 +221,27 @@ static const char *usage_text(void)
 {
     return
         "\n"
-        "About: Query structured annotations such INFO/BCSQ or CSQ created by bcftools/csq or VEP. For more\n"
-        "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
+        "About: Query structured annotations such as INFO/BCSQ produced by bcftools/csq, INFO/CSQ produced by VEP, or\n"
+        "   INFO/ANN produced by SnpEff.\n"
+        "   For more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --annotation STR            INFO annotation to parse, CSQ by default or BCSQ when not present [CSQ]\n"
-        "   -A, --all-fields DELIM          Output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
-        "                                     filtering expression using the output field delimiter DELIM. This can be\n"
-        "                                     \"tab\", \"space\" or an arbitrary string.\n"
+        "   -a, --annotation STR            INFO annotation to parse; auto-detected in precedence order CSQ, BCSQ, ANN\n"
+        "   -A, --all-fields DELIM          Output all fields replacing the selected annotation tag, e.g. %CSQ, %BCSQ or %ANN,\n"
+        "                                     in the -f filtering expression using the field delimiter DELIM. This can be \"tab\",\n"
+        "                                     \"space\" or an arbitrary string.\n"
         "   -c, --columns [LIST|-][:TYPE]   Extract the fields listed either as 0-based indexes or names, \"-\" to extract all\n"
         "                                     fields. See --columns-types for the defaults. Supported types are String/Str,\n"
         "                                     Integer/Int and Float/Real. Unlisted fields are set to String. Existing header\n"
         "                                     definitions will not be overwritten, remove first with `bcftools annotate -x`\n"
         "       --columns-types -|FILE      Pass \"-\" to print the default -c types or FILE to override the presets\n"
+        "       --csq-field STR,            \n"
+        "       --consequence-field STR     Use STR as the consequence field name [Consequence|Annotation]\n"
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
         "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
         "   -g, --gene-list [+]FILE         Consider only features listed in FILE, or prioritize if FILE is prefixed with \"+\"\n"
-        "       --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene]\n"
+        "       --gene-list-fields LIST     Fields to match against by the -g list, by default gene names [SYMBOL,Gene,gene,Gene_Name,Gene_ID]\n"
         "   -H, --print-header              Print header, -HH to omit column indices\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
@@ -549,7 +554,7 @@ static void init_gene_list(args_t *args)
     }
     free(gene);
 
-    if ( !args->gene_fields_str ) args->gene_fields_str = "SYMBOL,Gene,gene";
+    if ( !args->gene_fields_str ) args->gene_fields_str = "SYMBOL,Gene,gene,Gene_Name,Gene_ID";
     gene = hts_readlist(args->gene_fields_str,0,&ngene);
     args->gene_fields = (int*)malloc(ngene*sizeof(*args->gene_fields));
     for (i=0,j=0; i<ngene; i++)
@@ -710,6 +715,7 @@ static void parse_column_str(args_t *args)
         args->nannot--;
         if ( i==args->nannot ) break;   // the last one is to be skipped, we are done
         memmove(&column[i],&column[i+1],sizeof(*column)*(args->nannot-i));
+        memmove(&types[i],&types[i+1],sizeof(*types)*(args->nannot-i));
         i--;
     }
 
@@ -822,6 +828,7 @@ void init_select_tr_expr(args_t *args, const char *cnst_expr)
             if ( regcomp(args->tr_expr.regex, args->tr_expr.value, REG_NOSUB) )
                 error("Error: fail to compile the regular expression \"%s\"\n", args->tr_expr.value);
             args->tr_expr.op = TR_OP_RE;
+            break;
         }
         else if ( *ptr=='!' && ptr[1]=='=' )
         {
@@ -857,6 +864,20 @@ void init_select_tr_expr(args_t *args, const char *cnst_expr)
     args->select_tr = SELECT_TR_EXPR;
 }
 
+static void trim_field_name(char *s)
+{
+    // remove trailing/leading white space and quotes
+    char *b = s;
+    while ( *b && (isspace_c(*b) || *b=='\'' || *b=='"') ) b++;
+
+    char *e = b + strlen(b);
+    while ( e > b && (isspace_c(e[-1]) || e[-1]=='\'' || e[-1]=='"') ) e--;
+
+    *e = 0;
+
+    if ( b != s )
+        memmove(s, b, e - b + 1);
+}
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -875,44 +896,68 @@ static void init_data(args_t *args)
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
-    // Check which one to use: BCSQ or CSQ
+    // Check which one to use: BCSQ (bcftools/csq), CSQ (VEP), ANN (SnpEff)
     if ( !args->vep_tag )
     {
         int has_CSQ  = bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,"CSQ"));
         int has_BCSQ = bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,"BCSQ"));
-        if ( has_CSQ && has_BCSQ ) fprintf(stderr,"Warning: both INFO/CSQ and INFO/BCSQ exist, using INFO/CSQ\n");
-        if ( !has_CSQ && !has_BCSQ ) error("Error: Neither INFO/CSQ nor INFO/BCSQ was found in the header\n");
+        int has_ANN  = bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,"ANN"));
+        if ( has_CSQ + has_BCSQ + has_ANN > 1 )
+            fprintf(stderr,"Warning: multiple default annotation fields exist; the order of precedence is INFO/CSQ, BCSQ, ANN\n");
         if ( has_CSQ ) args->vep_tag = "CSQ";
         else if ( has_BCSQ ) args->vep_tag = "BCSQ";
+        else if ( has_ANN ) args->vep_tag = "ANN";
+        else
+            error("Error: None of the INFO/CSQ, BCSQ, or ANN annotations was found in the header\n");
     }
 
-    // Parse the header CSQ line, must contain Description with "Format: ..." declaration
+    // Parse the header CSQ line, must contain Description with "Format: ..." or "Functional annotations: ..." declaration
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr, BCF_HL_INFO, NULL, args->vep_tag, NULL);
     if ( !hrec ) error("The tag INFO/%s not found in the header\n", args->vep_tag);
     int ret = bcf_hrec_find_key(hrec, "Description");
     if ( ret<0 ) error("No \"Description\" field was found for the tag INFO/%s in the header\n", args->vep_tag);
-    char *format = strstr(hrec->vals[ret], "Format: ");
-    if ( !format ) error("Expected \"Format: \" substring in the header INFO/%s/Description, found: %s\n", args->vep_tag,hrec->vals[ret]);
-    format += 8;
-    args->vep_format = strdup(format);
-    char *ep = args->vep_format + strlen(args->vep_format) - 1;
-    if ( *ep=='"' )  *ep = 0;
-    ep = format;
-    while ( *ep )
+    char *format = strstr(hrec->vals[ret], "Format:");
+    if ( format )
     {
-        char *bp = ep;
-        while ( *ep && *ep!='|' && *ep!='"' && *ep!='(' ) ep++; // don't include bracket in "pos(1-based)"
-        char tmp = *ep;
-        *ep = 0;
-        args->nfield++;
-        args->field = (char**)realloc(args->field,args->nfield*sizeof(*args->field));
-        args->field[args->nfield-1] = strdup_annot_prefix(args,bp);
-        if ( !tmp ) break;
-        *ep = tmp;
-        while ( *ep && *ep!='|' ) ep++;     // skip bracket in "pos(1-based)"
-        if ( *ep ) ep++;
+        format += 7;
     }
+    else
+    {
+        format = strstr(hrec->vals[ret], "Functional annotations:");
+        if ( !format ) error("Expected \"Format: \" or \"Functional annotations: \" substring in the header INFO/%s/Description, found: %s\n", args->vep_tag,hrec->vals[ret]);
+        format += 23;
+    }
+
+    args->vep_format = strdup(format);
+    char *vep_parse = strdup(format);
+    char *bp = vep_parse;
+    while ( *bp )
+    {
+        char *ep = strchr(bp, '|');
+        if ( ep ) *ep = 0;
+        trim_field_name(bp);
+        char *paren = strchr(bp, '(');      // pos(1-based) becomes pos
+        if ( paren ) *paren = 0;
+        trim_field_name(bp);
+        if ( *bp )
+        {
+            args->nfield++;
+            args->field = (char **)realloc(args->field, args->nfield * sizeof(*args->field));
+            args->field[args->nfield - 1] = strdup_annot_prefix(args, bp);
+
+            if ( !args->csq_field )
+            {
+                if ( !strcmp(bp,"Consequence") ) args->csq_field = "Consequence";
+                else if ( !strcmp(bp,"Annotation") ) args->csq_field = "Annotation";
+            }
+        }
+        if ( !ep ) break;
+        bp = ep + 1;
+    }
+    free(vep_parse);
     if ( !args->nfield ) error("Could not parse Description of INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
+    if ( !args->csq_field )
+        error("Error: Use the --csq-field option, unable to auto-detect consequence field (Consequence or Annotation) in: %s",format);
     args->field2idx = khash_str2int_init();
     int i;
     for (i=0; i<args->nfield; i++)
@@ -943,7 +988,7 @@ static void init_data(args_t *args)
     }
     else
         kputs(default_severity(),&str);
-    ep = str.s;
+    char *ep = str.s;
     while ( *ep )
     {
         if ( *ep=='#' )
@@ -991,9 +1036,12 @@ static void init_data(args_t *args)
         int severity = -1, modifier = '=';
         if ( sel_csq[len-1]=='+' ) { modifier = '+'; sel_csq[len-1] = 0; }
         else if ( sel_csq[len-1]=='-' ) { modifier = '-'; sel_csq[len-1] = 0; }
-        if ( khash_str2int_get(args->csq2severity, sel_csq, &severity)!=0 )
+        char *sel_key = strdup(sel_csq);
+        for (i=0; sel_key[i]; i++) sel_key[i] = tolower_c(sel_key[i]);
+        if ( khash_str2int_get(args->csq2severity, sel_key, &severity)!=0 )
             error("Error: the consequence \"%s\" is not recognised. Run \"bcftools +split-vep -S ?\" to see the default list.\n", sel_csq);
         assert(severity >= 0);
+        free(sel_key);
         if ( modifier=='=' ) { args->min_severity = severity; args->max_severity = severity; }
         else if ( modifier=='+' ) { args->min_severity = severity; args->max_severity = INT_MAX; }
         else if ( modifier=='-' ) { args->min_severity = 0; args->max_severity = severity; }
@@ -1005,10 +1053,10 @@ static void init_data(args_t *args)
     else error("Error: could not parse \"%s\" in the expression \"%s\"\n",prn_csq,args->select);
     cols_destroy(cols);
 
-    // The "Consequence" column to determine severity for filtering. The name of this column is hardwired for now, both VEP and bt/csq use the same name
-    char *tmp = strdup_annot_prefix(args,"Consequence");
+    // The "Consequence" column to determine severity for filtering
+    char *tmp = strdup_annot_prefix(args,args->csq_field);
     if ( khash_str2int_get(args->field2idx,tmp,&args->csq_idx)!=0 )
-        error("The field \"Consequence\" is not present in INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
+        error("The field \"%s\" is not present in INFO/%s: %s\n", args->csq_field,args->vep_tag,hrec->vals[ret]);
     free(tmp);
 
     if ( args->format_str ) parse_format_str(args);    // Text output, e.g. bcftools +split-vep -f '%Consequence\n'
@@ -1090,57 +1138,82 @@ static void list_header(args_t *args)
     for (i=0; i<args->nfield; i++) printf("%d\t%s\n", i,args->field[i]);
 }
 
-static void csq_to_severity(args_t *args, char *csq, int *min_severity, int *max_severity, int exact_match)
+static int csq_term_severity(args_t *args, const char *term)
+{
+    int i, severity = -1;
+    char *key = strdup(term);
+    if ( !key ) error("Error: out of memory\n");
+
+    for (i=0; key[i]; i++)
+        key[i] = tolower_c(key[i]);
+
+    // Exact lookup first. The hash uses string contents, so using a temporary
+    // lowercase key is fine.
+    if ( khash_str2int_get(args->csq2severity, key, &severity)==0 )
+    {
+        free(key);
+        return severity;
+    }
+
+    // Fall back to substring matching against the current severity scale.
+    for (i=0; i<args->nscale; i++)
+        if ( strstr(key,args->scale[i]) ) break;
+
+    int is_known = i < args->nscale ? 1 : 0;
+    if ( is_known )
+    {
+        if ( khash_str2int_get(args->csq2severity, args->scale[i], &severity)!=0 )
+            error("FIXME: failed to look up the consequence \"%s\"\n", args->scale[i]);
+    }
+    else
+        severity = args->nscale + 1;
+
+    // Cache the full lowercase term. Ownership of key is transferred to args->scale, matching the existing lifetime model
+    args->nscale++;
+    args->scale = (char**) realloc(args->scale,args->nscale*sizeof(*args->scale));
+    args->scale[args->nscale-1] = key;
+    khash_str2int_set(args->csq2severity,args->scale[args->nscale-1], severity);
+
+    if ( !is_known )
+        fprintf(stderr, "Note: assigning a (high) severity score to a new consequence, use -S to override: %s -> %d\n", args->scale[args->nscale-1],severity);
+
+    return severity;
+}
+static void csq_to_severity(args_t *args, const char *csq, int *min_severity, int *max_severity, int exact_match)
 {
     *min_severity = INT_MAX;
     *max_severity = -1;
-    char *ep = csq;
+
+    char *tmp_csq = strdup(csq);
+    if ( !tmp_csq ) error("Error: out of memory\n");
+
+    char *ep = tmp_csq;
     while ( *ep )
     {
         char *bp = ep;
-        while ( *ep && *ep!='&' ) { *ep = tolower_c(*ep); ep++; }
-        char tmp = *ep;
+        while ( *ep && *ep!='&' ) ep++;
+
+        char keep = *ep;
         *ep = 0;
 
-        int i, severity = -1;
-        if ( khash_str2int_get(args->csq2severity, bp, &severity)!=0 )
-        {
-            for (i=0; i<args->nscale; i++)
-                if ( strstr(bp,args->scale[i]) ) break;
+        int severity = csq_term_severity(args, bp);
 
-            if ( i!=args->nscale )
-                khash_str2int_get(args->csq2severity, args->scale[i], &severity);
-            else
-                severity = args->nscale + 1;
-
-            args->nscale++;
-            args->scale = (char**) realloc(args->scale,args->nscale*sizeof(*args->scale));
-            args->scale[args->nscale-1] = strdup(bp);
-            khash_str2int_set(args->csq2severity,args->scale[args->nscale-1], severity);
-            if ( i==args->nscale )
-                fprintf(stderr,"Note: assigning a (high) severity score to a new consequence, use -S to override: %s -> %d\n",args->scale[args->nscale-1],args->nscale);
-
-            if ( khash_str2int_get(args->csq2severity, bp, &severity)!=0 ) error("FIXME: failed to look up the consequence \"%s\"\n", bp);
-        }
         if ( exact_match < 0 )
         {
             if ( *min_severity > severity ) *min_severity = severity;
             if ( *max_severity < severity ) *max_severity = severity;
         }
-        else
+        else if ( severity==exact_match )
         {
-            if ( severity==exact_match )
-            {
-                *min_severity = *max_severity = severity;
-                *ep = tmp;
-                return;
-            }
+            *min_severity = *max_severity = severity;
+            break;
         }
 
-        if ( !tmp ) break;
-        *ep = tmp;
+        if ( !keep ) break;
         ep++;
     }
+
+    free(tmp_csq);
 }
 
 static int csq_severity_pass(args_t *args, char *csq)
@@ -1190,7 +1263,7 @@ static int get_worst_transcript(args_t *args, bcf1_t *rec)
     {
         cols_t *cols_csq = args->cols_csq[i];
         if ( args->csq_idx >= cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,cols_csq->n);
+            error("Too few columns at %s:%"PRId64" .. %d (%s) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->csq_field,cols_csq->n);
         char *csq = cols_csq->off[args->csq_idx];
 
         int min, max;
@@ -1368,7 +1441,6 @@ static void restrict_csqs_to_genes(args_t *args)
     args->ncols_csq = nhit;
 }
 
-// Beware: edits the string, writes \0 character. For example, overwrites the '&' in start_lost&splice_region
 char *csq_rewrite_worst(args_t *args, char *str)
 {
     cols_t *tmp = cols_split(str,NULL,'&');
@@ -1379,8 +1451,7 @@ char *csq_rewrite_worst(args_t *args, char *str)
         int i, imax = 0, smax = -1;
         for (i=0; i<tmp->n; i++)
         {
-            int severity = -1;
-            khash_str2int_get(args->csq2severity, tmp->off[i], &severity);
+            int severity = csq_term_severity(args, tmp->off[i]);
             if ( smax < severity ) smax = severity, imax = i;
         }
 
@@ -1489,7 +1560,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         i = args->list_tr[ilist];
         cols_t *cols_csq = args->cols_csq[i];
         if ( args->csq_idx >= cols_csq->n )
-            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,cols_csq->n);
+            error("Too few columns at %s:%"PRId64" .. %d (%s) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->csq_field,cols_csq->n);
 
         char *csq = cols_csq->off[args->csq_idx];
         if ( !csq_severity_pass(args, csq) ) continue;
@@ -1561,6 +1632,8 @@ int run(int argc, char **argv)
         {"gene-list-fields",required_argument,0,5},
         {"annotation",required_argument,0,'a'},
         {"annot-prefix",required_argument,0,'p'},
+        {"csq-field",required_argument,0,6},
+        {"consequence-field",required_argument,0,6},
         {"columns",required_argument,0,'c'},
         {"columns-types",required_argument,0,1},
         {"select",required_argument,0,'s'},
@@ -1654,6 +1727,7 @@ int run(int argc, char **argv)
                 if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
             case  5 : args->gene_fields_str = optarg; break;
+            case  6 : args->csq_field = optarg; break;
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))
                     error("Unsupported index format '%s'\n", optarg);

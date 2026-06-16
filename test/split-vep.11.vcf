@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=20>
+##contig=<ID=X>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=XXX,Number=.,Type=String,Description="Functional annotations: 'Allele | Annotation | Annotation_Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID | Transcript_BioType | Rank | HGVS.c | HGVS.p | cDNA.pos / cDNA.length | CDS.pos / CDS.length | AA.pos / AA.length | Distance | ERRORS / WARNINGS / INFO' ">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1000	.	A	G	.	PASS	XXX=G|missense_variant&splice_region_variant|MODERATE|GENE1|GENE0001|transcript|TX001|protein_coding|2/5|c.100A>G|p.Lys34Arg|100/900|100/600|34/200||,G|intron_variant|MODIFIER|GENE1|GENE0001|transcript|TX002|protein_coding|2/6|c.101-5A>G||101/1200|||5|
+1	2000	.	C	T	.	PASS	XXX=T|stop_gained|HIGH|GENE2|GENE0002|transcript|TX003|protein_coding|1/3|c.25C>T|p.Gln9*|25/450|25/300|9/100||WARNING_TRANSCRIPT_NO_STOP_CODON
