@@ -3827,14 +3827,14 @@ when piping!)
     non-missing genotype. Note that the missingness is determined from INFO/AN
     and AC tags when available to avoid parsing sample fields.
 
-*-v, --types* 'snps'|'indels'|'mnps'|'other'::
+*-v, --types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'|'overlap'::
     comma-separated list of variant types to select. Site is selected if
     any of the ALT alleles is of the type requested. Types are determined
     by comparing the REF and ALT alleles in the VCF record not INFO tags
     like INFO/INDEL or INFO/VT. Use *--include* to select based on INFO
     tags.
 
-*-V, --exclude-types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'::
+*-V, --exclude-types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'|'overlap'::
     comma-separated list of variant types to exclude. Site is excluded if
     any of the ALT alleles is of the type requested. Types are determined
     by comparing the REF and ALT alleles in the VCF record not INFO tags
