@@ -143,7 +143,14 @@ static int cmp_reg_ptrs(const void *a, const void *b)
 }
 static int cmp_reg_ptrs2(const void *a, const void *b)
 {
-    return cmp_regs(*((reg_t**)a),*((reg_t**)b));
+    reg_t **ra = (reg_t**) a;
+    reg_t **rb = (reg_t**) b;
+    int res = cmp_regs(*ra, *rb);
+    // Ensure sort is stable by comparing pointers.  This is safe as we're
+    // sorting a list of pointers to the original regions rather than the
+    // regions themselves.  As they all point into the same array, they
+    // can be safely compared and also preserve the original ordering.
+    return res ? res : (*ra > *rb) - (*ra < *rb);
 }
 
 inline int regidx_push(regidx_t *idx, char *chr_beg, char *chr_end, uint32_t beg, uint32_t end, void *payload)
