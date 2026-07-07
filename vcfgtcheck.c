@@ -827,7 +827,7 @@ static int cmp_idbl(const void *_a, const void *_b)
     idbl_t *b = (idbl_t*)_b;
     if ( a->val < b->val ) return -1;
     if ( a->val > b->val ) return 1;
-    return 0;
+    return a->ism - b->ism; // j^{th}
 }
 static void report_distinctive_sites(args_t *args)
 {
