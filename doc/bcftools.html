@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.23">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2026-04-07 10:58 BST</strong> and refers to bcftools git version <strong>1.23.1-61-gb64ebe7b+</strong>.</p>
+<p>This manual page was last updated <strong>2026-07-09</strong> and refers to bcftools git version <strong>1.24</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -3549,7 +3549,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)
 See also the option <strong>-N, --no-realign</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
@@ -3619,10 +3619,11 @@ splitting multiallelic sites</p>
 </dd>
 <dt class="hdlist1"><strong>-N, --no-realign</strong> [<em>NUM</em>]<a id="do_not_normalize"></a></dt>
 <dd>
-<p>do not realign indels and symbolic alleles, which is normally performed
-when <strong>-f, --fasta-ref</strong> option is provided. If <em>NUM</em> is given, only
-events longer than <em>NUM</em> bp are not realigned.
-Previously named <strong>--do-not-normalize</strong>.</p>
+<p>do not realign indels and symbolic alleles (normally performed
+when <strong>-f, --fasta-ref</strong> option is provided). If <em>NUM</em> is given,
+skip realignment only for events longer than <em>NUM</em> bp. Note
+that <em>NUM</em> must follow with no space, e.g. <strong>-N1000</strong> or <strong>--no-realign=1000</strong>.
+Previously named <strong>--do-not-normalize</strong> and did not accept an argument.</p>
 </dd>
 <dt class="hdlist1"><strong>--old-rec-tag</strong> <em>STR</em></dt>
 <dd>
@@ -5088,7 +5089,7 @@ when available to avoid parsing sample fields.</p>
 non-missing genotype. Note that the missingness is determined from INFO/AN
 and AC tags when available to avoid parsing sample fields.</p>
 </dd>
-<dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>other</em></dt>
+<dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em>|<em>overlap</em></dt>
 <dd>
 <p>comma-separated list of variant types to select. Site is selected if
 any of the ALT alleles is of the type requested. Types are determined
@@ -5096,7 +5097,7 @@ by comparing the REF and ALT alleles in the VCF record not INFO tags
 like INFO/INDEL or INFO/VT. Use <strong>--include</strong> to select based on INFO
 tags.</p>
 </dd>
-<dt class="hdlist1"><strong>-V, --exclude-types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em></dt>
+<dt class="hdlist1"><strong>-V, --exclude-types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em>|<em>overlap</em></dt>
 <dd>
 <p>comma-separated list of variant types to exclude. Site is excluded if
 any of the ALT alleles is of the type requested. Types are determined
@@ -5836,7 +5837,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-04-07 10:58:12 +0100
+Last updated 2026-07-09 10:42:20 +0100
 </div>
 </div>
 </body>

@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.24 (9th July 2026)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Calculation of MAC and MAF in `-i/-e` filtering expressions
