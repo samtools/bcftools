@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2025 Genome Research Ltd.
+    Copyright (C) 2012-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -692,7 +692,7 @@ void merge_headers(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix,
 
             int len = strlen(name) + strlen(clash_prefix) + 1;
             char *tmp = (char*) malloc(sizeof(char)*(len+1));
-            sprintf(tmp,"%s:%s",clash_prefix,name);
+            snprintf(tmp,len + 1,"%s:%s",clash_prefix,name);
             free(rmme);
             rmme = name = tmp;
         }
@@ -1653,7 +1653,7 @@ void init_local_alleles(args_t *args, bcf1_t *out, int ifmt_PL)
         }
         switch (fmt_ori->type)
         {
-            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val); break;
+            case BCF_BT_INT8:  BRANCH( int8_t, le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  val>=0 ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, val>=0 && val<PL2PROB_MAX ? val : PL2PROB_MAX-1); break;
             default: error("Unexpected case: %d, PL\n", fmt_ori->type);
@@ -1689,7 +1689,7 @@ void update_local_alleles(args_t *args, bcf1_t *out)
                 }
             }
             if ( j==0 ) dst[j++] = bcf_int32_missing;
-            for (; j<ma->nlaa; j++) src[j] = bcf_int32_vector_end;
+            for (; j<ma->nlaa; j++) dst[j] = bcf_int32_vector_end;
             ismpl++;
         }
     }
@@ -2014,7 +2014,7 @@ void merge_localized_numberG_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf
         {
             case BCF_BT_INT8:  BRANCH(int32_t, int8_t,  le_to_i8,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
             case BCF_BT_INT16: BRANCH(int32_t, int16_t, le_to_i16, val==bcf_int16_missing, val==bcf_int16_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
-            case BCF_BT_INT32: BRANCH(int32_t, int32_t, le_to_i16, val==bcf_int32_missing, val==bcf_int32_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
+            case BCF_BT_INT32: BRANCH(int32_t, int32_t, le_to_i32, val==bcf_int32_missing, val==bcf_int32_vector_end, tgt[tgt_idx]=bcf_int32_missing, tgt[tgt_idx]=bcf_int32_vector_end); break;
             case BCF_BT_FLOAT: BRANCH(float, float, le_to_float, bcf_float_is_missing(val), bcf_float_is_vector_end(val), bcf_float_set_missing(tgt[tgt_idx]), bcf_float_set_vector_end(tgt[tgt_idx])); break;
             default: error("Unexpected case: %d, %s\n", fmt_ori->type, key);
         }
@@ -2980,13 +2980,18 @@ static inline int types_compatible(args_t *args, selected_t *selected, buffer_t 
         return 1;
     }
 
+    if ( args->collapse==BCF_SR_PAIR_EXACT )
+    {
+        if ( maux->nals != rec->n_allele ) return 0;
+    }
+
     if ( args->collapse & COLLAPSE_ANY ) return 1;  // can merge anything with anything
 
     // REF and gVCF_REF with no other alleles present can be merged with anything
     if ( (selected->types&ref_mask) && !(selected->types&(~ref_mask)) ) return 1;
     if ( (rec_types&ref_mask) && !(rec_types&(~ref_mask)) ) return 1;
 
-    if ( args->collapse!=COLLAPSE_NONE )
+    if ( args->collapse!=COLLAPSE_NONE && args->collapse!=BCF_SR_PAIR_EXACT )
     {
         // If we are here, one the following modes must have been set: both,snps,indels,snp-ins-del
         // Include the new record if
@@ -3013,19 +3018,31 @@ static inline int types_compatible(args_t *args, selected_t *selected, buffer_t 
     int x = selected->types;
     int y = rec_types;
     if ( !(x&y) ) return 0;                 // no matching type
-    if ( (x&y)!=x && (x&y)!=y ) return 0;   // not a subset
+    if ( (x&y)!=x && (x&y)!=y ) return 0;   // neither is a type subset of the other
+    if ( args->collapse==BCF_SR_PAIR_EXACT && ((x&y)!=x || (x&y)!=y) ) return 0;
 
     if ( vcmp_set_ref(args->vcmp,maux->als[0],rec->d.allele[0]) < 0 ) return 0;   // refs are not compatible
-    for (k=1; k<rec->n_allele; k++)
+    if ( args->collapse!=BCF_SR_PAIR_EXACT )
     {
-        if ( bcf_has_variant_type(rec,k,VCF_REF) ) continue;    // this must be gVCF_REF (<*> or <NON_REF>)
-        if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,rec->d.allele[k])>=0 ) break;
+        for (k=1; k<rec->n_allele; k++)
+        {
+            if ( bcf_has_variant_type(rec,k,VCF_REF) ) continue;    // this must be gVCF_REF (<*> or <NON_REF>)
+            if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,rec->d.allele[k])>=0 ) break;
+        }
+        if ( k==rec->n_allele ) return 0;   // none of the alleles in rec is present in maux
     }
-    if ( k==rec->n_allele ) return 0;   // this record has a new allele rec->d.allele[k]
+    else
+    {
+        for (k=1; k<rec->n_allele; k++)
+        {
+            if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,rec->d.allele[k]) < 0 ) break;
+        }
+        if ( k!=rec->n_allele ) return 0;   // at least one of the alleles in rec is not present in maux
+    }
 
     if ( selected->types&other_mask && rec_types&other_mask )
     {
-        // both records have symbolic alleles and the alleles are the same
+        // both records have symbolic alleles and the alleles are the same - does END match as well?
         if ( selected->end!=end ) return 0;
     }
 
@@ -3267,7 +3284,7 @@ void stage_line(args_t *args)
         if ( j>=buf->end )
         {
             // no matching allele found in this file
-            if ( args->collapse==COLLAPSE_NONE ) continue;  // exact matching requested, skip
+            if ( args->collapse==COLLAPSE_NONE || args->collapse==BCF_SR_PAIR_EXACT ) continue;  // exact matching requested, skip
 
             // choose something compatible to create a multiallelic site given the -m criteria
             for (j=buf->beg; j<buf->end; j++)
@@ -3546,7 +3563,7 @@ static void usage(void)
     fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
     fprintf(stderr, "    -L, --local-alleles INT           If more than INT alt alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
-    fprintf(stderr, "    -m, --merge STRING[*|**]          Allow multiallelic records for snps,indels,both,snp-ins-del,all,none,id,*,**; see man page for details [both]\n");
+    fprintf(stderr, "    -m, --merge STRING[*|**]          Allow multiallelic records for snps,indels,both,snp-ins-del,all,exact,none,id,*,**; see man page for details [both]\n");
     fprintf(stderr, "    -M, --missing-rules TAG:METHOD    Rules for replacing missing values in numeric vectors (.,0,max) when unknown allele <*> is not present [.]\n");
     fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
@@ -3669,6 +3686,7 @@ int main_vcfmerge(int argc, char *argv[])
                 else if ( !strncmp(optarg,"all",len) ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strncmp(optarg,"both",len) ) args->collapse |= COLLAPSE_BOTH;
                 else if ( !strncmp(optarg,"none",len) ) args->collapse = COLLAPSE_NONE;
+                else if ( !strncmp(optarg,"exact",len) ) args->collapse = BCF_SR_PAIR_EXACT;
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;
             }

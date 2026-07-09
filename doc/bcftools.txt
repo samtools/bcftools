@@ -2141,6 +2141,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     '\*' is appended, the unobserved allele '<*>' or '<NON_REF>' will be removed at variant sites;
     if two asterisks '**' are appended, the unobserved allele will be removed all sites.
 ----
+-m exact       ..  require the exact same alleles
 -m none        ..  no new multiallelics, output multiple records instead
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
@@ -2703,6 +2704,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     your VCF, do NOT use it for that purpose!!! (Instead see
     <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
     <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
+    See also the option *-N, --no-realign*.
 
 *-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'exact'::
     If a record is present multiple times, output only the first instance.
@@ -2718,7 +2720,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
-    and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
+    and normalization, however, see also the *<<do_not_normalize,--no-realign>>*
     option below.
 
 *--force*::
@@ -2758,10 +2760,12 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *--no-version*::
     see *<<common_options,Common Options>>*
 
-*-N, --do-not-normalize*[[do_not_normalize]]::
-    the '-c s' option can be used to fix or set the REF allele from the
-    reference '-f'. The '-N' option will not turn on indel normalisation
-    as the '-f' option normally implies
+*-N, --no-realign* ['NUM'][[do_not_normalize]]::
+    do not realign indels and symbolic alleles (normally performed
+    when *-f, --fasta-ref* option is provided). If 'NUM' is given,
+    skip realignment only for events longer than 'NUM' bp. Note
+    that 'NUM' must follow with no space, e.g. *-N1000* or *--no-realign=1000*.
+    Previously named *--do-not-normalize* and did not accept an argument.
 
 *--old-rec-tag* 'STR'::
     Add INFO/STR annotation with the original record. The format of the
@@ -3031,7 +3035,7 @@ By default, appropriate system directories are searched for installed plugins.
     Convert between similar tags, such as GL,PL,GP or QR,QA,QS or tags with localized alleles e.g. LPL,LAD.
     See <http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html> for more.
 
-*trio-dnm2*::
+*trio-dnm3*::
     screen variants for possible de-novo mutations in trios
 
 *trio-stats*::
@@ -3049,6 +3053,9 @@ By default, appropriate system directories are searched for installed plugins.
 
 *vcf2table*::
     print the variants as a set of tables
+
+*vrfs*::
+    assess site noisiness (variant read frequency score) from a large number of reference samples
 
 ==== Examples:
 
@@ -3820,14 +3827,14 @@ when piping!)
     non-missing genotype. Note that the missingness is determined from INFO/AN
     and AC tags when available to avoid parsing sample fields.
 
-*-v, --types* 'snps'|'indels'|'mnps'|'other'::
+*-v, --types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'|'overlap'::
     comma-separated list of variant types to select. Site is selected if
     any of the ALT alleles is of the type requested. Types are determined
     by comparing the REF and ALT alleles in the VCF record not INFO tags
     like INFO/INDEL or INFO/VT. Use *--include* to select based on INFO
     tags.
 
-*-V, --exclude-types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'::
+*-V, --exclude-types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'|'overlap'::
     comma-separated list of variant types to exclude. Site is excluded if
     any of the ALT alleles is of the type requested. Types are determined
     by comparing the REF and ALT alleles in the VCF record not INFO tags

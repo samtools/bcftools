@@ -1,0 +1,3 @@
+CSQ	S1	2	mini	20	intron|gene2||protein_coding
+CSQ	S1	2	mini	20	non_coding|gene3||snRNA
+CSQ	S1	2	mini	20	missense|gene1|tx1|protein_coding|+|4K>4R|20A>G

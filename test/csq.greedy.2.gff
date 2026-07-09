@@ -1,0 +1,14 @@
+##gff-version 3
+chr1	greedy	gene	1	100	.	+	.	ID=gene:genenc;Name=GENENC;biotype=lncRNA
+chr1	greedy	lnc_RNA	1	100	.	+	.	ID=transcript:nc1;Parent=gene:genenc;biotype=lncRNA
+chr1	greedy	exon	1	100	.	+	.	Parent=transcript:nc1
+chr1	greedy	gene	10	87	.	+	.	ID=gene:gene2;Name=GENE2;biotype=protein_coding
+chr1	greedy	mRNA	10	87	.	+	.	ID=transcript:pc2;Parent=gene:gene2;biotype=protein_coding
+chr1	greedy	exon	10	21	.	+	.	Parent=transcript:pc2
+chr1	greedy	CDS	10	21	.	+	0	Parent=transcript:pc2
+chr1	greedy	exon	70	87	.	+	.	Parent=transcript:pc2
+chr1	greedy	CDS	70	87	.	+	0	Parent=transcript:pc2
+chr1	greedy	gene	31	60	.	+	.	ID=gene:gene1;Name=GENE1;biotype=protein_coding
+chr1	greedy	mRNA	31	60	.	+	.	ID=transcript:pc1;Parent=gene:gene1;biotype=protein_coding
+chr1	greedy	exon	31	60	.	+	.	Parent=transcript:pc1
+chr1	greedy	CDS	31	60	.	+	0	Parent=transcript:pc1

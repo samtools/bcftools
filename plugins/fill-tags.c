@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2025 Genome Research Ltd.
+   Copyright (c) 2015-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -283,7 +283,7 @@ void ftf_destroy(pop_t *pop)
 static inline int32_t int32_from_double(double src)
 {
     if (bcf_double_is_missing_or_vector_end(src)) return bcf_int32_missing;
-    else return (int)src;
+    else return (int)round(src);
 }
 
 int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)

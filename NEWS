@@ -1,5 +1,129 @@
-## Release 1.23.1 (18th March 2026)
+## Release 1.24 (9th July 2026)
 
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Calculation of MAC and MAF in `-i/-e` filtering expressions
+
+    - Minor allele count and minor allele frequency were calculated
+      incorrectly at multiallelic sites.
+
+Changes affecting specific commands:
+
+* bcftools +af-dist
+
+    - New `-s, --samples` to print per-sample HWE probability, geometric mean
+
+* bcftools annotate
+
+    - Fix a bug in annotation renaming via `--rename-annots` and `-c NEW:=OLD`,
+      where renaming INFO/TAG would simultaneously rename also FORMAT/TAG (#2489)
+
+    - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
+      are split across multiple records.
+
+* bcftools cnv
+
+    - Fix off-by-one error in reporting HMM qualities
+
+* bcftools convert
+
+    - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
+      the next record
+
+* bcftools csq
+
+    - Fix a start_lost issue in haplotype mode: suppress formatting of amino-acid changes
+      of variants that follow on the same haplotype, but still print DNA changes (#2543)
+
+    - Add a new -G, --greedy option which forces the program to check intronic
+      consequences after feature hits (#2548)
+
+* bcftools +fill-tags
+
+    - Fix custom functions to use rounding instead of truncation when converting to
+      integer, so that -t 'MAC:1=float(MAF*AN)' and -t 'MAC:1=int(MAF*AN)' return
+      consistent values.
+
+    - Support per-population annotation for embedded functions, such as in
+      -t 'MAC:1=int(MAF*AN)' -S groups.txt (#2514)
+
+* bcftools +mendelian2
+
+    - Number of fixes and improvements, including a fix in assigning 1X vs 2X
+      inheritance rules with -p (#2545)
+
+* bcftools merge
+
+    - Fixes in memory access with localized alleles, it could result in printing
+      printing trailing garbage in localized FORMAT fields (#2520)
+
+    - Add new `-m exact` mode to merge only records with the exact same alleles
+      (#2498)
+
+* bcftools mpileup
+
+    - Remove unused experimental INFO/MIN_PL_SUM annotation
+
+    - Add new FORMAT/QM annotation, to be used with the new `bcftools +trio-dnm3 --use-ALM` model.
+
+* bcftools norm
+
+    - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
+
+    - Fix erroneous INFO/END recalculation of symbolic alleles (#2500).
+
+    - Added `--no-realign[=NUM]` to skip realignment during normalization; when NUM is given,
+      only events longer than NUM bp are skipped. This deprecates the option `--do-not-normalize`
+      (equivalent to `--no-realign=0`). See also #2500.
+
+    - Convert ambiguous IUPAC bases to their lexicographically first concrete base, as required by
+      the VCF specification (#2551)
+
+* bcftools +prune
+
+    - When pruning by window length in base pairs, one out-of-window record would
+      be incorrectly accessed. Not only this by-one error would calculate LD in
+      unwanted pair of records, it also led to unexpected behavior when the first
+      out-of-window record would change by filtering (#2475)
+
+* bcftools roh
+
+    - Fix off-by-one error in reporting HMM qualities
+
+* bcftools +split-vep
+
+    - Add support for SnpEff output, add a new option --csq-field, --consequence-field
+      which allows to override the default consequence field name 'Consequence' (#2566)
+
+    - Stop converting consequence severity to lower case
+
+* bcftools stats
+
+    - Fix per-sample stats when samples provided in different order via -s/-S (#2534)
+
+* bcftools +tag2tag
+
+    - Make the advertised default for `-t, --threshold` match the implementation:
+      0, not 0.1. Also clarify that the value is the maximum allowed GP error
+      (`call if GP >= 1 - FLOAT`), not a minimum GP threshold (#2564)
+
+* bcftools +trio-dnm3
+
+    - Add a new TrioDNM model and make it the new default. To prevent confusion, the
+      old +trio-dnm2 plugin was removed and replaced with +trio-dnm3. The original
+      +trio-dnm3 model can be run as
+
+        bcftools +trio-dnm3 --use-ALM
+
+* bcftools view
+
+    - Fix the -v/V, --types/--exclude-types option to work with ref and extend
+      for all types supported by htslib: snps,indels,mnps,ref,bnd,other,overlap
+      (#2567)
+
+
+## Release 1.23.1 (18th March 2026)
 
 Changes affecting the whole of bcftools, or multiple commands:
 
@@ -12,9 +136,8 @@ Changes affecting the whole of bcftools, or multiple commands:
   will now print an error and return a non-zero exit code if an error
   is encountered when reading input data. (#2503)
 
+
 ## Release 1.23 (16th December 2025)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 

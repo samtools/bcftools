@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2025 Genome Research Ltd.
+    Copyright (C) 2008-2026 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -294,7 +294,7 @@ static int mplp_func(void *data, bam1_t *b)
         else if ((ma->conf->flag&MPLP_NO_ORPHAN) && (b->core.flag&BAM_FPAIRED) && !(b->core.flag&BAM_FPROPER_PAIR)) continue;
 
         return ret;
-    };
+    }
     return ret;
 }
 
@@ -811,8 +811,6 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)\">");
     if ( conf->fmt_flag&B2B_INFO_MQSBZ )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
-    if ( conf->fmt_flag&B2B_INFO_MIN_PL_SUM )
-        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MIN_PL_SUM,Number=1,Type=Integer,Description=\"Sum of min PLs across all samples before normalization (experimental)\">");
     if ( conf->fmt_flag&B2B_INFO_NM )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=NM,Number=2,Type=Float,Description=\"Average number of mismatches in ref and alt reads (approximate, experimental, make me localized?)\">");
     if ( conf->fmt_flag&B2B_INFO_NMBZ )
@@ -848,6 +846,8 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=ADF,Number=R,Type=Integer,Description=\"Allelic depths on the forward strand (high-quality bases)\">");
     if ( conf->fmt_flag&B2B_FMT_ADR )
         bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=ADR,Number=R,Type=Integer,Description=\"Allelic depths on the reverse strand (high-quality bases)\">");
+    if ( conf->fmt_flag&B2B_FMT_QM )
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=QM,Number=R,Type=Integer,Description=\"Phred-score allele quality mean used by `+trio-dnm`\">");
     if ( conf->fmt_flag&B2B_FMT_QS )
         bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=QS,Number=R,Type=Integer,Description=\"Phred-score allele quality sum used by `call -mG` and `+trio-dnm`\">");
     if ( conf->fmt_flag&B2B_INFO_AD )
@@ -914,6 +914,13 @@ static int mpileup(mplp_conf_t *conf)
         }
         if ( conf->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) )
             conf->bc.SCR = (int32_t*) malloc((nsmpl+1)*sizeof(*conf->bc.SCR));
+        if ( conf->fmt_flag & B2B_FMT_QM )
+        {
+            double *tmp = (double*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(double));
+            conf->bc.QM = (int32_t*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<nsmpl; i++)
+                conf->bcr[i].QM = tmp + i*B2B_MAX_ALLELES;
+        }
     }
     int nnmbz = (conf->fmt_flag&B2B_FMT_NMBZ) ? nsmpl + 1 : 1;
     conf->bc.ref_nm = (int32_t*) malloc(sizeof(*conf->bc.ref_nm) * nnmbz * B2B_N_NM);
@@ -1018,6 +1025,8 @@ static int mpileup(mplp_conf_t *conf)
         free(conf->bc.ADF);
         free(conf->bc.SCR);
         free(conf->bc.QS);
+        free(conf->bc.QM);
+        free(conf->bcr[0].QM);
         free(conf->bc.ref_nm);
         free(conf->bc.alt_nm);
         free(conf->bc.fmt_arr);
@@ -1145,6 +1154,7 @@ void parse_format_flag(uint32_t *flag, const char *str)
         SET_FMT_FLAG("DPR", B2B_FMT_DPR, "[warning] tag DPR functional, but deprecated. Please switch to `AD` in future.\n");
         SET_FMT_FLAG("DV", B2B_FMT_DV, "[warning] tag DV functional, but deprecated. Please switch to `AD` in future.\n");
         SET_FMT_FLAG("NMBZ", B2B_FMT_NMBZ, "");
+        SET_FMT_FLAG("QM", B2B_FMT_QM, "");
         SET_FMT_FLAG("QS", B2B_FMT_QS, "");
         SET_FMT_FLAG("SP", B2B_FMT_SP, "");
         SET_FMT_FLAG("SCR", B2B_FMT_SCR, "");
@@ -1156,7 +1166,6 @@ void parse_format_flag(uint32_t *flag, const char *str)
         SET_INFO_FLAG("FS", B2B_INFO_FS, "");
         SET_INFO_FLAG("IDV", B2B_INFO_IDV, "");
         SET_INFO_FLAG("IMF", B2B_INFO_IMF, "");
-        SET_INFO_FLAG("MIN_PL_SUM", B2B_INFO_MIN_PL_SUM, "");
         SET_INFO_FLAG("MQ0F", B2B_INFO_MQ0F, "");
         SET_INFO_FLAG("MQBZ", B2B_INFO_MQBZ, "");
         SET_INFO_FLAG("NM", B2B_INFO_NM, "");
@@ -1188,6 +1197,7 @@ static void list_annotations(FILE *fp)
         "  FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)\n"
         "  FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)\n"
         "  FORMAT/NMBZ .. Mann-Whitney U-z test of Number of Mismatches within supporting reads (Number=1,Type=Float)\n"
+        "  FORMAT/QM   .. Allele phred-score quality mean for use with +trio-dnm (Number=R,Type=Integer)\n"
         "  FORMAT/QS   .. Allele phred-score quality sum for use with `call -mG` and +trio-dnm (Number=R,Type=Integer)\n"
         "  FORMAT/SP   .. Phred-scaled strand bias P-value (Number=1,Type=Integer)\n"
         "  FORMAT/SCR  .. Number of soft-clipped reads (Number=1,Type=Integer)\n"
@@ -1201,8 +1211,6 @@ static void list_annotations(FILE *fp)
         "  INFO/FS    .. Fisher's exact test P-value to detect strand bias (Number=1,Type=Float)\n"
         "* INFO/IDV   .. Maximum number of raw reads supporting an indel (Number=1,Type=Integer)\n"
         "* INFO/IMF   .. Maximum fraction of raw reads supporting an indel (Number=1,Type=Float)\n"
-        "  INFO/MIN_PL_SUM\n"
-        "             .. Sum of min PL across all samples before normalization, experimental (Number=1,Type=Integer)\n"
         "* INFO/MQ0F  .. Fraction of reads with zero mapping quality (Number=1,Type=Float)\n"
         "* INFO/MQBZ  .. Mann-Whitney U test of Mapping Quality Bias (Number=1,Type=Float)\n"
         "* INFO/MQSBZ .. Mann-Whitney U-z test of Mapping Quality vs Strand Bias (Number=1,Type=Float)\n"

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2026-03-18
+.\"      Date: 2026-07-09
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2026-03-18" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2026-07-09" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2026\-03\-18\fP and refers to bcftools git version \fB1.23.1\fP.
+This manual page was last updated \fB2026\-07\-09\fP and refers to bcftools git version \fB1.24\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -3181,6 +3181,7 @@ if two asterisks \fI**\fP are appended, the unobserved allele will be removed al
 .if n .RS 4
 .nf
 .fam C
+\-m exact       ..  require the exact same alleles
 \-m none        ..  no new multiallelics, output multiple records instead
 \-m snps        ..  allow multiallelic SNP records
 \-m indels      ..  allow multiallelic indel records
@@ -4004,6 +4005,7 @@ your VCF, do NOT use it for that purpose!!! (Instead see
 and
 \c
 .URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
+See also the option \fB\-N, \-\-no\-realign\fP.
 .RE
 .sp
 \fB\-d, \-\-rm\-dup\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIexact\fP
@@ -4027,7 +4029,7 @@ do not normalize input records for which \fIEXPRESSION\fP is true. For valid exp
 \fB\-f, \-\-fasta\-ref\fP \fIFILE\fP
 .RS 4
 reference sequence. Supplying this option will turn on left\-alignment
-and normalization, however, see also the \fB\-\-do\-not\-normalize\fP
+and normalization, however, see also the \fB\-\-no\-realign\fP
 option below.
 .RE
 .sp
@@ -4085,11 +4087,13 @@ splitting multiallelic sites
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-N, \-\-do\-not\-normalize\fP
+\fB\-N, \-\-no\-realign\fP [\fINUM\fP]
 .RS 4
-the \fI\-c s\fP option can be used to fix or set the REF allele from the
-reference \fI\-f\fP. The \fI\-N\fP option will not turn on indel normalisation
-as the \fI\-f\fP option normally implies
+do not realign indels and symbolic alleles (normally performed
+when \fB\-f, \-\-fasta\-ref\fP option is provided). If \fINUM\fP is given,
+skip realignment only for events longer than \fINUM\fP bp. Note
+that \fINUM\fP must follow with no space, e.g. \fB\-N1000\fP or \fB\-\-no\-realign=1000\fP.
+Previously named \fB\-\-do\-not\-normalize\fP and did not accept an argument.
 .RE
 .sp
 \fB\-\-old\-rec\-tag\fP \fISTR\fP
@@ -4698,7 +4702,7 @@ See \c
 for more.
 .RE
 .sp
-\fBtrio\-dnm2\fP
+\fBtrio\-dnm3\fP
 .RS 4
 screen variants for possible de\-novo mutations in trios
 .RE
@@ -4727,6 +4731,11 @@ generate unsorted VariantKey\-RSid index files in hexadecimal format
 \fBvcf2table\fP
 .RS 4
 print the variants as a set of tables
+.RE
+.sp
+\fBvrfs\fP
+.RS 4
+assess site noisiness (variant read frequency score) from a large number of reference samples
 .RE
 .SS "Examples:"
 .sp
@@ -5850,7 +5859,7 @@ non\-missing genotype. Note that the missingness is determined from INFO/AN
 and AC tags when available to avoid parsing sample fields.
 .RE
 .sp
-\fB\-v, \-\-types\fP \fIsnps\fP|\fIindels\fP|\fImnps\fP|\fIother\fP
+\fB\-v, \-\-types\fP \fIsnps\fP|\fIindels\fP|\fImnps\fP|\fIref\fP|\fIbnd\fP|\fIother\fP|\fIoverlap\fP
 .RS 4
 comma\-separated list of variant types to select. Site is selected if
 any of the ALT alleles is of the type requested. Types are determined
@@ -5859,7 +5868,7 @@ like INFO/INDEL or INFO/VT. Use \fB\-\-include\fP to select based on INFO
 tags.
 .RE
 .sp
-\fB\-V, \-\-exclude\-types\fP \fIsnps\fP|\fIindels\fP|\fImnps\fP|\fIref\fP|\fIbnd\fP|\fIother\fP
+\fB\-V, \-\-exclude\-types\fP \fIsnps\fP|\fIindels\fP|\fImnps\fP|\fIref\fP|\fIbnd\fP|\fIother\fP|\fIoverlap\fP
 .RS 4
 comma\-separated list of variant types to exclude. Site is excluded if
 any of the ALT alleles is of the type requested. Types are determined

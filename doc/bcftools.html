@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2026-03-18</strong> and refers to bcftools git version <strong>1.23.1</strong>.</p>
+<p>This manual page was last updated <strong>2026-07-09</strong> and refers to bcftools git version <strong>1.24</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -2822,7 +2822,8 @@ if two asterisks <em>**</em> are appended, the unobserved allele will be removed
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>-m none        ..  no new multiallelics, output multiple records instead
+<pre>-m exact       ..  require the exact same alleles
+-m none        ..  no new multiallelics, output multiple records instead
 -m snps        ..  allow multiallelic SNP records
 -m indels      ..  allow multiallelic indel records
 -m both        ..  both SNP and indel records can be multiallelic
@@ -3548,7 +3549,8 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)
+See also the option <strong>-N, --no-realign</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -3568,7 +3570,7 @@ Alias for <strong>-d exact</strong>, deprecated.</p>
 <dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em><a id="fasta_ref"></a></dt>
 <dd>
 <p>reference sequence. Supplying this option will turn on left-alignment
-and normalization, however, see also the <strong><a href="#do_not_normalize">--do-not-normalize</a></strong>
+and normalization, however, see also the <strong><a href="#do_not_normalize">--no-realign</a></strong>
 option below.</p>
 </dd>
 <dt class="hdlist1"><strong>--force</strong></dt>
@@ -3615,11 +3617,13 @@ splitting multiallelic sites</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-N, --do-not-normalize</strong><a id="do_not_normalize"></a></dt>
+<dt class="hdlist1"><strong>-N, --no-realign</strong> [<em>NUM</em>]<a id="do_not_normalize"></a></dt>
 <dd>
-<p>the <em>-c s</em> option can be used to fix or set the REF allele from the
-reference <em>-f</em>. The <em>-N</em> option will not turn on indel normalisation
-as the <em>-f</em> option normally implies</p>
+<p>do not realign indels and symbolic alleles (normally performed
+when <strong>-f, --fasta-ref</strong> option is provided). If <em>NUM</em> is given,
+skip realignment only for events longer than <em>NUM</em> bp. Note
+that <em>NUM</em> must follow with no space, e.g. <strong>-N1000</strong> or <strong>--no-realign=1000</strong>.
+Previously named <strong>--do-not-normalize</strong> and did not accept an argument.</p>
 </dd>
 <dt class="hdlist1"><strong>--old-rec-tag</strong> <em>STR</em></dt>
 <dd>
@@ -4024,7 +4028,7 @@ bcftools/csq. These can be added as a new INFO field to the VCF or in a custom t
 <p>Convert between similar tags, such as GL,PL,GP or QR,QA,QS or tags with localized alleles e.g. LPL,LAD.
 See <a href="http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html</a> for more.</p>
 </dd>
-<dt class="hdlist1"><strong>trio-dnm2</strong></dt>
+<dt class="hdlist1"><strong>trio-dnm3</strong></dt>
 <dd>
 <p>screen variants for possible de-novo mutations in trios</p>
 </dd>
@@ -4048,6 +4052,10 @@ See <a href="http://samtools.github.io/bcftools/howtos/plugin.tag2tag.html" clas
 <dt class="hdlist1"><strong>vcf2table</strong></dt>
 <dd>
 <p>print the variants as a set of tables</p>
+</dd>
+<dt class="hdlist1"><strong>vrfs</strong></dt>
+<dd>
+<p>assess site noisiness (variant read frequency score) from a large number of reference samples</p>
 </dd>
 </dl>
 </div>
@@ -5081,7 +5089,7 @@ when available to avoid parsing sample fields.</p>
 non-missing genotype. Note that the missingness is determined from INFO/AN
 and AC tags when available to avoid parsing sample fields.</p>
 </dd>
-<dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>other</em></dt>
+<dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em>|<em>overlap</em></dt>
 <dd>
 <p>comma-separated list of variant types to select. Site is selected if
 any of the ALT alleles is of the type requested. Types are determined
@@ -5089,7 +5097,7 @@ by comparing the REF and ALT alleles in the VCF record not INFO tags
 like INFO/INDEL or INFO/VT. Use <strong>--include</strong> to select based on INFO
 tags.</p>
 </dd>
-<dt class="hdlist1"><strong>-V, --exclude-types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em></dt>
+<dt class="hdlist1"><strong>-V, --exclude-types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>ref</em>|<em>bnd</em>|<em>other</em>|<em>overlap</em></dt>
 <dd>
 <p>comma-separated list of variant types to exclude. Site is excluded if
 any of the ALT alleles is of the type requested. Types are determined
@@ -5829,7 +5837,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-03-18 14:50:59 UTC
+Last updated 2026-07-09 10:42:20 +0100
 </div>
 </div>
 </body>

@@ -1,6 +1,6 @@
 /*  vcfview.c -- VCF/BCF conversion, view, subset and filter VCF/BCF files.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -57,6 +57,13 @@ THE SOFTWARE.  */
 #define GT_NEED_MISSING 5
 #define GT_NO_MISSING 6
 
+typedef struct
+{
+    uint32_t mask;  // VCF_SNP | VCF_MNP | VCF_INDEL | VCF_OTHER | VCF_BND | ...
+    int ref;        // VCF_REF, special because it is 0
+}
+view_vtype_t;
+
 typedef struct _args_t
 {
     filter_t *filter;
@@ -75,7 +82,7 @@ typedef struct _args_t
     char *fn_ref, *fn_out, **samples;
     int sample_is_file, force_samples;
     char *include_types, *exclude_types;
-    int include, exclude;
+    view_vtype_t include, exclude;
     int record_cmd_line;
     char *index_fn;
     int write_index;
@@ -84,6 +91,33 @@ typedef struct _args_t
 }
 args_t;
 
+static void parse_vtype(const char *type, view_vtype_t *flt)
+{
+    if ( !strcmp(type,"snps") || !strcmp(type,"snp") ) flt->mask |= VCF_SNP;
+    else if ( !strcmp(type,"mnps") || !strcmp(type,"mnp") ) flt->mask |= VCF_MNP;
+    else if ( !strcmp(type,"indels") || !strcmp(type,"indel") ) flt->mask |= VCF_INDEL;
+    else if ( !strcmp(type,"other") ) flt->mask |= VCF_OTHER;
+    else if ( !strcmp(type,"bnd") ) flt->mask |= VCF_BND;
+    else if ( !strcmp(type,"ref") ) flt->ref = 1;
+    else if ( !strcmp(type,"overlap") ) flt->mask |= VCF_OVERLAP;
+    else error("[E::%s] unknown type. Accepted types are snps, indels, mnps, ref, bnd, other, overlap\n",type);
+}
+static int has_vtype(bcf1_t *rec, const view_vtype_t *flt)
+{
+    if ( flt->ref )
+    {
+        int ret = bcf_has_variant_types(rec, VCF_REF, bcf_match_exact);
+        if ( ret < 0 ) error("Error: failed to determine variant type\n");
+        if ( ret > 0 ) return 1;
+    }
+    if ( flt->mask )
+    {
+        int ret = bcf_has_variant_types(rec, flt->mask, bcf_match_overlap);
+        if ( ret < 0 ) error("Error: failed to determine variant type\n");
+        if ( ret > 0 ) return 1;
+    }
+    return 0;
+}
 static void init_data(args_t *args)
 {
     int i;
@@ -166,63 +200,19 @@ static void init_data(args_t *args)
         args->imap = (int*)malloc(args->n_samples * sizeof(int));
 
     // determine variant types to include/exclude
-    if (args->include_types || args->exclude_types) {
-        if (args->include_types && args->exclude_types) {
-            fprintf(stderr, "Error: only supply one of --include-types, --exclude-types options\n");
-            exit(1);
+    if ( args->include_types && args->exclude_types ) error("Error: only supply one of --include-types, --exclude-types options\n");
+    if ( args->include_types || args->exclude_types )
+    {
+        int i, n;
+        char **list = hts_readlist(args->include_types ? args->include_types : args->exclude_types, 0, &n);
+        if ( !n || !list )
+            error("Error: coult not parse the --include-types/--exclude-types type list\n");
+        for (i=0; i<n; i++)
+        {
+            parse_vtype(list[i], args->include_types ? &args->include : &args->exclude);
+            free(list[i]);
         }
-        char **type_list = 0;
-        int m = 0, n = 0;
-        const char *q, *p;
-        for (q = p = args->include_types ? args->include_types : args->exclude_types;; ++p) {
-            if (*p == ',' || *p == 0) {
-                if (m == n) {
-                    m = m? m<<1 : 16;
-                    type_list = (char**)realloc(type_list, m * sizeof(char*));
-                }
-                type_list[n] = (char*)calloc(p - q + 1, 1);
-                strncpy(type_list[n++], q, p - q);
-                q = p + 1;
-                if (*p == 0) break;
-            }
-        }
-        type_list = (char**)realloc(type_list, n * sizeof(char*));
-
-        if (args->include_types) {
-            args->include = 0;
-            for (i = 0; i < n; ++i) {
-                if (strcmp(type_list[i], "snps") == 0) args->include |= VCF_SNP<<1;
-                else if (strcmp(type_list[i], "indels") == 0) args->include |= VCF_INDEL<<1;
-                else if (strcmp(type_list[i], "mnps") == 0) args->include |= VCF_MNP<<1;
-                else if (strcmp(type_list[i], "other") == 0) args->include |= VCF_OTHER<<1;
-                else if (strcmp(type_list[i], "ref") == 0) args->include |= VCF_OTHER<<1;
-                else if (strcmp(type_list[i], "bnd") == 0) args->include |= VCF_BND<<1;
-                else {
-                    fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
-                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
-                    exit(1);
-                }
-            }
-        }
-        if (args->exclude_types) {
-            args->exclude = 0;
-            for (i = 0; i < n; ++i) {
-                if (strcmp(type_list[i], "snps") == 0) args->exclude |= VCF_SNP<<1;
-                else if (strcmp(type_list[i], "indels") == 0) args->exclude |= VCF_INDEL<<1;
-                else if (strcmp(type_list[i], "mnps") == 0) args->exclude |= VCF_MNP<<1;
-                else if (strcmp(type_list[i], "other") == 0) args->exclude |= VCF_OTHER<<1;
-                else if (strcmp(type_list[i], "ref") == 0) args->exclude |= VCF_OTHER<<1;
-                else if (strcmp(type_list[i], "bnd") == 0) args->exclude |= VCF_BND<<1;
-                else {
-                    fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
-                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
-                    exit(1);
-                }
-            }
-        }
-        for (i = 0; i < n; ++i)
-            free(type_list[i]);
-        free(type_list);
+        free(list);
     }
 
     char wmode[8];
@@ -322,12 +312,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if ( args->known && line->d.id[0]=='.' && line->d.id[1]==0 ) return 0;  // skip sites which are novel, ID == '.'
     }
 
-    if (args->include || args->exclude)
-    {
-        int line_type = bcf_get_variant_types(line);
-        if ( args->include && !((line_type<<1) & args->include) ) return 0; // include only given variant types
-        if ( args->exclude &&   (line_type<<1) & args->exclude  ) return 0; // exclude given variant types
-    }
+    if ( (args->include.mask || args->include.ref) && !has_vtype(line, &args->include) ) return 0;
+    if ( (args->exclude.mask || args->exclude.ref) &&  has_vtype(line, &args->exclude) ) return 0;
 
     if ( args->filter )
     {
@@ -415,7 +401,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
     {
         if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) return 0; // min AC
         else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) return 0; // min minor AC
-        else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>args->ac[1]) return 0; // min 1st alternate AC
+        else if (args->min_ac_type == ALLELE_ALT1 && (line->n_allele<2 || args->min_ac>args->ac[1])) return 0; // min 1st alternate AC
         else if (args->min_ac_type == ALLELE_MAJOR && args->min_ac > major_ac) return 0; // min major AC
         else if (args->min_ac_type == ALLELE_NONMAJOR && args->min_ac > an-major_ac) return 0; // min non-major AC
     }
@@ -423,7 +409,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
     {
         if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) return 0; // max AC
         else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) return 0; // max minor AC
-        else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
+        else if (args->max_ac_type == ALLELE_ALT1 && line->n_allele>=2 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
         else if (args->max_ac_type == ALLELE_MAJOR && args->max_ac < major_ac) return 0; // max major AC
         else if (args->max_ac_type == ALLELE_NONMAJOR && args->max_ac < an-major_ac) return 0; // max non-major AC
     }
@@ -432,7 +418,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (an == 0) return 0; // freq not defined, skip site
         if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) return 0; // min AF
         else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) return 0; // min minor AF
-        else if (args->min_af_type == ALLELE_ALT1 && args->min_af>args->ac[1]/(double)an) return 0; // min 1st alternate AF
+        else if (args->min_af_type == ALLELE_ALT1 && (line->n_allele<2 || args->min_af>args->ac[1]/(double)an)) return 0; // min 1st alternate AF
         else if (args->min_af_type == ALLELE_MAJOR && args->min_af > major_ac/(double)an) return 0; // min major AF
         else if (args->min_af_type == ALLELE_NONMAJOR && args->min_af > (an-major_ac)/(double)an) return 0; // min non-major AF
     }
@@ -441,7 +427,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (an == 0) return 0; // freq not defined, skip site
         if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) return 0; // max AF
         else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) return 0; // max minor AF
-        else if (args->max_af_type == ALLELE_ALT1 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
+        else if (args->max_af_type == ALLELE_ALT1 && line->n_allele>=2 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
         else if (args->max_af_type == ALLELE_MAJOR && args->max_af < major_ac/(double)an) return 0; // max major AF
         else if (args->max_af_type == ALLELE_NONMAJOR && args->max_af < (an-major_ac)/(double)an) return 0; // max non-major AF
     }
@@ -549,7 +535,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -q/Q, --min-af/--max-af FLOAT[:TYPE]   Minimum/maximum frequency for non-reference (nref), 1st alternate (alt1), least frequent\n");
     fprintf(stderr, "                                               (minor), most frequent (major) or sum of all but most frequent (nonmajor) alleles [nref]\n");
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled    Select/exclude sites without a called genotype\n");
-    fprintf(stderr, "    -v/V, --types/--exclude-types LIST     Select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]\n");
+    fprintf(stderr, "    -v/V, --types/--exclude-types LIST     Select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other,overlap [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private      Select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
     fprintf(stderr, "    -W,   --write-index[=FMT]              Automatically index the output files [off]\n");
     fprintf(stderr, "\n");

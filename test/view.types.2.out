@@ -1,0 +1,2 @@
+chr1	20	snp	A	C	.	PASS	.
+chr1	90	mixed_snp_indel	A	C,AT	.	PASS	.

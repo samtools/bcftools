@@ -91,7 +91,7 @@ const char *hts_bcf_wmode2(int file_type, const char *fname)
     return hts_bcf_wmode(file_type);
 }
 
-void set_wmode(char dst[8], int file_type, const char *fname, int clevel)
+void set_wmode(char dst[static 8], int file_type, const char *fname, int clevel)
 {
     const char *ret = NULL;
     const char *end = fname ? strstr(fname, HTS_IDX_DELIM) : NULL;
@@ -108,10 +108,10 @@ void set_wmode(char dst[8], int file_type, const char *fname, int clevel)
         if ( strchr(ret,'v') || strchr(ret,'u') ) error("Error: compression level (%d) cannot be set on uncompressed streams (%s)\n",clevel,fname);
         len = strlen(ret);
         if ( len>6 ) error("Fixme: %s\n", ret);
-        sprintf(dst, "%s%d", ret, clevel);
+        snprintf(dst, 8, "%s%d", ret, clevel);
     }
     else
-        strcpy(dst, ret);
+        snprintf(dst, 8, "%s", ret);
 }
 
 int parse_overlap_option(const char *arg)
@@ -160,7 +160,7 @@ int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
 
     if ( !fname || !*fname || !strcmp(fname, "-") ) return -1;
 
-    char *delim = strstr(fname, HTS_IDX_DELIM);
+    const char *delim = strstr(fname, HTS_IDX_DELIM);
     if (delim) {
         delim += strlen(HTS_IDX_DELIM);
         *idx_fname = strdup(delim);
@@ -169,8 +169,9 @@ int init_index2(htsFile *fh, bcf_hdr_t *hdr, const char *fname,
         size_t l = strlen(*idx_fname);
         if ( l >= 4 && strcmp(*idx_fname + l - 4, ".tbi")==0 ) min_shift = 0;
     } else {
-        if ( !(*idx_fname = malloc(strlen(fname)+6)) ) return -1;
-        sprintf(*idx_fname, "%s.%s", fname, idx_suffix);
+        size_t len = strlen(fname)+6;
+        if ( !(*idx_fname = malloc(len)) ) return -1;
+        snprintf(*idx_fname, len, "%s.%s", fname, idx_suffix);
     }
 
     if ( bcf_idx_init(fh, hdr, min_shift, *idx_fname) < 0 ) return -1;
@@ -182,3 +183,5 @@ int init_index(htsFile *fh, bcf_hdr_t *hdr, const char *fname, char **idx_fname)
 {
     return init_index2(fh,hdr, fname, idx_fname, HTS_FMT_CSI);
 }
+
+

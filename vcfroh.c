@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -525,7 +525,7 @@ static void flush_viterbi(args_t *args, int ismpl)
         for (i=0; i<end; i++)
         {
             int state = vpath[i*2]==STATE_AZ ? 1 : 0;
-            double qual = phred_score(1.0 - fwd[i*2 + state]);
+            double qual = phred_score(1.0 - HMM_PPROB(fwd,2,i,state));
             if ( args->output_type & OUTPUT_ST )
             {
                 args->str.l = 0;
@@ -650,7 +650,7 @@ static void flush_viterbi(args_t *args, int ismpl)
         for (j=0; j<nsites; j++)
         {
             int state = vpath[j*2]==STATE_AZ ? 1 : 0;
-            double *pval = fwd + j*2;
+            double *pval = &HMM_PPROB(fwd,2,j,0);
             args->str.l = 0;
             ksprintf(&args->str, "ROH\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[ioff+j]+1, state, phred_score(1.0-pval[state]));
             if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));

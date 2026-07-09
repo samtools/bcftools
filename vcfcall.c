@@ -387,8 +387,8 @@ static void set_samples(args_t *args, const char *fn, int is_file)
         family_t *fam = &args->aux.fams[i];
         for (j=0; j<3; j++)
         {
-            fam->sample[i] = old2new[fam->sample[i]];
-            if ( fam->sample[i]<0 ) nmiss++;
+            fam->sample[j] = old2new[fam->sample[j]];
+            if ( fam->sample[j]<0 ) nmiss++;
         }
         assert( nmiss==0 || nmiss==3 );
     }
@@ -1169,6 +1169,9 @@ int main_vcfcall(int argc, char *argv[])
         else usage(&args);
     }
     else args.bcf_fname = argv[optind++];
+
+    if ( !args.gvcf && !(args.aux.flag & CALL_VARONLY) && (args.flag & CF_MCALL) )
+        fprintf(stderr, "Warning: `bcftools call -m` emits all callable sites, not just variants; use -v for variants only\n");
 
     if ( !ploidy_fname && !ploidy )
     {

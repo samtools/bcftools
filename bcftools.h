@@ -1,6 +1,6 @@
 /*  bcftools.h -- utility function declarations.
 
-    Copyright (C) 2013-2024 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -32,6 +32,14 @@ THE SOFTWARE.  */
 #include <htslib/kfunc.h>
 #include <math.h>
 #include <ctype.h>
+#include <time.h>
+#include <stdint.h>
+#ifdef _WIN32
+  #include <process.h>
+  #define getpid _getpid
+#else
+  #include <unistd.h>
+#endif
 
 #define FT_TAB_TEXT 0       // custom tab-delimited text file
 #define FT_GZ 1
@@ -71,9 +79,30 @@ char *init_tmp_prefix(const char *prefix);
 int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
 int parse_overlap_option(const char *arg);
 
+// make random seed which safe for parallelization
+static inline uint32_t make_seed(void)
+{
+    return (uint32_t)(time(NULL) ^ (getpid() << 16) ^ (uint32_t) clock());
+}
+
 // Default sort order: chr,pos,alleles
 int cmp_bcf_pos(const void *aptr, const void *bptr);
 int cmp_bcf_pos_ref_alt(const void *aptr, const void *bptr);
+
+static inline double qual2err(int qual)
+{
+    static int init = 0;
+    static double tbl[255];
+    if ( !init )
+    {
+        int i;
+        for (i=0; i<255; i++) tbl[i] = pow(10.0, -0.1*i);
+        init = 1;
+    }
+    if ( qual < 0 ) qual = 0;
+    if ( qual >= 255 ) qual = 254;
+    return tbl[qual];
+}
 
 static inline int iupac2bitmask(char iupac)
 {
@@ -121,6 +150,29 @@ static inline int iupac_consistent(char iupac, char nt)
     else if ( nt=='G' ) nt = 4;
     else if ( nt=='T' ) nt = 8;
     return iupac_mask[(int)iupac] & nt ? 1 : 0;
+}
+
+static inline unsigned char iupac2first(unsigned char c)
+{
+    static const unsigned char lut[256] =
+    {
+        ['A'] = 'A', ['a'] = 'a',
+        ['C'] = 'C', ['c'] = 'c',
+        ['G'] = 'G', ['g'] = 'g',
+        ['T'] = 'T', ['t'] = 't',
+        ['N'] = 'N', ['n'] = 'n',
+        ['R'] = 'A', ['r'] = 'a',
+        ['Y'] = 'C', ['y'] = 'c',
+        ['S'] = 'C', ['s'] = 'c',
+        ['W'] = 'A', ['w'] = 'a',
+        ['K'] = 'G', ['k'] = 'g',
+        ['M'] = 'A', ['m'] = 'a',
+        ['B'] = 'C', ['b'] = 'c',
+        ['D'] = 'A', ['d'] = 'a',
+        ['H'] = 'A', ['h'] = 'a',
+        ['V'] = 'A', ['v'] = 'a',
+    };
+    return lut[c];
 }
 
 static inline char nt_to_upper(char nt)

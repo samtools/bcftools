@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -109,11 +109,22 @@ struct _filter_t
     float   *tmpf;
     kstring_t tmps;
     int max_unpack, mtmpi, mtmpf, nsamples;
+    uint8_t *sample_mask;   // bitmask restricting samples for FMT->INFO calculations
+    int sample_mask_set;    // number of samples after masking, 0: sample mask not used
     struct {
         bcf1_t *line;
         int32_t *buf, nbuf, mbuf;   // GTs as obtained by bcf_get_genotypes()
         uint64_t *mask;             // GTs as mask, e.g 0/0 is 1; 0/1 is 3, max 63 unique alleles
     } cached_GT;
+    struct {
+        bcf1_t *line;
+        int n_missing;
+        int n_samples;  // to be able to calculate F_MISSING
+        int AN;
+        int m_als;      // the size of allocated AC and AF
+        int32_t *AC;    // AC,AF are of size n_allele, idx=0 is for the REF allele, i.e. Number=R, not VCF's Number=A
+        double *AF;
+    } cached_site;
 #if ENABLE_PERL_FILTERS
     PerlInterpreter *perl;
 #endif
@@ -389,11 +400,14 @@ char *expand_path(char *path)
         if ( !path[1] || path[1] == '/' )
         {
 #ifdef _WIN32
-            kputs(getenv("HOMEDRIVE"), &str);
-            kputs(getenv("HOMEPATH"), &str);
+            char *homedrive = getenv("HOMEDRIVE");
+            char *homepath = getenv("HOMEPATH");
+            if (homedrive) kputs(homedrive, &str);
+            if (homepath) kputs(homepath, &str);
 #else
             // ~ or ~/path
-            kputs(getenv("HOME"), &str);
+            char *home = getenv("HOME");
+            if (home) kputs(home, &str); else kputc('.', &str);
             if ( path[1] ) kputs(path+1, &str);
 #endif
         }
@@ -458,7 +472,7 @@ static int filters_cache_genotypes(filter_t *flt, bcf1_t *line)
                 flt->cached_GT.nbuf = 0;
                 return -1;
             }
-            flt->cached_GT.mask[i] |= 1<<allele;
+            flt->cached_GT.mask[i] |= 1ULL<<allele;
         }
     }
     return 0;
@@ -1001,7 +1015,7 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
             int k, j = 0;
             for (k=0; k<nsrc1; k++) // source values are AD[0..nsrc1]
             {
-                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                if ( !(flt->cached_GT.mask[i] & (1ULL<<k)) ) continue;
                 dst[j++] = src[k];
             }
             if ( !j ) { bcf_double_set_missing(dst[j]); j++; }
@@ -1086,7 +1100,7 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
             int k, j = 0;
             for (k=0; k<nsrc1; k++) // source values are AF[0..nsrc1]
             {
-                if ( !(flt->cached_GT.mask[i] & (1<<k)) ) continue;
+                if ( !(flt->cached_GT.mask[i] & (1ULL<<k)) ) continue;
                 if ( bcf_float_is_missing(src[k]) )
                     bcf_double_set_missing(dst[j]);
                 else if ( bcf_float_is_vector_end(src[k]) )
@@ -1167,7 +1181,7 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
             }
             else if ( tok->idx == -3 )  // given by GT index, e.g. AD[:GT]
             {
-                if ( flt->cached_GT.mask[i] & (1<<idx) ) keep = 1;
+                if ( flt->cached_GT.mask[i] & (1ULL<<idx) ) keep = 1;
             }
             else    // given as a list, e.g. AD[:0,3]
             {
@@ -1440,26 +1454,81 @@ static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
     tok->nvalues = 1;
     tok->values[0] = line->n_allele - 1;
 }
+#define CACHED flt->cached_site
+static int filters_cache_AC_stats(filter_t *flt, bcf1_t *line)
+{
+    if ( CACHED.line==line ) return CACHED.n_samples > 0 ? 0 : -1;
+    CACHED.line = line;
+
+    if ( CACHED.m_als < line->n_allele )
+    {
+        CACHED.m_als = line->n_allele;
+        CACHED.AC = realloc(CACHED.AC,sizeof(*CACHED.AC)*CACHED.m_als);
+        CACHED.AF = realloc(CACHED.AF,sizeof(*CACHED.AF)*CACHED.m_als);
+    }
+
+    int i,j;
+    if ( !flt->sample_mask_set && bcf_calc_ac(flt->hdr, line, CACHED.AC, BCF_UN_INFO)>0 )
+    {
+        // all samples, can reuse INFO/AC,AN etc, when available
+        CACHED.n_samples = line->n_sample;
+        CACHED.n_missing = -1;  // cannot determine n_missing from INFO
+        CACHED.AN = 0;
+        for (i=0; i<line->n_allele; i++) CACHED.AN += CACHED.AC[i];
+        for (i=0; i<line->n_allele; i++) CACHED.AF[i] = CACHED.AN ? (double)CACHED.AC[i]/CACHED.AN : 0;
+        return 0;
+    }
+
+    CACHED.n_samples = flt->sample_mask_set ? flt->sample_mask_set : line->n_sample;
+    CACHED.n_missing = 0;
+    CACHED.AN = 0;
+    for (i=0; i<line->n_allele; i++) CACHED.AC[i] = 0;
+
+    int ngt = bcf_get_genotypes(flt->hdr, line, &flt->tmpi, &flt->mtmpi);
+    int ngt1 = ngt/line->n_sample;
+    for (i=0; i<line->n_sample; i++)
+    {
+        if ( flt->sample_mask_set && !flt->sample_mask[i] ) continue;
+        int32_t *ptr = flt->tmpi + ngt1*i;
+        int is_missing = 1;
+        for (j=0; j<ngt1; j++)
+        {
+            if ( bcf_gt_is_missing(ptr[j]) ) continue;
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+            int ial = bcf_gt_allele(ptr[j]);
+            if ( ial >= line->n_allele )
+            {
+                static int warned = 0;
+                if ( !warned )
+                {
+                    fprintf(stderr,"The allele index too large (%d), skipping GT parsing at this site %s:%"PRId64". "
+                                   "(This warning is printed only once.)\n", ial,bcf_seqname(flt->hdr,line),line->pos+1);
+                    warned = 1;
+                }
+                CACHED.n_samples = 0;
+                return -1;
+            }
+            CACHED.AC[ial]++;
+            CACHED.AN++;
+            is_missing = 0;
+        }
+        if ( is_missing ) CACHED.n_missing++;
+    }
+    for (i=0; i<line->n_allele; i++) CACHED.AF[i] = CACHED.AN ? (double)CACHED.AC[i]/CACHED.AN : 0;
+    return 0;
+}
 static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    hts_expand(int32_t, line->n_allele, flt->mtmpi, flt->tmpi);
-    if ( !bcf_calc_ac(flt->hdr, line, flt->tmpi, BCF_UN_INFO|BCF_UN_FMT) )
+    if ( filters_cache_AC_stats(flt,line) || !CACHED.AN )
     {
         tok->nvalues = 0;
         return;
     }
-    int i, an = flt->tmpi[0];
-    for (i=1; i<line->n_allele; i++) an += flt->tmpi[i];
-    if ( !an )
-    {
-        tok->nvalues = 0;
-        return;
-    }
-    flt->tmpi[0] = an;  // for filters_set_[mac|af|maf]
+    // Here tok->idx is relative to ALT, i.e. interpreted as VCF's Number=A
     if ( tok->idx>=0 )
     {
         tok->nvalues = 1;
-        tok->values[0] = tok->idx+1<line->n_allele ? flt->tmpi[tok->idx+1] : 0;
+        tok->values[0] = tok->idx+1<line->n_allele ? CACHED.AC[tok->idx+1] : 0;
     }
     else if ( line->n_allele==1 )   // no ALT
     {
@@ -1468,45 +1537,84 @@ static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
     }
     else
     {
+        int i;
         hts_expand(double,line->n_allele,tok->mvalues,tok->values);
         for (i=1; i<line->n_allele; i++)
-            tok->values[i-1] = flt->tmpi[i];
+            tok->values[i-1] = CACHED.AC[i];
         tok->nvalues = line->n_allele - 1;
     }
 }
 static void filters_set_an(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    filters_set_ac(flt,line,tok);
-    tok->values[0] = tok->nvalues ? flt->tmpi[0] : 0;
     tok->nvalues = 1;
+    if ( filters_cache_AC_stats(flt,line)==0 )
+        tok->values[0] = CACHED.AN;
+    else
+        tok->values[0] = 0;
 }
 static void filters_set_mac(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    filters_set_ac(flt,line,tok);
-    if ( !tok->nvalues ) return;
-    int i, an = flt->tmpi[0];
-    for (i=0; i<tok->nvalues; i++)
-        if ( tok->values[i] > an*0.5 ) tok->values[i] = an - tok->values[i];
+    if ( filters_cache_AC_stats(flt,line)!=0 || !CACHED.AN )
+    {
+        tok->nvalues = 0;
+        return;
+    }
+
+    tok->nvalues = 1;
+    int i, min = INT_MAX;
+    for (i=0; i<line->n_allele; i++)
+        if ( CACHED.AC[i] && CACHED.AC[i] < min ) min = CACHED.AC[i];
+
+    if ( !min ) tok->nvalues = 0;
+    else if ( min==CACHED.AN ) tok->values[0] = 0;
+    else tok->values[0] = min;
 }
 static void filters_set_af(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    filters_set_ac(flt,line,tok);
-    if ( !tok->nvalues ) return;
-    int i, an = flt->tmpi[0];
-    for (i=0; i<tok->nvalues; i++)
-        tok->values[i] /= (double)an;
+    if ( filters_cache_AC_stats(flt,line) || !CACHED.AN )
+    {
+        tok->nvalues = 0;
+        return;
+    }
+    // Here tok->idx is relative to ALT, i.e. interpreted as VCF's Number=A
+    if ( tok->idx>=0 )
+    {
+        tok->nvalues = 1;
+        tok->values[0] = tok->idx+1<line->n_allele ? CACHED.AF[tok->idx+1] : 0;
+    }
+    else if ( line->n_allele==1 )   // no ALT
+    {
+        tok->nvalues = 1;
+        tok->values[0] = 0;
+    }
+    else
+    {
+        int i;
+        hts_expand(double,line->n_allele,tok->mvalues,tok->values);
+        for (i=1; i<line->n_allele; i++)
+            tok->values[i-1] = CACHED.AF[i];
+        tok->nvalues = line->n_allele - 1;
+    }
 }
 static void filters_set_maf(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    filters_set_ac(flt,line,tok);
-    if ( !tok->nvalues ) return;
-    int i, an = flt->tmpi[0];
-    for (i=0; i<tok->nvalues; i++)
+    if ( filters_cache_AC_stats(flt,line)!=0 || !CACHED.AN )
     {
-        tok->values[i] /= (double)an;
-        if ( tok->values[i] > 0.5 ) tok->values[i] = 1 - tok->values[i];
+        tok->nvalues = 0;
+        return;
     }
+
+    tok->nvalues = 1;
+    int i;
+    double min = INFINITY;
+    for (i=0; i<line->n_allele; i++)
+        if ( CACHED.AF[i] && CACHED.AF[i] < min ) min = CACHED.AF[i];
+
+    if ( !min ) tok->nvalues = 0;
+    else if ( min==1 ) tok->values[0] = 0;
+    else tok->values[0] = min;
 }
+#undef CACHED
 
 static int func_max(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
@@ -1753,7 +1861,7 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
 static int func_smpl_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_median(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -1831,7 +1939,7 @@ static int func_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
 static int func_smpl_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_stddev(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -1903,7 +2011,7 @@ static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
 static int func_smpl_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_sum(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -2006,7 +2114,7 @@ static int func_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
 static int func_smpl_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) return func_max(flt,line,rtok,stack,nstack);
+    if ( !tok->nsamples ) return func_count(flt,line,rtok,stack,nstack);
     rtok->nsamples = tok->nsamples;
     rtok->nvalues  = tok->nsamples;
     rtok->nval1 = 1;
@@ -2888,7 +2996,6 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         {
             token_t *tok = atok->regex ? btok : atok;
             rtok->pass_site = _regex_vector_strings(regex, tok->str_value.s, tok->str_value.l, logic, missing_logic);
-    fprintf(stderr,"pass=%d [%s]\n",rtok->pass_site,tok->str_value.s);
         }
         return;
     }
@@ -3448,6 +3555,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         filter->max_unpack |= BCF_UN_FMT;
         tok->setter = &filters_set_ac;
         tok->tag = strdup("AC");
+        tok->idx = -2;
         tok->ht_type = BCF_HT_INT;
         free(tmp.s);
         return 0;
@@ -3466,6 +3574,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_af;
         tok->tag = strdup("AF");
+        tok->idx = -2;
         tok->ht_type = BCF_HT_REAL;
         free(tmp.s);
         return 0;
@@ -4115,6 +4224,11 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
         }
     }
     filter->nsamples = filter->max_unpack&BCF_UN_FMT ? bcf_hdr_nsamples(filter->hdr) : 0;
+    if ( filter->nsamples )
+    {
+        filter->sample_mask = (uint8_t*) malloc(filter->nsamples);
+        if ( !filter->sample_mask ) error("Could not allocate %d bytes\n",filter->nsamples);
+    }
     for (i=0; i<nout; i++)
     {
         if ( out[i].tok_type==TOK_MAX )      { out[i].func = func_max; out[i].tok_type = TOK_FUNC; }
@@ -4191,12 +4305,15 @@ void filter_destroy(filter_t *filter)
     free(filter->used_tag);
     free(filter->cached_GT.buf);
     free(filter->cached_GT.mask);
+    free(filter->cached_site.AC);
+    free(filter->cached_site.AF);
     free(filter->filters);
     free(filter->flt_stack);
     free(filter->str);
     free(filter->tmpi);
     free(filter->tmpf);
     free(filter->tmps.s);
+    free(filter->sample_mask);
     free(filter);
 }
 
@@ -4387,11 +4504,19 @@ const double *filter_get_doubles(filter_t *filter, int *nval, int *nval1)
 
 void filter_set_samples(filter_t *filter, const uint8_t *samples)
 {
+    filter->sample_mask_set = 0;
+    if ( !filter->nsamples ) return;
+
     int i,j;
     for (i=0; i<filter->nfilters; i++)
     {
         if ( !filter->filters[i].nsamples ) continue;
         for (j=0; j<filter->filters[i].nsamples; j++) filter->filters[i].usmpl[j] = samples[j];
+    }
+    for (i=0; i<filter->nsamples; i++)
+    {
+        filter->sample_mask[i] = samples[i];
+        if ( samples[i] ) filter->sample_mask_set++;
     }
 }
 

@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -30,6 +30,7 @@ THE SOFTWARE.  */
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <inttypes.h>
@@ -112,7 +113,8 @@ typedef struct
     faidx_t *fai;
     struct { uint64_t tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
-    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
+    uint32_t do_realign;
+    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, clevel;
     uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
@@ -171,14 +173,25 @@ static void old_rec_tag_set(args_t *args, bcf1_t *line, int ialt)
     args->old_rec_tag_kstr.l = 0;
 }
 
+static inline int is_sequence_allele(const char *a)
+{
+    if ( !a || !a[0] ) return 0;
+
+    if ( a[0]=='<' ) return 0;                          // symbolic allele
+    if ( (a[0]=='.' || a[0]=='*') && !a[1] ) return 0;  // missing or spanning deletion
+    if ( strchr(a,'[') || strchr(a,']') ) return 0;     // breakend
+
+    return 1;
+}
 static inline int replace_iupac_codes(char *seq, int nseq)
 {
-    // Replace ambiguity codes with N for now, it awaits to be seen what the VCF spec codifies in the end
+    // Replace IUPAC ambiguity codes with the lexicographically first base
     int i, n = 0;
     for (i=0; i<nseq; i++)
     {
-        char c = toupper_c(seq[i]);
-        if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) { seq[i] = 'N'; n++; }
+        unsigned char c = iupac2first((unsigned char)seq[i]);
+        if ( !c ) continue;     // Do not silently turn '*', '.', breakend characters, etc. into '\0'
+        if ( ((unsigned char)seq[i])!=c ) { seq[i] = c; n++; }
     }
     return n;
 }
@@ -187,8 +200,8 @@ static inline int has_non_acgtn(char *seq, int nseq)
     char *end = seq + nseq;
     while ( *seq && seq<end )
     {
-        char c = toupper_c(*seq);
-        if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) return 1;
+        unsigned char c = iupac2first((unsigned char)*seq);
+        if ( ((unsigned char)*seq)!=c ) return 1;
         seq++;
     }
     return 0;
@@ -204,105 +217,154 @@ static void seq_to_upper(char *seq, int len)
 }
 
 // returns 0 when no fix was needed, 1 otherwise
+//
+// the structure is:
+//  - fetch REF length from FASTA
+//  - normalize IUPAC in FASTA copy
+//  - normalize IUPAC in ordinary VCF alleles
+//  - if REF matches, update only if IUPAC changed something
+//  - resolve REF/ALT N placeholders before swap detection
+//  - if REF now matches, update and return
+//  - try conservative same-length REF/ALT swap
+//  - otherwise set REF from FASTA and propagate copied REF bases into ALT
+//
 static int fix_ref(args_t *args, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_STR);
-    int reflen = strlen(line->d.allele[0]);
-    int i,j, maxlen = reflen, len;
-    for (i=1; i<line->n_allele; i++)
-    {
-        int len = strlen(line->d.allele[i]);
-        if ( maxlen < len ) maxlen = len;
-    }
 
-    char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr,line), line->pos, line->pos+maxlen-1, &len);
-    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
-    replace_iupac_codes(ref,len);
+    const char *seqname = bcf_seqname(args->hdr,line);
+    size_t sreflen = strlen(line->d.allele[0]);
+    if ( sreflen > INT_MAX ) error("Error: REF allele too long at %s:%"PRId64"\n", seqname, (int64_t) line->pos+1);
+    int reflen = (int)sreflen;
+    int i, j, len;
+
+    char *ref = faidx_fetch_seq(args->fai, (char*)seqname, line->pos, line->pos+reflen-1, &len);
+    if ( !ref )
+        error("Error: unable to fetch %d bp from the reference sequence at %s:%"PRId64"\n",
+                reflen, seqname, (int64_t) line->pos+1);
+    if ( len != reflen )
+        error("Error: unable to fetch %d bp from the reference sequence at %s:%"PRId64" .. requested %d bp, got %d\n",
+                reflen, seqname, (int64_t)line->pos+1, reflen, len);
 
     args->nref.tot++;
 
-    // is the REF different? If not, we are done
-    if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return 0; }
+    // Normalize IUPAC codes in the fetched reference copy used for comparison.
+    replace_iupac_codes(ref,len);
+
+    int ret = 0;
+
+    // Normalize ordinary sequence alleles before any early return. Otherwise a
+    // valid REF with an ambiguous ALT would escape unchanged.
+    for (i=0; i<line->n_allele; i++)
+    {
+        if ( !is_sequence_allele(line->d.allele[i]) ) continue;
+        if ( replace_iupac_codes(line->d.allele[i], strlen(line->d.allele[i])) ) ret = 1;
+    }
 
     // is the REF allele missing?
     if ( reflen==1 && line->d.allele[0][0]=='.' )
     {
         line->d.allele[0][0] = ref[0];
         args->nref.set++;
-        free(ref);
         bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
+        free(ref);
         return 1;
     }
 
-    // does REF or ALT contain non-standard bases?
-    int ret = 0, has_non_acgtn = 0;
-    for (i=0; i<line->n_allele; i++)
+    // If the REF already matches, only the IUPAC cleanup above may need writing.
+    if ( !strncasecmp(line->d.allele[0],ref,reflen) )
     {
-        if ( line->d.allele[i][0]=='<' ) continue;
-        has_non_acgtn += replace_iupac_codes(line->d.allele[i],strlen(line->d.allele[i]));
-    }
-    if ( has_non_acgtn )
-    {
-        args->nref.set++;
-        bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
-        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return 1; }
-        ret = 1;
-    }
-
-    // does the REF allele contain N's ?
-    int fix = 0;
-    for (i=0; i<reflen; i++)
-    {
-        if ( line->d.allele[0][i]!='N' ) continue;
-        if ( ref[i]=='N' ) continue;
-        line->d.allele[0][i] = ref[i];
-        fix++;
-        for (j=1; j<line->n_allele; j++)
+        if ( ret )
         {
-            int len = strlen(line->d.allele[j]);
-            if ( len <= i || line->d.allele[j][i]!='N' ) continue;
-            line->d.allele[j][i] = ref[i];
-            fix++;
+            args->nref.set++;
+            bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
         }
-    }
-    if ( fix )
-    {
-        ret = 1;
-        args->nref.set++;
-        bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
-        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return ret; }
-    }
-
-    // is it swapped?
-    for (i=1; i<line->n_allele; i++)
-    {
-        int len = strlen(line->d.allele[i]);
-        if ( !strncasecmp(line->d.allele[i],ref,len) ) break;
-    }
-
-    kstring_t str = {0,0,0};
-    if ( i==line->n_allele )    // none of the alternate alleles matches the reference
-    {
-        ret = 1;
-        args->nref.set++;
-        kputsn(ref,reflen,&str);
-        for (i=1; i<line->n_allele; i++)
-        {
-            kputc(',',&str);
-            kputs(line->d.allele[i],&str);
-        }
-        bcf_update_alleles_str(args->out_hdr,line,str.s);
         free(ref);
-        free(str.s);
         return ret;
     }
 
+    // Resolve REF N placeholders before deciding whether REF/ALT are swapped.
+    // Only N is treated as unknown here. Other mismatches must be preserved so
+    // genuine REF/ALT swaps can still be detected. After this step, the REF may
+    // now match the FASTA reference, in which case we can update and return.
+    int ref_n_changed = 0;
+    for (j=0; j<reflen; j++)
+    {
+        if ( line->d.allele[0][j]!='N' && line->d.allele[0][j]!='n' ) continue;
+        if ( ref[j]=='N' || ref[j]=='n' ) continue;
+
+        line->d.allele[0][j] = ref[j];
+        ref_n_changed = 1;
+        ret = 1;
+
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( !is_sequence_allele(line->d.allele[i]) ) continue;
+            int alen = strlen(line->d.allele[i]);
+            if ( alen <= j || (line->d.allele[i][j]!='N' && line->d.allele[i][j]!='n') ) continue;
+            line->d.allele[i][j] = ref[j];
+            ret = 1;
+        }
+    }
+    if ( ref_n_changed && !strncasecmp(line->d.allele[0],ref,reflen) )
+    {
+        args->nref.set++;
+        bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
+        free(ref);
+        return ret;
+    }
+
+    // is REF-ALT simply swapped? Only accept same-length ordinary sequence alleles.
+    // This avoids treating a short ALT as a prefix match to the true reference.
+    int ialt = line->n_allele;
+    for (i=1; i<line->n_allele; i++)
+    {
+        if ( !is_sequence_allele(line->d.allele[i]) ) continue;
+
+        int alen = strlen(line->d.allele[i]);
+        if ( alen != reflen ) continue;
+
+        if ( !strncasecmp(line->d.allele[i], ref, reflen) )
+        {
+            ialt = i;
+            break;
+        }
+    }
+    if ( ialt==line->n_allele )
+    {
+        // None of the alternate alleles gives reliable evidence for a REF/ALT swap.
+        // Set REF from FASTA and make copied REF bases in ALT follow the new REF.
+        char *old_ref = strdup(line->d.allele[0]);
+        if ( !old_ref ) error("Could not allocate memory\n");
+
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( !is_sequence_allele(line->d.allele[i]) ) continue;
+
+            int alen = strlen(line->d.allele[i]);
+            int n = alen < reflen ? alen : reflen;
+            for (j=0; j<n; j++)
+            {
+                if ( toupper_c(line->d.allele[i][j]) == toupper_c(old_ref[j]) ) line->d.allele[i][j] = ref[j];
+            }
+        }
+        for (j=0; j<reflen; j++) line->d.allele[0][j] = ref[j];
+
+        args->nref.set++;
+        bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
+
+        free(old_ref);
+        free(ref);
+        return 1;
+    }
+
     // one of the alternate alleles matches the reference, assume it's a simple swap
-    kputs(line->d.allele[i],&str);
+    kstring_t str = {0,0,0};
+    kputs(line->d.allele[ialt],&str);
     for (j=1; j<line->n_allele; j++)
     {
         kputc(',',&str);
-        if ( j==i )
+        if ( j==ialt )
             kputs(line->d.allele[0],&str);
         else
             kputs(line->d.allele[j],&str);
@@ -322,10 +384,10 @@ static int fix_ref(args_t *args, bcf1_t *line)
         int32_t *gts = (int32_t*) args->tmp_arr1;
         for (j=0; j<ngts; j++)
         {
-            if ( gts[j]==bcf_gt_unphased(0) ) { gts[j] = bcf_gt_unphased(i); ni++; }
-            else if ( gts[j]==bcf_gt_phased(0) ) { gts[j] = bcf_gt_phased(i); ni++; }
-            else if ( gts[j]==bcf_gt_unphased(i) ) gts[j] = bcf_gt_unphased(0);
-            else if ( gts[j]==bcf_gt_phased(i) ) gts[j] = bcf_gt_phased(0);
+            if ( gts[j]==bcf_gt_unphased(0) ) { gts[j] = bcf_gt_unphased(ialt); ni++; }
+            else if ( gts[j]==bcf_gt_phased(0) ) { gts[j] = bcf_gt_phased(ialt); ni++; }
+            else if ( gts[j]==bcf_gt_unphased(ialt) ) gts[j] = bcf_gt_unphased(0);
+            else if ( gts[j]==bcf_gt_phased(ialt) ) gts[j] = bcf_gt_phased(0);
         }
         bcf_update_genotypes(args->out_hdr,line,gts,ngts);
     }
@@ -335,10 +397,10 @@ static int fix_ref(args_t *args, bcf1_t *line)
     if ( nac>0 )
     {
         args->ntmp_arr1 = ntmp * sizeof(int32_t);
-        if ( i <= nac )
+        if ( ialt <= nac )
         {
             int32_t *ac = (int32_t*)args->tmp_arr1;
-            ac[i-1] = ni;
+            ac[ialt-1] = ni;
             bcf_update_info_int32(args->out_hdr, line, "AC", ac, nac);
         }
     }
@@ -707,6 +769,7 @@ static int realign(args_t *args, bcf1_t *line)
     {
         als[0].l = 1;
         als[0].s[ als[0].l ] = 0;
+        new_reflen = line->rlen;
     }
     if ( new_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
@@ -1134,7 +1197,7 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
         case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[isrc]==bcf_int32_vector_end, src_vals[isrc]==bcf_int32_missing, dst_vals[idst]=bcf_int32_vector_end, dst_vals[idst]=bcf_int32_missing); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(src_vals[idst])); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(dst_vals[idst])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -2344,7 +2407,7 @@ static int normalize_line(args_t *args, bcf1_t *line)
             old_rec_tag_init(args,line);
             if ( fix_ref(args,line) ) old_rec_tag_set(args,line,0);
         }
-        if ( args->do_indels )
+        if ( line->rlen < args->do_realign )
         {
             int ret = args->filter_pass ? realign(args, line) : ERR_OK;
 
@@ -2536,7 +2599,7 @@ static void usage(void)
     fprintf(stderr, "    -m, --multiallelics -|+TYPE     Split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
     fprintf(stderr, "        --no-version                Do not append version and command line to the header\n");
-    fprintf(stderr, "    -N, --do-not-normalize          Do not normalize indels (with -m or -c s)\n");
+    fprintf(stderr, "    -N, --no-realign [NUM]          Skip realignment; optionally only for events longer than NUM bp (e.g. -N1000, no space)\n");
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
     fprintf(stderr, "    -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
@@ -2576,7 +2639,6 @@ int main_vcfnorm(int argc, char *argv[])
     args->aln_win = 100;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
-    args->do_indels = 1;
     args->ma_use_ref_allele = 1;
     args->clevel = -1;
     int region_is_file  = 0;
@@ -2586,6 +2648,7 @@ int main_vcfnorm(int argc, char *argv[])
     int regions_overlap = 1;
     int targets_overlap = 0;
     args->cmp_func = cmp_bcf_pos;
+    args->do_realign = UINT32_MAX;
 
     static struct option loptions[] =
     {
@@ -2601,7 +2664,8 @@ int main_vcfnorm(int argc, char *argv[])
         {"sort",required_argument,NULL,'S'},
         {"gff-annot",required_argument,NULL,'g'},
         {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
-        {"do-not-normalize",no_argument,NULL,'N'},
+        {"do-not-normalize",no_argument,NULL,16},
+        {"no-realign",optional_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
         {"multi-overlaps",required_argument,NULL,13},
         {"regions",required_argument,NULL,'r'},
@@ -2625,7 +2689,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sNag:W::v:S:i:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN::ag:W::v:S:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2667,7 +2731,17 @@ int main_vcfnorm(int argc, char *argv[])
                     error("Unsupported index format '%s'\n", optarg);
                 break;
             case 15 : args->right_align = 1; break;
-            case 'N': args->do_indels = 0; break;
+            case 16 : args->do_realign = 0; break;
+            case 'N':
+                if ( !optarg ) args->do_realign = 0;
+                else
+                {
+                    errno = 0;
+                    double val = strtod(optarg,&tmp);
+                    if ( errno || tmp == optarg || *tmp || val < 0 || val > UINT32_MAX ) error("Could not parse argument: -N, --no-realign %s\n", optarg);
+                    args->do_realign = (uint32_t)val;
+                }
+                break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;
                 else if ( !strcmp("indels",optarg) ) args->rmdup = BCF_SR_PAIR_INDELS;
