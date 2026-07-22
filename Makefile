@@ -117,8 +117,8 @@ PACKAGE_VERSION = 1.24
 # $(shell), :=, etc are GNU Make-specific.  If you don't have GNU Make,
 # comment out this conditional.
 ifneq "$(wildcard .git)" ""
-PACKAGE_VERSION := $(shell git describe --always --dirty)
-DOC_VERSION :=  $(shell git describe --always)+
+PACKAGE_VERSION := $(shell git -c safe.directory=`pwd` describe --always --dirty)
+DOC_VERSION :=  $(shell git -c safe.directory=`pwd` describe --always)+
 DOC_DATE := $(shell date +'%Y-%m-%d %R %Z')
 
 # Force version.h to be remade if $(PACKAGE_VERSION) has changed.
