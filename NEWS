@@ -1,5 +1,14 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools reheader
+
+    - Better error reporting on invalid --samples file, don't segfault (#2538)
+
+
+
 ## Release 1.24 (9th July 2026)
 
 
