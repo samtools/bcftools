@@ -11,6 +11,10 @@ Changes affecting specific commands:
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
 
+* bcftools reheader
+
+    - Better error reporting on invalid --samples file, don't segfault (#2538)
+
 ## Release 1.21.2 (9th July 2026)
 
 This release bundles HTSlib 1.21.2, which includes many important
