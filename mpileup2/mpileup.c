@@ -52,7 +52,7 @@ typedef struct
     cigar_state_t cstate;
     uint32_t
         next:31,    // index of the next node, rbuf->tail's next points to itself
-        is_set:1;   // if is_set==0 && next==0, the node is unitialized in a newly allocated block
+        is_set:1;   // if is_set==0 && next==0, the node is uninitialized in a newly allocated block
 }
 rb_node_t;
 

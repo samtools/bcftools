@@ -125,7 +125,7 @@ void abuf_set(abuf_t *buf, abuf_opt_t key, void *value)
 }
 
 /*
-    Split alleles into primitivs, e.g.
+    Split alleles into primitives, e.g.
         CC>TT  becomes  C>T,C>T
         GCGT>GTGA  becomes C>T,T>A
 

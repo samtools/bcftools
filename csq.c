@@ -1011,7 +1011,7 @@ static void splice_init(splice_t *splice, bcf1_t *rec)
 }
 static inline void splice_build_hap(splice_t *splice, uint32_t beg, int len)
 {
-    // beg .. the beggining of the splice region
+    // beg .. the beginning of the splice region
     // len>0 .. beg is the first base, del filled from right
     // len<0 .. beg is the last base, del filled from left
 
