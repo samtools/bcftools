@@ -2657,7 +2657,7 @@ void gvcf_write_block(args_t *args, int start, int end)
     if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 
-    // Inactivate blocks which do not extend beyond END and find new gvcf_min
+    // Deactivate blocks which do not extend beyond END and find new gvcf_min
     min = INT_MAX;
     for (i=0; i<args->files->nreaders; i++)
     {
@@ -3112,7 +3112,7 @@ static void maux_update_alleles(args_t *args, int ireader, int irec)
 
    At the same time count how many times is each allele present across the readers and records
    so that we can prioritize the records with the same alleles to come first. In the end maximum
-   one record at a time can be selected from each reader and that witll be done in stage_line().
+   one record at a time can be selected from each reader and that will be done in stage_line().
 
    The function maux_reset already initialized structures for this position, so here each
    reader comes with the beg,end indexes that point to records with the same maux_t.pos position.

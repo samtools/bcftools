@@ -207,7 +207,7 @@ static void init_data(args_t *args)
         int i, n;
         char **list = hts_readlist(args->include_types ? args->include_types : args->exclude_types, 0, &n);
         if ( !n || !list )
-            error("Error: coult not parse the --include-types/--exclude-types type list\n");
+            error("Error: could not parse the --include-types/--exclude-types type list\n");
         for (i=0; i<n; i++)
         {
             parse_vtype(list[i], args->include_types ? &args->include : &args->exclude);

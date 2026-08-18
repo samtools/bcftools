@@ -49,7 +49,7 @@ sub error
         "   -c  --compress 0|1      Compress the embedded data [1]\n",
         "   -e  --embed-d3 0|1      Embed JS libraries for offline rendering [0]\n",
         "   -i, --RoH-file FILE     Output of bcftools/roh\n",
-        "   -l, --min-length NUM    Mimimum length of ROH [1e6]\n",
+        "   -l, --min-length NUM    Minimum length of ROH [1e6]\n",
         "   -o, --output FILE       HTML output file\n",
         "   -r, --regions LIST      List of chromosomes/regions\n",
         "   -s, --samples LIST      List of samples to show\n",

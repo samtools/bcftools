@@ -527,7 +527,7 @@ static void fit_curves(args_t *args)
         if ( cn4_fit > args->fit_th ) cn4_fail = 'f';
         else if ( cn4_ymin < args->min_peak_size ) cn4_fail = 'y';      // side peak is too small
         else if ( cn4_dy < args->peak_symmetry ) cn4_fail = 'Y';    // size difference is too big
-        else if ( cn4_dx > 0.1 ) cn4_fail = 'x';                    // side peaks placed assymetrically
+        else if ( cn4_dx > 0.1 ) cn4_fail = 'x';                    // side peaks placed asymmetrically
 
         double cn = -1, fit = cn2_fit;
         if ( cn2_fail == '*' ) { cn = 2; fit = cn2_fit; }

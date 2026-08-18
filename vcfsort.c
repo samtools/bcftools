@@ -274,7 +274,7 @@ static int write_packed_bcf(BGZF *fp, packed_bcf_t *src)
     else
     {
         // Record didn't fit in the main block.  To minimize the
-        // overflow, its packed_bcf_t data will be imcomplete.  A pointer to
+        // overflow, its packed_bcf_t data will be incomplete.  A pointer to
         // its bcf1_t struct will have been placed after the allele data
         // so we can finish the packing job and write it in the same format
         // the rest of the data

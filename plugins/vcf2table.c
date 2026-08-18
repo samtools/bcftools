@@ -402,7 +402,7 @@ static CellPtr TableAt(TablePtr ptr, unsigned int x, unsigned int y) {
   return RowAt(TableRowAt(ptr, y), x);
 }
 
-/** test wether the content of a column is empty */
+/** test whether the content of a column is empty */
 static int TableIsColumnEmpty(TablePtr ptr, unsigned int x) {
   unsigned int y;
   ASSERT_NOT_NULL(ptr);

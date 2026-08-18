@@ -109,7 +109,7 @@ struct gff_t_
     // str2int hash with parsed sequence names
     void *seq2int;
 
-    // temporary structures, deleted after initializtion
+    // temporary structures, deleted after initialization
     aux_t init;
 
     // sequences

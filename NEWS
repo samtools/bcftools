@@ -354,7 +354,7 @@ Changes affecting specific commands:
       a new option `-C, --genetic-code` (#2368)
 
     - Change in the `--unify-chr-names` option, no automatic sequence name modification
-      is attempted anymore, the prefixes to trim must be given explictly. For example,
+      is attempted anymore, the prefixes to trim must be given explicitly. For example,
       if run with `--unify-chr-names chr,Chromosome,-`, the program will trim the "chr"
       prefix in the VCF, "Chromosome" in the GFF, leaving the fasta unchanged (#2378)
 
@@ -912,7 +912,7 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 * The -i/-e filtering expressions
 
-    - Error checks were added to prevent incorrect use of vector arithmetics. For example,
+    - Error checks were added to prevent incorrect use of vector arithmetic. For example,
       when evaluating the sum of two vectors A and B, the resulting vector could contain
       nonsense values when the input vectors were not of the same length. The fix introduces
       the following logic:
