@@ -3,6 +3,10 @@
 
 Changes affecting specific commands:
 
+* bcftools csq
+
+    - New option `--allow` to selectively relax validation checks (#2584)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)

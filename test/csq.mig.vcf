@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##contig=<ID=annotated,length=9>
+##contig=<ID=contig00032,length=12>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+contig00032	2	.	C	T	100	PASS	.

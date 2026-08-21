@@ -223,6 +223,13 @@
 #define CHR_GFF 1
 #define CHR_FAI 2
 
+// parsing and validation options, see --force and --allow
+#define FORCE_CTG_MISSING_IN_FA  (1u << 0)
+#define FORCE_CTG_MISSING_IN_GFF (1u << 1)
+#define FORCE_OUT_OF_PHASE       (1u << 2)
+#define FORCE_REF_MISMATCH       (1u << 3)
+#define FORCE_ALL (~0u)
+
 // see kput_vcsq()
 const char *csq_strings[] =
 {
@@ -468,7 +475,7 @@ typedef struct _args_t
     int nrm_tr, mrm_tr;
     csq_t *csq_buf;             // pool of csq not managed by hap_node_t, i.e. non-CDS csqs
     int ncsq_buf, mcsq_buf;
-    int force;                  // force run under various conditions. Currently only to skip out-of-phase transcripts
+    uint32_t force;             // force run under various conditions; see FORCE_* definitions above
     int n_threads;              // extra compression/decompression threads
 
     faidx_t *fai;
@@ -687,7 +694,7 @@ void init_chr_names(args_t *args)
     char **tmp;
 
     // chr prefixes given explicitly
-    args->unify_chr_names_err = strdup("check if --unify-chr-names or --force could help");
+    args->unify_chr_names_err = strdup("check if --unify-chr-names, --force, or --allow could help");
     if ( args->unify_chr_names && (tmp=hts_readlist(args->unify_chr_names,0,&n)) )
     {
         if ( n!=3 ) error("Error: expected three strings, got --unify-chr-names %s\n",args->unify_chr_names);
@@ -717,14 +724,14 @@ void init_chr_names(args_t *args)
     if ( strcmp(!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l,!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l) ) same_chr = 0;
     if ( strcmp(!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l,!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l) ) same_chr = 0;
     if ( strcmp(!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l,!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l) ) same_chr = 0;
-    free(args->unify_chr_names_err);
     if ( same_chr )
         ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, try to run with --unify-chr-names %s,%s,%s\n",seq_vcf,seq_gff,seq_fa,chr_vcf.s,chr_gff.s,chr_fa.s);
     else
-        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, check if running with --unify-chr-names or --force coud help\n",seq_vcf,seq_gff,seq_fa);
+        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, %s\n",seq_vcf,seq_gff,seq_fa,args->unify_chr_names_err);
     free(chr_vcf.s);
     free(chr_gff.s);
     free(chr_fa.s);
+    free(args->unify_chr_names_err);
     args->unify_chr_names_err = str.s;
 }
 void init_data(args_t *args)
@@ -736,7 +743,7 @@ void init_data(args_t *args)
 
     args->gff = gff_init(args->gff_fname);
     gff_set(args->gff,verbosity,args->verbosity);
-    gff_set(args->gff,force_out_of_phase,args->force);
+    gff_set(args->gff,force_out_of_phase,(args->force&FORCE_OUT_OF_PHASE)?1:0);
     gff_set(args->gff,dump_fname,args->dump_gff);
     gff_parse(args->gff);
     args->idx_cds  = gff_get(args->gff,idx_cds);
@@ -900,6 +907,7 @@ static inline vrec_t *rec2vrec(args_t *args, bcf1_t *rec)
     error("This should not happen.. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec), (int64_t) rec->pos+1);
     return NULL;
 }
+// Do not let the later generic transcript-level logic handle this transcript/ALT pair
 static inline void claim_tscript_allele(args_t *args, bcf1_t *rec, uint32_t trid, uint32_t vcf_ial)
 {
     if ( !args->greedy ) return;
@@ -2943,7 +2951,7 @@ int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
     hts_verbose = verbose;
     if ( !TSCRIPT_AUX(tr)->ref )
     {
-        if ( !args->force )
+        if ( !(args->force & FORCE_CTG_MISSING_IN_FA) )
             error("Error: unable to fetch the region of the fasta reference %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
 
         else if ( args->verbosity && (!args->warned.faidx_fetch_failed || args->verbosity > 1) )
@@ -2985,7 +2993,7 @@ static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
     {
         if ( ref[i]!=vcf[i] && toupper_c(ref[i])!=toupper_c(vcf[i]) )
         {
-            if ( !args->force )
+            if ( !(args->force & FORCE_REF_MISMATCH) )
                 error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
                         bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
 
@@ -3785,7 +3793,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         if ( !faidx_has_seq(args->fai,chr_fai) )
         {
             static int missing_chr_fai_warned = 0;
-            if ( !args->force )
+            if ( !(args->force & FORCE_CTG_MISSING_IN_FA) )
                 error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_fai,args->fa_fname,args->unify_chr_names_err);
             else if ( !missing_chr_fai_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_fai,args->fa_fname);
@@ -3795,7 +3803,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         if ( !gff_has_seq(args->gff,chr_gff) )
         {
             static int missing_chr_gff_warned = 0;
-            if ( !args->force )
+            if ( !(args->force & FORCE_CTG_MISSING_IN_GFF) )
                 error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_gff,args->gff_fname,args->unify_chr_names_err);
             else if ( !missing_chr_gff_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_gff,args->gff_fname);
@@ -3847,6 +3855,27 @@ static void process(args_t *args, bcf1_t **rec_ptr)
 
     return;
 }
+static void parse_allow(args_t *args, char *allow)
+{
+    char *bptr = allow;
+    while (bptr && *bptr)
+    {
+        char *eptr = strchr(bptr,',');
+        if ( eptr && *eptr ) *eptr++ = '\0';
+
+        if ( !strcasecmp(bptr,"mif") || !strcasecmp(bptr,"missing-in-FASTA") )
+            args->force |= FORCE_CTG_MISSING_IN_FA;
+        else if ( !strcasecmp(bptr,"mig") || !strcasecmp(bptr,"missing-in-GFF") )
+            args->force |= FORCE_CTG_MISSING_IN_GFF;
+        else if ( !strcasecmp(bptr,"cds-oop") || !strcasecmp(bptr,"CDS-out-of-phase") )
+            args->force |= FORCE_OUT_OF_PHASE;
+        else if ( !strcasecmp(bptr,"ref-mm") || !strcasecmp(bptr,"ref-mismatch") )
+            args->force |= FORCE_REF_MISMATCH;
+        else
+            error("Could not parse the argument: --allow %s\n",bptr);
+        bptr = eptr;
+    }
+}
 
 static const char *usage(void)
 {
@@ -3872,7 +3901,12 @@ static const char *usage(void)
         "                                       r: require phased GTs, throw an error on unphased het GTs\n"
         "                                       R: create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)\n"
         "                                       s: skip unphased hets\n"
-        "GFF options:\n"
+        "Parsing and validation options:\n"
+        "       --allow LIST                  Run even if these sanity checks fail (case insensitive)\n"
+        "                                       mif, missing-in-FASTA     .. skip records w/o fasta reference\n"
+        "                                       mig, missing-in-GFF       .. skip contigs w/o GFF annotations\n"
+        "                                       cds-oop, CDS-out-of-phase .. skip transcripts with phase errors\n"
+        "                                       ref-mm, ref-mismatch      .. skip records with REF mismatch in VCF and FASTA\n"
         "       --dump-gff FILE.gz            Dump the parsed GFF file (for debugging purposes)\n"
         "       --force                       Run even if some sanity checks fail\n"
         "       --unify-chr-names 0|LIST      Unify chromosome naming by stripping a prefix in VCF,GFF,fasta, respectively [0]\n"
@@ -3915,6 +3949,7 @@ int main_csq(int argc, char *argv[])
     args->verbosity = 1;
     args->record_cmd_line = 1;
     args->clevel = -1;
+    char *allow = NULL;
 
     static struct option loptions[] =
     {
@@ -3950,6 +3985,7 @@ int main_csq(int argc, char *argv[])
         {"write-index",optional_argument,NULL,'W'},
         {"dump-gff",required_argument,NULL,7},
         {"unify-chr-names",required_argument,NULL,8},
+        {"allow",required_argument,NULL,9},
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0;
@@ -3960,7 +3996,7 @@ int main_csq(int argc, char *argv[])
     {
         switch (c)
         {
-            case  1 : args->force = 1; break;
+            case  1 : args->force = FORCE_ALL; break;
             case  2 :
                 args->n_threads = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
@@ -4050,11 +4086,13 @@ int main_csq(int argc, char *argv[])
                 break;
             case  7 : args->dump_gff = optarg; break;
             case  8 : args->unify_chr_names = optarg; break;
+            case  9 : allow = optarg; break;
             case 'h':
             case '?': error("%s",usage());
             default: error("The option not recognised: %s\n\n", optarg); break;
         }
     }
+    parse_allow(args, allow);
     init_gencode(args);
 
     char *fname = NULL;

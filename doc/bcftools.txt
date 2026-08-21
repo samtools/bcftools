@@ -1382,6 +1382,16 @@ variant in the analysis.
 Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 
+*--allow* 'LIST'::
+    Run even if these sanity checks fail (case insensitive)
+        'mif', 'missing-in-FASTA';;
+            skip records w/o fasta reference
+        'mig', 'missing-in-GFF';;
+            skip contigs w/o GFF annotations
+        'cds-oop', 'CDS-out-of-phase';;
+            skip transcripts with phase errors
+        'ref-mm', 'ref-mismatch';;
+            skip records with REF mismatch in VCF and FASTA
 
 *-B, --trim-protein-seq* 'INT'::
     abbreviate protein-changing predictions to maximum of INT aminoacids.

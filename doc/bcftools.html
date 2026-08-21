@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2026-07-09</strong> and refers to bcftools git version <strong>1.24</strong>.</p>
+<p>This manual page was last updated <strong>2026-08-21 14:44 CEST</strong> and refers to bcftools git version <strong>1.24-8-gf098ab5+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1869,6 +1869,30 @@ output VCF and are ignored for the prediction analysis.</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--allow</strong> <em>LIST</em></dt>
+<dd>
+<p>Run even if these sanity checks fail (case insensitive)</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>mif</em>, <em>missing-in-FASTA</em></dt>
+<dd>
+<p>skip records w/o fasta reference</p>
+</dd>
+<dt class="hdlist1"><em>mig</em>, <em>missing-in-GFF</em></dt>
+<dd>
+<p>skip contigs w/o GFF annotations</p>
+</dd>
+<dt class="hdlist1"><em>cds-oop</em>, <em>CDS-out-of-phase</em></dt>
+<dd>
+<p>skip transcripts with phase errors</p>
+</dd>
+<dt class="hdlist1"><em>ref-mm</em>, <em>ref-mismatch</em></dt>
+<dd>
+<p>skip records with REF mismatch in VCF and FASTA</p>
+</dd>
+</dl>
+</div>
+</dd>
 <dt class="hdlist1"><strong>-B, --trim-protein-seq</strong> <em>INT</em></dt>
 <dd>
 <p>abbreviate protein-changing predictions to maximum of INT aminoacids.
@@ -3549,7 +3573,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)
+<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)
 See also the option <strong>-N, --no-realign</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
@@ -5837,7 +5861,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-07-09 10:42:20 +0100
+Last updated 2026-08-21 14:39:20 +0200
 </div>
 </div>
 </body>

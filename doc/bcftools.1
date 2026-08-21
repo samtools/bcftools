@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2026-07-09
+.\" Generator: Asciidoctor 2.0.20
+.\"      Date: 2026-08-21
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2026-07-09" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2026-08-21" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2026\-07\-09\fP and refers to bcftools git version \fB1.24\fP.
+This manual page was last updated \fB2026\-08\-21 14:44 CEST\fP and refers to bcftools git version \fB1.24\-8\-gf098ab5+\fP.
 .SS "BCF1"
 .sp
 The obsolete BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -2151,6 +2151,31 @@ variant in the analysis.
 Symbolic alleles are not supported. They will remain unannotated in the
 output VCF and are ignored for the prediction analysis.
 .sp
+\fB\-\-allow\fP \fILIST\fP
+.RS 4
+Run even if these sanity checks fail (case insensitive)
+.sp
+\fImif\fP, \fImissing\-in\-FASTA\fP
+.RS 4
+skip records w/o fasta reference
+.RE
+.sp
+\fImig\fP, \fImissing\-in\-GFF\fP
+.RS 4
+skip contigs w/o GFF annotations
+.RE
+.sp
+\fIcds\-oop\fP, \fICDS\-out\-of\-phase\fP
+.RS 4
+skip transcripts with phase errors
+.RE
+.sp
+\fIref\-mm\fP, \fIref\-mismatch\fP
+.RS 4
+skip records with REF mismatch in VCF and FASTA
+.RE
+.RE
+.sp
 \fB\-B, \-\-trim\-protein\-seq\fP \fIINT\fP
 .RS 4
 abbreviate protein\-changing predictions to maximum of INT aminoacids.
@@ -4003,7 +4028,6 @@ cannot be stressed enough, that \fIs\fP will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 .URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" ""
 and
-\c
 .URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
 See also the option \fB\-N, \-\-no\-realign\fP.
 .RE
