@@ -7,6 +7,10 @@ Changes affecting specific commands:
 
     - New option `--allow` to selectively relax validation checks (#2584)
 
+* bcftools index
+
+    - Make `--nrecords` with non-standard file extensions (#2588)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
