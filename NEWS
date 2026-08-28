@@ -3,6 +3,11 @@
 
 Changes affecting specific commands:
 
+* bcftools call
+
+    - To comply with the VCF specification, the INFO/MQ output tag is now declared
+      as Type=Float rather than Type=Integer
+
 * bcftools csq
 
     - New option `--allow` to selectively relax validation checks (#2584)

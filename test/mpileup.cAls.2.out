@@ -21,7 +21,7 @@
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
-##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="Average mapping quality">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample1	sample2
 chr1	212740	.	A	G	483.052	.	DP=73;VDB=0.520868;SGB=-1.38232;MQSB=1;MQ0F=0;AC=4;AN=4;DP4=0,0,39,4;MQ=60	GT:PL:DP:AD	1/1:255,72,0:24:0,24	1/1:255,57,0:19:0,19
 chr1	320055	.	A	G	533.95	.	DP=101;MQSB=1;MQ0F=0;AC=0;AN=4;DP4=52,9,0,0;MQ=60	GT:PL:DP:AD	0/0:0,87,255:29:29,0	0/0:0,96,255:32:32,0
