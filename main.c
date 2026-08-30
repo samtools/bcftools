@@ -28,6 +28,7 @@ THE SOFTWARE.  */
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <htslib/hts.h>
 #include "version.h"
 #include "bcftools.h"
@@ -300,7 +301,17 @@ int main(int argc, char *argv[])
     {
         if (cmds[i].func && strcmp(argv[1],cmds[i].alias)==0)
         {
-            return cmds[i].func(argc-1,argv+1);
+            int ret = cmds[i].func(argc-1,argv+1);
+
+            // For subcommands that may have produced substantial output on stdout,
+            // make a final check for delayed I/O errors. Ignore EBADF as other code
+            // may have already closed stdout.
+            if (fclose(stdout) != 0 && errno != EBADF) {
+                fprintf(stderr, "[E::%s] closing standard output failed\n", __func__);
+                return 1;
+            }
+
+            return ret;
         }
         i++;
     }
