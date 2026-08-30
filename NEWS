@@ -12,6 +12,11 @@ Changes affecting specific commands:
 
     - New option `--allow` to selectively relax validation checks (#2584)
 
+    - New option `-F, --format` to extend the consequence annotation with
+      cds_position (position within the coding sequence and CDS length),
+      exon (exon index and the number of exons), and exon_position (position
+      within the exon and the exon length)
+
 * bcftools index
 
     - Make `--nrecords` with non-standard file extensions (#2588)

@@ -230,6 +230,10 @@
 #define FORCE_REF_MISMATCH       (1u << 3)
 #define FORCE_ALL (~0u)
 
+#define FMT_CDS_POS  (1u << 0)
+#define FMT_EXON     (1u << 1)
+#define FMT_EXON_POS (1u << 2)
+
 // see kput_vcsq()
 const char *csq_strings[] =
 {
@@ -462,6 +466,10 @@ typedef struct _args_t
         int unknown_cds_phase,incomplete_cds,wrong_phase,overlapping_cds,ref_allele_mismatch;
         int faidx_fetch_failed;
     } warned;
+
+    // additional output fields
+    char *format_str;
+    uint32_t format;
 
     char *gencode_str;          // which genetic code table to use
     gencode_t *gencode;         // genetic code table
@@ -745,6 +753,7 @@ void init_data(args_t *args)
     gff_set(args->gff,verbosity,args->verbosity);
     gff_set(args->gff,force_out_of_phase,(args->force&FORCE_OUT_OF_PHASE)?1:0);
     gff_set(args->gff,dump_fname,args->dump_gff);
+    if ( !(args->format&(FMT_EXON|FMT_EXON_POS)) ) gff_set(args->gff,link_exons,0);
     gff_parse(args->gff);
     args->idx_cds  = gff_get(args->gff,idx_cds);
     args->idx_utr  = gff_get(args->gff,idx_utr);
@@ -809,7 +818,7 @@ void init_data(args_t *args)
         if ( args->n_threads > 0)
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);
         if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
-        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
+        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: %s\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware", args->format_str);
         if ( args->hdr_nsmpl )
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
         if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
@@ -892,6 +901,7 @@ void destroy_data(args_t *args)
     free(args->str.s);
     free(args->str2.s);
     free(args->unify_chr_names_err);
+    free(args->format_str);
 }
 
 static inline vrec_t *rec2vrec(args_t *args, bcf1_t *rec)
@@ -2203,6 +2213,7 @@ exit_duplicate:
 #define node2rbeg(i) (hap->stack[i].node->sbeg)
 #define node2rend(i) (hap->stack[i].node->sbeg + hap->stack[i].node->rlen)
 #define node2rpos(i) (hap->stack[i].node->rec->pos)
+#define node2cds(i) (tr->cds[hap->stack[i].node->icds])
 
 // Format variant consequence into a string like "inframe_deletion|XYZ|ENST01|+|5TY>5I|121ACG>A+124TA>T"
 void kput_vcsq(args_t *args, const vcsq_t *csq, kstring_t *str)
@@ -2408,6 +2419,8 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
 
     kstring_t str = node->csq_list[icsq].type.vstr;
     str.l = 0;
+
+    int cds_len = TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD;;
     if ( suppress_aa )
     {
         // Leave amino_acid_change empty and keep only the DNA haplotype.
@@ -2421,13 +2434,13 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         // For example:
         //   start_lost|hypF|...|protein_coding|-||2214T>G+2216A>AT
         //
-        kputs("||", &str);
+        kputs("||", &str);   // empty AA field, then DNA field
     }
     else
     {
         // create the aa variant string
         int aa_rbeg = tr->strand==STRAND_FWD ? node2rbeg(ibeg)/3+1 : (TSCRIPT_AUX(hap->tr)->nsref - 2*N_REF_PAD - node2rend(iend))/3+1;
-        int aa_sbeg = tr->strand==STRAND_FWD ? node2sbeg(ibeg)/3+1 : (tlen - node2send(iend))/3+1;
+        int aa_sbeg = (tr->strand==STRAND_FWD ? node2sbeg(ibeg) : tlen - node2send(iend))/3 + 1;
         kputc_('|', &str);
         kputw(aa_rbeg, &str);
         kprint_aa_prediction(args,aa_rbeg,&hap->tref,&hap->tref_stop,&str);
@@ -2448,6 +2461,58 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         kputw(node2rpos(i)+1, &str);
         kputs(hap->stack[i].node->var, &str);
     }
+
+    // CDS position
+    if ( args->format & FMT_CDS_POS )
+    {
+        kputc_('|', &str);
+        for (i=ibeg; i<=iend; i++)
+        {
+            if ( i>ibeg ) kputc_('+', &str);
+            int cds_beg = tr->strand==STRAND_FWD ? node2rbeg(i) : cds_len - node2rend(i);
+            kputw(cds_beg + 1, &str);
+        }
+        kputc_('/', &str);
+        kputw(cds_len, &str);
+    }
+
+    // exon idx and number of exons
+    if ( args->format & FMT_EXON )
+    {
+        kputc_('|', &str);
+        if ( node2cds(ibeg)->exon )
+        {
+            for (i=ibeg; i<=iend; i++)
+            {
+                if ( i>ibeg ) kputc_('+', &str);
+                gf_exon_t *exon = node2cds(i)->exon;
+                kputw(exon->iexon+1, &str);
+            }
+            kputc_('/', &str);
+            kputw(tr->nexons, &str);
+        }
+    }
+
+    // position within exon and exon length
+    if ( args->format & FMT_EXON_POS )
+    {
+        kputc_('|', &str);
+        if ( node2cds(ibeg)->exon )
+        {
+            for (i=ibeg; i<=iend; i++)
+            {
+                if ( i>ibeg ) kputc_('+', &str);
+                gf_exon_t *exon  = node2cds(i)->exon;
+                hap_node_t *inode = hap->stack[i].node;
+                uint32_t rend = inode->rbeg + (inode->rlen > 0 ? inode->rlen - 1 : 0);
+                int exon_pos = tr->strand == STRAND_FWD ? inode->rbeg - exon->beg + 1 : exon->end - rend + 1;
+                kputw(exon_pos+1, &str);
+                kputc_('/', &str);
+                kputw(exon->end - exon->beg + 1, &str);
+            }
+        }
+    }
+
     node->csq_list[icsq].type.vstr = str;
     csq_push(args, node->csq_list+icsq, hap->stack[ref_node].node->rec);
 
@@ -3182,8 +3247,11 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                 {
                     // create the aa variant string
                     kstring_t str = {0,0,0};
-                    int aa_rbeg = tr->strand==STRAND_FWD ? node.sbeg/3+1 : (TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD - node.sbeg - node.rlen)/3+1;
-                    int aa_sbeg = tr->strand==STRAND_FWD ? node.sbeg/3+1 : (TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD + node.dlen - node.sbeg - alen)/3+1;
+                    int cds_len = TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD;
+                    int cds_beg = tr->strand==STRAND_FWD ? node.sbeg : cds_len - node.sbeg - node.rlen;
+                    int alt_cds_beg = tr->strand==STRAND_FWD ? node.sbeg : cds_len + node.dlen - node.sbeg - alen;
+                    int aa_rbeg = cds_beg/3+1;
+                    int aa_sbeg = alt_cds_beg/3+1;
                     kputc_('|', &str);
                     kputw(aa_rbeg, &str);
                     kprint_aa_prediction(args,aa_rbeg,tref,tref_stop,&str);
@@ -3196,6 +3264,42 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                     kputc_('|', &str);
                     kputw(rec->pos+1, &str);
                     kputs(node.var, &str);
+
+                    // CDS position
+                    if ( args->format & FMT_CDS_POS )
+                    {
+                        kputc_('|', &str);
+                        kputw(cds_beg + 1, &str);
+                        kputc_('/', &str);
+                        kputw(cds_len, &str);
+                    }
+
+                    // exon idx and number of exons
+                    if ( args->format & FMT_EXON )
+                    {
+                        kputc_('|', &str);
+                        if ( cds->exon )
+                        {
+                            kputw(cds->exon->iexon+1, &str);
+                            kputc_('/', &str);
+                            kputw(tr->nexons, &str);
+                        }
+                    }
+
+                    // position within exon and exon length
+                    if ( args->format & FMT_EXON_POS )
+                    {
+                        kputc_('|', &str);
+                        if ( cds->exon )
+                        {
+                            uint32_t rend = node.rbeg + (node.rlen > 0 ? node.rlen - 1 : 0);
+                            int exon_pos = tr->strand == STRAND_FWD ? node.rbeg - cds->exon->beg + 1 : cds->exon->end - rend + 1;
+                            kputw(exon_pos+1, &str);
+                            kputc_('/', &str);
+                            kputw(cds->exon->end - cds->exon->beg + 1, &str);
+                        }
+                    }
+
                     csq.type.vstr = str;
                     csq.type.type = csq_type & CSQ_COMPOUND;
                     csq_stage(args, &csq, rec);
@@ -3876,6 +3980,33 @@ static void parse_allow(args_t *args, char *allow)
         bptr = eptr;
     }
 }
+static void parse_format(args_t *args, char *format)
+{
+    char *bptr = format;
+    while (bptr && *bptr)
+    {
+        char *eptr = strchr(bptr,',');
+        if ( eptr && *eptr ) *eptr++ = '\0';
+
+        if ( !strcasecmp(bptr,"cds_position") )
+            args->format |= FMT_CDS_POS;
+        else if ( !strcasecmp(bptr,"exon") )
+            args->format |= FMT_EXON;
+        else if ( !strcasecmp(bptr,"exon_position") )
+            args->format |= FMT_EXON_POS;
+        else if ( !strcasecmp(bptr,"all") )
+            args->format |= FMT_CDS_POS|FMT_EXON|FMT_EXON_POS;
+        else
+            error("Could not parse the argument: --format %s\n",bptr);
+        bptr = eptr;
+    }
+    kstring_t str = {0,0,0};
+    kputs("Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change", &str);
+    if ( args->format & FMT_CDS_POS ) kputs("|cds_position", &str);
+    if ( args->format & FMT_EXON ) kputs("|exon", &str);
+    if ( args->format & FMT_EXON_POS ) kputs("|exon_position", &str);
+    args->format_str = str.s;
+}
 
 static const char *usage(void)
 {
@@ -3892,6 +4023,11 @@ static const char *usage(void)
         "   -B, --trim-protein-seq INT        Abbreviate protein-changing predictions to max INT aminoacids\n"
         "   -C, --genetic-code INT|l          Specify the genetic code table to use, 'l' to print a list [0]\n"
         "   -c, --custom-tag STRING           Use this tag instead of the default BCSQ\n"
+        "   -F, --format LIST                 Additional fields to output (all coordinates are 1-based):\n"
+        "                                       cds_position: position in the coding sequence and CDS length\n"
+        "                                       exon: exon number and the number of exons in the transcript\n"
+        "                                       exon_position: position within the exon and exon length\n"
+        "                                       all: all of the above\n"
         "   -G, --greedy 0|1                  Also check transcript-level consequences after feature hits [0]\n"
         "   -l, --local-csq                   Localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq INT                    Maximum number of per-haplotype consequences to consider for each site [15]\n"
@@ -3965,6 +4101,7 @@ int main_csq(int argc, char *argv[])
         {"gff-annot",1,0,'g'},
         {"greedy",required_argument,0,'G'},
         {"fasta-ref",1,0,'f'},
+        {"format",1,0,'F'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
         {"output",1,0,'o'},
@@ -3992,7 +4129,7 @@ int main_csq(int argc, char *argv[])
     int regions_overlap = 1;
     int targets_overlap = 0;
     char *targets_list = NULL, *regions_list = NULL, *tmp;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:C:G:ln:bB:v:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:F:o:O:g:s:S:p:qc:C:G:ln:bB:v:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -4035,6 +4172,7 @@ int main_csq(int argc, char *argv[])
                 }
                 break;
             case 'f': args->fa_fname = optarg; break;
+            case 'F': parse_format(args,optarg); break;
             case 'g': args->gff_fname = optarg; break;
             case 'n':
                 args->ncsq2_max = 2 * atoi(optarg);
@@ -4092,6 +4230,7 @@ int main_csq(int argc, char *argv[])
             default: error("The option not recognised: %s\n\n", optarg); break;
         }
     }
+    if (!args->format) parse_format(args, NULL);
     parse_allow(args, allow);
     init_gencode(args);
 

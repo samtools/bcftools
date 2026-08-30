@@ -1413,6 +1413,18 @@ output VCF and are ignored for the prediction analysis.
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-F, --format* 'LIST'::
+    Additional fields to output apart from consequence, gene, transcript, biotype, strand, amino_acid_change, and dna_change.
+    All coordinates are 1-based.
+        'cds_position';;
+            position in the coding sequence and CDS length
+        'exon';;
+            exon number and the number of exons in the transcript
+        'exon_position';;
+            position within the exon and exon length
+        'all';;
+            all of the above
+
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format (required)
 
@@ -1566,19 +1578,22 @@ output VCF and are ignored for the prediction analysis.
 
 *Examples of BCSQ annotation:*
 ----
-    # Two separate VCF records at positions 2:122106101 and 2:122106102
+    # Two separate VCF records at positions chr2:121348525 and chr2:121348526
     # change the same codon. This UV-induced C>T dinucleotide mutation
-    # has been annotated fully at the position 2:122106101 with
+    # has been annotated fully at the position chr2:121348526 with
     #   - consequence type
     #   - gene name
     #   - ensembl transcript ID
     #   - coding strand (+ fwd, - rev)
     #   - amino acid position (in the coding strand orientation)
     #   - list of corresponding VCF variants
+    #   - position in the coding sequence and CDS length (printed with -F)
+    #   - exon index and the number of exons (printed with -F)
+    #   - position within the exon and the exon length (printed with -F)
     # The annotation at the second position gives the position of the full
     # annotation
-    BCSQ=missense|CLASP1|ENST00000545861|-|1174P>1174L|122106101G>A+122106102G>A
-    BCSQ=@122106101
+    BCSQ=@121348526
+    BCSQ=missense|CLASP1|ENST00000696935|protein_coding|-|1488P>1488L|121348525G>A+121348526G>A|4463+4462/4680|39+39/41|195/207+194/207
 
     # A frame-restoring combination of two frameshift insertions C>CG and T>TGG
     BCSQ=@46115084

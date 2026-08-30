@@ -1090,6 +1090,8 @@ run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-fil
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.1)],ref=>'annot-NMBZ.1.fa',out=>'mpileup/annot-NMBZ.1.1.out',args=>q[-a -AD,INFO/NMBZ -r chr19:69-99]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.2)],ref=>'annot-NMBZ.2.fa',out=>'mpileup/annot-NMBZ.2.1.out',args=>q[-a -AD,INFO/NMBZ -r chr6:75]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.3.1 annot-NMBZ.3.2)],ref=>'annot-NMBZ.3.fa',out=>'mpileup/annot-NMBZ.3.1.out',args=>q[-a -AD,INFO/NMBZ -r chr16:75]);
+run_test(\&test_csq,$opts,in=>'csq.exons.1',out=>'csq.exons.1.1.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.exons.1.fa -g {PATH}/csq.exons.1.gff -F all');
+run_test(\&test_csq,$opts,in=>'csq.exons.1',out=>'csq.exons.1.2.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.exons.1.fa -g {PATH}/csq.exons.1.gff -F all -l');
 run_test(\&test_csq,$opts,in=>'csq.mig',out=>'csq.mig.1.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.mig.fa -g {PATH}/csq.mig.gff --allow mig');
 run_test(\&test_csq,$opts,in=>'csq.greedy.1',out=>'csq.greedy.1.1.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.greedy.1.fa -g {PATH}/csq.greedy.1.gff -pa');
 run_test(\&test_csq,$opts,in=>'csq.greedy.1',out=>'csq.greedy.1.2.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.greedy.1.fa -g {PATH}/csq.greedy.1.gff -pa -G1');

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.20">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2026-08-21 14:51 CEST</strong> and refers to bcftools git version <strong>1.24-9-g6eaa935+</strong>.</p>
+<p>This manual page was last updated <strong>2026-08-30 16:37 BST</strong> and refers to bcftools git version <strong>1.24-12-g9fb92d77+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1918,6 +1918,31 @@ shows how is the input GFF viewed by the program.</p>
 <p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
 <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>-F, --format</strong> <em>LIST</em></dt>
+<dd>
+<p>Additional fields to output apart from consequence, gene, transcript, biotype, strand, amino_acid_change, and dna_change.
+All coordinates are 1-based.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>cds_position</em></dt>
+<dd>
+<p>position in the coding sequence and CDS length</p>
+</dd>
+<dt class="hdlist1"><em>exon</em></dt>
+<dd>
+<p>exon number and the number of exons in the transcript</p>
+</dd>
+<dt class="hdlist1"><em>exon_position</em></dt>
+<dd>
+<p>position within the exon and exon length</p>
+</dd>
+<dt class="hdlist1"><em>all</em></dt>
+<dd>
+<p>all of the above</p>
+</dd>
+</dl>
+</div>
+</dd>
 <dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em></dt>
 <dd>
 <p>reference sequence in fasta format (required)</p>
@@ -2116,19 +2141,22 @@ one of "tbi" or "csi" depending on output file format.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>    # Two separate VCF records at positions 2:122106101 and 2:122106102
+<pre>    # Two separate VCF records at positions chr2:121348525 and chr2:121348526
     # change the same codon. This UV-induced C&gt;T dinucleotide mutation
-    # has been annotated fully at the position 2:122106101 with
+    # has been annotated fully at the position chr2:121348526 with
     #   - consequence type
     #   - gene name
     #   - ensembl transcript ID
     #   - coding strand (+ fwd, - rev)
     #   - amino acid position (in the coding strand orientation)
     #   - list of corresponding VCF variants
+    #   - position in the coding sequence and CDS length (printed with -F)
+    #   - exon index and the number of exons (printed with -F)
+    #   - position within the exon and the exon length (printed with -F)
     # The annotation at the second position gives the position of the full
     # annotation
-    BCSQ=missense|CLASP1|ENST00000545861|-|1174P&gt;1174L|122106101G&gt;A+122106102G&gt;A
-    BCSQ=@122106101
+    BCSQ=@121348526
+    BCSQ=missense|CLASP1|ENST00000696935|protein_coding|-|1488P&gt;1488L|121348525G&gt;A+121348526G&gt;A|4463+4462/4680|39+39/41|195/207+194/207
 
     # A frame-restoring combination of two frameshift insertions C&gt;CG and T&gt;TGG
     BCSQ=@46115084
@@ -5861,7 +5889,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-08-21 14:51:33 +0200
+Last updated 2026-08-30 16:37:36 +0100
 </div>
 </div>
 </body>
