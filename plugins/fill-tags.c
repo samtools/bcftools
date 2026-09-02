@@ -584,6 +584,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {0,0,0,0}
     };
     int c;
+    long len;
     char *tmp;
     while ((c = getopt_long(argc, argv, "?ht:dS:lf:",loptions,NULL)) >= 0)
     {
@@ -591,7 +592,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             case 'f': ref_fname = optarg; break;
             case  1 :
-                long len = strtol(optarg,&tmp,10);
+                len = strtol(optarg,&tmp,10);
                 if ( *tmp || len<3 || !(len&1) || len>REF_CACHE_SIZE )
                     error("The context length must be an odd integer between 3 and %d: --ctx-len %s\n", REF_CACHE_SIZE-1,optarg);
                 args->ctx_len = (int)len;
