@@ -468,7 +468,8 @@ typedef struct _args_t
     } warned;
 
     // additional output fields
-    char *format_str;
+    char *format_str,
+         *format_str_empty;
     uint32_t format;
 
     char *gencode_str;          // which genetic code table to use
@@ -902,6 +903,7 @@ void destroy_data(args_t *args)
     free(args->str2.s);
     free(args->unify_chr_names_err);
     free(args->format_str);
+    free(args->format_str_empty);
 }
 
 static inline vrec_t *rec2vrec(args_t *args, bcf1_t *rec)
@@ -2263,6 +2265,13 @@ void kput_vcsq(args_t *args, const vcsq_t *csq, kstring_t *str)
 
     if ( csq->vstr.l )
         kputs(csq->vstr.s, str);
+    else if ( args->format_str_empty )
+    {
+        // With -F, output all preceding standard fields so that the additional empty fields align with the header description.
+        kputs(csq->strand==STRAND_FWD ? "|+" : csq->strand==STRAND_REV ? "|-" : "|.", str);
+        kputs("||", str);    // amino_acid_change and dna_change
+        kputs(args->format_str_empty, str);
+    }
 }
 
 void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *stop, kstring_t *str)
@@ -4006,6 +4015,12 @@ static void parse_format(args_t *args, char *format)
     if ( args->format & FMT_EXON ) kputs("|exon", &str);
     if ( args->format & FMT_EXON_POS ) kputs("|exon_position", &str);
     args->format_str = str.s;
+
+    str.s = NULL, str.l = 0, str.m = 0;
+    if ( args->format & FMT_CDS_POS ) kputs("|", &str);
+    if ( args->format & FMT_EXON ) kputs("|", &str);
+    if ( args->format & FMT_EXON_POS ) kputs("|", &str);
+    args->format_str_empty = str.s;
 }
 
 static const char *usage(void)
