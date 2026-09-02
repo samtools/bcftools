@@ -35,6 +35,7 @@
 #include <htslib/vcf.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/kbitset.h>
+#include <htslib/faidx.h>
 #include "bcftools.h"
 #include "filter.h"
 
@@ -53,6 +54,10 @@
 #define SET_TYPE    (1<<12)
 #define SET_VAF     (1<<13)
 #define SET_VAF1    (1<<14)
+#define SET_CTX     (1<<15)
+#define SET_CPG     (1<<16)
+
+#define REF_CACHE_SIZE (1<<20)
 
 typedef struct _args_t args_t;
 typedef struct _ftf_t ftf_t;
@@ -99,6 +104,12 @@ struct _args_t
     int mhwe_probs;
     kstring_t str;
     kbitset_t *bset;
+
+    // for tags requiring reference sequence
+    faidx_t *fai;
+    char *ref_seq;
+    hts_pos_t ref_beg, ref_end, ref_len;
+    int ref_rid, ctx_len;
 };
 
 static args_t *args;
@@ -112,7 +123,7 @@ const char *usage(void)
 {
     return
         "\n"
-        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS\n"
+        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, CpG, CTX, ExcHet, HWE, MAF, NS\n"
         "       FORMAT tag VAF, custom INFO/TAG=func(FMT/TAG).\n"
         "       See examples below, run with -l for detailed description.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
@@ -120,10 +131,12 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -d, --drop-missing          do not count half-missing genotypes \"./1\" as hemizygous\n"
-        "   -l, --list-tags             list available tags with description\n"
-        "   -t, --tags LIST             list of output tags, \"all\" for all tags\n"
-        "   -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)\n"
+        "       --ctx-len INT           Used with the CTX tag, requires an odd number [3]\n"
+        "   -d, --drop-missing          Do not count half-missing genotypes \"./1\" as hemizygous\n"
+        "   -f, --fasta-ref FILE        For tags which require reference sequence (CpG, CTX)\n"
+        "   -l, --list-tags             List available tags with description\n"
+        "   -t, --tags LIST             List of output tags, \"all\" for all tags\n"
+        "   -S, --samples-file FILE     List of samples (first column) and comma-separated list of populations (second column)\n"
         "\n"
         "Example:\n"
         "   # Print a detailed list of available tags\n"
@@ -489,12 +502,12 @@ uint32_t parse_tags(args_t *args, const char *str)
     {
         if ( !strcasecmp(tags[i],"all") )
         {
-            flag |= ~(SET_END|SET_TYPE);
+            flag |= ~(SET_END|SET_TYPE|SET_CTX|SET_CPG);
             // include F_MISSING as part of 'all', which requires explicitly
             // initialising it as a filter expression not just setting a
             // bitfield flag.
             flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING");
-            args->warned = ~(SET_END|SET_TYPE);
+            args->warned = ~(SET_END|SET_TYPE|SET_CTX|SET_CPG);
             args->unpack |= BCF_UN_FMT;
         }
         else if ( !strcasecmp(tags[i],"AN") || !strcasecmp(tags[i],"INFO/AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
@@ -513,6 +526,8 @@ uint32_t parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"TYPE") || !strcasecmp(tags[i],"INFO/TYPE")  ) flag |= SET_TYPE;
         else if ( !strcasecmp(tags[i],"F_MISSING") || !strcasecmp(tags[i],"INFO/F_MISSING")  ) { flag |= parse_func(args,"F_MISSING:1=F_MISSING","F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"CTX") || !strcasecmp(tags[i],"INFO/CTX") ) flag |= SET_CTX;
+        else if ( !strcasecmp(tags[i],"CpG") || !strcasecmp(tags[i],"INFO/CpG") ) { flag |= SET_CPG; args->unpack |= BCF_UN_STR; }
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -533,6 +548,9 @@ void list_tags(void)
         "INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
         "INFO/AF        Number:A  Type:Float    ..  Allele frequency from FMT/GT or AC,AN if FMT/GT is not present\n"
         "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
+        "INFO/CpG       Number:1  Type:String   ..  CpG change relative to REF considering all ALTs:\n"
+        "                                               C=created, D=destroyed, B=both, N=CpG present and unchanged; requires --fasta-ref\n"
+        "INFO/CTX       Number:1  Type:String   ..  N-nt reference context centered at POS; requires --fasta-ref, see also --ctx-len\n"
         "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
         "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
         "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes, synonymous with 'F_MISSING=F_PASS(GT=\"mis\")'\n"
@@ -553,9 +571,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args = (args_t*) calloc(1,sizeof(args_t));
     args->in_hdr  = in;
     args->out_hdr = out;
-    char *samples_fname = NULL, *tags_str = "all";
+    args->ctx_len = 3;
+    char *samples_fname = NULL, *tags_str = "all", *ref_fname = NULL;
     static struct option loptions[] =
     {
+        {"fasta-ref",1,0,'f'},
+        {"ctx-len",1,0,1},
         {"list-tags",0,0,'l'},
         {"drop-missing",0,0,'d'},
         {"tags",1,0,'t'},
@@ -563,10 +584,18 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:dS:l",loptions,NULL)) >= 0)
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "?ht:dS:lf:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case 'f': ref_fname = optarg; break;
+            case  1 :
+                long len = strtol(optarg,&tmp,10);
+                if ( *tmp || len<3 || !(len&1) || len>REF_CACHE_SIZE )
+                    error("The context length must be an odd integer between 3 and %d: --ctx-len %s\n", REF_CACHE_SIZE-1,optarg);
+                args->ctx_len = (int)len;
+                break;
             case 'l': list_tags(); break;
             case 'd': args->drop_missing = 1; break;
             case 't': tags_str = optarg; break;
@@ -588,6 +617,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
     args->tags |= parse_tags(args,tags_str);
 
+    if ( args->tags & (SET_CTX|SET_CPG) )
+    {
+        if ( !ref_fname ) error("The CTX and CpG tags require --fasta-ref FILE\n");
+        args->fai = fai_load(ref_fname);
+        if ( !args->fai ) error("Could not load the reference FASTA: %s\n",ref_fname);
+        args->ref_rid = -1;
+    }
+
     if ( args->tags & SET_AN ) hdr_append(args, "##INFO=<ID=AN%s,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes%s%s\">");
     if ( args->tags & SET_AC ) hdr_append(args, "##INFO=<ID=AC%s,Number=A,Type=Integer,Description=\"Allele count in genotypes%s%s\">");
     if ( args->tags & SET_NS ) hdr_append(args, "##INFO=<ID=NS%s,Number=1,Type=Integer,Description=\"Number of samples with data%s%s\">");
@@ -602,6 +639,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
     if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\">");
     if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\">");
+    if ( args->tags & SET_CTX ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=CTX,Number=1,Type=String," "Description=\"%d-base reference context centered at POS\">", args->ctx_len);
+    if ( args->tags & SET_CPG ) bcf_hdr_append(args->out_hdr, "##INFO=<ID=CpG,Number=1,Type=String," "Description=\"CpG change relative to REF considering all ALTs: C=created, D=destroyed, B=both; N=CpG present and unchanged\">");
 
     int i, max_unpack_bit = 0;
     for (i=0; i<=3; i++)
@@ -1016,11 +1055,127 @@ static void process_vaf_vaf1(bcf1_t *rec)
     if ( args->tags & SET_VAF1 ) process_vaf(rec, SET_VAF1);
 }
 
+static void cache_ref(bcf1_t *rec, hts_pos_t beg, hts_pos_t end)
+{
+    const char *chr = bcf_seqname(args->in_hdr,rec);
+    if ( rec->rid != args->ref_rid )
+    {
+        args->ref_len = faidx_seq_len64(args->fai,chr);
+        if ( args->ref_len<1 ) error("Reference sequence not found or empty: %s\n",chr);
+        free(args->ref_seq);
+        args->ref_seq = NULL;
+        args->ref_rid = rec->rid;
+    }
+    if ( rec->pos<0 || rec->pos>=args->ref_len ) error("Position outside the reference sequence: %s:%"PRIhts_pos"\n", chr,rec->pos+1);
+    if ( beg<0 ) beg = 0;
+    if ( end>=args->ref_len ) end = args->ref_len - 1;
+    if ( args->ref_seq && beg>=args->ref_beg && end<=args->ref_end ) return;
+
+    hts_pos_t fetch_end;
+    if ( end-beg+1 > REF_CACHE_SIZE ) fetch_end = end;
+    else if ( args->ref_len-beg > REF_CACHE_SIZE ) fetch_end = beg + REF_CACHE_SIZE - 1;
+    else fetch_end = args->ref_len - 1;
+
+    hts_pos_t len = 0;
+    free(args->ref_seq);
+    args->ref_seq = faidx_fetch_seq64(args->fai,chr,beg,fetch_end,&len);
+    if ( !args->ref_seq || len!=fetch_end-beg+1 ) error("Could not fetch reference sequence " "%s:%"PRIhts_pos"-%"PRIhts_pos"\n", chr,beg+1,fetch_end+1);
+    args->ref_beg = beg;
+    args->ref_end = beg + len - 1;
+}
+static inline char cached_ref_base(hts_pos_t pos)
+{
+    if ( pos<0 || pos>=args->ref_len ) return 'N';
+    return toupper_c(args->ref_seq[pos-args->ref_beg]);
+}
+static inline int is_cpg(char a, char b)
+{
+    return a=='C' && b=='G';
+}
+#define CPG_CREATED   1
+#define CPG_DESTROYED 2
+static int cpg_change(bcf1_t *rec, int ial, char prv, char ref, char nxt)
+{
+    const char *vref = rec->d.allele[0];
+    const char *valt = rec->d.allele[ial];
+
+    // Only evaluate single-nucleotide alleles. Treat ALT=. as unchanged.
+    if ( !vref[0] || vref[1] || !valt[0] || valt[1] ) return -1;
+    if ( toupper_c(vref[0])!=ref ) return -1;
+
+    char alt = valt[0]=='.' ? ref : toupper_c(valt[0]);
+    if ( !strchr("ACGT",ref) || !strchr("ACGT",alt) ) return -1;
+
+    int ref_left  = is_cpg(prv,ref);
+    int ref_right = is_cpg(ref,nxt);
+    int alt_left  = is_cpg(prv,alt);
+    int alt_right = is_cpg(alt,nxt);
+
+    int change = 0;
+    if ( (ref_left && !alt_left) || (ref_right && !alt_right) ) change |= CPG_DESTROYED;
+    if ( (!ref_left && alt_left) || (!ref_right && alt_right) ) change |= CPG_CREATED;
+    return change;
+}
+static void process_context(bcf1_t *rec)
+{
+    if ( !(args->tags & (SET_CTX|SET_CPG)) ) return;
+
+    int half  = (args->tags & SET_CTX) ? args->ctx_len/2 : 0;
+    int flank = (args->tags & SET_CPG) && half<1 ? 1 : half;
+
+    cache_ref(rec,rec->pos-flank,rec->pos+flank);
+
+    if ( args->tags & SET_CTX )
+    {
+        int i;
+        args->str.l = 0;
+
+        for (i=0; i<args->ctx_len; i++) kputc(cached_ref_base(rec->pos-half+i),&args->str);
+        if ( bcf_update_info_string(args->out_hdr,rec, "CTX",args->str.s)!=0 )
+            error("Error occurred while updating INFO/CTX at " "%s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec), (int64_t)rec->pos+1);
+    }
+
+    if ( args->tags & SET_CPG )
+    {
+        int i, change = 0, valid;
+        char prv = cached_ref_base(rec->pos-1);
+        char ref = cached_ref_base(rec->pos);
+        char nxt = cached_ref_base(rec->pos+1);
+
+        valid = cpg_change(rec,0,prv,ref,nxt) >= 0; // calling with REF also validates REF and its agreement with FASTA
+        for (i=1; valid && i<rec->n_allele; i++)
+        {
+            int tmp = cpg_change(rec,i,prv,ref,nxt);
+            if ( tmp < 0 ) valid = 0;
+            else change |= tmp;
+        }
+
+        char value[2] = {0,0};
+        if ( valid )
+        {
+            if ( change == (CPG_CREATED|CPG_DESTROYED) ) value[0] = 'B';
+            else if ( change & CPG_CREATED ) value[0] = 'C';
+            else if ( change & CPG_DESTROYED ) value[0] = 'D';
+            else if ( is_cpg(prv,ref) || is_cpg(ref,nxt) ) value[0] = 'N';
+        }
+
+        int ret;
+        if ( value[0] )
+            ret = bcf_update_info_string(args->out_hdr,rec,"CpG",value);
+        else
+            ret = bcf_update_info(args->out_hdr,rec,"CpG", NULL,0,BCF_HT_STR);
+        if ( ret != 0 )
+            error("Error occurred while updating INFO/CpG at %s:%"PRIhts_pos"\n", bcf_seqname(args->in_hdr,rec),rec->pos+1);
+    }
+}
+
 bcf1_t *process(bcf1_t *rec)
 {
     int i,j;
 
     bcf_unpack(rec, args->unpack);
+    process_context(rec);
+
     for (i=0; i<args->npop; i++)
         for (j=0; j<args->pop[i].nftf; j++)
             args->pop[i].ftf[j].func(args, rec, &args->pop[i], &args->pop[i].ftf[j]);
@@ -1077,6 +1232,8 @@ void destroy(void)
     free(args->iarr);
     free(args->farr);
     free(args->hwe_probs);
+    if ( args->fai ) fai_destroy(args->fai);
+    free(args->ref_seq);
     free(args);
 }
 

@@ -17,6 +17,14 @@ Changes affecting specific commands:
       exon (exon index and the number of exons), and exon_position (position
       within the exon and the exon length)
 
+* bcftools +fill-tags
+
+    - Add two tags to annotate variant sequence context:
+
+        INFO/CTX .. k-nt reference context centered at POS
+        INFO/CpG .. CpG change relative to REF considering all ALTs;
+                        C=created, D=destroyed, B=both; N=CpG present and unchanged
+
 * bcftools index
 
     - Make `--nrecords` with non-standard file extensions (#2588)

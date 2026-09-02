@@ -711,6 +711,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'tag2tag.LPL.1',out=>'tag2tag.LPL.1.3.vcf',
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'query.add-variantkey.vcf',cmd=>'+add-variantkey',args=>'');
 run_test(\&test_vcf_plugin,$opts,in=>'query.variantkey',out=>'variantkey-hex.out',cmd=>'+variantkey-hex',args=>'test/');
 run_test(\&test_vcf_plugin,$opts,in=>'query.nucleotide',out=>'query.allele-length.tsv',cmd=>'+allele-length',args=>'');
+run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-context',out=>'fill-tags-context.out',cmd=>'+fill-tags --no-version',args=>'-- -f {PATH}/fill-tags-context.fa --ctx-len 5 -t CTX,CpG');
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags.MAC-MAF',out=>'fill-tags.MAC-MAF.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fill-tags.3.smpl -t 'MAC:1=MAC' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags.MAC-MAF',out=>'fill-tags.MAC-MAF.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fill-tags.3.smpl -t 'MAC:1=int(MAF*AN)' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'query.func.1',out=>'fill-tags.func.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FMT/AB:1=float(FMT/AD[*:0] / ssum(FMT/AD[*]))' | grep -v ^#]);
