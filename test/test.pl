@@ -460,6 +460,9 @@ run_test(\&test_vcf_view,$opts,in=>'view.filter.annovar',out=>'view.filter.annov
 run_test(\&test_vcf_view,$opts,in=>'view-a',out=>'view-a.1.out',args=>q[-H -a]);
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt');
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt.gz');
+run_test(\&test_cmd,$opts,out=>'view.progress.1.out',cmd=>"$$opts{bin}/bcftools view --progress=0 $$opts{path}/check.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
+run_test(\&test_cmd,$opts,out=>'view.progress.2.out',cmd=>"$$opts{bin}/bcftools view --progress $$opts{path}/check.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
+run_test(\&test_cmd,$opts,out=>'view.progress.1.out',cmd=>"$$opts{bin}/bcftools view --progress=abc $$opts{path}/check.vcf",expected_failure=>1);
 run_test(\&test_vcf_head,$opts,in=>'mpileup.2.vcf',in_nheaders=>22);
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.1.out',args=>'-s0');
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.2.out',args=>'-s1');
