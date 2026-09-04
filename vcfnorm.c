@@ -117,6 +117,7 @@ typedef struct
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, clevel;
     uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
+    progress_t *progress;
     abuf_t *abuf;
     abuf_opt_t atomize;
     int use_star_allele, ma_use_ref_allele;
@@ -2395,6 +2396,7 @@ static void destroy_data(args_t *args)
     if ( args->mrow_out ) bcf_destroy1(args->mrow_out);
     if ( args->fai ) fai_destroy(args->fai);
     if ( args->mseq ) free(args->seq);
+    free(args->progress);
 }
 
 // return 0 on success, -1 if line was skipped (due to ref mismatch)
@@ -2467,6 +2469,7 @@ static int split_and_normalize(args_t *args)
 
     bcf1_t *line = bcf_sr_get_line(args->files,0);
     args->ntotal++;
+    if ( args->progress ) progress_update(args->progress, bcf_seqname(args->hdr,line), line->pos+1);
 
     if ( args->filter )
     {
@@ -2603,6 +2606,7 @@ static void usage(void)
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
     fprintf(stderr, "    -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "        --progress[=INT]            Print the current position (CHR:POS) to stderr every INT seconds [60]\n");
     fprintf(stderr, "    -r, --regions REGION            Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE         Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -2679,6 +2683,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"rm-dup",required_argument,NULL,'d'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
+        {"progress",optional_argument,NULL,14},
         {"threads",required_argument,NULL,9},
         {"check-ref",required_argument,NULL,'c'},
         {"strict-filter",no_argument,NULL,'s'},
@@ -2806,6 +2811,7 @@ int main_vcfnorm(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
+            case 14 : args->progress = progress_init("norm", optarg); break;
             case  7 : args->force = 1; break;
             case  1 :
                 regions_overlap = parse_overlap_option(optarg);

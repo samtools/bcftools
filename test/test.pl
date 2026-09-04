@@ -378,6 +378,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.o
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.5.out',args=>q[-m - -i 'type="snp"']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
+run_test(\&test_cmd,$opts,out=>'norm.progress.1.out',cmd=>"$$opts{bin}/bcftools norm --progress=0 -m- $$opts{path}/norm.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.1.out',args=>q[-Hv ref]);
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.2.out',args=>q[-Hv snps]);
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.3.out',args=>q[-Hv mnps]);

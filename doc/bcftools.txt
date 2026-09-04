@@ -2802,6 +2802,13 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
+*--progress*[='INT']::
+    Periodically print the position (CHR:POS) of the record being processed to
+    standard error, to indicate how far the program has progressed. A line of the
+    form "`[progress] norm: 1:1234567`" is printed for the first record and then
+    about once every 'INT' seconds; with 'INT'=0 it is printed for every record.
+    Note that 'INT' must follow with no space, e.g. *--progress=10*. Default: 60.
+
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
