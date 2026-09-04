@@ -378,6 +378,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.4.o
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.merge',out=>'norm.split.merge.5.out',args=>q[-m - -i 'type="snp"']);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.1.out',args=>'-m +any');
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.4',out=>'norm.merge.4.2.out',args=>'-m +both');
+run_test(\&test_cmd,$opts,out=>'norm.progress.1.out',cmd=>"$$opts{bin}/bcftools norm --progress=0 -m- $$opts{path}/norm.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.1.out',args=>q[-Hv ref]);
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.2.out',args=>q[-Hv snps]);
 run_test(\&test_vcf_view,$opts,in=>'view.types',out=>'view.types.3.out',args=>q[-Hv mnps]);
@@ -460,6 +461,9 @@ run_test(\&test_vcf_view,$opts,in=>'view.filter.annovar',out=>'view.filter.annov
 run_test(\&test_vcf_view,$opts,in=>'view-a',out=>'view-a.1.out',args=>q[-H -a]);
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt');
 run_test(\&test_vcf_view,$opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt.gz');
+run_test(\&test_cmd,$opts,out=>'view.progress.1.out',cmd=>"$$opts{bin}/bcftools view --progress=0 $$opts{path}/check.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
+run_test(\&test_cmd,$opts,out=>'view.progress.2.out',cmd=>"$$opts{bin}/bcftools view --progress $$opts{path}/check.vcf 2>&1 >/dev/null | grep '^\\[progress\\]'");
+run_test(\&test_cmd,$opts,out=>'view.progress.1.out',cmd=>"$$opts{bin}/bcftools view --progress=abc $$opts{path}/check.vcf",expected_failure=>1);
 run_test(\&test_vcf_head,$opts,in=>'mpileup.2.vcf',in_nheaders=>22);
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.1.out',args=>'-s0');
 run_test(\&test_vcf_head2,$opts,in=>'mpileup.2',out=>'head.2.out',args=>'-s1');
@@ -1091,6 +1095,7 @@ run_test(\&test_mpileup,$opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-fil
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.1)],ref=>'annot-NMBZ.1.fa',out=>'mpileup/annot-NMBZ.1.1.out',args=>q[-a -AD,INFO/NMBZ -r chr19:69-99]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.2)],ref=>'annot-NMBZ.2.fa',out=>'mpileup/annot-NMBZ.2.1.out',args=>q[-a -AD,INFO/NMBZ -r chr6:75]);
 run_test(\&test_mpileup,$opts,in=>[qw(annot-NMBZ.3.1 annot-NMBZ.3.2)],ref=>'annot-NMBZ.3.fa',out=>'mpileup/annot-NMBZ.3.1.out',args=>q[-a -AD,INFO/NMBZ -r chr16:75]);
+run_test(\&test_cmd,$opts,out=>'mpileup/mpileup.progress.1.out',cmd=>"$$opts{bin}/bcftools mpileup --progress=0 -f $$opts{path}/mpileup/mpileup-SCR.fa $$opts{path}/mpileup/mpileup-SCR.bam 2>&1 >/dev/null | grep '^\\[progress\\]'");
 run_test(\&test_csq,$opts,in=>'csq.exons.1',out=>'csq.exons.1.1.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.exons.1.fa -g {PATH}/csq.exons.1.gff -F all');
 run_test(\&test_csq,$opts,in=>'csq.exons.1',out=>'csq.exons.1.2.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.exons.1.fa -g {PATH}/csq.exons.1.gff -F all -l');
 run_test(\&test_csq,$opts,in=>'csq.mig',out=>'csq.mig.1.out',pipe=>'grep -v ^#',cmd=>'-f {PATH}/csq.mig.fa -g {PATH}/csq.mig.gff --allow mig');

@@ -1,6 +1,12 @@
 ## Release a.b
 
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* New option `--progress[=INT]` in `mpileup`, `norm` and `view` to periodically
+  print the current position (CHR:POS) to stderr, indicating how far a long-running
+  command has progressed (#2559)
+
 Changes affecting specific commands:
 
 * bcftools call

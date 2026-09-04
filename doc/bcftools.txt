@@ -2509,6 +2509,14 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
+*--progress*[='INT']::
+    Periodically print the current position (CHR:POS) of the pileup to standard
+    error, to indicate how far the program has progressed. A line of the form
+    "`[progress] mpileup: 1:1234567`" is printed for the first position and then
+    about once every 'INT' seconds; with 'INT'=0 it is printed for every position.
+    Positions outside the requested regions or targets may also be reported. Note
+    that 'INT' must follow with no space, e.g. *--progress=10*. Default: 60.
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
@@ -2801,6 +2809,13 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
+
+*--progress*[='INT']::
+    Periodically print the position (CHR:POS) of the record being processed to
+    standard error, to indicate how far the program has progressed. A line of the
+    form "`[progress] norm: 1:1234567`" is printed for the first record and then
+    about once every 'INT' seconds; with 'INT'=0 it is printed for every record.
+    Note that 'INT' must follow with no space, e.g. *--progress=10*. Default: 60.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -3705,6 +3720,13 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 *-o, --output* 'FILE':
     output file name. If not present, the default is to print to standard output (stdout).
+
+*--progress*[='INT']::
+    Periodically print the position (CHR:POS) of the record being processed to
+    standard error, to indicate how far the program has progressed. A line of the
+    form "`[progress] view: 1:1234567`" is printed for the first record and then
+    about once every 'INT' seconds; with 'INT'=0 it is printed for every record.
+    Note that 'INT' must follow with no space, e.g. *--progress=10*. Default: 60.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
