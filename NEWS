@@ -3,6 +3,10 @@
 
 Changes affecting specific commands:
 
+* bcftools csq
+
+    - Fix a segfault caused by incorrect handling of symbolic ALT alleles
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)

@@ -146,6 +146,7 @@
 #include <htslib/kseq.h>
 #include <htslib/faidx.h>
 #include <htslib/bgzf.h>
+#include <limits.h>
 #include <errno.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -950,7 +951,10 @@ typedef struct
 {
     gf_tscript_t *tr;
     struct {
-        int32_t pos, rlen, alen, ial;
+        hts_pos_t pos;
+        hts_pos_t rec_len;      // rec->rlen: interval represented by the record
+        int rlen, alen;         // working lengths; literal for sequence alleles, virtual for symbolic
+        int ial;
         char *ref, *alt;
         bcf1_t *rec;
     } vcf;
@@ -969,14 +973,21 @@ typedef struct
     kstring_t kref, kalt;       // trimmed alleles, set only with SPLICE_OLAP
 }
 splice_t;
-void splice_init(splice_t *splice, bcf1_t *rec)
+
+static inline int vcf_allele_len(const char *allele)
 {
-    memset(splice,0,sizeof(*splice));
-    splice->vcf.rec  = rec;
-    splice->vcf.pos  = rec->pos;
-    splice->vcf.rlen = rec->rlen;
-    splice->vcf.ref  = rec->d.allele[0];
-    splice->csq      = 0;
+    size_t len = strlen(allele);
+    if ( len > INT_MAX ) error("Error: excessively long VCF allele\n");
+    return (int) len;
+}
+static void splice_init(splice_t *splice, bcf1_t *rec)
+{
+    memset(splice, 0, sizeof(*splice));
+    splice->vcf.rec     = rec;
+    splice->vcf.pos     = rec->pos;
+    splice->vcf.rec_len = rec->rlen;
+    splice->vcf.ref     = rec->d.allele[0];
+    splice->vcf.rlen    = vcf_allele_len(splice->vcf.ref);
 }
 static inline void splice_build_hap(splice_t *splice, uint32_t beg, int len)
 {
@@ -1329,7 +1340,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         {
             if ( !small_ref_padding_warned )
             {
-                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%"PRIhts_pos" due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
                 small_ref_padding_warned = 1;
             }
             return 0;
@@ -1358,7 +1369,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         {
             if ( !small_ref_padding_warned )
             {
-                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%"PRIhts_pos" due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
                 small_ref_padding_warned = 1;
             }
             return 0;
@@ -1380,7 +1391,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
 
 static inline int splice_csq_del(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
-    if ( splice->check_start )
+    if ( splice->check_start && splice->set_refalt )
     {
         // check for synonymous start
         //      test/csq/ENST00000375992/incorrect-synon-del-not-start-lost.txt
@@ -1648,9 +1659,35 @@ static inline int splice_csq_complex(args_t *args, splice_t *splice, uint32_t ex
     int ret = splice_csq_mnp(args, splice, ex_beg, ex_end);
     return ret;
 }
+static inline int splice_csq_symbolic(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
+{
+    assert( splice->vcf.alt[0]=='<' );
+    assert( !splice->set_refalt );
+
+    // Use virtual sequence lengths to reuse the coordinate-only splice logic.
+    // Symbolic alleles are padded by one REF base.
+    splice->tbeg = 1;
+    splice->tend = 0;
+    if ( splice->csq & CSQ_ELONGATION )
+    {
+        splice->vcf.rlen = 1;
+        splice->vcf.alen = 2;
+        return splice_csq_ins(args, splice, ex_beg, ex_end);
+    }
+    if ( splice->csq & CSQ_TRUNCATION )
+    {
+        if ( splice->vcf.rec_len > INT_MAX ) error("Error: symbolic deletion is too long\n");
+        splice->vcf.rlen = (int) splice->vcf.rec_len;
+        splice->vcf.alen = 1;
+        return splice_csq_del(args, splice, ex_beg, ex_end);
+    }
+    return SPLICE_OUTSIDE;
+}
 static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
-    splice->vcf.alen = strlen(splice->vcf.alt);
+    if ( splice->vcf.alt[0]=='<' ) return splice_csq_symbolic(args, splice, ex_beg, ex_end);
+
+    splice->vcf.alen = vcf_allele_len(splice->vcf.alt);
 
     int rlen1 = splice->vcf.rlen - 1, alen1 = splice->vcf.alen - 1, i = 0;
     splice->tbeg = 0, splice->tend = 0;
@@ -1672,7 +1709,6 @@ static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, ui
 
     int rtrim = splice->vcf.rlen - splice->tbeg - splice->tend;
     int atrim = splice->vcf.alen - splice->tbeg - splice->tend;
-    if ( splice->vcf.alt[0]=='<' ) rtrim = atrim = 0;
 
     // The mnp, ins and del code was split into near-identical functions for clarity and debugging;
     // possible todo: generalize once stable
@@ -2929,17 +2965,19 @@ void vbuf_flush(args_t *args, uint32_t pos)
     args->ncsq_buf = 0;
 }
 
-// returns 0 on success, -1 if sequence is not present in the fasta file (eg chrM)
+// Returns 0 on success, -1 if sequence is not present in the fasta file (eg chrM).
+// The sequence will be padded with N_REF_PAD bases either side. If out of bounds,
+// N's will be filled instead.
 int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
 {
-    int i, len;
-    int pad_beg = tr->beg >= N_REF_PAD ? N_REF_PAD : tr->beg;
+    hts_pos_t len,
+        fa_beg = tr->beg <= N_REF_PAD ? 0 : tr->beg - N_REF_PAD,
+        fa_end = tr->end + N_REF_PAD;
 
-    // if forced to repeatedly faidx-fetch a non-existent chromosome, turn off hts verbosity, unless
-    // explicitly asked not to
+    // if forced to repeatedly faidx-fetch a non-existent chromosome, turn off hts verbosity, unless explicitly asked not to
     int verbose = hts_verbose;
     if ( args->warned.faidx_fetch_failed && args->verbosity < 2 ) hts_verbose = 0;
-    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq(args->fai, chr, tr->beg - pad_beg, tr->end + N_REF_PAD, &len);
+    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq64(args->fai, chr, fa_beg, fa_end, &len);
     hts_verbose = verbose;
     if ( !TSCRIPT_AUX(tr)->ref )
     {
@@ -2956,15 +2994,18 @@ int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
         return -1;
     }
 
-    int pad_end = len - (tr->end - tr->beg + 1 + pad_beg);
-    if ( pad_beg + pad_end != 2*N_REF_PAD )
+    int exp_len = (int)(fa_end - fa_beg + 1);
+    int pad_len = tr->beg < N_REF_PAD ? N_REF_PAD - tr->beg : 0;
+    if ( len != exp_len || pad_len )
     {
-        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD + 1);
-        for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
+        char *ref = (char*) malloc(exp_len+pad_len+1);
+        int i;
+        for (i=0; i<pad_len; i++) ref[i] = 'N';
         memcpy(ref+i, TSCRIPT_AUX(tr)->ref, len);
-        len += i;
-        for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
-        ref[i+len] = 0;
+        i += len;
+        ref[i] = 0;
+        while ( i<exp_len+pad_len ) ref[i++] = 'N';
+        ref[i] = 0;
         free(TSCRIPT_AUX(tr)->ref);
         TSCRIPT_AUX(tr)->ref = ref;
     }
@@ -2976,30 +3017,36 @@ static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
 {
     int vbeg = 0;
     int rbeg = rec->pos - tr->beg + N_REF_PAD;
-    if ( rbeg < 0 ) { vbeg += abs(rbeg); rbeg = 0; }
+    if ( rbeg < 0 ) { vbeg = -rbeg; rbeg = 0; }
+
+    int vlen = vcf_allele_len(rec->d.allele[0]);
+    int rlen = tr->end - tr->beg + 1 + 2*N_REF_PAD;
+    if ( vbeg >= vlen || rbeg >= rlen ) return 0;   // no REF bases overlap the cached transcript sequence
+
+    int ncmp = vlen - vbeg;
+    if ( ncmp > rlen - rbeg ) ncmp = rlen - rbeg;
     char *ref = TSCRIPT_AUX(tr)->ref + rbeg;
     char *vcf = rec->d.allele[0] + vbeg;
-    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) && ref - TSCRIPT_AUX(tr)->ref < tr->end - tr->beg + 2*N_REF_PAD );
-    int i = 0;
-    while ( ref[i] && vcf[i] )
+
+    int i;
+    for (i=0; i<ncmp; i++)
     {
         if ( ref[i]!=vcf[i] && toupper_c(ref[i])!=toupper_c(vcf[i]) )
         {
             if ( !args->force )
                 error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
-                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+i+1,ref[i],vcf[i]);
 
             else if ( args->verbosity && (!args->warned.ref_allele_mismatch || args->verbosity > 1) )
             {
                 fprintf(stderr,"Warning: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
-                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+i+1,ref[i],vcf[i]);
                 if ( args->verbosity < 2 )
                     fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
             }
             args->warned.ref_allele_mismatch++;
             return -1;
         }
-        i++;
     }
     return 0;
 }
@@ -3011,7 +3058,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     // structures to fake the normal test_cds machinery
     hap_node_t root, node;
@@ -3223,7 +3270,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
     while ( regitr_overlap(args->itr) )
     {
         gf_cds_t *cds = regitr_payload(args->itr,gf_cds_t*);
@@ -3509,7 +3556,7 @@ int test_utr(args_t *args, bcf1_t *rec)
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_utr,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_utr,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3549,7 +3596,7 @@ int test_splice(args_t *args, bcf1_t *rec)
 {
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
-    if ( !regidx_overlap(args->idx_exon,chr_gff,rec->pos,rec->pos + rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_exon,chr_gff,rec->pos,rec->pos + vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3587,7 +3634,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
 {
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
-    if ( !regidx_overlap(args->idx_tscript,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_tscript,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3628,19 +3675,25 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
     static int warned = 0;
     if ( args->verbosity && (!warned && args->verbosity > 0) )
     {
-        fprintf(stderr,"Warning: The support for symbolic ALT insertions is experimental.\n");
+        fprintf(stderr,"Warning: The support for symbolic ALT alleles is experimental.\n");
         warned = 1;
     }
 
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
 
-    // only insertions atm
-    int beg = rec->pos + 1;
-    int end = beg;
+    // The experimental symbolic logic assumes the standard single padding base.
+    if ( vcf_allele_len(rec->d.allele[0]) != 1 ) return;
+
+    hts_pos_t beg = rec->pos + 1, end = beg;
     int csq_class;
     if ( !strncasecmp("<INS",rec->d.allele[1],4) ) csq_class = CSQ_ELONGATION;
-    else if ( !strncasecmp("<DEL",rec->d.allele[1],4) ) csq_class = CSQ_TRUNCATION;
+    else if ( !strncasecmp("<DEL",rec->d.allele[1],4) )
+    {
+        if ( rec->rlen <= 1 ) return;
+        csq_class = CSQ_TRUNCATION;
+        end = rec->pos + rec->rlen - 1;
+    }
     else return;
 
     int hit = 0;
@@ -3829,7 +3882,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     args->rid = rec->rid;
     vbuf_t *vbuf = vbuf_push(args, rec_ptr);
 
-    if ( rec->d.allele[1][0]!='<' )
+    if ( rec->n_allele!=2 || rec->d.allele[1][0]!='<' )
     {
         int hit = args->local_csq ? test_cds_local(args, rec) : test_cds(args, rec, vbuf);
         hit += test_utr(args, rec);

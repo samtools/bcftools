@@ -22,7 +22,7 @@ sub error
 {
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg; }
-    print 
+    print
         "Usage: make-csq-test [OPTIONS]\n",
         "Options:\n",
         "   -f, --fasta-ref <file>          \n",
@@ -134,7 +134,7 @@ sub create_vcf
 
     my $fname = "$$opts{out}.vcf";
     open(my $out,'>',"$fname") or error("$fname: $!");
-    open(my $in,'<',$$opts{vcf}) or error("$$opts{vcf}: $!");
+    open(my $in,"zless $$opts{vcf}|") or error("zless $$opts{vcf}: $!");
     print $out qq[##fileformat=VCFv4.2\n];
     print $out qq[##contig=<ID=$chr,length=249250621>\n];
     print $out qq[##INFO=<ID=type,Number=.,Type=String,Description="">\n];
