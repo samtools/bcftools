@@ -7,6 +7,10 @@ Changes affecting specific commands:
     - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
       are split across multiple records.
 
+* bcftools csq
+
+    - Fix a segfault caused by incorrect handling of symbolic ALT alleles
+
 * bcftools norm
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
