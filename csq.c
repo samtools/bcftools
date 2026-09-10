@@ -717,7 +717,7 @@ void init_chr_names(args_t *args)
 
     int nseq;
     const char **vcf = bcf_hdr_seqnames(args->hdr, &nseq);
-    if ( !vcf ) return;
+    if ( !vcf || !nseq ) { free(vcf); return; }
     const char *seq_vcf = vcf[0];
     const char *seq_gff = gff_iseq(args->gff,0);
     const char *seq_fa  = faidx_iseq(args->fai,0);
