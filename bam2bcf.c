@@ -816,7 +816,6 @@ double calc_mwu_bias(int *a, int *b, int n, int left)
 // This is a more robust score to filter on.
 double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
     int i;
-    int64_t t;
 
     // Optimisation
     for (i = 0; i < n; i++)
@@ -825,16 +824,20 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
     int b_empty = (i == n);
 
     // Count equal (e), less-than (l) and greater-than (g) permutations.
-    int e = 0, l = 0, na = 0, nb = 0;
+    // 64-bit accumulators: the tie adjustment is cubic in the number of
+    // reads sharing a bin and the products can exceed INT_MAX at a single
+    // deep or multi-sample site (p*p*p > INT_MAX once p >= 1291).
+    int64_t e = 0, l = 0, na = 0, nb = 0, t = 0;
     if (b_empty) {
-        for (t = 0, i = n-1; i >= 0; i--) {
-            na += a[i];
-            t += (a[i]*a[i]-1)*a[i];  // adjustment score for ties
+        for (i = n-1; i >= 0; i--) {
+            int64_t p = a[i];
+            na += p;
+            t += (p*p-1)*p;  // adjustment score for ties
         }
     } else {
-        for (t = 0, i = n-1; i >= 0; i--) {
+        for (i = n-1; i >= 0; i--) {
             // Combinations of a[i] and b[j] for i==j
-            e += a[i]*b[i];
+            e += (int64_t)a[i]*b[i];
 
             // nb is running total of b[i+1]..b[n-1].
             // Therefore a[i]*nb is the number of combinations of a[i] and b[j]
@@ -843,7 +846,7 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
 
             na += a[i];
             nb += b[i];
-            int p = a[i]+b[i];
+            int64_t p = a[i]+b[i];
             t += (p*p-1)*p;  // adjustment score for ties
         }
     }

@@ -38,6 +38,13 @@ Changes affecting specific commands:
 
     - Make `--nrecords` with non-standard file extensions (#2588)
 
+* bcftools mpileup
+
+    - Fix INFO/MQBZ, BQBZ, RPBZ, SCBZ, MQSBZ and NMBZ at sites where more than 1290
+      reads share one quality or position bin, reachable at a single deep site or across
+      the samples of a multi-sample call. The Mann-Whitney U tie correction was
+      accumulated in 32-bit int and overflowed, which shrank the Z scores towards zero.
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
