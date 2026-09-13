@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <math.h>
+#include <sys/time.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -830,9 +831,22 @@ int main_sort(int argc, char *argv[])
     }
     else args->fname = argv[optind];
 
+    struct timeval t0, t1;
+
     init(args);
+
+    gettimeofday(&t0, NULL);
     sort_blocks(args);
+    gettimeofday(&t1, NULL);
+    fprintf(stderr,"Phase 1 (sort and merge to temporary files): %f seconds\n",
+            ((t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec)) / 1e6);
+
+    gettimeofday(&t0, NULL);
     merge_to_output(args);
+    gettimeofday(&t1, NULL);
+    fprintf(stderr,"Phase 2 (merge temporary files to output): %f seconds\n",
+            ((t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec)) / 1e6);
+
     destroy(args);
 
     return 0;
