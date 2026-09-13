@@ -3588,6 +3588,9 @@ Transition probabilities:
     Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
     then these are replaced with a string that makes the directory name unique.
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-v, --verbosity* 'INT'::
     see *<<common_options,Common Options>>*
 

@@ -44,6 +44,7 @@
 #include <htslib/hts_os.h>
 #include <htslib/hts_defs.h>
 #include <htslib/bgzf.h>
+#include <htslib/thread_pool.h>
 #include "kheap.h"
 #include "bcftools.h"
 
@@ -85,6 +86,8 @@ typedef struct _args_t
     blk_t blk[MAX_TMP_FILES];
     uint32_t tmp_layers[MERGE_LAYERS];
     int write_index;
+    int n_threads;
+    htsThreadPool *tpool;
 }
 args_t;
 
@@ -682,6 +685,15 @@ void merge_to_output(args_t *args)
     htsFile *out = hts_open(output_fname, wmode);
     if (!out) clean_files_and_throw(args, "[%s] Error: cannot open %s\n", __func__, output_fname);
 
+    if ( args->n_threads > 0 )
+    {
+        args->tpool = (htsThreadPool*) calloc(1, sizeof(htsThreadPool));
+        if ( !args->tpool ) clean_files_and_throw(args, "Failed to allocate memory\n");
+        if ( !(args->tpool->pool = hts_tpool_init(args->n_threads)) )
+            clean_files_and_throw(args, "Failed to initialize %d threads\n", args->n_threads);
+        hts_set_opt(out, HTS_OPT_THREAD_POOL, args->tpool);
+    }
+
     fprintf(stderr,"Merging %zd temporary files\n", args->nblk);
     merge_blocks(args, out, output_fname, args->write_index, 0);
     fprintf(stderr,"Done\n");
@@ -708,6 +720,7 @@ static void usage(args_t *args)
 #else
     fprintf(stderr, "    -T, --temp-dir DIR             Temporary files [/tmp/bcftools.XXXXXX]\n");
 #endif
+    fprintf(stderr, "        --threads INT              Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "    -v, --verbosity INT            Verbosity level\n");
     fprintf(stderr, "    -W, --write-index[=FMT]        Automatically index the output files [off]\n");
     fprintf(stderr, "\n");
@@ -761,6 +774,11 @@ static void destroy(args_t *args)
     bcf_hdr_destroy(args->hdr);
     free(args->mem_block);
     free(args->tmp_dir);
+    if ( args->tpool )
+    {
+        hts_tpool_destroy(args->tpool->pool);
+        free(args->tpool);
+    }
     free(args);
 }
 
@@ -783,6 +801,7 @@ int main_sort(int argc, char *argv[])
         {"help",no_argument,NULL,'h'},
         {"write-index",optional_argument,NULL,'W'},
         {"verbosity",required_argument,NULL,'v'},
+        {"threads",required_argument,NULL,9},
         {0,0,0,0}
     };
     char *tmp;
@@ -790,6 +809,7 @@ int main_sort(int argc, char *argv[])
     {
         switch (c)
         {
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'v':
                 if ( apply_verbosity(optarg) < 0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 break;
