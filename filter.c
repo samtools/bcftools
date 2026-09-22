@@ -2991,7 +2991,20 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
             return;
         }
         if ( !regex )
-            rtok->pass_site = _match_vector_strings(atok->str_value.s, atok->str_value.l, btok->str_value.s, btok->str_value.l, logic, missing_logic);
+        {
+            // When either operand is an external value (set via filter_test_ext),
+            // compare as literal strings rather than splitting on commas. External
+            // values come from annotation file columns and may contain commas that
+            // are part of the value, not VCF multi-value separators. (see gh #2506)
+            if ( atok->iext || btok->iext )
+            {
+                int match = atok->str_value.l==btok->str_value.l && !strncmp(atok->str_value.s,btok->str_value.s,atok->str_value.l) ? 1 : 0;
+                if ( logic==TOK_NE ) match = match ? 0 : 1;
+                rtok->pass_site = match;
+            }
+            else
+                rtok->pass_site = _match_vector_strings(atok->str_value.s, atok->str_value.l, btok->str_value.s, btok->str_value.l, logic, missing_logic);
+        }
         else
         {
             token_t *tok = atok->regex ? btok : atok;
@@ -3041,6 +3054,14 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         int match;
         if ( regex )
             match = _regex_vector_strings(regex, xtok->str_value.s + i*xtok->nval1, xtok->nval1, logic, missing_logic);
+        else if ( atok->iext || btok->iext )
+        {
+            char *xstr = xtok->str_value.s + i*xtok->nval1;
+            size_t xlen = 0;
+            while ( xlen < (size_t)xtok->nval1 && xstr[xlen] ) xlen++;
+            match = xlen==ytok->str_value.l && !strncmp(xstr,ytok->str_value.s,xlen) ? 1 : 0;
+            if ( logic==TOK_NE ) match = match ? 0 : 1;
+        }
         else
             match = _match_vector_strings(xtok->str_value.s + i*xtok->nval1, xtok->nval1, ytok->str_value.s, ytok->str_value.l, logic, missing_logic);
         if ( match ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; }
