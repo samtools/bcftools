@@ -1559,18 +1559,21 @@ int bcf_edlib_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     }
                 }
 
-                int qbeg, qpos, qend, tbeg, tend, kk;
+                int qbeg, qpos, qend, tbeg, tend;
                 uint8_t *seq = bam_get_seq(p->b);
-                uint32_t *cigar = bam_get_cigar(p->b);
                 if (p->b->core.flag & BAM_FUNMAP) continue;
 
                 // FIXME: the following loop should be better moved outside;
                 // nonetheless, realignment should be much slower anyway.
-                for (kk = 0; kk < p->b->core.n_cigar; ++kk)
-                    if ((cigar[kk]&BAM_CIGAR_MASK) == BAM_CREF_SKIP)
-                        break;
-                if (kk < p->b->core.n_cigar)
-                    continue;
+                if (!bca->ref_skip_reads) {
+                    uint32_t *cigar = bam_get_cigar(p->b);
+                    int kk;
+                    for (kk = 0; kk < p->b->core.n_cigar; ++kk)
+                        if ((cigar[kk]&BAM_CIGAR_MASK) == BAM_CREF_SKIP)
+                            break;
+                    if (kk < p->b->core.n_cigar)
+                        continue;
+                }
 
                 // determine the start and end of sequences for alignment
                 int left2 = left, right2 = right;
