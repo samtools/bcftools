@@ -49,6 +49,10 @@ Changes affecting specific commands:
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
 
+* bcftools sort
+
+    - Add --threads and, in --verbose 4 mode or higher, print elapsed time
+
 
 
 ## Release 1.24 (9th July 2026)
