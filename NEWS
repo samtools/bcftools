@@ -26,6 +26,15 @@ Changes affecting specific commands:
     - Fix a segfault caused by incorrect handling of symbolic ALT alleles.
       Support symbolic alleles at multiallelic sites.
 
+* bcftools consensus
+
+    - Fix -M masking of symbolic deletions and mixed multiallelic sites,
+      including out-of-bounds accesses with overlapping variants and at
+      FASTA region boundaries.
+
+    - Fix REF span handling when applying sequence alleles at sites where
+      INFO/END describes a longer symbolic allele.
+
 * bcftools +fill-tags
 
     - Add two tags to annotate variant sequence context:
