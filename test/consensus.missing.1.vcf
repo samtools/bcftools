@@ -1,0 +1,42 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##ALT=<ID=DEL,Description="Deletion">
+##ALT=<ID=DUP,Description="Duplication">
+##ALT=<ID=NON_REF,Description="Any possible alternative allele">
+##contig=<ID=4.1,length=2500784>
+##contig=<ID=5.1,length=2500784>
+##contig=<ID=6.1,length=2500784>
+##contig=<ID=7.1,length=2500784>
+##contig=<ID=8.1,length=2500784>
+##contig=<ID=9.1,length=2500784>
+##contig=<ID=10.1,length=2500784>
+##contig=<ID=11.1,length=2500784>
+##contig=<ID=12.1,length=2500784>
+##contig=<ID=13.1,length=2500784>
+##contig=<ID=14.1,length=2500784>
+##contig=<ID=15.1,length=2500784>
+##contig=<ID=16.1,length=2500784>
+##contig=<ID=17.1,length=2500784>
+##contig=<ID=18.1,length=2500784>
+##contig=<ID=19.1,length=2500784>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	foo
+4.1	1281020	.	GAGTTGAGAATGGAAAGC	G	.	.	.	GT:DP	./.:.
+5.1	1281020	.	G	<DEL>	.	.	END=1281037	GT:DP	./.:.
+6.1	1281020	.	G	<DEL>,A	.	.	END=1281037	GT:DP	./.:.
+7.1	1281020	.	G	A,<DEL>	.	.	END=1281037	GT:DP	./.:.
+8.1	1281020	.	G	<DUP>,<DEL>	.	.	END=1281037	GT:DP	./.:.
+9.1	1281020	.	GAGTTGAGAATGGAAAGC	G,AAGTTGAGAATGGAAAGC	.	.	.	GT:DP	./.:.
+10.1	1280938	.	A	<DEL>	.	.	END=1280944	GT:DP	./.:.
+11.1	1281036	.	G	<DEL>	.	.	END=1281045	GT:DP	./.:.
+12.1	1280938	.	A	<DEL>	.	.	END=1281045	GT:DP	./.:.
+13.1	1280938	.	A	<NON_REF>	.	.	END=1280944	GT:DP	./.:.
+14.1	1281036	.	G	<NON_REF>	.	.	END=1281045	GT:DP	./.:.
+15.1	1281020	.	G	C	.	.	.	GT:DP	1/1:.
+15.1	1281020	.	G	<DEL>	.	.	END=1281037	GT:DP	./.:.
+16.1	1280941	.	GAGTTTTTTT	G	.	.	.	GT:DP	1/1:.
+16.1	1280942	.	A	<DEL>	.	.	END=1280948	GT:DP	./.:.
+17.1	1280940	.	AG	CT	.	.	.	GT:DP	./.:.
+18.1	1280938	.	AAAGAGT	A	.	.	.	GT:DP	./.:.
+19.1	1281036	.	GCATAAAAAA	G	.	.	.	GT:DP	./.:.

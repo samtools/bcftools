@@ -994,6 +994,12 @@ run_test(\&test_vcf_convert_gvcf,$opts,in=>'convert.gvcf',out=>'convert.gvcf.out
 run_test(\&test_vcf_convert_gvcf,$opts,in=>'convert.gvcf.2',out=>'convert.gvcf.2.out',fa=>'gvcf.fa',args=>'--gvcf2vcf');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.23andme',out=>'convert.23andme.vcf',args=>'-c ID,CHROM,POS,AA -s SAMPLE1',fai=>'23andme');
 run_test(\&test_vcf_convert_tsv2vcf,$opts,in=>'convert.tsv',out=>'convert.tsv.vcf',args=>'-c -,CHROM,POS,REF,ALT',fai=>'23andme');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.1.out',fa=>'consensus.missing.1.fa',args=>'-s foo');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.1.out',fa=>'consensus.missing.1.fa',args=>'-s foo -H 1');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.2.out',fa=>'consensus.missing.1.fa',args=>'-s foo --mark-del -');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.3.out',fa=>'consensus.missing.1.fa',args=>'-s foo -M .');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.3.out',fa=>'consensus.missing.1.fa',args=>'-s foo -M . -H 1');
+run_test(\&test_vcf_consensus,$opts,in=>'consensus.missing.1',out=>'consensus.missing.1.4.out',fa=>'consensus.missing.1.fa',args=>qq[-s - --mark-del - -e 'ALT~"<DUP"']);
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.gvcf-missing.1',out=>'consensus.gvcf-missing.1.out',fa=>'consensus.gvcf-missing.fa',args=>'--missing N');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.1.out',fa=>'consensus.overlaps.2.fa',args=>'-s A');
 run_test(\&test_vcf_consensus,$opts,in=>'consensus.overlaps.1',out=>'consensus.overlaps.1.1.out',fa=>'consensus.overlaps.1.fa',args=>'-s A');
