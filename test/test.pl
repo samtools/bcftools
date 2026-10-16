@@ -312,6 +312,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.sort',out=>'norm.sort.2.out',args=>'-m 
 run_test(\&test_vcf_norm,$opts,in=>'norm.join-missing-ploidy',out=>'norm.join-missing-ploidy.1.out',args=>'-m +both');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.5',out=>'norm.split.5.1.out',args=>'-m - --multi-overlaps .');
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic.3',out=>'norm.symbolic.3.1.out',fai=>'norm.symbolic.3',args=>'');
+run_test(\&test_vcf_norm,$opts,in=>'norm.realign-indel',out=>'norm.realign-indel.1.out',fai=>'norm.realign-indel',args=>'');
 run_test(\&test_vcf_norm,$opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.1.out',args=>'-m- -a');
