@@ -697,10 +697,7 @@ static int realign(args_t *args, bcf1_t *line)
             // TODO: there should be check for symbolic allele length. If too big, perhaps should not attempt realignment
             int32_t sv_len = 0;
             if ( !strncmp("<DEL",line->d.allele[i],4) ) sv_len = -line->rlen;
-            else if ( !strncmp("<DUP",line->d.allele[i],4) )
-            {
-                if ( bcf_get_info_int32(args->hdr,line,"SVLEN",&args->int32_arr,&args->nint32_arr)==1 ) sv_len = args->int32_arr[0];
-            }
+            else if ( !strncmp("<DUP",line->d.allele[i],4) ) sv_len = line->rlen - 1;   // like <DEL>, htslib sets rlen from INFO/END or INFO/SVLEN
             if ( !sv_len ) return ERR_SYMBOLIC;
 
             als[i].l = 0;
