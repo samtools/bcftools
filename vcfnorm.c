@@ -680,15 +680,21 @@ static int realign(args_t *args, bcf1_t *line)
         }
         return ERR_OK;
     }
-    if ( bcf_get_variant_types(line)==VCF_BND ) return ERR_SYMBOLIC;   // breakend, not an error
 
-    // Skip realignment of the record if <DUP> is mixed with more alleles - the realignment in the current
-    // form is not able to handle it
-    if ( line->n_allele > 2 && bcf_has_variant_types(line,VCF_OTHER,bcf_match_overlap) )
+    // Skip records whose alleles cannot safely be realigned together
+    // Note: at the time of writing this, single breakends (.A and A.) are not recognized by htslib,
+    // relying on this being fixed soon: https://github.com/samtools/htslib/issues/2108
+    if ( bcf_has_variant_types(line,VCF_BND,bcf_match_overlap)>0 ) return ERR_SYMBOLIC;
+    if ( bcf_has_variant_types(line,VCF_OVERLAP,bcf_match_overlap)>0 ) return ERR_SPANNING_DELETION;
+    if ( line->n_allele > 2 )
     {
         for (i=1; i<line->n_allele; i++)
-            if ( !strncmp(line->d.allele[i],"<DUP",4) ) return ERR_SYMBOLIC;
+        {
+            // Includes gVCF placeholders, classified by HTSlib as VCF_REF
+            if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;
+        }
     }
+
 
     // make a copy of each allele for trimming
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als); // the actual sequence to realign

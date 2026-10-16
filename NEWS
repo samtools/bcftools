@@ -58,6 +58,8 @@ Changes affecting specific commands:
 
     - Left-align <DUP> allele no matter which of INFO/SVLEN or INFO/END is present
 
+    - Skip records whose alleles cannot safely be realigned together (#2605)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
