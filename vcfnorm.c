@@ -682,6 +682,14 @@ static int realign(args_t *args, bcf1_t *line)
     }
     if ( bcf_get_variant_types(line)==VCF_BND ) return ERR_SYMBOLIC;   // breakend, not an error
 
+    // Skip realignment of the record if <DUP> is mixed with more alleles - the realignment in the current
+    // form is not able to handle it
+    if ( line->n_allele > 2 && bcf_has_variant_types(line,VCF_OTHER,bcf_match_overlap) )
+    {
+        for (i=1; i<line->n_allele; i++)
+            if ( !strncmp(line->d.allele[i],"<DUP",4) ) return ERR_SYMBOLIC;
+    }
+
     // make a copy of each allele for trimming
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als); // the actual sequence to realign
     hts_expand0(kstring_t,line->n_allele,args->ntmp_sym,args->tmp_sym); // the original symbolic allele strings to output
@@ -697,10 +705,7 @@ static int realign(args_t *args, bcf1_t *line)
             // TODO: there should be check for symbolic allele length. If too big, perhaps should not attempt realignment
             int32_t sv_len = 0;
             if ( !strncmp("<DEL",line->d.allele[i],4) ) sv_len = -line->rlen;
-            else if ( !strncmp("<DUP",line->d.allele[i],4) )
-            {
-                if ( bcf_get_info_int32(args->hdr,line,"SVLEN",&args->int32_arr,&args->nint32_arr)==1 ) sv_len = args->int32_arr[0];
-            }
+            else if ( !strncmp("<DUP",line->d.allele[i],4) ) sv_len = line->rlen - 1;   // like <DEL>, htslib sets rlen from INFO/END or INFO/SVLEN
             if ( !sv_len ) return ERR_SYMBOLIC;
 
             als[i].l = 0;

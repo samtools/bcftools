@@ -54,6 +54,10 @@ Changes affecting specific commands:
       the samples of a multi-sample call. The Mann-Whitney U tie correction was
       accumulated in 32-bit int and overflowed, which shrank the Z scores towards zero.
 
+* bcftools norm
+
+    - Left-align <DUP> allele no matter which of INFO/SVLEN or INFO/END is present
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
