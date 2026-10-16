@@ -682,6 +682,14 @@ static int realign(args_t *args, bcf1_t *line)
     }
     if ( bcf_get_variant_types(line)==VCF_BND ) return ERR_SYMBOLIC;   // breakend, not an error
 
+    // Skip realignment of the record if <DUP> is mixed with more alleles - the realignment in the current
+    // form is not able to handle it
+    if ( line->n_allele > 2 && bcf_has_variant_types(line,VCF_OTHER,bcf_match_overlap) )
+    {
+        for (i=1; i<line->n_allele; i++)
+            if ( !strncmp(line->d.allele[i],"<DUP",4) ) return ERR_SYMBOLIC;
+    }
+
     // make a copy of each allele for trimming
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als); // the actual sequence to realign
     hts_expand0(kstring_t,line->n_allele,args->ntmp_sym,args->tmp_sym); // the original symbolic allele strings to output
