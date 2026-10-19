@@ -571,15 +571,27 @@ static int test_filters(args_t *args, bcf1_t *rec)
     return 1;
 }
 
+// mapping between a global allele index (across all samples) to a local allele
+// (within a trio, max six alleles)
+static uint8_t allele_bit(int allele, int *als, int *nals)
+{
+    int i;
+    for (i=0; i<*nals; i++)
+        if ( als[i]==allele ) return (uint8_t)1<<i;
+
+    als[(*nals)++] = allele;
+    return (uint8_t)1<<i;
+}
+
 // Note: in this version
 //  - half-missing genotypes are not supported
 //  - only haploid + diploid genotypes
-static int parse_gt(int32_t *gt, int ngt, uint64_t *a, uint64_t *b)
+static int parse_gt(int32_t *gt, int ngt, uint8_t *a, uint8_t *b, int *als, int *nals)
 {
     *a = *b = 0;
 
     if ( bcf_gt_is_missing(gt[0]) || gt[0]==bcf_int32_vector_end ) return 0;
-    *a |= (uint64_t)1<<bcf_gt_allele(gt[0]);
+    *a |= allele_bit(bcf_gt_allele(gt[0]),als,nals);
 
     if ( ngt==1 || gt[1]==bcf_int32_vector_end ) return 1;
 
@@ -588,7 +600,7 @@ static int parse_gt(int32_t *gt, int ngt, uint64_t *a, uint64_t *b)
         *a = *b = 0;
         return 0;
     }
-    *b |= (uint64_t)1<<bcf_gt_allele(gt[1]);
+    *b |= allele_bit(bcf_gt_allele(gt[1]),als,nals);
 
     return 2;
 }
@@ -655,10 +667,11 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             continue;
         }
 
-        uint64_t kid1, kid2, parent, mom, dad;
+        uint8_t kid1, kid2, parent, mom, dad;
+        int als[7] = {0}, nals = 1;   // reserved REF plus at most six ALT alleles
 
         // Note we only handle haploid or diploid genotypes
-        int nal = parse_gt(&args->gt_arr[ngt*trio->idx[iKID]],ngt,&kid1,&kid2);
+        int nal = parse_gt(&args->gt_arr[ngt*trio->idx[iKID]],ngt,&kid1,&kid2,als,&nals);
 
         // Too few alleles: count as missing
         if ( nal<rule->ploidy ) { ret |= HAS_MISS; trio->stats.nmiss++; args->nmiss++; continue; }
@@ -673,7 +686,7 @@ static int collect_stats(args_t *args, bcf1_t *rec)
         if ( rule->ploidy==1 )
         {
             int ipar = rule->inherits & (1<<iMOM) ? iMOM : iDAD;
-            int nal_parent = parse_gt(&args->gt_arr[ngt*trio->idx[ipar]],ngt,&parent,&parent);
+            int nal_parent = parse_gt(&args->gt_arr[ngt*trio->idx[ipar]],ngt,&parent,&parent,als,&nals);
             if ( !nal_parent )
             {
                 ret |= HAS_MISS;
@@ -702,8 +715,8 @@ static int collect_stats(args_t *args, bcf1_t *rec)
             args->nmerr++;
             continue;
         }
-        int nal_mom = parse_gt(&args->gt_arr[ngt*trio->idx[iMOM]],ngt,&mom,&mom);
-        int nal_dad = parse_gt(&args->gt_arr[ngt*trio->idx[iDAD]],ngt,&dad,&dad);
+        int nal_mom = parse_gt(&args->gt_arr[ngt*trio->idx[iMOM]],ngt,&mom,&mom,als,&nals);
+        int nal_dad = parse_gt(&args->gt_arr[ngt*trio->idx[iDAD]],ngt,&dad,&dad,als,&nals);
         if ( (kid1&dad && kid2&mom) || (kid1&mom && kid2&dad) )
         {
             // both children's alleles phased
@@ -742,11 +755,6 @@ static int process_record(args_t *args, bcf1_t *rec)    // returns 1 to print re
     if ( rec->n_allele==1 || bcf_get_variant_types(rec)==VCF_REF )
     {
         args->nref_only++;
-        skip_site = 1;
-    }
-    else if ( rec->n_allele > 64 )  // we use uint64_t bitmask in collect_stats()
-    {
-        args->nmany_als++;
         skip_site = 1;
     }
     else if ( args->filter && !test_filters(args,rec) )

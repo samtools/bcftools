@@ -779,6 +779,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'ref',out=>'ref.out',cmd=>'+fill-from-fasta
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTsubset.NA1.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTsubset.NA1NA2.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001,NA00002');
 run_test(\&test_vcf_plugin,$opts,in=>'view',out=>'view.GTsubset.NA1NA2NA3.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001,NA00002,NA00003');
+run_test(\&test_vcf_plugin,$opts,in=>'mendelian.many-alts',out=>'mendelian.many-alts.1.out',cmd=>'+mendelian2',args=>'-p Child,Father,Mother -m a',pipe=>qq[$$opts{bin}/bcftools query -f '%INFO/MERR\\t%INFO/MGOOD\\t%INFO/MMISS\\t%ID']);
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian2',args=>'-p 2X:child1,dad1,mom1 -md');
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian2',args=>'-P {PATH}/mendelian.ped -md');
 run_test(\&test_vcf_plugin,$opts,in=>'mendelian',out=>'mendelian.6.out',cmd=>'+mendelian2',args=>'-p 1X:child1,dad1,mom1 -mg');
@@ -2022,21 +2023,24 @@ sub test_vcf_plugin
         $wpath = `cygpath -w $$opts{path}`;
         $wpath =~ s/\r?\n//;
     }
-    $args{args} =~ s/{QPATH}/$wpath/g;
-    $args{args} =~ s/{PATH}/$$opts{path}/g;
-    $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
-    $args{args} =~ s/{TMP}/$$opts{tmp}/g;
-    $args{cmd}  =~ s/{TMP}/$$opts{tmp}/g;
+    for my $key (qw(args cmd pipe))
+    {
+        if ( !exists($args{$key}) ) { next; }
+        $args{$key} =~ s/{QPATH}/$wpath/g;
+        $args{$key} =~ s/{PATH}/$$opts{path}/g;
+        $args{$key} =~ s/{TMP}/$$opts{tmp}/g;
+    }
     bgzip_tabix_vcf($opts,"$args{in}");
     if ( exists($args{index}) )
     {
         for my $file (@{$args{index}}) { bgzip_tabix_vcf($opts,$file); }
     }
-    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
+    my $pipe = exists($args{pipe}) ? "| $args{pipe}" : '';
+    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} $pipe | grep -v ^##bcftools_");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_", exp_fix=>1);
+    test_cmd($opts,%args,cmd=>"export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} $pipe | grep -v ^##bcftools_", exp_fix=>1);
 }
 sub test_vcf_concat
 {

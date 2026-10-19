@@ -47,6 +47,10 @@ Changes affecting specific commands:
 
     - Make `--nrecords` with non-standard file extensions (#2588)
 
+* bcftools +mendelian
+
+    - Support sites with more than 64 alleles (#2603)
+
 * bcftools mpileup
 
     - Fix INFO/MQBZ, BQBZ, RPBZ, SCBZ, MQSBZ and NMBZ at sites where more than 1290
