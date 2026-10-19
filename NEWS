@@ -60,6 +60,8 @@ Changes affecting specific commands:
 
     - Skip records whose alleles cannot safely be realigned together (#2605)
 
+    - Realign long indels in linear time (#2604)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
