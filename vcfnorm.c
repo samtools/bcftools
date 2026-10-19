@@ -106,7 +106,7 @@ typedef struct
     int ntmp_als, ntmp_sym;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
-    int aln_win;            // the realignment window size (maximum repeat size)
+    int aln_win;            // initial reference fetch size for left alignment; padding size for right alignment
     bcf_srs_t *files;       // using the synced reader only for -r option
     bcf_hdr_t *hdr, *out_hdr;
     cmpals_t cmpals_in, cmpals_out;
@@ -451,36 +451,6 @@ static void fix_dup_alt(args_t *args, bcf1_t *line)
     if ( changed ) bcf_update_genotypes(args->out_hdr,line,gts,ngts);
 }
 
-// static void set_old_rec_tag(args_t *args, bcf1_t *dst, bcf1_t *src, int ialt)
-// {
-// fprintf(stderr,"remove me\n");
-//     if ( !args->old_rec_tag ) return;
-//
-//     // only update if the tag is not present already, there can be multiple normalization steps
-//     int i, id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, args->old_rec_tag);
-//     bcf_unpack(dst, BCF_UN_INFO);
-//     for (i=0; i<dst->n_info; i++)
-//     {
-//         bcf_info_t *inf = &dst->d.info[i];
-//         if ( inf && inf->key == id ) return;
-//     }
-//
-//     args->tmp_kstr.l = 0;
-//     ksprintf(&args->tmp_kstr,"%s|%"PRIhts_pos"|%s|",bcf_seqname(args->hdr,src),src->pos+1,src->d.allele[0]);
-//     for (i=1; i<src->n_allele; i++)
-//     {
-//         kputs(src->d.allele[i],&args->tmp_kstr);
-//         if ( i+1<src->n_allele ) kputc(',',&args->tmp_kstr);
-//     }
-//     if ( ialt>0 )
-//     {
-//         kputc('|',&args->tmp_kstr);
-//         kputw(ialt,&args->tmp_kstr);
-//     }
-//     if ( (bcf_update_info_string(args->out_hdr, dst, args->old_rec_tag, args->tmp_kstr.s))!=0 )
-//             error("An error occurred while updating INFO/%s\n",args->old_rec_tag);
-// }
-
 static int is_left_align(args_t *args, bcf1_t *line)
 {
     if ( args->right_align ) return 0;
@@ -499,12 +469,77 @@ static int is_left_align(args_t *args, bcf1_t *line)
     // either no hit at all (then left-align) or everything was on fwd strand (then right-align)
     return has_fwd ? 0 : 1;
 }
+// Called after common-suffix trimming has emptied at least one allele
+static hts_pos_t realign_left_shift(args_t *args, bcf1_t *line, hts_pos_t pos)
+{
+    kstring_t *als = args->tmp_als;
+    hts_pos_t max_len = 0, nref, shift = 0;
+    int i;
+    for (i=0; i<line->n_allele; i++)
+        if ( max_len < als[i].l ) max_len = als[i].l;
+    hts_pos_t blk = args->aln_win;
+    hts_pos_t max_blk = args->aln_win > 65536 ? args->aln_win : 65536;
+
+    const char *chr = bcf_seqname(args->hdr,line);
+    char *ref = NULL;
+
+    while ( pos - shift > 1 )
+    {
+        hts_pos_t end = pos - shift - 1;
+        hts_pos_t beg = end - blk + 1;
+        if ( beg < 1 ) beg = 1;
+        free(ref);
+        ref = faidx_fetch_seq64(args->fai, chr, beg, end, &nref);
+        if ( !ref || nref!=end-beg+1 ) error("faidx_fetch_seq64 failed at %s:%"PRIhts_pos"\n", chr, beg+1);
+        replace_iupac_codes(ref,nref);
+        hts_pos_t j = nref;
+        while ( j > 0 )
+        {
+            int base = toupper_c(ref[j-1]);
+            for (i=0; i<line->n_allele; i++)
+            {
+                // check if we can left-align pos by one more base, given we already accepted `shift` positions
+                hts_pos_t n = als[i].l;
+                if ( n && toupper_c(als[i].s[n - 1 - shift % n]) != base ) break;   // the last base after `shift` rotations
+            }
+            if ( i!=line->n_allele ) break;     // i-th allele could not be shifted
+            j--;
+            shift++;
+        }
+        if ( j > 0 ) break;
+
+        // The whole block matched; grow toward the longest allele length.
+        if ( blk < max_blk )
+            blk = blk > max_blk / 2 ? max_blk : 2 * blk;
+    }
+    free(ref);
+
+    hts_pos_t new_pos = pos - shift - 1;
+    hts_pos_t k = shift < max_len ? shift : max_len;    // how much ref is needed for the longest allele
+    ref = faidx_fetch_seq64(args->fai, chr, new_pos, new_pos + k, &nref);
+    if ( !ref || nref!=k+1 ) error("faidx_fetch_seq64 failed at %s:%"PRIhts_pos"\n", chr, new_pos+1);
+    replace_iupac_codes(ref,nref);
+
+    for (i=0; i<line->n_allele; i++)
+    {
+        hts_pos_t n = als[i].l;
+        k = shift < n ? shift : n;
+        if ( ks_resize(&als[i], n + 2) < 0 ) error("Could not allocate %"PRIhts_pos" bytes\n", n + 2);
+        if ( n > k ) memmove(als[i].s + k + 1, als[i].s, n - k);
+        memcpy(als[i].s, ref, k + 1);
+        als[i].l = n + 1;
+        als[i].s[als[i].l] = 0;
+    }
+
+    free(ref);
+    return new_pos;
+}
+
 static hts_pos_t realign_left(args_t *args, bcf1_t *line)
 {
     // trim from right
-    char *ref = NULL;
     int i;
-    hts_pos_t nref=0, new_pos = line->pos;
+    hts_pos_t new_pos = line->pos;
     kstring_t *als = args->tmp_als;
     while (1)
     {
@@ -525,25 +560,8 @@ static hts_pos_t realign_left(args_t *args, bcf1_t *line)
             if ( !als[i].l ) pad_from_left = 1;
         }
         if ( pad_from_left )
-        {
-            // extend all alleles to the left by aln_win bases (unless close to the chr start).
-            // Extra bases will be trimmed from the left after this loop is done
-            int npad = new_pos >= args->aln_win ? args->aln_win : new_pos;
-            free(ref);
-            ref = faidx_fetch_seq64(args->fai, bcf_seqname(args->hdr,line), new_pos-npad, new_pos-1, &nref);
-            if ( !ref ) error("faidx_fetch_seq64 failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,line), (int64_t) new_pos-npad+1);
-            replace_iupac_codes(ref,nref);
-            for (i=0; i<line->n_allele; i++)
-            {
-                ks_resize(&als[i], als[i].l + npad);
-                if ( als[i].l ) memmove(als[i].s+npad,als[i].s,als[i].l);
-                memcpy(als[i].s,ref,npad);
-                als[i].l += npad;
-            }
-            new_pos -= npad;
-        }
+            return realign_left_shift(args, line, new_pos);
     }
-    free(ref);
 
     // trim from left
     int ntrim_left = 0;
@@ -596,7 +614,7 @@ static hts_pos_t realign_right(args_t *args, bcf1_t *line)
         if ( min_len<=1 ) // pad from the right
         {
             free(ref);
-            ref = faidx_fetch_seq64(args->fai, bcf_seqname(args->hdr,line), line->pos + npad_right, line->pos + npad_right + args->aln_win, &nref);
+            ref = faidx_fetch_seq64(args->fai, bcf_seqname(args->hdr,line), line->pos + npad_right, line->pos + npad_right + args->aln_win - 1, &nref);
             if ( !ref ) error("faidx_fetch_seq64 failed at %s:%"PRIhts_pos"\n",bcf_seqname(args->hdr,line), new_pos + ntrim_left);
             npad_right += args->aln_win;
             replace_iupac_codes(ref,nref);
