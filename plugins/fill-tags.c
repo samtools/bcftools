@@ -190,11 +190,11 @@ void parse_samples(args_t *args, char *fname)
         while ( pop_names >= str.s && !isspace_c(*pop_names) ) pop_names--;
         if ( pop_names <= str.s ) error("Could not parse the file: %s\n", str.s);
 
-        char *smpl = pop_names++;
-        while ( smpl >= str.s && isspace_c(*smpl) ) smpl--;
-        if ( smpl <= str.s+1 ) error("Could not parse the file: %s\n", str.s);
-        smpl[1] = 0;
-        smpl = str.s;
+        char *tmp = pop_names++;
+        while ( tmp > str.s && isspace_c(*tmp) ) tmp--;
+        if ( tmp < str.s ) error("Could not parse the file: %s\n", str.s);
+        tmp[1] = 0;
+        char *smpl = str.s;
 
         int ismpl = bcf_hdr_id2int(args->in_hdr,BCF_DT_SAMPLE,smpl);
         if ( ismpl<0 )

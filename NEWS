@@ -43,6 +43,8 @@ Changes affecting specific commands:
         INFO/CpG .. CpG change relative to REF considering all ALTs;
                         C=created, D=destroyed, B=both; N=CpG present and unchanged
 
+    - Fix a bug where any sample of one or two characters is rejected (#1931, #1933)
+
 * bcftools index
 
     - Make `--nrecords` with non-standard file extensions (#2588)
