@@ -68,6 +68,9 @@ Changes affecting specific commands:
 
     - Realign long indels in linear time (#2604)
 
+    - Recalculate INFO/AN,AC from genotype fields unless the new option `--no-update`
+      is given (#2137, #548).
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)

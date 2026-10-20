@@ -2790,15 +2790,19 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     use the reference ('0') or missing ('.') allele for overlapping alleles after
     splitting multiallelic sites
 
-*--no-version*::
-    see *<<common_options,Common Options>>*
-
 *-N, --no-realign* ['NUM'][[do_not_normalize]]::
     do not realign indels and symbolic alleles (normally performed
     when *-f, --fasta-ref* option is provided). If 'NUM' is given,
     skip realignment only for events longer than 'NUM' bp. Note
     that 'NUM' must follow with no space, e.g. *-N1000* or *--no-realign=1000*.
     Previously named *--do-not-normalize* and did not accept an argument.
+
+*--no-update* 'LIST'::
+    Do not recalculate INFO tags from GT.
+    Currently supported tags: AC,AN
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
 
 *--old-rec-tag* 'STR'::
     Add INFO/STR annotation with the original record. The format of the

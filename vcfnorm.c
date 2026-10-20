@@ -35,6 +35,7 @@ THE SOFTWARE.  */
 #include <sys/types.h>
 #include <inttypes.h>
 #include <htslib/vcf.h>
+#include <htslib/vcfutils.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/faidx.h>
 #include <htslib/khash_str2int.h>
@@ -44,6 +45,10 @@ THE SOFTWARE.  */
 #include "gff.h"
 #include "regidx.h"
 #include "filter.h"
+
+#define UPDATE_AC (1<<0)
+#define UPDATE_AN (1<<1)
+#define UPDATE_ALL (~0u)
 
 #define CHECK_REF_EXIT 1
 #define CHECK_REF_WARN 2
@@ -113,8 +118,9 @@ typedef struct
     faidx_t *fai;
     struct { uint64_t tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
-    uint32_t do_realign;
+    uint32_t do_realign, update_tags;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, clevel;
+    char *no_update_str;
     uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     progress_t *progress;
@@ -394,8 +400,8 @@ static int fix_ref(args_t *args, bcf1_t *line)
     }
 
     // update AC
-    int nac = bcf_get_info_int32(args->hdr, line, "AC", &args->tmp_arr1, &ntmp);
-    if ( nac>0 )
+    int nac;
+    if ( (args->update_tags & UPDATE_AC) && (nac=bcf_get_info_int32(args->hdr, line, "AC", &args->tmp_arr1, &ntmp))>0 )
     {
         args->ntmp_arr1 = ntmp * sizeof(int32_t);
         if ( ialt <= nac )
@@ -508,7 +514,7 @@ static hts_pos_t realign_left_shift(args_t *args, bcf1_t *line, hts_pos_t pos)
         }
         if ( j > 0 ) break;
 
-        // The whole block matched; grow toward the longest allele length.
+        // The whole block matched; grow up to the fetch-size limit
         if ( blk < max_blk )
             blk = blk > max_blk / 2 ? max_blk : 2 * blk;
     }
@@ -1992,6 +1998,28 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
     bcf_update_format_char(args->out_hdr,dst,tag,str.s,str.l);
 }
 
+static void update_an_ac(args_t *args, bcf1_t *dst)
+{
+    if ( !dst->n_sample ) return;
+
+    int update_ac = (args->update_tags & UPDATE_AC) && bcf_get_info(args->out_hdr,dst,"AC")!=NULL ? 1 : 0;
+    int update_an = (args->update_tags & UPDATE_AN) && bcf_get_info(args->out_hdr,dst,"AN")!=NULL ? 1 : 0;
+
+    if ( !update_an && !update_ac ) return;
+
+    hts_expand(uint8_t, dst->n_allele*sizeof(int), args->ntmp_arr1, args->tmp_arr1);
+    int *ac = (int*)args->tmp_arr1;
+    if ( !bcf_calc_ac(args->out_hdr, dst, ac, BCF_UN_FMT) ) return;
+
+    if ( update_an )
+    {
+        int32_t i, an = 0;
+        for (i=0; i<dst->n_allele; i++) an += ac[i];
+        if ( bcf_update_info_int32(args->out_hdr,dst,"AN",&an,1) < 0 ) error("Could not update INFO/AN\n");
+    }
+    if ( update_ac && bcf_update_info_int32(args->out_hdr,dst,"AC",ac+1,dst->n_allele-1) < 0 ) error("Could not update INFO/AC\n");
+}
+
 char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb);   // see vcfmerge.c
 static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t **lines, int nlines)
 {
@@ -2076,6 +2104,12 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         else if ( type==BCF_HT_INT || type==BCF_HT_REAL ) merge_format_numeric(args, lines, nlines, fmt, dst);
         else merge_format_string(args, lines, nlines, fmt, dst);
     }
+
+    // update AN,AC if needed, INFO counts can be inconsistent
+    // NB: this changes the original behavior, counts intentionally describing different
+    // cohort will be recalculated
+    update_an_ac(args, dst);
+
     args->njoined++;
 }
 
@@ -2377,6 +2411,22 @@ static void init_data(args_t *args)
     args->filter_pass = 1;
 
     args->out_hdr = bcf_hdr_dup(args->out_hdr);
+
+    if ( args->no_update_str )
+    {
+        const char *str = args->no_update_str;
+        while (1)
+        {
+            size_t n = strcspn(str,",");
+            if ( n==2 && !strncmp(str,"AC",2) ) args->update_tags &= ~UPDATE_AC;
+            else if ( n==2 && !strncmp(str,"AN",2) ) args->update_tags &= ~UPDATE_AN;
+            else
+                error("Unsupported tag in --no-update: \"%s\". Expected AC or AN.\n",args->no_update_str);
+            str += n;
+            if ( !*str ) break;
+            str++;
+        }
+    }
 }
 
 static void destroy_data(args_t *args)
@@ -2632,6 +2682,7 @@ static void usage(void)
     fprintf(stderr, "        --multi-overlaps 0|.        Fill in the reference (0) or missing (.) allele when splitting multiallelics [0]\n");
     fprintf(stderr, "        --no-version                Do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --no-realign [NUM]          Skip realignment; optionally only for events longer than NUM bp (e.g. -N1000, no space)\n");
+    fprintf(stderr, "        --no-update LIST            Do not recalculate INFO tags from GT; supported tags: AC,AN\n");
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
     fprintf(stderr, "    -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
@@ -2682,6 +2733,7 @@ int main_vcfnorm(int argc, char *argv[])
     int targets_overlap = 0;
     args->cmp_func = cmp_bcf_pos;
     args->do_realign = UINT32_MAX;
+    args->update_tags = UPDATE_ALL;
 
     static struct option loptions[] =
     {
@@ -2699,6 +2751,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"right-align",no_argument,NULL,15},            // undocumented, only for debugging
         {"do-not-normalize",no_argument,NULL,16},
         {"no-realign",optional_argument,NULL,'N'},
+        {"no-update",required_argument,NULL,17},
         {"multiallelics",required_argument,NULL,'m'},
         {"multi-overlaps",required_argument,NULL,13},
         {"regions",required_argument,NULL,'r'},
@@ -2766,6 +2819,7 @@ int main_vcfnorm(int argc, char *argv[])
                 break;
             case 15 : args->right_align = 1; break;
             case 16 : args->do_realign = 0; break;
+            case 17 : args->no_update_str = optarg; break;
             case 'N':
                 if ( !optarg ) args->do_realign = 0;
                 else

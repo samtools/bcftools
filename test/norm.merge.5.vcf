@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##contig=<ID=Chr1,length=100>
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A001	A002	A003	A004	A005	A006	A007	A008	A009	A010	A011	A012	A013	C001	C002	C003	C004	C005	C006	C007	C008	C009	C010	C011	C012	C013	C014	C015	C016	C017	C018	C019	C020	C021	C022	C023	C024	C025	C026	C027	C028	C029	C030	C031	C032	C033	C034	C035	C036	C037	C038	C039	C040	C041	C042	C043	C044	C045	C046	C047	C048	C049	C050	C051	C052	C053	C054	C055	C056	C057	C058	C059	C060
+Chr1	1	.	T	A	228.246	PASS	AN=24;AC=8	GT:DP	1/1:20	0/0:2	0/1:8	1/1:6	./.:0	0/0:8	0/0:2	0/0:5	0/0:1	0/0:1	1/1:17	0/0:2	0/1:13	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.
+Chr1	1	.	T	TAAAAA,TAAA,TAA,TAAAA,TA	228.401	PASS	INDEL;AN=120;AC=28,43,10,8,30	GT:DP	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	./.:.	1/1:11	2/3:16	4/4:11	4/1:11	2/2:18	2/5:29	5/5:23	1/1:35	2/2:36	0/3:14	3/5:19	3/2:15	2/2:18	3/2:14	2/2:17	2/2:9	1/2:16	5/1:15	5/2:17	1/1:11	2/1:9	5/5:5	5/5:44	1/5:21	2/2:18	5/3:19	1/1:19	5/1:19	2/1:48	2/5:31	1/5:23	2/2:12	2/4:11	1/1:20	2/4:10	1/2:9	1/2:14	1/1:17	5/2:10	3/2:12	2/2:16	1/2:14	1/5:55	1/2:41	5/3:47	1/4:39	5/5:13	5/2:11	5/2:37	3/5:43	2/1:27	5/5:30	4/2:30	5/5:35	4/2:12	2/1:10	5/5:13	2/3:23	5/2:14	2/2:12
