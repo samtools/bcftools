@@ -7,6 +7,8 @@ Changes affecting specific commands:
 
     - Fix a segfault caused by incorrect handling of symbolic ALT alleles
 
+    - Fix a segfault when the VCF header has no contig lines (#2590)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
