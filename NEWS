@@ -7,22 +7,45 @@ Changes affecting specific commands:
     - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
       are split across multiple records.
 
+* bcftools call
+
+    - Fix update of CLR tags
+
+* bcftools convert
+
+    - Fix crash when using threads, HAP/LEGEND/SAMPLE output, but suppressing
+      the HAP file by specifying it as '.' (#2528)
+
 * bcftools cnv
 
     - Fix off-by-one error in reporting HMM qualities
 
+    - Fix invalid BAF look-up if no control samples are present
+
 * bcftools csq
 
     - Fix a segfault caused by incorrect handling of symbolic ALT alleles
+
+    - Fix a segfault when the VCF header has no contig lines (#2590)
 
 * bcftools merge
 
     - Fixes in memory access with localized alleles, it could result in printing
       printing trailing garbage in localized FORMAT fields (#2520)
 
+* bcftools mpileup
+
+    - Fix various bugs in insertion calling (#2531)
+
 * bcftools norm
 
     - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
+
+    - Check that reference segments match the length expected
+
+* bcftools plugin
+
+    - Fix plugin link failure when building with --enable-gsl
 
 * bcftools reheader
 
@@ -31,6 +54,10 @@ Changes affecting specific commands:
 * bcftools roh
 
     - Fix off-by-one error in reporting HMM qualities
+
+* bcftools stats
+
+    - Check for failure to load references
 
 ## Release 1.23.2 (9th July 2026)
 
