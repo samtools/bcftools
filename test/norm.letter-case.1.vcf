@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=20>
+##contig=<ID=ChrUn,length=20>
+##ALT=<ID=INS:Alu,Description="Alu insertion">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	mixed	aAA	cTT	.	.	.
+1	2	symbolic	a	<INS:Alu>	.	.	.
+1	3	bnd	A	A]ChrUn:5]	.	.	.
+1	10	snv	G	A	.	.	.
+1	11	ins_a	T	TCT	.	.	.
+1	12	ins_b	C	CTC	.	.	.

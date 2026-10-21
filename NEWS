@@ -7,6 +7,11 @@ Changes affecting the whole of bcftools, or multiple commands:
   print the current position (CHR:POS) to stderr, indicating how far a long-running
   command has progressed (#2559)
 
+* Fix allele merging in `norm` and `merge` to preserve symbolic IDs and breakend
+  contig names and respect their case during matching, as required by VCF
+  specification.
+
+
 Changes affecting specific commands:
 
 * bcftools call
@@ -70,6 +75,11 @@ Changes affecting specific commands:
 
     - Recalculate INFO/AN,AC from genotype fields unless the new option `--no-update`
       is given (#2137, #548).
+
+    - Extend the `-c, --check-ref` option for explicit control of output case,
+      report the number of records changed (#2606)
+
+    - Make `-d exact` consistent for sequence alleles differing only in case.
 
 * bcftools reheader
 

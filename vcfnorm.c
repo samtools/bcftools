@@ -55,6 +55,8 @@ THE SOFTWARE.  */
 #define CHECK_REF_SKIP 4
 #define CHECK_REF_FIX  8
 
+enum { ALLELE_CASE_KEEP, ALLELE_CASE_FASTA, ALLELE_CASE_UPPER };
+
 #define MROWS_SPLIT 1
 #define MROWS_MERGE 2
 
@@ -120,6 +122,8 @@ typedef struct
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     uint32_t do_realign, update_tags;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, clevel;
+    int allele_case;
+    uint64_t ncase_changed;
     char *no_update_str;
     uint64_t nchanged, nskipped, nsplit, njoined, ntotal, nfilter, nrmdup, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
@@ -213,15 +217,73 @@ static inline int has_non_acgtn(char *seq, int nseq)
     }
     return 0;
 }
-
-static void seq_to_upper(char *seq, int len)
+// Change sequence case, preserving symbolic IDs and breakend mate coordinates
+// Return 1 if any character changed, 0 otherwise.
+static int set_sequence_case(char *s, int lower)
 {
-    int i;
-    if ( len )
-        for (i=0; i<len; i++) seq[i] = nt_to_upper(seq[i]);
-    else
-        for (i=0; seq[i]; i++) seq[i] = nt_to_upper(seq[i]);
+    if ( s[0]=='<' ) return 0;    // symbolic allele
+    int changed = 0, in_mate = 0;
+    for (; *s; s++)
+    {
+        if ( *s=='[' || *s==']' )
+        {
+            in_mate = !in_mate;
+            continue;
+        }
+        if ( in_mate ) continue;
+        unsigned char base = (unsigned char)*s;
+        char c = lower ? tolower(base) : toupper(base);
+        if ( *s!=c ) { *s = c; changed = 1; }
+    }
+    return changed;
 }
+// Apply the requested case. This does not repair mismatching bases or replace IUPAC codes
+static int set_allele_case(args_t *args, bcf1_t *line)
+{
+    if ( args->allele_case==ALLELE_CASE_KEEP ) return 0;
+    bcf_unpack(line, BCF_UN_STR);
+    int changed = 0;
+    if ( args->allele_case==ALLELE_CASE_UPPER )
+    {
+        int i;
+        for (i=0; i<line->n_allele; i++)
+            changed |= set_sequence_case(line->d.allele[i],0);
+    }
+    else
+    {
+        char *s = line->d.allele[0];
+        if ( !is_sequence_allele(s) ) return 0;
+        size_t i, len = strlen(s);
+        hts_pos_t nref;
+        const char *chr = bcf_seqname(args->hdr,line);
+        char *ref = faidx_fetch_seq64(args->fai, chr, line->pos, line->pos+(hts_pos_t)len-1, &nref);
+        if ( !ref || nref!=(hts_pos_t)len )
+            error("Could not fetch REF sequence at %s:%"PRIhts_pos"\n", chr,line->pos+1);
+        for (i=0; i<len; i++)
+        {
+            unsigned char base = (unsigned char)s[i];
+            char c = islower((unsigned char)ref[i]) ? tolower(base) : toupper(base);
+            if ( s[i]!=c ) { s[i] = c; changed = 1; }
+        }
+        // Inserted sequence has no reference coordinates: use the anchor case.
+        int ial, lower = islower((unsigned char)ref[0]);
+        for (ial=1; ial<line->n_allele; ial++)
+            changed |= set_sequence_case(line->d.allele[ial],lower);
+        free(ref);
+    }
+    if ( changed )
+    {
+        // Reserialize the changed alleles without changing an SV/gVCF span.
+        hts_pos_t rlen = line->rlen;
+        if ( bcf_update_alleles(args->out_hdr,line, (const char **)line->d.allele,line->n_allele)<0 )
+            error("Could not update alleles at %s:%"PRIhts_pos"\n", bcf_seqname(args->hdr,line),line->pos+1);
+        line->rlen = rlen;
+    }
+    return changed;
+}
+
+
+
 
 // returns 0 when no fix was needed, 1 otherwise
 //
@@ -670,8 +732,7 @@ static int realign(args_t *args, bcf1_t *line)
     int i, nref, reflen = strlen(line->d.allele[0]);
     char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
-    seq_to_upper(ref,0);
-    replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+    replace_iupac_codes(ref,nref);
 
     // does VCF REF contain non-standard bases?
     if ( has_non_acgtn(line->d.allele[0],reflen) )
@@ -748,8 +809,7 @@ static int realign(args_t *args, bcf1_t *line)
                     reflen = line->rlen;
                     ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
                     if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
-                    seq_to_upper(ref,0);
-                    replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+                    replace_iupac_codes(ref,nref);
                     als[0].l = 0;
                     kputs(ref, &als[0]);
                 }
@@ -761,8 +821,7 @@ static int realign(args_t *args, bcf1_t *line)
                 free(ref);
                 ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+sv_len, &nref);
                 if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
-                seq_to_upper(ref,0);
-                replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
+                replace_iupac_codes(ref,nref);
                 kputs(ref,&als[i]);
             }
             kputs(line->d.allele[i],&sym[i]);   // preserve the symbolic allele string
@@ -781,7 +840,6 @@ static int realign(args_t *args, bcf1_t *line)
 
         als[i].l = 0;
         kputs(line->d.allele[i], &als[i]);
-        seq_to_upper(als[i].s,0);
 
         if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
@@ -799,7 +857,7 @@ static int realign(args_t *args, bcf1_t *line)
 
     // Have the alleles changed? Consider <DEL> could have expanded the REF allele. In that
     // case it must be trimmed, however the new REF length must reflect the entire length.
-    als[0].s[ als[0].l ] = 0;   // for strcmp to work
+    als[0].s[ als[0].l ] = 0;   // terminate before comparing
     int new_reflen = strlen(als[0].s);
     if ( symbolic_alts )
     {
@@ -2207,9 +2265,16 @@ static bcf1_t *mrows_flush(args_t *args)
     args->mrows_first++;
     return args->mrows[ibeg];
 }
+static char *strdup_allele_key(const char *allele)
+{
+    char *key = strdup(allele);
+    if ( !key ) error("Could not allocate memory\n");
+    set_sequence_case(key,0);
+    return key;
+}
 static char *strdup_alt_svlen(args_t *args, bcf1_t *rec, int ial)
 {
-    if ( rec->d.allele[ial][0]!='<' ) return strdup(rec->d.allele[ial]);
+    if ( rec->d.allele[ial][0]!='<' ) return strdup_allele_key(rec->d.allele[ial]);
 
     int ntmp = args->ntmp_arr1 / sizeof(int32_t);
     int n = bcf_get_info_int32(args->hdr, rec, "SVLEN", &args->tmp_arr1, &ntmp);
@@ -2252,7 +2317,7 @@ static void cmpals_add(args_t *args, cmpals_t *ca, bcf1_t *rec)
         cmpals->hash = khash_str2int_init();
         int i;
         for (i=1; i<rec->n_allele; i++)
-            khash_str2int_inc(cmpals->hash, strdup(rec->d.allele[i]));
+            khash_str2int_inc(cmpals->hash, strdup_allele_key(rec->d.allele[i]));
     }
 }
 static int cmpals_match(args_t *args, cmpals_t *ca, bcf1_t *rec)
@@ -2270,14 +2335,19 @@ static int cmpals_match(args_t *args, cmpals_t *ca, bcf1_t *rec)
         // the most frequent case
         if ( rec->n_allele==2 )
         {
-            if ( strcasecmp(alt_svlen, cmpals->alt) ) continue;
+            if ( strcmp(alt_svlen, cmpals->alt) ) continue;
             free(alt_svlen);
             return 1;
         }
 
         khash_t(str2int) *hash = (khash_t(str2int)*) cmpals->hash;
         for (j=1; j<rec->n_allele; j++)
-            if ( !khash_str2int_has_key(hash, rec->d.allele[j]) ) break;
+        {
+            char *key = strdup_allele_key(rec->d.allele[j]);
+            int found = khash_str2int_has_key(hash,key);
+            free(key);
+            if ( !found ) break;
+        }
         if ( j<rec->n_allele ) continue;
         return 1;
     }
@@ -2298,6 +2368,14 @@ static void cmpals_destroy(cmpals_t *ca)
     free(ca->cmpals);
 }
 
+static void write_norm_record(args_t *args, htsFile *file, bcf1_t *line, int pass)
+{
+    int changed = pass ? set_allele_case(args,line) : 0;
+    if ( bcf_write1(file,args->out_hdr,line)!=0 )
+        error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    args->ncase_changed += changed;
+}
+
 static void flush_buffer(args_t *args, htsFile *file, int n)
 {
     bcf1_t *line;
@@ -2308,7 +2386,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
         k = rbuf_shift(&args->rbuf);
         if ( !args->lines[k].pass )
         {
-            if ( bcf_write1(file, args->out_hdr, args->lines[k].rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+            write_norm_record(args,file,args->lines[k].rec,0);
             continue;
         }
         if ( args->mrows_op==MROWS_MERGE )
@@ -2316,7 +2394,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             if ( mrows_can_flush(args, args->lines[k].rec) )
             {
                 while ( (line=mrows_flush(args)) )
-                    if ( bcf_write1(file, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+                    write_norm_record(args,file,line,1);
             }
             mrows_push(args, &args->lines[k].rec);
             continue;
@@ -2341,12 +2419,12 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             prev_type |= line_type;
             if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k].rec);
         }
-        if ( bcf_write1(file, args->out_hdr, args->lines[k].rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        write_norm_record(args,file,args->lines[k].rec,1);
     }
     if ( args->mrows_op==MROWS_MERGE && !args->rbuf.n )
     {
         while ( (line=mrows_flush(args)) )
-            if ( bcf_write1(file, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+            write_norm_record(args,file,line,1);
     }
 }
 
@@ -2654,6 +2732,7 @@ static void normalize_vcf(args_t *args)
 
     fprintf(stderr,"Lines   total/split/joined/realigned/mismatch_removed/dup_removed/skipped:\t%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"\n",
         args->ntotal,args->nsplit,args->njoined,args->nchanged,args->nskipped,args->nrmdup,args->nfilter);
+    fprintf(stderr,"Records with case changed:\t%"PRIu64"\n",args->ncase_changed);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%"PRIu64"/%"PRIu64"/%"PRIu64"\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
@@ -2669,7 +2748,14 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -a, --atomize                   Decompose complex variants (e.g. MNVs become consecutive SNVs)\n");
     fprintf(stderr, "        --atom-overlaps '*'|.       Use the star allele (*) for overlapping alleles or set to missing (.) [*]\n");
-    fprintf(stderr, "    -c, --check-ref e|w|x|s         Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
+    fprintf(stderr, "    -c, --check-ref ACTION          Check REF and control allele case [e]\n");
+    fprintf(stderr, "                                       e .. exit on bad sites\n");
+    fprintf(stderr, "                                       s .. set to match the reference\n");
+    fprintf(stderr, "                                       w .. warn on bad sites\n");
+    fprintf(stderr, "                                       x .. exclude\n");
+    fprintf(stderr, "                                     Letter-case handling; if unspecified, retain existing case\n");
+    fprintf(stderr, "                                       c .. match REF case to FASTA; ALT follows anchor case\n");
+    fprintf(stderr, "                                       C .. uppercase REF and ALT sequence\n");
     fprintf(stderr, "    -D, --remove-duplicates         Remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -d, --rm-dup TYPE               Remove duplicate snps|indels|both|all|exact\n");
     fprintf(stderr, "    -e, --exclude EXPR              Do not normalize records for which the expression is true (see man page for details)\n");
@@ -2710,6 +2796,30 @@ static void usage(void)
     exit(1);
 }
 
+static void parse_check_ref(args_t *args, const char *str)
+{
+    if ( !*str ) error("Empty --check-ref argument\n");
+    const char *p;
+    for (p=str; *p; p++)
+    {
+        switch (*p)
+        {
+            case 'e': args->check_ref |= CHECK_REF_EXIT; break;
+            case 'w': args->check_ref |= CHECK_REF_WARN; break;
+            case 'x': args->check_ref |= CHECK_REF_SKIP; break;
+            case 's': args->check_ref |= CHECK_REF_FIX; break;
+            case 'c':
+            case 'C':
+            {
+                int mode = *p=='c' ? ALLELE_CASE_FASTA : ALLELE_CASE_UPPER;
+                if ( args->allele_case!=ALLELE_CASE_KEEP && args->allele_case!=mode ) error("Cannot combine --check-ref c and C\n");
+                args->allele_case = mode;
+                break;
+            }
+            default: error("Unknown --check-ref action: %c\n",*p);
+        }
+    }
+}
 int main_vcfnorm(int argc, char *argv[])
 {
     int c;
@@ -2853,12 +2963,7 @@ int main_vcfnorm(int argc, char *argv[])
                     else error("The argument to -m not recognised: %s\n", optarg);
                 }
                 break;
-            case 'c':
-                if ( strchr(optarg,'w') ) args->check_ref |= CHECK_REF_WARN;
-                if ( strchr(optarg,'x') ) args->check_ref |= CHECK_REF_SKIP;
-                if ( strchr(optarg,'s') ) args->check_ref |= CHECK_REF_FIX;
-                if ( strchr(optarg,'e') ) args->check_ref = CHECK_REF_EXIT; // overrides the above
-                break;
+            case 'c': parse_check_ref(args,optarg); break;
             case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
@@ -2918,9 +3023,13 @@ int main_vcfnorm(int argc, char *argv[])
     }
     else fname = argv[optind];
 
-    if ( !args->ref_fname && !args->mrows_op && !args->rmdup && args->atomize==NONE ) error("Expected -a, -f, -m, -D or -d option\n");
+    // Keep mismatch actions separate from case handling: e overrides w/x/s.
+    if ( args->check_ref & CHECK_REF_EXIT ) args->check_ref = CHECK_REF_EXIT;
     if ( !args->check_ref && args->ref_fname ) args->check_ref = CHECK_REF_EXIT;
-    if ( args->check_ref && !args->ref_fname ) error("Expected --fasta-ref with --check-ref\n");
+    if ( !args->ref_fname && (args->check_ref || args->allele_case==ALLELE_CASE_FASTA) )
+        error("The requested --check-ref action requires --fasta-ref\n");
+    if ( !args->ref_fname && !args->mrows_op && !args->rmdup && args->atomize==NONE && args->allele_case==ALLELE_CASE_KEEP )
+        error("Expected -a, -f, -m, -D, -d or --check-ref C\n");
 
     if ( args->region )
     {

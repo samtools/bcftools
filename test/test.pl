@@ -294,6 +294,10 @@ run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.2.out',args=>q[-HH -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.1.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 || DP=2']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.2.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 |  DP=2']);
+run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.2',out=>'norm.letter-case.2.1.out',args=>qq[-m +any]);
+run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.1',fai=>'norm.letter-case.1',out=>'norm.letter-case.1.1.out',args=>qq[-c e]);
+run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.1',fai=>'norm.letter-case.1',out=>'norm.letter-case.1.2.out',args=>qq[-c c]);
+run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.1',fai=>'norm.letter-case.1',out=>'norm.letter-case.1.3.out',args=>qq[-c C]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.5',,out=>'norm.merge.5.1.out',args=>qq[-m +any]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.merge.5',,out=>'norm.merge.5.2.out',args=>qq[-m +any --no-update AN,AC]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.right-align.2',fai=>'norm.right-align.2',out=>'norm.right-align.2.1.out',args=>qq[--right-align]);
@@ -315,7 +319,7 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.sort',out=>'norm.sort.2.out',args=>'-m 
 run_test(\&test_vcf_norm,$opts,in=>'norm.join-missing-ploidy',out=>'norm.join-missing-ploidy.1.out',args=>'-m +both');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split.5',out=>'norm.split.5.1.out',args=>'-m - --multi-overlaps .');
 run_test(\&test_vcf_norm,$opts,in=>'norm.symbolic.3',out=>'norm.symbolic.3.1.out',fai=>'norm.symbolic.3',args=>'');
-run_test(\&test_vcf_norm,$opts,in=>'norm.realign-indel',out=>'norm.realign-indel.1.out',fai=>'norm.realign-indel',args=>'');
+run_test(\&test_vcf_norm,$opts,in=>'norm.realign-indel',out=>'norm.realign-indel.1.out',fai=>'norm.realign-indel',args=>'-c C');
 run_test(\&test_vcf_norm,$opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 run_test(\&test_vcf_norm,$opts,in=>'norm.split',out=>'norm.split.1.out',args=>'-m- -a');
@@ -345,8 +349,8 @@ run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.1.out',args=>'-d exact');
 run_test(\&test_vcf_norm,$opts,in=>'norm.rmdup.3',fai=>'norm.rmdup.3',out=>'norm.rmdup.3.2.out',args=>'-d all');
 run_test(\&test_vcf_norm,$opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'-c s -a --old-rec-tag XX');
-run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s --old-rec-tag XX');
-run_test(\&test_vcf_norm,$opts,in=>'norm.iupac.2',fai=>'norm.iupac.2',out=>'norm.iupac.2.1.out',args=>'-c s --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c sc --old-rec-tag XX');
+run_test(\&test_vcf_norm,$opts,in=>'norm.iupac.2',fai=>'norm.iupac.2',out=>'norm.iupac.2.1.out',args=>'-c sc --old-rec-tag XX');
 run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s --old-rec-tag XX');
 run_test(\&test_vcf_norm,$opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.2.out',args=>q[-c s -i'alt="N"' --old-rec-tag XX]);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.split.1',out=>'atomize.split.1.0.out',args=>['-a --old-rec-tag OLD_REC','-m -any --force']);

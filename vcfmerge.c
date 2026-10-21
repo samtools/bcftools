@@ -745,6 +745,31 @@ void normalize_alleles(char **als, int nals)
     free(lens);
 }
 
+// Check if alleles are equal; allows different case for sequence, but not for
+// symbolic alleles (<DUP> vs <dup>) and breakends (A]chr:1] vs A]CHR:1]) -
+// VCF specification explicitly makes symbolic alleles case-sensitive.
+static int alleles_equal(const char *a, const char *b)
+{
+    if ( a[0]=='<' || b[0]=='<' ) return strcmp(a,b)==0;
+
+    int in_mate = 0;
+    for (; *a && *b; a++, b++)
+    {
+        unsigned char ca = (unsigned char)*a;
+        unsigned char cb = (unsigned char)*b;
+
+        if ( in_mate )
+        {
+            if ( ca!=cb ) return 0;
+        }
+        else if ( nt_to_upper(ca)!=nt_to_upper(cb) ) return 0;
+
+        // The compared characters matched, so brackets are synchronized.
+        if ( ca=='[' || ca==']' ) in_mate = !in_mate;
+    }
+    return *a==*b;
+}
+
  /**
  * merge_alleles() - merge two REF,ALT records, $a and $b into $b.
  * @a:      alleles to be merged, first is REF
@@ -775,31 +800,19 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     int rlb = !b[0][1] ? 1 : strlen(b[0]);
 
     // the most common case: same SNPs
-    if ( na==2 && *nb==2 && rla==1 && rlb==1 && a[1][0]==b[1][0] && !a[1][1] && !b[1][1] )
+    if ( na==2 && *nb==2 && rla==1 && rlb==1 && !a[1][1] && !b[1][1] &&
+        nt_to_upper(a[0][0])==nt_to_upper(b[0][0]) &&
+        nt_to_upper(a[1][0])==nt_to_upper(b[1][0]) )
     {
         map[1] = 1;
         return b;
     }
 
     // Sanity check: reference prefixes must be identical
-    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) )
+    if ( strncasecmp(a[0],b[0],rla<rlb?rla:rlb) )
     {
-        if ( strncasecmp(a[0],b[0],rla<rlb?rla:rlb) )
-        {
-            fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
-            return NULL;
-        }
-        // Different case, change to uppercase
-        for (i=0; i<na; i++)
-        {
-            int len = strlen(a[i]);
-            for (j=0; j<len; j++) a[i][j] = toupper_c(a[i][j]);
-        }
-        for (i=0; i<*nb; i++)
-        {
-            int len = strlen(b[i]);
-            for (j=0; j<len; j++) b[i][j] = toupper_c(b[i][j]);
-        }
+        fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+        return NULL;
     }
 
     int n = *nb + na;
@@ -835,7 +848,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
             ai = a[i];
 
         for (j=1; j<*nb; j++)
-            if ( !strcasecmp(ai,b[j]) ) break;
+            if ( alleles_equal(ai,b[j]) ) break;
 
         if ( j<*nb ) // $b already has the same allele
         {
