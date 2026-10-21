@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##contig=<ID=chr1,length=10>
+##INFO=<ID=ANN,Number=.,Type=String,Description="Annotation">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	1	verb	A	G	.	.	ANN=MODIFIER
+chr1	2	annot	A	G	.	.	ANN=G|upstream_gene_variant|MODIFIER|MSH3||||;DP=10
+chr1	3	other	A	G	.	.	ANN=G|missense_variant|MODERATE|MSH3||||;DP=10
+chr1	4	mixed	A	G	.	.	ANN=G|upstream_gene_variant|MODIFIER|MSH3||||,G|missense_variant|MODERATE|MSH3||||
+chr1	5	miss	A	G	.	.	DP=10

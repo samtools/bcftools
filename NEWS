@@ -11,6 +11,10 @@ Changes affecting the whole of bcftools, or multiple commands:
   contig names and respect their case during matching, as required by VCF
   specification.
 
+* The `-i/-e` filtering expressions
+
+    - Fix negated regular-expression (!~) filtering of string fields, which could
+      incorrectly evaluate to true without testing the pattern (#2609)
 
 Changes affecting specific commands:
 
