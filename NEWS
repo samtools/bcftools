@@ -81,6 +81,9 @@ Changes affecting specific commands:
 
     - Make `-d exact` consistent for sequence alleles differing only in case.
 
+    - Fix incorrect allele mappings and associated annotations when atomizing (`-a`)
+      multiallelic records after a compound variant (#2607)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
