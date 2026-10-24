@@ -396,9 +396,9 @@ static void _prune_sites(vcfbuf_t *buf, int flush_all)
             }
             else if ( bcf_calc_ac(buf->hdr, line, buf->prune.ac, BCF_UN_INFO|BCF_UN_FMT) )
             {
-                int ntot = buf->prune.ac[0], nalt = 0;
-                for (k=1; k<line->n_allele; k++) nalt += buf->prune.ac[k];
-                buf->vcf[i].af = ntot ? (float)nalt/ntot : 0;
+                int ntot = 0;
+                for (k=0; k<line->n_allele; k++) ntot += buf->prune.ac[k];
+                buf->vcf[i].af = ntot ? (float)(ntot - buf->prune.ac[0])/ntot : 0;
             }
             buf->vcf[i].af_set = 1;
         }

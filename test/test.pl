@@ -920,6 +920,7 @@ run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.2.o
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.4.out',cmd=>'+parental-origin',args=>qq[-r 20:103 -p proband,father,mother -t dup | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'parental-origin',out=>'parental-origin.5.out',cmd=>'+parental-origin',args=>qq[-r 20:104 -p proband,father,mother -t dup | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'prune.4',out=>'prune.4.1.out',cmd=>'+prune -n 1 -w 1kb');
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.1.out',cmd=>'+prune -w 1 -a r2,LD,HD');                        # annotate with r2,LD,HD at the previous site
 run_test(\&test_vcf_plugin,$opts,in=>'prune.2',out=>'prune.2.1.out',cmd=>'+prune -w 1 -a r2,LD,HD');
 run_test(\&test_vcf_plugin,$opts,in=>'prune.1',out=>'prune.1.2.out',cmd=>'+prune -w 2 -a r2 -m 0.5 -f MaxR2');              # prune within 2bp, max r2=0.5, soft filter

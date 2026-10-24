@@ -88,6 +88,11 @@ Changes affecting specific commands:
     - Fix incorrect allele mappings and associated annotations when atomizing (`-a`)
       multiallelic records after a compound variant (#2607)
 
+* bcftools +prune
+
+    - Fix a serious bug in estimating AF from genotypes when --AF-tag is not given.
+      The code used a wrong denomitator (#2449)
+
 * bcftools reheader
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
