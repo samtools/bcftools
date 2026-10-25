@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014-2025 Genome Research Ltd.
+    Copyright (C) 2014-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -428,7 +428,8 @@ static void reheader_vcf_gz(args_t *args)
     }
 
     // Output the modified header
-    BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");;
+    BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");
+    if (!bgzf_out) error("Failed to open %s: %s\n", args->output_fname ? args->output_fname : "stdout", strerror(errno));
     if ( bgzf_write(bgzf_out, hdr.s, hdr.l) < 0 ) error("Can't write BGZF header (code %d)\n", bgzf_out->errcode);
     free(hdr.s);
 

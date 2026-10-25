@@ -97,6 +97,9 @@ Changes affecting specific commands:
 
     - Better error reporting on invalid --samples file, don't segfault (#2538)
 
+    - Avoid segfault and print an informative message when attempting writing
+      to a non-existent directory (#2311)
+
 * bcftools sort
 
     - Add --threads and, in --verbose 4 mode or higher, print elapsed time
