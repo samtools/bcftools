@@ -112,6 +112,10 @@ Changes affecting specific commands:
 
     - Add --threads and, in --verbose 4 mode or higher, print elapsed time
 
+    - Fix assertion failures and coordinate truncation when sorting VCF records with
+      positions beyond the signed 32-bit range. Also fix detection of temporary-file
+      read/write errors (#2043)
+
 
 
 ## Release 1.24 (9th July 2026)

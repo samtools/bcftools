@@ -1,6 +1,6 @@
 /*  vcfsort.c -- sort subcommand
 
-   Copyright (C) 2017-2025 Genome Research Ltd.
+   Copyright (C) 2017-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -55,11 +55,9 @@
 typedef struct
 {
     char *fname;
-    htsFile *fh;
     BGZF *bgz;
     size_t idx;
     bcf1_t *rec;
-    int is_merged;
 }
 blk_t;
 
@@ -69,6 +67,7 @@ typedef struct
     hts_pos_t pos;
     int rid;
     float qual;
+    int unpacked;   // HTSlib status flags, excluding decoded-field flags
     uint8_t data[];
 }
 packed_bcf_t;
@@ -208,8 +207,17 @@ static uint8_t *pack_hts_pos(uint8_t *data, hts_pos_t val)
     return pack_unsigned(data, v);
 }
 
-static uint8_t *pack_bcf_data(packed_bcf_t *dest, const bcf1_t *src,
-                              int outside_buffer)
+static uint8_t *pack_bcf_header(uint8_t *data, const bcf1_t *src)
+{
+    data = pack_hts_pos(data, src->rlen);
+    data = pack_unsigned(data, src->n_info);
+    data = pack_unsigned(data, src->n_allele);
+    data = pack_unsigned(data, src->n_fmt);
+    data = pack_unsigned(data, src->n_sample);
+    data = pack_unsigned(data, src->shared.l);
+    return pack_unsigned(data, src->indiv.l);
+}
+static uint8_t *pack_bcf_data(packed_bcf_t *dest, const bcf1_t *src, int outside_buffer)
 {
     uint32_t i;
     uint8_t *data = dest->data;
@@ -217,6 +225,7 @@ static uint8_t *pack_bcf_data(packed_bcf_t *dest, const bcf1_t *src,
     dest->pos = src->pos;
     dest->rid = src->rid;
     dest->qual = src->qual;
+    dest->unpacked = src->unpacked & ~BCF_UN_ALL;
 
     // Copy in alleles, for the comparison function
     for (i = 0; i < src->n_allele; i++)
@@ -236,13 +245,7 @@ static uint8_t *pack_bcf_data(packed_bcf_t *dest, const bcf1_t *src,
         return data;
     }
 
-    data = pack_hts_pos(data, src->rlen);
-    data = pack_unsigned(data, src->n_info);
-    data = pack_unsigned(data, src->n_allele);
-    data = pack_unsigned(data, src->n_fmt);
-    data = pack_unsigned(data, src->n_sample);
-    data = pack_unsigned(data, src->shared.l);
-    data = pack_unsigned(data, src->indiv.l);
+    data = pack_bcf_header(data, src);
     if (src->shared.l)
         memcpy(data, src->shared.s, src->shared.l);
     data += src->shared.l;
@@ -253,51 +256,45 @@ static uint8_t *pack_bcf_data(packed_bcf_t *dest, const bcf1_t *src,
     return data;
 }
 
+// Write a bcf1_t directly in the private temporary format
+static int write_bcf_as_packed(BGZF *fp, const bcf1_t *src)
+{
+    packed_bcf_t tmp = {0};
+    tmp.pos = src->pos;
+    tmp.rid = src->rid;
+    tmp.qual = src->qual;
+    tmp.unpacked = src->unpacked & ~BCF_UN_ALL;
+    size_t len = tmp.data - (uint8_t *) &tmp.pos;
+    if (bgzf_write_small(fp, &tmp.pos, len) != len) return -1;
+
+    uint8_t buf[100];  // Seven varints, at most ten bytes each
+    len = pack_bcf_header(buf, src) - buf;
+    if (bgzf_write_small(fp, buf, len) != len) return -1;
+    if (src->shared.l > 0 && bgzf_write_small(fp, src->shared.s, src->shared.l) != src->shared.l) return -1;
+    if (src->indiv.l > 0 && bgzf_write_small(fp, src->indiv.s, src->indiv.l) != src->indiv.l) return -1;
+    return 0;
+}
 static int write_packed_bcf(BGZF *fp, packed_bcf_t *src)
 {
-    // Write pos, rid, qual
-    size_t len = src->data - (uint8_t *) &src->pos;
-    if (bgzf_write_small(fp, &src->pos, len) < len)
-        return -1;
-
     // Skip the copy of the alleles
     size_t skip = strlen((char *) src->data) + 1;
 
-    // Write everything else
-    if (src->len < SIZE_MAX)
+    if (src->len == SIZE_MAX)
     {
-        // In main memory block
-        len = src->len - skip;
-        if (bgzf_write_small(fp, src->data + skip, len) < len)
-            return -1;
-    }
-    else
-    {
-        // Record didn't fit in the main block.  To minimize the
-        // overflow, its packed_bcf_t data will be incomplete.  A pointer to
-        // its bcf1_t struct will have been placed after the allele data
-        // so we can finish the packing job and write it in the same format
-        // the rest of the data
+        // Records outside the main memory block hold a pointer to the bcf1_t
+        // after the allele data.  Use the same writer as intermediate merges.
         bcf1_t *rec;
-        uint8_t tmp[100], *data = tmp;
         memcpy(&rec, src->data + skip, sizeof(rec));
-
-        data = pack_hts_pos(data, rec->rlen);
-        data = pack_unsigned(data, rec->n_info);
-        data = pack_unsigned(data, rec->n_allele);
-        data = pack_unsigned(data, rec->n_fmt);
-        data = pack_unsigned(data, rec->n_sample);
-        data = pack_unsigned(data, rec->shared.l);
-        data = pack_unsigned(data, rec->indiv.l);
-        if (bgzf_write_small(fp, tmp, data - tmp) < data - tmp)
-            return -1;
-        if (rec->shared.l > 0 &&
-            bgzf_write_small(fp, rec->shared.s, rec->shared.l) < rec->shared.l)
-            return -1;
-        if (rec->indiv.l > 0 &&
-            bgzf_write_small(fp, rec->indiv.s, rec->indiv.l) < rec->indiv.l)
-            return -1;
+        return write_bcf_as_packed(fp, rec);
     }
+
+    // Records in the main memory block are already packed.  Write pos, rid,
+    // qual and status flags, followed by the variable-length header and data.
+    size_t len = src->data - (uint8_t *) &src->pos;
+    if (bgzf_write_small(fp, &src->pos, len) != len) return -1;
+
+    len = src->len - skip;
+    if (bgzf_write_small(fp, src->data + skip, len) != len) return -1;
 
     return 0;
 }
@@ -344,13 +341,12 @@ static int read_packed_bcf(BGZF *fp, bcf1_t *dest)
 
     bcf_clear(dest);
     ssize_t got = bgzf_read_small(fp, &tmp.pos, len);
-    if (got == 0)
-        return -1;  // EOF
-    if (got < len)
-        return -2;  // Error or short read
+    if (got == 0) return -1;  // EOF
+    if ((size_t)got!=len) return -2;  // Error or short read
     dest->pos = tmp.pos;
     dest->rid = tmp.rid;
     dest->qual = tmp.qual;
+    dest->unpacked = tmp.unpacked;
     dest->rlen = unpack_hts_pos(fp, &err);
     dest->n_info = unpack_unsigned(fp, &err);
     dest->n_allele = unpack_unsigned(fp, &err);
@@ -364,35 +360,27 @@ static int read_packed_bcf(BGZF *fp, bcf1_t *dest)
     if (ks_resize(&dest->indiv, len) != 0)
         return -2;
     dest->indiv.l = len;
-    err |= bgzf_read_small(fp, dest->shared.s, dest->shared.l) < dest->shared.l;
-    err |= bgzf_read_small(fp, dest->indiv.s, dest->indiv.l) < dest->indiv.l;
+    err |= bgzf_read_small(fp, dest->shared.s, dest->shared.l) != dest->shared.l;
+    err |= bgzf_read_small(fp, dest->indiv.s, dest->indiv.l) != dest->indiv.l;
     return err == 0 ? 0 : -2;
 }
 
-void open_tmp_file(args_t *args, blk_t *blk, int is_merged)
+void open_tmp_file(args_t *args, blk_t *blk)
 {
     kstring_t str = {0,0,0};
     int tries = 1000;
 
-    blk->fh = NULL;
     blk->bgz = NULL;
-
-    do {
-        if (ksprintf(ks_clear(&str), "%s/%05zd%s",
-                     args->tmp_dir, args->tmp_count++,
-                     is_merged ? ".bcf" : "") < 0) {
+    do
+    {
+        if (ksprintf(ks_clear(&str), "%s/%05zd", args->tmp_dir, args->tmp_count++) < 0)
             clean_files_and_throw(args, "%s", strerror(errno));
-        }
 
-        if (is_merged)
-            blk->fh = hts_open(str.s, "wbx1");
-        else
-            blk->bgz = bgzf_open(str.s, "wx1");
-        if ( blk->fh == NULL && blk->bgz == NULL && (errno != EEXIST || --tries <= 0)) {
-            clean_files_and_throw(args, "Cannot write %s: %s\n",
-                                  str.s, strerror(errno));
-        }
-    } while (blk->fh == NULL && blk->bgz == NULL);
+        blk->bgz = bgzf_open(str.s, "wx1");
+        if ( blk->bgz == NULL && (errno != EEXIST || --tries <= 0))
+            clean_files_and_throw(args, "Cannot write %s: %s\n", str.s, strerror(errno));
+    }
+    while (blk->bgz == NULL);
 
     blk->fname = ks_release(&str);
     blk->idx = args->tmp_count - 1;
@@ -411,13 +399,12 @@ void buf_flush(args_t *args, bcf1_t *last_rec)
 
     assert(args->nblk < MAX_TMP_FILES);
     blk_t *blk = &args->blk[args->nblk];
-    blk->is_merged = 0;
     args->nblk++;
     args->tmp_layers[0]++;
 
-    assert(blk->fname == NULL && blk->fh == NULL && blk->bgz == NULL);
+    assert(blk->fname == NULL && blk->bgz == NULL);
 
-    open_tmp_file(args, blk, 0);
+    open_tmp_file(args, blk);
     int i;
     for (i=0; i<args->nbuf; i++)
     {
@@ -444,6 +431,7 @@ void buf_push(args_t *args, bcf1_t *rec)
     size_t delta = sizeof(rec->pos)
         + sizeof(rec->rid)
         + sizeof(rec->qual)
+        + sizeof(rec->unpacked)
         + varint_size(rec->rlen)
         + varint_size(2) // n_info
         + varint_size(2) // n_allele
@@ -474,7 +462,7 @@ void buf_push(args_t *args, bcf1_t *rec)
     }
 
     // make sure nothing has changed in htslib
-    assert( rec->unpacked==BCF_UN_STR && !rec->d.flt && !rec->d.info && !rec->d.fmt && !rec->d.var );
+    assert( (rec->unpacked & BCF_UN_ALL)==BCF_UN_STR && !rec->d.flt && !rec->d.info && !rec->d.fmt && !rec->d.var );
 
     uint8_t *ptr_beg = args->mem_block + args->mem;
     uint8_t *ptr = _align_up(ptr_beg);
@@ -532,67 +520,41 @@ static inline int blk_is_smaller(blk_t **aptr, blk_t **bptr)
 }
 KHEAP_INIT(blk, blk_t*, blk_is_smaller)
 
-void blk_read(args_t *args, khp_blk_t *bhp, bcf_hdr_t *hdr, blk_t *blk)
+void blk_read(args_t *args, khp_blk_t *bhp, blk_t *blk)
 {
-    int ret;
-    if (blk->is_merged)
-    {
-        if ( !blk->fh ) return;
-        ret = bcf_read(blk->fh, hdr, blk->rec);
-    }
-    else
-    {
-        if ( !blk->bgz ) return;
-        ret = read_packed_bcf(blk->bgz, blk->rec);
-    }
+    if ( !blk->bgz ) return;
+    int ret = read_packed_bcf(blk->bgz, blk->rec);
     if ( ret < -1 ) clean_files_and_throw(args, "Error reading %s\n", blk->fname);
     if ( ret == -1 )
     {
-        if (blk->is_merged)
-        {
-            if ( hts_close(blk->fh)!=0 ) clean_files_and_throw(args, "Close failed: %s\n", blk->fname);
-            blk->fh = NULL;
-            return;
-        }
-        else
-        {
-            if ( bgzf_close(blk->bgz) != 0)
-                clean_files_and_throw(args, "Close failed: %s\n", blk->fname);
-            blk->bgz = NULL;
-            return;
-        }
+        if ( bgzf_close(blk->bgz) != 0)
+            clean_files_and_throw(args, "Close failed: %s\n", blk->fname);
+        blk->bgz = NULL;
+        return;
     }
     bcf_unpack(blk->rec, BCF_UN_STR);
     khp_insert(blk, bhp, &blk);
 }
 
-void merge_blocks(args_t *args, htsFile *out, const char *output_fname,
-                  int idx_fmt, size_t from)
+void merge_blocks(args_t *args, htsFile *out, BGZF *packed_out, const char *output_fname, int idx_fmt, size_t from)
 {
     khp_blk_t *bhp = khp_init(blk);
     char *index_fn = NULL;
     size_t i;
 
+    // Final output uses HTSlib; intermediate merges retain the packed format.
+    assert((out != NULL) != (packed_out != NULL));
+    assert(!idx_fmt || out != NULL);
+
     for (i=from; i<args->nblk; i++)
     {
         blk_t *blk = &args->blk[i];
-        if (blk->is_merged)
-        {
-            blk->fh = hts_open(blk->fname, "r");
-            if ( !blk->fh ) clean_files_and_throw(args, "Could not read %s: %s\n", blk->fname, strerror(errno));
-            bcf_hdr_t *hdr = bcf_hdr_read(blk->fh);
-            bcf_hdr_destroy(hdr);
-        }
-        else
-        {
-            blk->bgz = bgzf_open(blk->fname, "r");
-            if (!blk->bgz)
-                clean_files_and_throw(args, "Could not read %s: %s\n", blk->fname, strerror(errno));
-        }
-        blk_read(args, bhp, args->hdr, blk);
+        blk->bgz = bgzf_open(blk->fname, "r");
+        if (!blk->bgz) clean_files_and_throw(args, "Could not read %s: %s\n", blk->fname, strerror(errno));
+        blk_read(args, bhp, blk);
     }
 
-    if ( bcf_hdr_write(out, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__, output_fname);
+    if ( out && bcf_hdr_write(out, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__, output_fname);
 
     if (idx_fmt) {
         if ( init_index2(out,args->hdr,output_fname,&index_fn,idx_fmt)<0 )
@@ -602,9 +564,12 @@ void merge_blocks(args_t *args, htsFile *out, const char *output_fname,
     while ( bhp->ndat )
     {
         blk_t *blk = bhp->dat[0];
-        if ( bcf_write(out, args->hdr, blk->rec)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        int ret;
+        if (packed_out) ret = write_bcf_as_packed(packed_out, blk->rec);
+        else ret = bcf_write(out, args->hdr, blk->rec);
+        if (ret != 0) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__, output_fname);
         khp_delete(blk, bhp);
-        blk_read(args, bhp, args->hdr, blk);
+        blk_read(args, bhp, blk);
     }
     if ( idx_fmt )
     {
@@ -662,15 +627,14 @@ void do_partial_merge(args_t *args)
     }
 
     blk_t tmp = { NULL };
-    open_tmp_file(args, &tmp, 1);
-    merge_blocks(args, tmp.fh, tmp.fname, 0, args->nblk - to_merge);
-    if (hts_close(tmp.fh) != 0)
+    open_tmp_file(args, &tmp);
+    merge_blocks(args, NULL, tmp.bgz, tmp.fname, 0, args->nblk - to_merge);
+    if (bgzf_close(tmp.bgz) != 0)
         clean_files_and_throw(args, "Close failed: %s\n", tmp.fname);
 
     args->nblk -= to_merge;
-    assert(args->blk[args->nblk].fh == NULL);
+    assert(args->blk[args->nblk].bgz == NULL);
     assert(args->blk[args->nblk].fname == NULL);
-    args->blk[args->nblk].is_merged = 1;
     args->blk[args->nblk].idx = tmp.idx;
     args->blk[args->nblk++].fname = tmp.fname;
     args->tmp_layers[to_layer]++;
@@ -695,7 +659,7 @@ void merge_to_output(args_t *args)
     }
 
     fprintf(stderr,"Merging %zd temporary files\n", args->nblk);
-    merge_blocks(args, out, output_fname, args->write_index, 0);
+    merge_blocks(args, out, NULL, output_fname, args->write_index, 0);
     fprintf(stderr,"Done\n");
 
     if ( hts_close(out)!=0 )
