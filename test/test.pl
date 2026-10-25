@@ -596,6 +596,8 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.40.out',args=>q[--s
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.41.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 1]);
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.42.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 2]);
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--soft-filter xxx --mask ^2:1005-1008]);
+run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 10],pipe=>q[grep -v '^#' | cut -f2 | uniq -c],do=>'vcf');
+run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 1M],pipe=>q[grep -v '^#' | cut -f2 | uniq -c],do=>'vcf');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
@@ -1853,9 +1855,13 @@ sub test_vcf_filter
 sub test_vcf_sort
 {
     my ($opts,%args) = @_;
-    my $pipe = "$$opts{bin}/bcftools query -f '$args{fmt}'";
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort $args{args} $$opts{path}/$args{in}.vcf | $pipe");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | $pipe");
+    my $pipe = '';
+    if ( exists($args{fmt}) ) { $pipe = "| $$opts{bin}/bcftools query -f '$args{fmt}'"; }
+    elsif ( exists($args{pipe}) ) { $pipe = "| $args{pipe}"; }
+    my $do_vcf = exists($args{do}) && $args{do} ne 'vcf' ? 0 : 1;
+    my $do_bcf = exists($args{do}) && $args{do} ne 'bcf' ? 0 : 1;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort $args{args} $$opts{path}/$args{in}.vcf $pipe") unless !$do_vcf;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view $pipe") unless !$do_bcf;
 }
 sub test_vcf_regions
 {
