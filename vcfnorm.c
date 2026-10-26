@@ -762,6 +762,8 @@ static int realign(args_t *args, bcf1_t *line)
         {
             line->d.allele[0][1] = 0;
             bcf_update_alleles(args->out_hdr,line,(const char**)line->d.allele,line->n_allele);
+            old_rec_tag_set(args, line, 0);
+            args->nchanged++;
         }
         return ERR_OK;
     }
