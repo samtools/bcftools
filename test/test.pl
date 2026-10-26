@@ -602,8 +602,8 @@ run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.40.out',args=>q[--s
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.41.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 1]);
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.42.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 2]);
 run_test(\&test_vcf_filter,$opts,in=>'filter.1',out=>'filter.43.out',args=>q[--soft-filter xxx --mask ^2:1005-1008]);
-run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 10],pipe=>q[grep -v '^#' | cut -f2 | uniq -c],do=>'vcf');
-run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 1M],pipe=>q[grep -v '^#' | cut -f2 | uniq -c],do=>'vcf');
+run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 10],pipe=>q[grep -v '^#' | cut -f3],do=>'vcf');
+run_test(\&test_vcf_sort,$opts,in=>'sort.big2',out=>'sort.big2.1.out',args=>q[-m 1M],pipe=>q[grep -v '^#' | cut -f3],do=>'vcf');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_sort,$opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 run_test(\&test_vcf_regions,$opts,in=>'regions');
