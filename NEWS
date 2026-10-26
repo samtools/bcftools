@@ -88,6 +88,9 @@ Changes affecting specific commands:
     - Fix incorrect allele mappings and associated annotations when atomizing (`-a`)
       multiallelic records after a compound variant (#2607)
 
+    - When trimming the REF of reference-only records (ALT='.'), set the
+      `--old-rec-tag` annotation and count the record as realigned (#2391)
+
 * bcftools +prune
 
     - Fix a serious bug in estimating AF from genotypes when --AF-tag is not given.
