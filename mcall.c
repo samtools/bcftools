@@ -795,7 +795,7 @@ static void mcall_call_genotypes(call_t *call, int nals_ori, smpl_grp_t *grp)
         double best_lk = 0;
         for (ia=0; ia<nals_ori; ia++)
         {
-            if ( !(grp->als & 1<<ia) ) continue;    // ia-th allele not in the final selection, skip
+            if ( call->als_map[ia]<0 || !(grp->als & 1U<<ia) ) continue;    // ia-th allele not selected, skip
             int iaa = (ia+1)*(ia+2)/2-1;                // PL index of the ia/ia genotype
             double lk = ploidy==2 ? pdg[iaa]*grp->qsum[ia]*grp->qsum[ia] : pdg[iaa]*grp->qsum[ia];
             #if USE_PRIOR_FOR_GTS
@@ -814,11 +814,11 @@ static void mcall_call_genotypes(call_t *call, int nals_ori, smpl_grp_t *grp)
             gts[1] = gts[0];
             for (ia=0; ia<nals_ori; ia++)
             {
-                if ( !(grp->als & 1<<ia) ) continue;
+                if ( call->als_map[ia]<0 || !(grp->als & 1U<<ia) ) continue;
                 int iaa = (ia+1)*(ia+2)/2-1;
                 for (ib=0; ib<ia; ib++)
                 {
-                    if ( !(grp->als & 1<<ib) ) continue;
+                    if ( call->als_map[ib]<0 || !(grp->als & 1U<<ib) ) continue;
                     int iab = iaa - ia + ib;
                     double lk = 2*pdg[iab]*grp->qsum[ia]*grp->qsum[ib];
                     #if USE_PRIOR_FOR_GTS
@@ -839,6 +839,19 @@ static void mcall_call_genotypes(call_t *call, int nals_ori, smpl_grp_t *grp)
         else
             gts[1] = bcf_int32_vector_end;
 
+        // None of this group's selected alleles survives output trimming.
+        if ( !(grp->als & call->als_new) )
+        {
+            gts[0] = bcf_gt_missing;
+            gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+            gps[0] = -1;
+            continue;
+        }
+
+        // Preserve the existing reference fallback when weights are zero,
+        // but avoid normalizing a zero-sum GP vector.
+        if ( best_lk==0 ) gps[0] = -1;
+
         call->ac[ bcf_gt_allele(gts[0]) ]++;
         if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
     }
@@ -853,7 +866,7 @@ static void mcall_call_genotypes(call_t *call, int nals_ori, smpl_grp_t *grp)
         if ( call->ploidy )
         {
             if ( call->ploidy[ismpl]==2 ) nmax = ngts_new;
-            else if ( call->ploidy[ismpl]==1 ) nmax = grp->nals;
+            else if ( call->ploidy[ismpl]==1 ) nmax = call->nals_new;
             else nmax = 0;
         }
         else nmax = ngts_new;
@@ -1558,17 +1571,21 @@ int mcall(call_t *call, bcf1_t *rec)
     int is_variant = call->als_new==1 ? 0 : 1;
     if ( call->flag & CALL_VARONLY && !is_variant ) return 0;
 
+    // Select ordinary alleles before deciding whether to keep the unseen allele.
+    if ( unseen>0 ) call->als_new &= ~(1U<<unseen);
     call->nals_new = 0;
     for (i=0; i<nals_ori; i++)
     {
-        if ( (call->flag&CALL_KEEP_UNSEEN) && i==unseen && call->nals_new==1 )
-        {
-            call->nals_new++;
-            call->als_new |= 1<<i;
-        }
         if ( i>0 && i==unseen ) continue;
-        if ( call->flag & CALL_KEEPALT ) call->als_new |= 1<<i;
-        if ( call->als_new & (1<<i) ) call->nals_new++;
+        if ( call->flag & CALL_KEEPALT ) call->als_new |= 1U<<i;
+        if ( call->als_new & (1U<<i) ) call->nals_new++;
+    }
+    if ( unseen>0
+        && (call->flag & CALL_KEEP_UNSEEN)
+        && (call->nals_new==1 || (call->flag & CALL_KEEP_UNSEEN_ALL)) )
+    {
+        call->als_new |= 1U<<unseen;
+        call->nals_new++;
     }
 
     init_allele_trimming_maps(call,nals_ori,call->als_new);

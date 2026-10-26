@@ -963,8 +963,8 @@ static void usage(args_t *args)
     fprintf(stderr, "       --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
-    fprintf(stderr, "   -A, --keep-alts                 Keep all possible alternate alleles at variant sites\n");
-    fprintf(stderr, "   -*, --keep-unseen-allele        Keep the unobserved allele <*> or <NON_REF>\n");
+    fprintf(stderr, "   -A, --keep-alts                 Keep ALT alleles even if not called in any genotype. See also -*.\n");
+    fprintf(stderr, "   -*, --keep-unseen-allele        Keep <*> or <NON_REF> if no other ALT remains (-*) or at all sites (-**)\n");
     fprintf(stderr, "   -a, --annotate LIST             Optional tags to output (lowercase allowed); '?' to list available tags\n");
     fprintf(stderr, "   -F, --prior-freqs AN,AC         Use prior allele frequencies, determined from these pre-filled tags\n");
     fprintf(stderr, "   -G, --group-samples FILE|-      Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
@@ -1084,7 +1084,10 @@ int main_vcfcall(int argc, char *argv[])
             case 'M': args.flag &= ~CF_ACGT_ONLY; break;     // keep sites where REF is N
             case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
-            case '*': args.aux.flag |= CALL_KEEP_UNSEEN; break;
+            case '*':
+                if ( args.aux.flag & CALL_KEEP_UNSEEN ) args.aux.flag |= CALL_KEEP_UNSEEN_ALL;
+                args.aux.flag |= CALL_KEEP_UNSEEN;
+                break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;
@@ -1201,22 +1204,13 @@ int main_vcfcall(int argc, char *argv[])
         if ( args.aux.flag&CALL_CONSTR_ALLELES && !args.aux.tgt_als ) continue;
 
         // Skip unwanted sites
-        int i, is_indel = bcf_is_snp(bcf_rec) ? 0 : 1;
+        int is_indel = bcf_is_snp(bcf_rec) ? 0 : 1;
         if ( (args.flag & CF_INDEL_ONLY) && !is_indel ) continue;
         if ( (args.flag & CF_NO_INDEL) && is_indel ) continue;
         if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
 
         // Which allele is symbolic? All SNPs should have it, but not indels
-        args.aux.unseen = 0;
-        for (i=1; i<bcf_rec->n_allele; i++)
-        {
-            if ( bcf_rec->d.allele[i][0]=='X' ) { args.aux.unseen = i; break; }  // old X
-            if ( bcf_rec->d.allele[i][0]=='<' )
-            {
-                if ( bcf_rec->d.allele[i][1]=='X' && bcf_rec->d.allele[i][2]=='>' ) { args.aux.unseen = i; break; } // old <X>
-                if ( bcf_rec->d.allele[i][1]=='*' && bcf_rec->d.allele[i][2]=='>' ) { args.aux.unseen = i; break; } // new <*>
-            }
-        }
+        args.aux.unseen = get_unseen_allele(bcf_rec);
         int is_ref = (bcf_rec->n_allele==1 || (bcf_rec->n_allele==2 && args.aux.unseen>0)) ? 1 : 0;
 
         if ( is_ref && args.aux.flag&CALL_VARONLY )

@@ -1,0 +1,32 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##contig=<ID=1,length=1000>
+##contig=<ID=2,length=1000>
+##contig=<ID=3,length=1000>
+##contig=<ID=4,length=1000>
+##contig=<ID=5,length=1000>
+##contig=<ID=6,length=1000>
+##contig=<ID=7,length=1000>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="Average mapping quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1
+1	100	.	A	<*>	.	.	MIN_DP=16	GT:PL:DP	0/0:0,48,197:16
+1	101	.	G	T,<*>	17.3098	.	AC=0,0;AN=2	GT:PL:DP	0/0:16,0,53,22,56,73:3
+2	100	.	A	.	.	.	MIN_DP=16	GT:DP	./.:16
+2	101	.	G	T	226.589	.	AC=0;AN=2	GT:PL:DP	0/0:0,48,197:16
+3	100	.	A	C	226.589	.	AC=0;AN=2	GT:PL:DP	0/0:0,48,197:16
+3	101	.	G	<*>	.	.	MIN_DP=16	GT:PL:DP	0/0:0,48,197:16
+4	100	.	A	<*>	226.589	.	AC=0;AN=2	GT:PL	0/0:0,48,197
+5	100	.	A	C,<*>	3.94818e-07	.	AC=0,0;AN=2	GT:PL:DP	0/0:100,100,100,100,100,0:16
+6	100	.	A	<*>	.	.	MIN_DP=16	GT:PL:DP	./.:0,0,0:16
+6	101	.	G	<*>	.	.	MIN_DP=16	GT:PL:DP	0/0:0,48,197:16
+7	100	.	A	<*>	.	.	MIN_DP=16	GT:PL:DP	0/0:0,48,197:16
+7	101	.	G	<*>	.	.	MIN_DP=16	GT:PL:DP	./.:0,0,0:16

@@ -23,6 +23,11 @@ Changes affecting specific commands:
     - To comply with the VCF specification, the INFO/MQ output tag is now declared
       as Type=Float rather than Type=Integer
 
+    - Fix a segfault occurring when --gvcf is combined with --keep-alts (#2224)
+
+    - Extend the option `-*, --keep-unseen-allele` to keep the <*> or <NON_REF>
+      allele if no other ALT remains (-*), or to keep it at all sites (-**)
+
 * bcftools csq
 
     - New option `--allow` to selectively relax validation checks (#2584)

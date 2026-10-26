@@ -1,6 +1,6 @@
 /*  call.h -- variant calling declarations.
 
-    Copyright (C) 2013-2015, 2019-2020 Genome Research Ltd.
+    Copyright (C) 2013-2015, 2019-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -29,14 +29,15 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include "vcmp.h"
 
-#define CALL_KEEPALT        1
-#define CALL_VARONLY        (1<<1)
-#define CALL_CONSTR_TRIO    (1<<2)
-#define CALL_CONSTR_ALLELES (1<<3)
-#define CALL_KEEP_UNSEEN    (1<<4)
-#define CALL_FMT_PV4        (1<<5)
-#define CALL_FMT_GQ         (1<<6)
-#define CALL_FMT_GP         (1<<7)
+#define CALL_KEEPALT         1
+#define CALL_VARONLY         (1<<1)
+#define CALL_CONSTR_TRIO     (1<<2)
+#define CALL_CONSTR_ALLELES  (1<<3)
+#define CALL_KEEP_UNSEEN     (1<<4)
+#define CALL_FMT_PV4         (1<<5)
+#define CALL_FMT_GQ          (1<<6)
+#define CALL_FMT_GP          (1<<7)
+#define CALL_KEEP_UNSEEN_ALL (1<<8)
 
 #define FATHER 0
 #define MOTHER 1

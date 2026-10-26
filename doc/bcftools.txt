@@ -678,10 +678,14 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *-A, --keep-alts*::
     output all alternate alleles present in the alignments even if they do not
-    appear in any of the genotypes
+    appear in any of the genotypes. See also *-***, --keep-unseen-allele*.
 
 *-***, --keep-unseen-allele*::
-    keep the unobserved allele <*> or <NON_REF>, useful mainly for gVCF output
+    with `-*`, retain an existing unobserved allele <*> or <NON_REF> only
+    when no other ALT allele remains after allele selection. With `-**`,
+    retain it at all output sites. Repeating *--keep-unseen-allele* has the
+    same effect. The *-A* option independently retains other input ALT alleles.
+    These options do not add an unobserved allele absent from the input.
 
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently

@@ -240,7 +240,8 @@ static inline int get_unseen_allele(bcf1_t *line)
     {
         if ( !strcmp(line->d.allele[i],"<*>") ) return i;
         if ( !strcmp(line->d.allele[i],"<NON_REF>") ) return i;
-        if ( !strcmp(line->d.allele[i],"<X>") ) return i;
+        if ( !strcmp(line->d.allele[i],"<X>") ) return i;   // should not be really used anymore
+        if ( !strcmp(line->d.allele[i],"X") ) return i;     // should not be really used anymore
     }
     return 0;
 }

@@ -31,6 +31,7 @@ struct _gvcf_t
     int prev_range;             // 0 if not in a block
     int32_t *dp, mdp, *pl, mpl, npl;
     int32_t *tmp, mtmp, *gts, ngts,mgts, nqsum,mqsum;
+    int32_t *gt_tmp, mgt_tmp;
     float *qsum;
     int32_t rid, start, end, min_dp;
     kstring_t als;
@@ -80,6 +81,7 @@ void gvcf_destroy(gvcf_t *gvcf)
     free(gvcf->tmp);
     free(gvcf->qsum);
     free(gvcf->gts);
+    free(gvcf->gt_tmp);
     free(gvcf->als.s);
     if ( gvcf->line ) bcf_destroy(gvcf->line);
     free(gvcf);
@@ -88,24 +90,35 @@ void gvcf_destroy(gvcf_t *gvcf)
 bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int is_ref)
 {
     int i, ret, nsmpl = bcf_hdr_nsamples(hdr);
-    int can_collapse = is_ref ? 1 : 0;
+    int npl = 0, can_collapse = rec && is_ref;
     int32_t dp_range = 0, min_dp = 0;
 
     // No record and nothing to flush?
     if ( !rec && !gvcf->prev_range ) return NULL;
 
-    // Flush gVCF block if there are no more records, chr changed, a gap
-    // encountered, or other conditions not met (block broken by a non-ref or DP too low).
-    int needs_flush = can_collapse ? 0 : 1;
-
     // Can the record be included in a gVCF block? That is, is this a ref-only site?
-    if ( rec && can_collapse )
+    if ( can_collapse )
     {
         bcf_unpack(rec, BCF_UN_ALL);
 
+        // A reference call may retain concrete ALT alleles with call -A.
+        // Keep such records, and records with multiple ALTs, outside blocks.
+        if ( rec->n_allele>2 || bcf_get_variant_types(rec)!=VCF_REF ) can_collapse = 0;
+    }
+    if ( can_collapse )
+    {
+        npl = bcf_get_format_int32(hdr, rec, "PL", &gvcf->tmp, &gvcf->mtmp);
+        if ( npl<0 ) npl = 0;
+
+        // The PL merge below supports three values per sample only.
+        // Preserve other layouts by writing these records individually.
+        if ( npl && npl!=3*nsmpl ) can_collapse = 0;
+    }
+    if ( can_collapse )
+    {
         // per-sample depth
         ret = bcf_get_format_int32(hdr, rec, "DP", &gvcf->tmp, &gvcf->mtmp);
-        if ( ret==nsmpl )
+        if ( ret==nsmpl && nsmpl>0 )
         {
             min_dp = gvcf->tmp[0];
             for (i=1; i<nsmpl; i++)
@@ -119,16 +132,35 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
             {
                 // leave the record unchanged, DP is too small. Alternatively, return NULL here
                 // to skip these sites
-                needs_flush  = 1;
                 can_collapse = 0;
             }
         }
         else
-            needs_flush = 1;       // DP field not present
+            can_collapse = 0;
     }
+
+    // Flush when the record cannot join the block, or its position or DP bin changes
+    int needs_flush = !can_collapse;
 
     if ( gvcf->prev_range && gvcf->prev_range!=dp_range ) needs_flush = 1;
     if ( !rec || gvcf->rid!=rec->rid || rec->pos > gvcf->end+1 ) needs_flush = 1;
+
+    if ( can_collapse && gvcf->prev_range && !needs_flush )
+    {
+        // Preserve changes between ALT=., <*> and other reference placeholders,
+        // and between records with and without PL. REF itself may change by site.
+        const char *block_alt = strchr(gvcf->als.s, ',');
+        const char *rec_alt = rec->n_allele==2 ? rec->d.allele[1] : "";
+        if ( strcmp(block_alt ? block_alt+1 : "", rec_alt) || gvcf->npl!=npl ) needs_flush = 1;
+        if ( !needs_flush )
+        {
+            // Preserve each sample's genotype, including missingness and ploidy.
+            // Use a separate buffer: tmp still contains this record's DP values.
+            int ngts = bcf_get_genotypes(hdr,rec,&gvcf->gt_tmp,&gvcf->mgt_tmp);
+            if ( ngts<0 ) ngts = 0;
+            if ( ngts!=gvcf->ngts || (ngts && memcmp(gvcf->gts,gvcf->gt_tmp,ngts*sizeof(*gvcf->gts))) ) needs_flush = 1;
+        }
+    }
 
     // If prev_range is set, something can be flushed
     if ( gvcf->prev_range && needs_flush )
@@ -172,9 +204,11 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
             hts_expand(int32_t,nsmpl,gvcf->mdp,gvcf->dp);
             memcpy(gvcf->dp,gvcf->tmp,nsmpl*sizeof(int32_t));   // tmp still contains DP from rec
             gvcf->npl = bcf_get_format_int32(hdr, rec, "PL", &gvcf->pl, &gvcf->mpl);
+            if ( gvcf->npl<0 ) gvcf->npl = 0;
 
             gvcf->nqsum = bcf_get_info_float(hdr,rec,"QS",&gvcf->qsum,&gvcf->mqsum);
             gvcf->ngts  = bcf_get_genotypes(hdr,rec,&gvcf->gts,&gvcf->mgts);
+            if ( gvcf->ngts<0 ) gvcf->ngts = 0;
 
             gvcf->rid    = rec->rid;
             gvcf->start  = rec->pos;
@@ -193,9 +227,9 @@ bcf1_t *gvcf_write(gvcf_t *gvcf, htsFile *fh, bcf_hdr_t *hdr, bcf1_t *rec, int i
             for (i=0; i<nsmpl; i++)
                 if ( gvcf->dp[i] > gvcf->tmp[i] ) gvcf->dp[i] = gvcf->tmp[i];
             ret = bcf_get_format_int32(hdr, rec, "PL", &gvcf->tmp, &gvcf->mtmp);
-            if ( ret>=0 )
+            if ( ret>0 )
             {
-                if ( ret!=nsmpl*3 ) error("Unexpected number of PL fields\n");
+                if ( ret!=nsmpl*3 || gvcf->npl!=ret ) error("Unexpected number of PL fields\n");
                 for (i=0; i<nsmpl; i++)
                 {
                     if ( gvcf->pl[3*i+1] > gvcf->tmp[3*i+1] )

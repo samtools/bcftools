@@ -1,0 +1,25 @@
+##fileformat=VCFv4.2
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##contig=<ID=1,length=1000>
+##contig=<ID=2,length=1000>
+##contig=<ID=3,length=1000>
+##contig=<ID=4,length=1000>
+##contig=<ID=5,length=1000>
+##contig=<ID=6,length=1000>
+##contig=<ID=7,length=1000>
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1
+1	100	.	A	<*>	0	.	QS=1,0	PL:DP	0,48,197:16
+1	101	.	G	T,<*>	0	.	QS=0.7,0.3,0	PL:DP	16,0,53,22,56,73:3
+2	100	.	A	.	0	.	QS=1	PL:DP	0:16
+2	101	.	G	T	0	.	QS=1,0	PL:DP	0,48,197:16
+3	100	.	A	C	0	.	QS=1,0	PL:DP	0,48,197:16
+3	101	.	G	<*>	0	.	QS=1,0	PL:DP	0,48,197:16
+4	100	.	A	<*>	0	.	QS=1,0	PL	0,48,197
+5	100	.	A	C,<*>	0	.	QS=1,0,0	PL:DP	100,100,100,100,100,0:16
+6	100	.	A	<*>	0	.	QS=1,0	PL:DP	0,0,0:16
+6	101	.	G	<*>	0	.	QS=1,0	PL:DP	0,48,197:16
+7	100	.	A	<*>	0	.	QS=1,0	PL:DP	0,48,197:16
+7	101	.	G	<*>	0	.	QS=1,0	PL:DP	0,0,0:16
