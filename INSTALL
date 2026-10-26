@@ -110,10 +110,23 @@ build in a separate build directory, DIR should refer to the build directory);
 or use --with-htslib=system to ignore any nearby HTSlib source tree and use
 only a system-installed HTSlib.
 
+When using a shared HTSlib installed in a non-standard location, you may
+also need to set its runtime search path. On Linux, either set:
+
+    export LD_LIBRARY_PATH="/path/to/htslib/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+or configure BCFtools with:
+
+    ./configure --with-htslib=/path/to/htslib LDFLAGS="-Wl,-rpath,/path/to/htslib/lib"
+
+Building against an HTSlib source tree links HTSlib statically and avoids
+this extra step.
+
 When --with-htslib is not used, configure looks for an HTSlib source tree
 within or alongside the BCFtools source directory; if there are several
 likely candidates, you will have to use --with-htslib to choose one. When
 using make without running configure first, the directory ../htslib is used.
+
 
 
 Optional Compilation with Perl
