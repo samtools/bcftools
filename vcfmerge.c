@@ -508,7 +508,16 @@ static void info_rules_init(args_t *args)
         if ( rule->type==BCF_HT_INT ) rule->type_size = sizeof(int32_t);
         else if ( rule->type==BCF_HT_REAL ) rule->type_size = sizeof(float);
         else if ( rule->type==BCF_HT_STR ) rule->type_size = sizeof(char);
-        else error("The INFO rule \"%s\" is not supported; the tag \"%s\" type is %d\n", ss,rule->hdr_tag,rule->type);
+        else
+        {
+            bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->out_hdr, BCF_HL_INFO, "ID", rule->hdr_tag, NULL);
+            int itype = hrec ? bcf_hrec_find_key(hrec, "Type") : -1;
+            const char *type = itype >= 0 ? hrec->vals[itype] : "unknown";
+            error("Cannot apply INFO rule \"%s:%s\" to INFO/%s (Type=%s).\n"
+                    "Supported types are Integer and Float, or String with the join rule.\n"
+                    "Check the header definition or change --info-rules; use --info-rules - to disable the rules.\n",
+                    rule->hdr_tag, ss + strlen(ss) + 1, rule->hdr_tag, type);
+        }
 
         if ( !strcmp(rule->hdr_tag,"AC") || !strcmp(rule->hdr_tag,"AN") ) args->keep_AC_AN = 1;
 
