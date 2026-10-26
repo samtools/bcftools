@@ -176,10 +176,10 @@ changed by using the configure script's --prefix option:
 The install target also understands DESTDIR and the other usual installation
 directory variables.
 
-The bgzip and tabix utilities are provided by HTSlib.  If you have not also
-installed HTSlib separately, you may wish to install these utilities by hand
-by copying bcftools-1.x/htslib-1.x/{bgzip,tabix} to the same bin directory
-to which you have installed bcftools et al.
+The bgzip, tabix, and annot-tsv utilities are provided by HTSlib. If you have not also
+installed HTSlib separately, you may wish to compile these utilities
+in the associated copy of HTSlib by typing 'make all all-htslib', and install
+them along with bcftools by typing 'make install install-htslib'.
 
 
 
