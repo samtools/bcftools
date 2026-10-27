@@ -1,0 +1,14 @@
+##gff-version 3
+mini	.	gene	10	30	.	+	.	ID=gene1;Name=gene1;biotype=protein_coding
+mini	.	transcript	10	30	.	+	.	ID=tx1;Parent=gene1;biotype=protein_coding
+mini	.	exon	10	30	.	+	.	Parent=tx1
+mini	.	CDS	10	30	.	+	0	Parent=tx1
+mini	.	gene	1	50	.	+	.	ID=gene2;Name=gene2;biotype=protein_coding
+mini	.	transcript	1	50	.	+	.	ID=tx2;Parent=gene2;biotype=protein_coding
+mini	.	exon	1	6	.	+	.	Parent=tx2
+mini	.	exon	45	50	.	+	.	Parent=tx2
+mini	.	CDS	1	6	.	+	0	Parent=tx2
+mini	.	CDS	45	50	.	+	0	Parent=tx2
+mini	.	gene	1	50	.	+	.	ID=gene3;Name=gene3;biotype=snRNA
+mini	.	transcript	1	50	.	+	.	ID=tx3;Parent=gene3;biotype=snRNA
+mini	.	exon	1	50	.	+	.	Parent=tx3

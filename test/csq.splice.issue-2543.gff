@@ -1,0 +1,4 @@
+##gff-version 3
+mini	snippy-ng	gene	1	2217	.	-	.	ID=gene:BFV63_RS17260;biotype=protein_coding;Name=hypF
+mini	snippy-ng	transcript	1	2217	.	-	.	ID=transcript:BFV63_RS17260_transcript_1;Parent=gene:BFV63_RS17260;biotype=protein_coding
+mini	snippy-ng	CDS	1	2217	.	-	0	Parent=transcript:BFV63_RS17260_transcript_1

@@ -310,7 +310,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( k_flush || !line )
         {
             // Select the best indel from the cluster of k_flush indels
-            int k = 0, max_ac = -1, imax_ac = -1, max_qual = -1, imax_qual = -1;
+            int k = 0, max_ac = -1, imax_ac = -1, imax_qual = -1; float max_qual = -1;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
                 k++;
@@ -420,14 +420,14 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
             if ( args->set_gts==SET_GTS_MISSING && !bcf_gt_is_missing(gts[j]) )
             {
                 int ial = bcf_gt_allele(gts[j]);
-                if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                if ( has_ac && ial>0 && ial<line->n_allele ) args->tmp_ac[ ial-1 ]--;
                 an--;
             }
             else if ( args->set_gts==SET_GTS_REF )
             {
                 int ial = bcf_gt_allele(gts[j]);
                 if ( bcf_gt_is_missing(gts[j]) ) an++;
-                else if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                else if ( has_ac && ial>0 && ial<line->n_allele ) args->tmp_ac[ ial-1 ]--;
             }
             gts[j] = new_gt;
         }

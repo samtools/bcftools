@@ -1,0 +1,18 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=test,length=35>
+##INFO=<ID=CTX,Number=1,Type=String,Description="5-base reference context centered at POS">
+##INFO=<ID=CpG,Number=1,Type=String,Description="CpG change relative to REF considering all ALTs: C=created, D=destroyed, B=both; N=CpG present and unchanged">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+test	1	boundary_start	A	.	.	.	CTX=NNAAC
+test	3	ref_cpg_right	C	.	.	.	CTX=AACGT;CpG=N
+test	3	ref_cpg_right	C	C	.	.	CTX=AACGT;CpG=N
+test	3	destroy_right	C	T	.	.	CTX=AACGT;CpG=D
+test	8	ref_cpg_left	G	.	.	.	CTX=ACGAA;CpG=N
+test	8	destroy_left	G	A	.	.	CTX=ACGAA;CpG=D
+test	13	create_left	A	G	.	.	CTX=ACATA;CpG=C
+test	18	create_right	A	C	.	.	CTX=AAAGT;CpG=C
+test	23	destroy_and_create	C	G	.	.	CTX=ACCGT;CpG=B
+test	28	multiallelic	A	C,G,T	.	.	CTX=ACAGT;CpG=C
+test	33	non_snv_alt	C	CA	.	.	CTX=AACGT
+test	35	boundary_end	T	.	.	.	CTX=CGTNN

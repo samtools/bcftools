@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=10,length=249250621>
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##ALT=<ID=INS:ME:ALU,Description="Insertion of ALU element">
+##ALT=<ID=DEL,Description="Deletion">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+10	280440	.	A	<INS:ME:ALU>,*	.	.	END=280440;EXP=coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315772	.	G	*,<DEL>	.	.	END=315775;EXP=feature_truncation|BICC1|ENST00000373886|protein_coding

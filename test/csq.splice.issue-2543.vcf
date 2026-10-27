@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=mini,length=2217>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=EXP,Number=.,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	snippy
+mini	2214	.	T	G	60	PASS	EXP=@2216	GT	1/1
+mini	2216	.	A	AT	60	PASS	EXP=start_lost|hypF|BFV63_RS17260_transcript_1|protein_coding|-||2214T>G+2216A>AT	GT	1/1

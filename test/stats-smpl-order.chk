@@ -1,0 +1,37 @@
+AF	0	0.490000	1	1	0	1	0	0	1
+DP	0	10	1	25.000000	0	0.000000
+DP	0	100	1	25.000000	0	0.000000
+DP	0	20	1	25.000000	0	0.000000
+DP	0	200	1	25.000000	0	0.000000
+HWE	0	0.490000	2	0.990000	0.990000	0.990000
+IDD	0	-1	1	2	0.28
+PSC	0	A	0	0	1	1	0	1	15.0	0	0	0	0
+PSC	0	B	0	0	1	1	0	1	150.0	0	0	0	0
+PSI	0	A	0	0	0	0.00	0	1	0	0
+PSI	0	B	0	0	0	0.00	0	1	0	0
+QUAL	0	60.0	1	1	0	1
+SN	0	number of MNPs:	0
+SN	0	number of SNPs:	1
+SN	0	number of indels:	1
+SN	0	number of multiallelic SNP sites:	0
+SN	0	number of multiallelic sites:	0
+SN	0	number of no-ALTs:	0
+SN	0	number of others:	0
+SN	0	number of records:	2
+SN	0	number of samples:	2
+ST	0	A>C	0
+ST	0	A>G	1
+ST	0	A>T	0
+ST	0	C>A	0
+ST	0	C>G	0
+ST	0	C>T	0
+ST	0	G>A	0
+ST	0	G>C	0
+ST	0	G>T	0
+ST	0	T>A	0
+ST	0	T>C	0
+ST	0	T>G	0
+SiS	0	1	0	0	0	0	0	0	0
+TSTV	0	1	0	0.00	1	0	0.00
+VAF	0	A	0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0	0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0
+VAF	0	B	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1	0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

@@ -1,6 +1,6 @@
 /*  rbuf.h -- round buffers.
 
-    Copyright (C) 2013-2014, 2017 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -53,7 +53,7 @@ static inline int rbuf_kth(rbuf_t *rbuf, int k)
     if ( k >= rbuf->n ) return -1;
     if ( k < 0 )
     {
-        k = rbuf->n + k; 
+        k = rbuf->n + k;
         if ( k < 0 ) return -1;
     }
     int i = k + rbuf->f;
@@ -67,15 +67,15 @@ static inline int rbuf_kth(rbuf_t *rbuf, int k)
 #define rbuf_last(rbuf) rbuf_kth(rbuf, -1)
 
 /**
- *  rbuf_l2ridx() - get 0-based rbuf index which corresponds to i-th linear index
+ *  rbuf_ridx2l() - get linear index which correspond to rbuf index
  *  @rbuf:  the rbuf_t holder
  *  @idx:   0-based linear index
  *
  *  Returns 0-based circular index or -1 if out of bounds
  */
-static inline int rbuf_l2ridx(rbuf_t *rbuf, int idx)
+static inline int rbuf_ridx2l(rbuf_t *rbuf, int idx)
 {
-    if ( idx < 0 || idx >= rbuf->n ) return -1;
+    if ( idx < 0 || idx >= rbuf->m ) return -1;
     if ( idx >= rbuf->f )
     {
         int i = idx - rbuf->f;

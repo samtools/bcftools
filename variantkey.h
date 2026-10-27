@@ -168,18 +168,18 @@ static inline uint8_t encode_chrom(const char *chrom, size_t size)
  *         excluding the null-character appended at the end of the string,
  *         otherwise a negative number is returned in case of failure.
  */
-static inline size_t decode_chrom(uint8_t code, char *chrom)
+static inline size_t decode_chrom(uint8_t code, char chrom[static 4])
 {
     if ((code < 1) || (code > 25))
     {
-        return sprintf(chrom, "NA");
+        return snprintf(chrom, 4, "NA");
     }
     if (code < 23)
     {
-        return sprintf(chrom, "%" PRIu8, code);
+        return snprintf(chrom, 4, "%" PRIu8, code);
     }
     static const char *map[] = {"X", "Y", "MT"};
-    return sprintf(chrom, "%s", map[(code - 23)]);
+    return snprintf(chrom, 4, "%s", map[(code - 23)]);
 }
 
 static inline uint32_t encode_base(const uint8_t c)
@@ -593,7 +593,7 @@ static inline int8_t compare_variantkey_chrom_pos(uint64_t vka, uint64_t vkb)
  *              If the buffer size is not sufficient, then the return value is the number of characters required for
  *              buffer string, including the terminating null byte.
  */
-static inline size_t variantkey_hex(uint64_t vk, char *str)
+static inline size_t variantkey_hex(uint64_t vk, char str[static 17])
 {
     return hex_uint64_t(vk, str);
 }

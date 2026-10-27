@@ -1,5 +1,230 @@
-## Release 1.23.1 (18th March 2026)
+## Release 1.25 (27th October 2026)
 
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* New option `--progress[=INT]` in `mpileup`, `norm` and `view` to periodically
+  print the current position (CHR:POS) to stderr, indicating how far a long-running
+  command has progressed (#2559)
+
+* Fix allele merging in `norm` and `merge` to preserve symbolic IDs and breakend
+  contig names and respect their case during matching, as required by VCF
+  specification.
+
+* The `-i/-e` filtering expressions
+
+    - Fix negated regular-expression (!~) filtering of string fields, which could
+      incorrectly evaluate to true without testing the pattern (#2609)
+
+Changes affecting specific commands:
+
+* bcftools call
+
+    - To comply with the VCF specification, the INFO/MQ output tag is now declared
+      as Type=Float rather than Type=Integer
+
+* bcftools csq
+
+    - New option `--allow` to selectively relax validation checks (#2584)
+
+    - New option `-F, --format` to extend the consequence annotation with
+      cds_position (position within the coding sequence and CDS length),
+      exon (exon index and the number of exons), and exon_position (position
+      within the exon and the exon length)
+
+    - Fix a segfault caused by incorrect handling of symbolic ALT alleles.
+      Support symbolic alleles at multiallelic sites.
+
+* bcftools consensus
+
+    - Fix -M masking of symbolic deletions and mixed multiallelic sites,
+      including out-of-bounds accesses with overlapping variants and at
+      FASTA region boundaries.
+
+    - Fix REF span handling when applying sequence alleles at sites where
+      INFO/END describes a longer symbolic allele.
+
+* bcftools +fill-tags
+
+    - Add two tags to annotate variant sequence context:
+
+        INFO/CTX .. k-nt reference context centered at POS
+        INFO/CpG .. CpG change relative to REF considering all ALTs;
+                        C=created, D=destroyed, B=both; N=CpG present and unchanged
+
+    - Fix a bug where any sample of one or two characters is rejected (#1931, #1933)
+
+* bcftools index
+
+    - Make `--nrecords` with non-standard file extensions (#2588)
+
+* bcftools +mendelian
+
+    - Support sites with more than 64 alleles (#2603)
+
+* bcftools mpileup
+
+    - Fix INFO/MQBZ, BQBZ, RPBZ, SCBZ, MQSBZ and NMBZ at sites where more than 1290
+      reads share one quality or position bin, reachable at a single deep site or across
+      the samples of a multi-sample call. The Mann-Whitney U tie correction was
+      accumulated in 32-bit int and overflowed, which shrank the Z scores towards zero.
+
+* bcftools norm
+
+    - Left-align <DUP> allele no matter which of INFO/SVLEN or INFO/END is present
+
+    - Skip records whose alleles cannot safely be realigned together (#2605)
+
+    - Realign long indels in linear time (#2604)
+
+    - Recalculate INFO/AN,AC from genotype fields unless the new option `--no-update`
+      is given (#2137, #548).
+
+    - Extend the `-c, --check-ref` option for explicit control of output case,
+      report the number of records changed (#2606)
+
+    - Make `-d exact` consistent for sequence alleles differing only in case.
+
+    - Fix incorrect allele mappings and associated annotations when atomizing (`-a`)
+      multiallelic records after a compound variant (#2607)
+
+* bcftools reheader
+
+    - Better error reporting on invalid --samples file, don't segfault (#2538)
+
+* bcftools sort
+
+    - Add --threads and, in --verbose 4 mode or higher, print elapsed time
+
+
+
+## Release 1.24 (9th July 2026)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Calculation of MAC and MAF in `-i/-e` filtering expressions
+
+    - Minor allele count and minor allele frequency were calculated
+      incorrectly at multiallelic sites.
+
+Changes affecting specific commands:
+
+* bcftools +af-dist
+
+    - New `-s, --samples` to print per-sample HWE probability, geometric mean
+
+* bcftools annotate
+
+    - Fix a bug in annotation renaming via `--rename-annots` and `-c NEW:=OLD`,
+      where renaming INFO/TAG would simultaneously rename also FORMAT/TAG (#2489)
+
+    - Allow annotation of Number=A,R INFO tags from tab-delimited files when alleles
+      are split across multiple records.
+
+* bcftools cnv
+
+    - Fix off-by-one error in reporting HMM qualities
+
+* bcftools convert
+
+    - Make --gvcf2vcf work around malformed gVCF records where INFO/END overlaps
+      the next record
+
+* bcftools csq
+
+    - Fix a start_lost issue in haplotype mode: suppress formatting of amino-acid changes
+      of variants that follow on the same haplotype, but still print DNA changes (#2543)
+
+    - Add a new -G, --greedy option which forces the program to check intronic
+      consequences after feature hits (#2548)
+
+* bcftools +fill-tags
+
+    - Fix custom functions to use rounding instead of truncation when converting to
+      integer, so that -t 'MAC:1=float(MAF*AN)' and -t 'MAC:1=int(MAF*AN)' return
+      consistent values.
+
+    - Support per-population annotation for embedded functions, such as in
+      -t 'MAC:1=int(MAF*AN)' -S groups.txt (#2514)
+
+* bcftools +mendelian2
+
+    - Number of fixes and improvements, including a fix in assigning 1X vs 2X
+      inheritance rules with -p (#2545)
+
+* bcftools merge
+
+    - Fixes in memory access with localized alleles, it could result in printing
+      printing trailing garbage in localized FORMAT fields (#2520)
+
+    - Add new `-m exact` mode to merge only records with the exact same alleles
+      (#2498)
+
+* bcftools mpileup
+
+    - Remove unused experimental INFO/MIN_PL_SUM annotation
+
+    - Add new FORMAT/QM annotation, to be used with the new `bcftools +trio-dnm3 --use-ALM` model.
+
+* bcftools norm
+
+    - Fix a bug in splitting Type=String FORMAT fields via -a and -m (#2476)
+
+    - Fix erroneous INFO/END recalculation of symbolic alleles (#2500).
+
+    - Added `--no-realign[=NUM]` to skip realignment during normalization; when NUM is given,
+      only events longer than NUM bp are skipped. This deprecates the option `--do-not-normalize`
+      (equivalent to `--no-realign=0`). See also #2500.
+
+    - Convert ambiguous IUPAC bases to their lexicographically first concrete base, as required by
+      the VCF specification (#2551)
+
+* bcftools +prune
+
+    - When pruning by window length in base pairs, one out-of-window record would
+      be incorrectly accessed. Not only this by-one error would calculate LD in
+      unwanted pair of records, it also led to unexpected behavior when the first
+      out-of-window record would change by filtering (#2475)
+
+* bcftools roh
+
+    - Fix off-by-one error in reporting HMM qualities
+
+* bcftools +split-vep
+
+    - Add support for SnpEff output, add a new option --csq-field, --consequence-field
+      which allows to override the default consequence field name 'Consequence' (#2566)
+
+    - Stop converting consequence severity to lower case
+
+* bcftools stats
+
+    - Fix per-sample stats when samples provided in different order via -s/-S (#2534)
+
+* bcftools +tag2tag
+
+    - Make the advertised default for `-t, --threshold` match the implementation:
+      0, not 0.1. Also clarify that the value is the maximum allowed GP error
+      (`call if GP >= 1 - FLOAT`), not a minimum GP threshold (#2564)
+
+* bcftools +trio-dnm3
+
+    - Add a new TrioDNM model and make it the new default. To prevent confusion, the
+      old +trio-dnm2 plugin was removed and replaced with +trio-dnm3. The original
+      +trio-dnm3 model can be run as
+
+        bcftools +trio-dnm3 --use-ALM
+
+* bcftools view
+
+    - Fix the -v/V, --types/--exclude-types option to work with ref and extend
+      for all types supported by htslib: snps,indels,mnps,ref,bnd,other,overlap
+      (#2567)
+
+
+## Release 1.23.1 (18th March 2026)
 
 Changes affecting the whole of bcftools, or multiple commands:
 
@@ -12,9 +237,8 @@ Changes affecting the whole of bcftools, or multiple commands:
   will now print an error and return a non-zero exit code if an error
   is encountered when reading input data. (#2503)
 
+
 ## Release 1.23 (16th December 2025)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 
@@ -131,7 +355,7 @@ Changes affecting specific commands:
       a new option `-C, --genetic-code` (#2368)
 
     - Change in the `--unify-chr-names` option, no automatic sequence name modification
-      is attempted anymore, the prefixes to trim must be given explictly. For example,
+      is attempted anymore, the prefixes to trim must be given explicitly. For example,
       if run with `--unify-chr-names chr,Chromosome,-`, the program will trim the "chr"
       prefix in the VCF, "Chromosome" in the GFF, leaving the fasta unchanged (#2378)
 
@@ -689,7 +913,7 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 * The -i/-e filtering expressions
 
-    - Error checks were added to prevent incorrect use of vector arithmetics. For example,
+    - Error checks were added to prevent incorrect use of vector arithmetic. For example,
       when evaluating the sum of two vectors A and B, the resulting vector could contain
       nonsense values when the input vectors were not of the same length. The fix introduces
       the following logic:

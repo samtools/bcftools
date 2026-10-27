@@ -489,7 +489,7 @@ static int select_candidate_variants(read_cns_t *rcns, const char *ref)
     // Find the longest deletion at the query position
     i = rcns->pos - rcns->beg;
     rcns->max_del = 0;
-    for (j=0; j<NI && j<dfreq[i].len[j]; j++)
+    for (j=0; j<NI && dfreq[i].len[j]; j++)
     {
         if ( rcns->max_del < dfreq[i].len[j] ) rcns->max_del = dfreq[i].len[j];
     }

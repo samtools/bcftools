@@ -1,0 +1,15 @@
+##fileformat=VCFv4.3
+##contig=<ID=test,length=35>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+test	1	boundary_start	A	.	.	.	.
+test	3	ref_cpg_right	C	.	.	.	.
+test	3	ref_cpg_right	C	C	.	.	.
+test	3	destroy_right	C	T	.	.	.
+test	8	ref_cpg_left	G	.	.	.	.
+test	8	destroy_left	G	A	.	.	.
+test	13	create_left	A	G	.	.	.
+test	18	create_right	A	C	.	.	.
+test	23	destroy_and_create	C	G	.	.	.
+test	28	multiallelic	A	C,G,T	.	.	.
+test	33	non_snv_alt	C	CA	.	.	.
+test	35	boundary_end	T	.	.	.	.

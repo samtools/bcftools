@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=test_ref>
+##INFO=<ID=EXP,Number=.,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+test_ref	5	.	A	T	.	.	EXP=missense|TestGene|ENST001|protein_coding|+|2Y>2F|5A>T
+test_ref	10	.	N	A	.	.	EXP=missense|TestGene|ENST001|protein_coding|+|4X>4P|10N>A

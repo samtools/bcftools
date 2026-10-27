@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=1>
+##INFO=<ID=IA,Number=A,Type=Integer,Description="int Number=A">
+##INFO=<ID=IR,Number=R,Type=Integer,Description="int Number=R">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2	.	C	T,G	.	.	IA=1,2;IR=1,2,3

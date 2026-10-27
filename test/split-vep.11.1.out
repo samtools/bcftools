@@ -1,0 +1,3 @@
+1	1000	A	G	G	missense_variant&splice_region_variant	MODERATE	GENE1	GENE0001	transcript	TX001	protein_coding	2/5	c.100A>G	p.Lys34Arg	100/900	100/600	34/200	.	.
+1	1000	A	G	G	intron_variant	MODIFIER	GENE1	GENE0001	transcript	TX002	protein_coding	2/6	c.101-5A>G	.	101/1200	.	.	5	.
+1	2000	C	T	T	stop_gained	HIGH	GENE2	GENE0002	transcript	TX003	protein_coding	1/3	c.25C>T	p.Gln9*	25/450	25/300	9/100	.	WARNING_TRANSCRIPT_NO_STOP_CODON

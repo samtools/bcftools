@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2021-2024 Genome Research Ltd.
+   Copyright (c) 2021-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -125,7 +125,7 @@ void abuf_set(abuf_t *buf, abuf_opt_t key, void *value)
 }
 
 /*
-    Split alleles into primitivs, e.g.
+    Split alleles into primitives, e.g.
         CC>TT  becomes  C>T,C>T
         GCGT>GTGA  becomes C>T,T>A
 
@@ -166,6 +166,7 @@ static void _atomize_allele(abuf_t *buf, bcf1_t *rec, int ial)
             kputc(altb, &atom->alt);
             atom->beg = atom->end = i;
             atom->ial = ial;
+            atom->plen = 0;
 
             if ( rlen!=alen && (i+1>=rlen || i+1>=alen) )   // the next base is an indel combined with SNV, e.g. C>GGG?
             {
@@ -193,6 +194,7 @@ static void _atomize_allele(abuf_t *buf, bcf1_t *rec, int ial)
             kputc(altb, &atom->alt);
             atom->beg = atom->end = i;
             atom->ial = ial;
+            atom->plen = 0;
         }
     }
 }
@@ -630,8 +632,9 @@ static void _split_table_set_format(abuf_t *buf, bcf_fmt_t *fmt, merge_rule_t mo
             memset(buf->tmp2,0,nval1_dst*nsmpl);
             for (i=0; i<nsmpl; i++)
             {
+                char *src = (char*)buf->tmp2 + nval1_dst*i;
                 kstring_t dst;
-                dst.l = 0; dst.m = nval1_dst; dst.s = (char*)buf->tmp2 + nval1_dst*i;
+                dst.l = 0; dst.m = nval1_dst + 1; dst.s = src;
                 kputc_('.',&dst);
                 if ( star_allele ) kputsn_(",.",2,&dst);
                 if ( len==BCF_VL_R )
@@ -641,6 +644,7 @@ static void _split_table_set_format(abuf_t *buf, bcf_fmt_t *fmt, merge_rule_t mo
                 }
                 copy_string_field(buf->tmp+nval1*i, iori+ioff, nval1, &dst, 0+ioff);
                 if ( star_allele ) copy_string_field(".", 0, 1, &dst, 1+ioff);
+                assert( src==dst.s );   // make sure copy_string_field() did not reallocate
             }
             ret = bcf_update_format(buf->out_hdr, out, tag, buf->tmp2, nval1_dst*nsmpl, type);
         }

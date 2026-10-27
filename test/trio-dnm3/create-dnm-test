@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+simplify($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print
+        "About: Take a trio VCF and anonymize and simplify\n",
+        "Usage: create-dnm-test [OPTIONS] FILE\n",
+        "Options:\n",
+        "   -t, --type STR       TP,FP,..\n",
+        "   -h, -?, --help       This help message\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts =
+    {
+        type => 'UNK',
+    };
+    if ( -t STDIN && !@ARGV ) { error(); }
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-t' or $arg eq '--type' ) { $$opts{type}=shift(@ARGV); next; }
+        if ( -e $arg ) { $$opts{vcf}=$arg; next }
+        if ( $arg eq '-?' or $arg eq '-h' or $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( !exists($$opts{vcf}) ) { error("Missing VCF.\n") }
+    return $opts;
+}
+
+sub cmd
+{
+    my ($cmd,%args) = @_;
+
+    if ( !exists($args{verbose}) ) { $args{verbose} = 1; }
+    if ( $args{verbose} ) { print STDERR $cmd,"\n"; }
+
+    # Why not to use backticks? Perl calls /bin/sh, which is often bash. To get the correct
+    #   status of failing pipes, it must be called with the pipefail option.
+
+    my $kid_io;
+    my $pid = open($kid_io, "-|");
+    if ( !defined $pid ) { error("Cannot fork: $!"); }
+
+    my @out;
+    if ($pid)
+    {
+        # parent
+        @out = <$kid_io>;
+        close($kid_io);
+    }
+    else
+    {
+        # child
+        exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [/bin/sh -o pipefail -c $cmd]: $!");
+    }
+
+    my $status  = $? >> 8;
+    my $signal  = $? & 127;
+
+    my $require_status = exists($args{require_status}) ? $args{require_status} : 0;
+    my $is_err = $status ne $require_status ? 1 : 0;
+
+    if ( exists($args{exit_on_error}) && !$args{exit_on_error} ) { return ($is_err,\@out); }
+    if ( $is_err )
+    {
+        my $msg;
+        if ( $status & 0xff )
+        {
+            $msg = "The command died with signal $signal";
+        }
+        else
+        {
+            $msg = "The command exited with status $status (expected $status)";
+        }
+        $msg .= ":\n\t$cmd\n\n";
+        if ( @out ) {  $msg .= join('',@out,"\n\n"); }
+        error($msg);
+    }
+    return ($is_err,\@out);
+}
+
+sub simplify
+{
+    my ($opts) = @_;
+    my $type = $$opts{type};
+    my ($err,$out) = cmd(qq/bcftools query $$opts{vcf} -f'%CHROM %POS %REF %ALT %FORMAT'/);
+    my ($chr,$pos,$ref,$alt,$fmt,$child,$dad,$mom) = split(/\s+/,$$out[0]);
+    print qq[##fileformat=VCFv4.2
+##reference=file:///ref.fa
+##contig=<ID=$chr>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Phred-score allele quality sum used by `call -mG` and `+trio-dnm`">
+##FORMAT=<ID=QM,Number=R,Type=Integer,Description="Phred-score allele quality mean used by `+trio-dnm`">
+##FORMAT=<ID=SP,Number=1,Type=Integer,Description="Phred-scaled strand bias P-value">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected trio-dnm result">
+];
+    print '#'.join("\t",qw(CHROM POS ID REF ALT QUAL FILTER INFO FORMAT child dad mom))."\n";
+    print join("\t",$chr,$pos,'.',$ref,$alt,qw(. .),"EXP=$type",$fmt,$child,$dad,$mom);
+}

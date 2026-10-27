@@ -49,7 +49,7 @@ sub error
         "   -c  --compress 0|1      Compress the embedded data [1]\n",
         "   -e  --embed-d3 0|1      Embed JS libraries for offline rendering [0]\n",
         "   -i, --RoH-file FILE     Output of bcftools/roh\n",
-        "   -l, --min-length NUM    Mimimum length of ROH [1e6]\n",
+        "   -l, --min-length NUM    Minimum length of ROH [1e6]\n",
         "   -o, --output FILE       HTML output file\n",
         "   -r, --regions LIST      List of chromosomes/regions\n",
         "   -s, --samples LIST      List of samples to show\n",
@@ -154,7 +154,7 @@ sub process_data
 	my ($opts) = @_;
 
     print STDERR "Parsing $$opts{outdir}/roh.txt\n";
-    open(my $in,"zless $$opts{roh_file} |") or error("zless $$opts{roh_file}: $!");
+    open(my $in, '-|', 'gunzip', '-cfq', $$opts{roh_file}) or error("failed to start gunzip $$opts{roh_file}: $!");
     while (my $line=<$in>)
     {
         chomp($line);
@@ -175,7 +175,7 @@ sub process_data
             push @{$$opts{roh}{$chr}{$smpl}},"$beg,$end,$nsnp,$qual";
         }
     }
-    close($in) or error("close failed: zless $$opts{in_file}");
+    close($in) or error("close failed: gunzip $$opts{roh_file} (status=$?, error=$!)");
 
     my $bin_size = $$opts{bin_size};
     my %chr_len = ();

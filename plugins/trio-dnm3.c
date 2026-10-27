@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2025 Genome Research Ltd.
+   Copyright (c) 2018-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -45,9 +45,10 @@
 #include "regidx.h"
 #include "filter.h"
 
-#define USE_DNG    1     // DeNovoGear model
-#define USE_ACM    2     // the new "allele-centric model" which combines fixed DNG priors with allele centric approach
-#define USE_NAIVE  3     // a naive calling model based on observed GT
+#define USE_DNG     1       // DeNovoGear model
+#define USE_ALM     2       // First version of the "allele-likelihoo model" which combines fixed DNG priors with allele centric approach
+#define USE_NAIVE   3       // Naive calling model based on observed GT
+#define USE_DMM     4       // New version, Dirichlet-Multinomial model
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -102,27 +103,33 @@ typedef struct
     char *chrX_list_str;
     regidx_t *chrX_idx;
     trio_t *trio;
-    int has_fmt_ad;
+    int has_fmt_ad, has_fmt_sp;
     int ntrio, mtrio;
-    int32_t *pl,*ad,*qs,*gt, *dnm_qual_int, *dnm_allele, *vaf;    // input FMT/PL,AD,QS,GT values, output DNM and VAF
+    int32_t *pl,*ad,*qs,*qm,*gt,*sp, *dnm_qual_int, *dnm_allele, *vaf;    // input FMT/PL,AD,QS,QM,GT,SP values, output DNM and VAF
     float *dnm_qual_float;
-    int mpl, mad, mqs, mgt;
+    int mpl, mad, mqs, mqm, mgt, msp;
+    double min_qm;  // minimum QM error (converted from phred to probability), negative value to ignore FMT/QM
+    double phi, noise_prior, min_vaf, allelic_dropout, sb_coeff;
     double min_score;
     double *pl3;    // normalized PLs converted to probs for iFATHER,iMOTHER,iCHILD
-    double *qs3;    // QS converted to probs for iFATHER,iMOTHER,iCHILD
-    int maprob, mpl3, mqs3, midx, *idx, force_ad, use_model;
-    double *alt_tmp;
+    double *qs3;    // QS converted to log probs for iFATHER,iMOTHER,iCHILD
+    double *qm3;    // QM converted to probs for iFATHER,iMOTHER,iCHILD
+    int32_t *ad3;
+    int maprob, mpl3, mqs3, mqm3, mad3, midx, *idx, force_ad, use_model;
+    double *alt_dbl;
+    int32_t *alt_int;
     int *alt_idx;
-    int malt_tmp, malt_idx;
+    int malt_dbl, malt_idx, malt_int;
     char *dnm_score_tag,            // the argument of --dnm-tag, by default DNM:log
          *dnm_vaf_tag,
          *dnm_allele_tag;
     int dnm_score_type;             // given by e.g. --dnm-tag DNM:log
     double mrate;                   // --mrate, mutation rate
     pnoise_t pn_snv, pn_indel;      // --pn and --pns for SNVs and indels
-    int with_ppl, with_pad;         // --with-pPL or --with-pAD
-    int use_dng_priors;             // --dng-priors
-    int need_QS;
+    pnoise_t *pn_cur;               // current site - snv or indel?
+    int with_ppl, with_pad, with_cad;   // --with-pPL, --with-pAD, --with-cAD
+    int use_dng_priors;                 // --dng-priors
+    int need_QS, need_PL;
     int strictly_novel;
     priors_t priors, priors_X, priors_XX;
     char *index_fn;
@@ -140,7 +147,7 @@ static const char *usage_text(void)
     return
         "\n"
         "About: Screen variants for possible de-novo mutations in trios\n"
-        "Usage: bcftools +trio-dnm2 [OPTIONS]\n"
+        "Usage: bcftools +trio-dnm3 [OPTIONS]\n"
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
         "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
@@ -157,7 +164,7 @@ static const char *usage_text(void)
         "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
         "\n"
         "General options:\n"
-        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
+        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the log score is smaller than NUM\n"
         "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
         "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
         "   -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]\n"
@@ -172,34 +179,58 @@ static const char *usage_text(void)
         "       --va TAG                    Output tag name for the variant allele [VA]\n"
         "       --vaf TAG                   Output tag name for variant allele fraction [VAF]\n"
         "\n"
+        "Models:\n"
+        "       --use-NAIVE                 v0, Naive calling model which uses only FMT/GT to determine DNMs\n"
+        "       --use-DNG                   v1, Original DeNovoGear model, implies --dng-priors\n"
+        "       --use-ALM                   v2, Basic allele-likelihood model (the default until v1.24)\n"
+        "       --use-DMM                   v3, Dirichlet-multinomial model with site noise awareness (the default since v1.24)\n"
+        "\n"
         "Model options:\n"
         "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
         "       --mrate NUM                 Mutation rate [1e-8]\n"
-        "       --pn FRAC[,NUM][:type]      Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads. The type is\n"
-        "                                       'snv', 'indel' or 'both' [--pn 0.005,0:snv --pn 0,0:indel]\n"
-        "       --pns FRAC[,NUM][:type]     Same as --pn but applied for alleles observed in a single parent [--pns 0.045,0:snv --pns 0,0:indel]\n"
         "   -n, --strictly-novel            When Mendelian inheritance is violiated, score highly only novel alleles (e.g. in LoH regions)\n"
-        "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
-        "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
-        "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
-        "       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
+        "       --with-pAD                  Use parental FMT/AD instead of FMT/QS\n"
+        "\n"
+        "Model options specific to --use-ALM:\n"
+        "   --ad, --allele-dropout NUM      Mixture weight for missed inherited alleles due to low read depth [0]\n"
+        "         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring, by default off for ALM [0]\n"
+        "   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]\n"
+        "         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]\n"
+        "         --pns FRAC[,NUM][:TYPE]   Maximum allowed parental noise, fraction or number of reads; TYPE is snv, indel, or both;\n"
+        "         --pn  FRAC[,NUM][:TYPE]       --pn is the same as --pns applied for alleles observed in both parents, defaults:\n"
+        "                                       --pns 0.045,0:snv --pn 0.011,0:snv --pns 0:indel --pn 0:indel\n"
+        "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]\n"
+        "         --with-pPL                Use parental FMT/PL instead of FMT/QS (inflates FDR)\n"
+        "\n"
+        "Model options specific to --use-DMM:\n"
+        "         --max-QM NUM              Maximum QM value (phred); negative value to ignore FORMAT/QM annotation [30]\n"
+        "         --min-vaf NUM             Baseline variant allele fraction for mosaic scoring [0.2]\n"
+        "   --np, --noise-prior NUM         Prior probability of site-level noise; negative disables multialellic penalty in the child [1e-3]\n"
+        "         --phi NUM                 Dirichlet-multinomial overdispersion for modelling genotypes [1e3]\n"
+        "         --pns FRAC[,NUM][:TYPE]   See above [--pns 0.045,0:snv --pns 0:indel]\n"
+        "         --pn  FRAC[,NUM][:TYPE]   See above [--pn 0.011,0:snv --pn 0:indel]\n"
+        "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [1e-2]\n"
+        "         --with-cAD                Use child's FMT/AD instead of FMT/PL (useful when PLs come from callers other than bcftools/mpileup)\n"
+        "\n"
+        "Model options specific to --use-DNG:\n"
+        "   --sb, --strand-bias NUM         Strand bias mixture coefficient; requires FMT/SP [0]\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
-        "   bcftools +trio-dnm2 -p proband,father,mother file.bcf\n"
+        "   bcftools +trio-dnm3 -p proband,father,mother file.bcf\n"
         "\n"
         "   # Same as above, but read the trio(s) from a PED file\n"
-        "   bcftools +trio-dnm2 -P file.ped file.bcf\n"
+        "   bcftools +trio-dnm3 -P file.ped file.bcf\n"
         "\n"
         "   # Same as above plus extract a list of significant DNMs using the bcftools/query command\n"
-        "   bcftools +trio-dnm2 -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\\n]'\n"
+        "   bcftools +trio-dnm3 -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\\n]'\n"
         "\n"
         "   # A complete example with a variant calling step. Note that this is one long\n"
         "   # command and should be on a single line. Also note that a filtering step is\n"
         "   # recommended, e.g. by depth and VAF (not shown here):\n"
-        "   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |\n"
+        "   bcftools mpileup -a AD,QM,SP -f ref.fa -Ou proband.bam father.bam mother.bam |\n"
         "       bcftools call -mv -Ou |\n"
-        "       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz\n"
+        "       bcftools +trio-dnm3 -p proband,father,mother -Oz -o output.vcf.gz\n"
         "\n";
 }
 
@@ -559,11 +590,21 @@ static void init_tprob_mprob_chrX(args_t *args, int fi, int mi, int ci, double *
 
     if ( ca!=cb )   // male cannot be heterozygous in X, but it can be mosaic
     {
-        int is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
+        int is_novel;
+        if ( args->strictly_novel )
+            is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
+        else
+            is_novel = ( (ca!=ma && ca!=mb) || (cb!=ma && cb!=mb) ) ? 1 : 0;
+
         if ( is_novel )
             *mprob = args->mrate, *tprob = 0;
         else
-            *mprob = 0, *tprob = 0;
+        {
+            // Neither of the alleles is novel wrt parents, the most likely explanation is
+            // a genotyping error. Therefore treat it as a normal inheritance so that the
+            // model is not forced to choose from bad options
+            init_tprob_mprob(args,fi,mi,ci,tprob,mprob,denovo_allele);
+        }
     }
     else if ( ca==ma || ca==mb )    // inherited
     {
@@ -681,7 +722,12 @@ static void init_data(args_t *args)
         if ( !args->dnm_score_type ) args->dnm_score_type = DNM_FLAG;
         else if ( args->dnm_score_type!=DNM_FLAG ) error("The output type FLAG is required with --use-NAIVE\n");
     }
-    if ( !args->use_model ) args->use_model = USE_ACM;
+    if ( !args->use_model ) args->use_model = USE_DMM;
+
+    if ( args->min_vaf < 0 )
+        args->min_vaf = args->use_model==USE_DMM ? 0.2 : 0;
+    if ( args->sb_coeff < 0 )
+        args->sb_coeff = args->use_model==USE_DMM ? 1e-2 : 0;
 
     args->sr = bcf_sr_init();
     if ( args->regions )
@@ -706,16 +752,13 @@ static void init_data(args_t *args)
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
             error("Error: the tag FORMAT/GT is not present in %s\n", args->fname);
     }
-    else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
-        error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
-    args->need_QS = ( args->use_model==USE_ACM && !args->with_ppl && !args->with_pad ) ? 1 : 0;
-    if ( args->need_QS && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) )
-        error(
-            "Error:\n"
-            "   The FORMAT/QS tag is not present. If you want to proceed anyway, add either `--with-pAD` or\n"
-            "   `--with-pPL` option, the latter at the cost of inflated false discovery rate. The QS annotation\n"
-            "    can be generated at the mpileup step together with the AD annotation using the command\n"
-            "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");   // Possible future todo: use AD as a proxy for QS?
+    else
+    {
+        args->need_PL = 1;
+        if ( args->with_cad && args->use_model==USE_DMM ) args->need_PL = 0;
+        if ( args->need_PL && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) )
+            error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
+    }
     if ( args->use_model!=USE_NAIVE )
     {
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
@@ -724,6 +767,41 @@ static void init_data(args_t *args)
             args->has_fmt_ad = 1;
         if ( args->with_pad && !args->has_fmt_ad )
             error("Error: no FORMAT/AD is present in %s, cannot run with --with-pAD\n", args->fname);
+    }
+    if ( args->use_model==USE_ALM && !args->with_ppl && !args->with_pad )
+    {
+        args->need_QS = 1;
+        if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
+            error("Error:\n"
+                  "   The FORMAT/QS tag is not present. If you want to proceed anyway, add either `--with-pAD` or\n"
+                  "   `--with-pPL` option, the latter at the cost of inflated false discovery rate. The QS annotation\n"
+                  "    can be generated at the mpileup step together with the AD annotation using the command\n"
+                  "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");
+    }
+    if ( args->use_model==USE_DMM )
+    {
+        args->need_QS = ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) ? 0 : 1;
+        int is_ok = 1;
+        if ( !args->need_QS && !args->has_fmt_ad ) is_ok = 0;
+        if ( args->min_qm>=0 && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QM"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) ) is_ok = 0;
+        if ( !is_ok )
+            error("Error:\n"
+                  "   The method requires FORMAT/AD, QM and optionally FORMAT/SP. Use --max-QM with negative value to run without\n"
+                  "   FORMAT/QM. The annotations can be generated at the mpileup step using the command\n"
+                  "       bcftools mpileup -a AD,QM,SP -f ref.fa file.bam\n");
+    }
+    if ( args->use_model==USE_DNG && args->sb_coeff<0 ) args->sb_coeff = 0;
+    if ( args->use_model!=USE_NAIVE && args->sb_coeff )
+    {
+        if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "SP"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
+        {
+            // only warn when set explicitly
+            if ( args->sb_coeff>0 )
+                fprintf(stderr, "Warning: the tag FORMAT/SP is not present in %s, --strand-bias option will be ignored\n", strcmp("-",args->fname)?args->fname:"stdin");
+        }
+        else
+            args->has_fmt_sp = 1;
+        args->sb_coeff = fabs(args->sb_coeff);
     }
 
     init_priors(args,&args->priors,autosomal);
@@ -764,8 +842,9 @@ static void init_data(args_t *args)
         }
         for (i=0; i<n; i++)
         {
-            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[i]);
-            free(list[i]);
+            int i2l[3] = {1,2,0};
+            if ( args->trio[0].idx[i] < 0 ) error("The sample is not present: %s\n", list[i2l[i]]);
+            free(list[i2l[i]]);
         }
         free(list);
     }
@@ -788,7 +867,7 @@ static void init_data(args_t *args)
     free(rmme);
 
     if ( args->record_cmd_line )
-        bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm2");
+        bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm3");
 
     char wmode[8];
     set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
@@ -814,7 +893,8 @@ static void destroy_data(args_t *args)
     free(args->dnm_vaf_tag);
     free(args->dnm_allele_tag);
     free(args->pl3);
-    free(args->alt_tmp);
+    free(args->alt_dbl);
+    free(args->alt_int);
     free(args->alt_idx);
     free(args->idx);
     free(args->dnm_qual_int);
@@ -826,7 +906,11 @@ static void destroy_data(args_t *args)
     free(args->pl);
     free(args->ad);
     free(args->qs);
+    free(args->qm);
+    free(args->ad3);
     free(args->qs3);
+    free(args->qm3);
+    free(args->sp);
     if ( args->write_index )
     {
         if ( bcf_idx_save(args->out_fh)<0 )
@@ -854,31 +938,383 @@ static inline double phred2log(double phred)
 {
     return -phred/4.3429;
 }
-#if 0
-static inline double subtract_num_log(double a_num, double b_log)
-{
-    return log(a_num - exp(b_log));
-}
-#endif
 static inline double subtract_log(double a_log, double b_log)   // log(exp(a_log)-exp(b_log))
 {
     return a_log + log(1 - exp(b_log - a_log));
 }
 static inline double sum_log(double a, double b)    // log(exp(a)+exp(b))
 {
-    if ( a==-HUGE_VAL && b==-HUGE_VAL ) return -HUGE_VAL;
+    if ( a==-INFINITY && b==-INFINITY ) return -INFINITY;
     if ( a>b )
         return log(1 + exp(b-a)) + a;
     else
         return log(1 + exp(a-b)) + b;
 }
-static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double *pl[3], int npl, double *qs[3], int *al0, int *al1)
+static inline double lfac(double n) { return kf_lgamma(n + 1.0); }     // log space factorial
+static inline double log_multinom_coeff_dbl(int ncnt, double *cnt)
+{
+    double sum = 0, n = 0;
+    int i;
+    for (i=0; i<ncnt; i++) { n += cnt[i]; sum += lfac(cnt[i]); }
+    return lfac(n) - sum;
+}
+// Dirichlet-multinomial log PMF. We expect something like multinomial distribution
+// with observed counts (cnt) and expected sampling probabilities (prob). The parameter
+// phi controls overdispersion, i.e. how closely the data must follow the probabilities:
+// large value (~1000) requires strictly multinomial, small (<100) is very permissive,
+// heavy tails
+static double ldirichlet_multinom_dbl(int ncnt, double *cnt, const double *prob, double phi)
+{
+    int i;
+    double n = 0;
+    for (i=0; i<ncnt; i++) n += cnt[i];     // total number of trials
+
+    double sum_alpha = 0;
+    for (i=0; i<ncnt; i++) sum_alpha += phi * prob[i];
+
+    double ll = log_multinom_coeff_dbl(ncnt, cnt) + kf_lgamma(sum_alpha) - kf_lgamma(n + sum_alpha);
+    for (i=0; i<ncnt; i++)
+        ll += kf_lgamma(cnt[i] + phi * prob[i]) - kf_lgamma(phi * prob[i]);
+
+    return ll;
+}
+
+// Small fractions of parental alternate reads should not be always taken as an evidence for a heterozygous genotype,
+// sometimes they can be better explained as low-level contamination/mismapped reads.
+static double ldirichlet_multinom_with_spurious(args_t *args, int ndp, int *dp, double *err, int als, int strict)
+{
+    // init probabilities
+    double cnt[3]  = {0,0,0};   // allele1, allele2, other
+    double prob[3] = {0,0,0};
+    int i, fst = 1;
+    for (i=0; i<ndp; i++)
+    {
+        int in_als = (als >> i) & 1;
+
+        if ( !in_als )
+        {
+            cnt[2] += dp[i];
+            if ( !err ) prob[2] = fabs(args->min_qm);
+            else if ( prob[2] < err[i] ) prob[2] = err[i];
+        }
+        else if ( fst )
+        {
+            cnt[0] = dp[i];
+            prob[0] = err ? (1.0 - err[i]) : (1 - fabs(args->min_qm));
+            fst = 0;
+        }
+        else
+        {
+            cnt[1] = dp[i];
+            prob[1] = err ? (1.0 - err[i]) : (1 - fabs(args->min_qm));
+        }
+    }
+    if ( cnt[0]+cnt[1]==0 ) return -INFINITY;
+    double eps = 1e-12;         // to avoid singularities in dirichlet calculation
+    double sum = 0;
+    for (i=0; i<3; i++)
+    {
+        if ( prob[i] < eps ) prob[i] = eps;
+        else if ( prob[i] > 1 - eps ) prob[i] = 1 - eps;
+        sum += prob[i];
+    }
+    for (i=0; i<3; i++) prob[i] /= sum;
+
+    // parameters, most importantly the tolerated fraction and count of unexpected alternate reads
+    double phi = args->phi;
+    double eta  = (~als)&strict ? args->pn_cur->frac : args->pn_cur->frac1;  // limit on fraction of unexpected alts
+    double kmax = (~als)&strict ? args->pn_cur->abs  : args->pn_cur->abs1;
+    double ncnt = cnt[0] + cnt[1] + cnt[2];
+    if ( kmax < eta*ncnt ) kmax = eta*ncnt;     // limit on count of unexpected alts
+    if ( kmax > cnt[2] ) kmax = cnt[2];
+    cnt[2] -= kmax;
+    return ldirichlet_multinom_dbl(3,cnt,prob,phi);
+}
+
+static inline void norm_prob(int n, double *prob)
+{
+    double eps = 1e-12;
+    double sum = 0;
+    int i;
+    for (i=0; i<3; i++)
+    {
+        if ( prob[i] < eps ) prob[i] = eps;
+        else if ( prob[i] > 1 - eps ) prob[i] = 1 - eps;
+        sum += prob[i];
+    }
+    for (i=0; i<3; i++) prob[i] /= sum;
+}
+
+// AD-based genotype likelihood
+static double ldirichlet_multinom_AD(args_t *args, int ndp, int *dp, double *err, int als)
+{
+    // init probabilities
+    double cnt[3]  = {0,0,0};   // allele1, allele2, other
+    double prob[3] = {0,0,0};
+    int i, nals = 0;
+    for (i=0; i<ndp; i++)
+    {
+        int in_als = (als >> i) & 1;
+        if ( !in_als ) cnt[2] += dp[i];
+        else if ( !nals ) cnt[nals++] = dp[i];
+        else { cnt[1] = dp[i]; nals++; }
+    }
+    if ( cnt[0]+cnt[1]==0 ) return -INFINITY;
+
+    // homozygous genotype
+    if ( nals==1 )
+    {
+        prob[0] = 1 - fabs(args->min_qm);
+        prob[1] = fabs(args->min_qm);
+        prob[2] = fabs(args->min_qm);
+        norm_prob(3, prob);
+        return ldirichlet_multinom_dbl(3,cnt,prob,args->phi);
+    }
+
+    double ll_max = -INFINITY, vaf;
+    if ( cnt[0] < cnt[1] ) { double tmp = cnt[0]; cnt[0] = cnt[1]; cnt[1] = tmp; }
+    for (vaf=0.5; vaf>=args->min_vaf; vaf-=0.1)
+    {
+        prob[0] = (1 - fabs(args->min_qm)) * (1 - vaf);
+        prob[1] = (1 - fabs(args->min_qm)) * vaf;
+        prob[2] = fabs(args->min_qm);
+        norm_prob(3, prob);
+        double ll = ldirichlet_multinom_dbl(3,cnt,prob,args->phi);
+        if ( ll < ll_max ) return ll_max;
+        ll_max = ll;
+    }
+    return ll_max;
+}
+
+// Given a known per-read error rate, how surprising is it to see >=k unexpected reads?
+// Upper binomial tail
+static double site_noise(args_t *args, int nad, int *ad, int als, double err, double lprior)
+{
+    int i, n = 0, k = 0;
+    for (i=0; i<nad; i++)
+    {
+        if ( !((1<<i) & als) ) k += ad[i];
+        n += ad[i];
+    }
+    if ( n<=0 || k<=0 ) return 0;   // no evidence, no penalty
+
+    if ( err<=0 ) return 0;
+    if ( err>0.5 ) err = 0.5;   // maximally uninformative but still penalizing
+
+    // Upper binomial tail on unexpected reads: P(K >= k) = I_err(k, n-k+1)
+    double p_tail = kf_betai(k, n-k+1, err);
+
+    if ( p_tail < 1e-300 ) p_tail = 1e-300;
+    double lprob = log(p_tail) + lprior;
+    if ( lprob > 0 ) lprob = 0;
+    return lprob;
+}
+// Upper binomial tail
+static double parental_emission(args_t *args, int nad, int *ad[3], int ial)
+{
+    int npe = (ad[iFATHER][ial] ? 1 : 0) + (ad[iMOTHER][ial] ? 1 : 0);
+    if ( !npe ) return 0;
+
+    double err = fabs(args->min_qm);
+
+    double pval[2] = {0,0};
+    int i,j;
+    for (i=0; i<2; i++) // father and mother
+    {
+        if ( !ad[i][ial] ) continue;    // de novo allele not emitted by this parent
+        int k = ad[i][ial];
+        int n = 0;
+        for (j=0; j<nad; j++) n += ad[i][j];
+        double eta = npe==2 ? args->pn_cur->frac : args->pn_cur->frac1;
+        double kmax = npe==2 ? args->pn_cur->abs : args->pn_cur->abs1;
+        if ( kmax < eta*n ) kmax = eta*n;   // limit on count of unexpected alts
+        if ( kmax > k ) kmax = k;
+        n -= kmax;
+        k -= kmax;
+        if ( !k ) continue;
+        pval[i] = kf_betai(k, n-k+1, err);
+        pval[i] = pval[i] < 1e-300 ? log(1e-300) : log(pval[i]);
+    }
+    return pval[0] + pval[1];
+}
+static double missed_inherited(args_t *args, int nad, int *ad, int als, int idenovo)
+{
+    int i, n = 0, k = 0;
+    for (i=0; i<nad; i++)
+    {
+        if ( i==idenovo ) k = ad[i];
+        n += ad[i];
+    }
+    double p_tail = kf_betai(n-k, k+1, 0.5);
+    if ( p_tail < 1e-300 ) p_tail = 1e-300;
+    double lprob = log(p_tail);
+    if ( lprob > 0 ) lprob = 0;
+    return subtract_log(0,lprob);
+}
+static double mosaic_score_cdf_smooth(int c0, int c1, double m0, int ncap, double a0, double b0)   // prior Beta(a0,b0)
+{
+    // c0,c1 are counts for the top two alleles (order doesn't matter)
+    int n = c0 + c1;
+    if (n <= 0) return 0.0;
+
+    double mhat = (double)c1 / n;
+
+    // Effective depth cap
+    double ne = (n < ncap) ? n : ncap;
+    double ke = ne * mhat;
+    if (ke < 0) ke = 0;
+    if (ke > ne) ke = ne;
+
+    // Posterior parameters for m | D, using Binomial-Beta conjugacy
+    // m ~ Beta(a0,b0), K|m ~ Binom(ne,m) => m|D ~ Beta(a0+ke, b0+ne-ke)
+    double a = a0 + (double)ke;
+    double b = b0 + (double)(ne - ke);
+
+    // beta distribution CDF evaluated at m0
+    // score = P(m >= m0 | D) = 1 - I_{m0}(a,b)
+    double cdf = kf_betai(a, b, m0);
+    double score = 1.0 - cdf;
+    if (score < 0.0) score = 0.0;
+    if (score > 1.0) score = 1.0;
+    return score;
+}
+// Posterior probability that the underlying VAF exceeds min_vaf under a Beta–Binomial model. In simpler
+// words: given the reads, how plausible it is that the underlying VAF is at least min_vaf?
+static double mosaic_noise(args_t *args, int nad, int *ad, int als, int idenovo)
+{
+    int i, cnt[2] = {0,0};  // counts of the major and minor allele
+    for (i=0; i<nad; i++)
+    {
+        if ( !((1<<i) & als) ) continue;    // ignore everything else
+        int idx = i==idenovo ? 1 : 0;
+        cnt[idx] = ad[i];
+    }
+    // now make cnt[0] the major allele
+    if ( !cnt[1] ) return 0;
+
+    double a0 = 1.0, b0 = 1.0;      // prior Beta(a0,b0) on minor fraction
+    double m0 = args->min_vaf;
+    int ncap  = 50;                 // effective depth cap 50
+
+    // given the reads, how plausible it is that the underlying VAF is at least min_vaf?
+    double score = mosaic_score_cdf_smooth(cnt[0], cnt[1], m0, ncap, a0, b0);
+
+    if (score < 1e-300) score = 1e-300;
+    return log(score);
+}
+
+static double process_trio_DMM(args_t *args, priors_t *priors, int nals, double *pl[3], int npl, int32_t *ad[3], int nad, double *qm[3], int *al0, int *al1)
 {
     assert( nals>1 && nals<=4 );
 
     *al0 = *al1 = 0;
 
-    double sum = -HUGE_VAL, max = -HUGE_VAL;
+    int i, strict = 0;
+    for (i=0; i<nals; i++)
+        if ( ad[iFATHER][i] && ad[iMOTHER][i] ) strict |= 1<<i;
+
+    double sum = -INFINITY, max_dnm = -INFINITY;
+    int max_gt[3] = {0,0,0};
+    int ca,cb, fa,fb, ma,mb, ci=0;
+    for (ca=0; ca<nals; ca++)               // ca,cb: iterate over all possible child's genotypes
+    {
+        for (cb=0; cb<=ca; cb++)
+        {
+            int cals = (1<<ca)|(1<<cb);
+            double cpl = args->with_cad ? ldirichlet_multinom_AD(args, nad, ad[iCHILD], qm[iCHILD], cals) : pl[iCHILD][ci];
+
+            int fi = 0;
+            for (fa=0; fa<nals; fa++)       // fa,fb: father's genotypes
+            {
+                for (fb=0; fb<=fa; fb++)
+                {
+                    int fals = (1<<fa)|(1<<fb);
+                    double fpl = ldirichlet_multinom_with_spurious(args, nad, ad[iFATHER], qm[iFATHER], fals, strict);
+
+                    int mi = 0;
+                    for (ma=0; ma<nals; ma++)
+                    {
+                        for (mb=0; mb<=ma; mb++)
+                        {
+                            int mals = (1<<ma)|(1<<mb);
+                            double mpl = ldirichlet_multinom_with_spurious(args, nad, ad[iMOTHER], qm[iMOTHER], mals, strict);
+
+                            double val = cpl + mpl + fpl + priors->pprob[fi][mi][ci];
+                            sum = sum_log(sum,val);     // this is the denominator, adding to \sum L_{p,f,m}
+
+#define DEBUG 0
+#if DEBUG
+                            static int first_time = 1;
+                            if ( first_time )
+                                fprintf(stderr,"#DBG \t m,f,c GTs \t is_dn \t pval \t norm_pval \t (norm) \t mpl,fpl,cpl \t prior \t max_now\n");
+                            first_time = 0;
+
+                            if ( val!=-INFINITY)
+                            {
+                                fprintf(stderr,"DBG \t %d%d+%d%d=%d%d \t %d \t %+e \t %+e \t (%+e) \t %+e %+e %+e \t %+e \t %c\n",
+                                    mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],
+                                    val,val-sum,sum,mpl,fpl,cpl,priors->pprob[fi][mi][ci],(priors->denovo[fi][mi][ci] && max_dnm < val)?'*':'-');
+                            }
+#endif
+                            // Is this a valid de novo combination of p,f,m genotypes (ie not inherited), and is it most likely thus far?
+                            if ( priors->denovo[fi][mi][ci] && max_dnm < val )
+                            {
+                                max_dnm = val;
+                                max_gt[iCHILD]  = cals;
+                                max_gt[iMOTHER] = mals;
+                                max_gt[iFATHER] = fals;
+                                if ( priors->denovo_allele[fi][mi][ci] == ca )
+                                    *al0 = cb, *al1 = ca;
+                                else
+                                    *al0 = ca, *al1 = cb;
+                            }
+                            mi++;
+                        }
+                    }
+                    fi++;
+                }
+            }
+            ci++;
+        }
+    }
+
+    if ( isinf(sum) ) return -INFINITY;
+
+    // site noisiness
+    double lnoise = 0;
+    if ( args->noise_prior )
+    {
+        double err = fabs(args->min_qm);
+        double lprior = log(1e6*fabs(args->noise_prior));
+        lnoise += site_noise(args,nad,ad[iMOTHER],max_gt[iMOTHER],err,lprior);
+        lnoise += site_noise(args,nad,ad[iFATHER],max_gt[iFATHER],err,lprior);
+        lnoise += args->noise_prior > 0 ? site_noise(args,nad,ad[iCHILD],max_gt[iCHILD],err,lprior) : 0;
+    }
+
+    // candidate de novo allele in parents
+    lnoise += parental_emission(args,nad,ad,*al1);
+
+    // downplay mosaics
+    if ( args->min_vaf )
+        lnoise += mosaic_noise(args,nad,ad[iCHILD],max_gt[iCHILD],*al1);
+
+#if DEBUG
+    fprintf(stderr,"max_dnm=%e  lnoise=%e  sum=%e  score=%e   %d%d+%d%d=%d%d\n",max_dnm,lnoise,sum,max_dnm+lnoise-sum,
+            seq2[seq3[max_gt[iMOTHER]]],seq1[seq3[max_gt[iMOTHER]]],
+            seq2[seq3[max_gt[iFATHER]]],seq1[seq3[max_gt[iFATHER]]],
+            seq2[seq3[max_gt[iCHILD]]],seq1[seq3[max_gt[iCHILD]]]);
+#endif
+
+    return max_dnm + lnoise - sum;
+}
+static double process_trio_ALM(args_t *args, priors_t *priors, int nals, double *pl[3], int npl, int32_t *ad[3], double *qs[3], int *al0, int *al1)
+{
+    assert( nals>1 && nals<=4 );
+
+    *al0 = *al1 = 0;
+
+    double sum = -INFINITY, max_dnm = -INFINITY;
+    int max_gt[3] = {0,0,0};
     int i, ca,cb, fa,fb, ma,mb, ci=0;
     for (ca=0; ca<nals; ca++)               // ca,cb: iterate over all possible child's genotypes
     {
@@ -895,27 +1331,19 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
 
                     // Father and mother genotype likelihood can be either FORMAT/PL (with --with-pPL), FORMAT/QS, or
                     // fake QS calculated from FORMAT/AD (with --with-pAD)
-                    double fpl;
+                    double fpl = 0;
                     if ( args->with_ppl ) fpl = pl[iFATHER][fi];
                     else
                     {
-                        fpl = 0;
                         for (i=0; i<nals; i++)
                         {
-                            // Is the i-th allele expected in the tested paternal fa|fb genotype? Strong presence
-                            // of the allele will add little to fpl -> strong genotype fa|fb
-                            if ( fals&(1<<i) )
-                                fpl += subtract_log(0,qs[iFATHER][i]);
+                            // Expected and strong,             fpl += -tiny_value
+                            //          weak (no read support)  fpl += -inf
+                            if ( fals&(1<<i) ) fpl += subtract_log(0,qs[iFATHER][i]);
 
-                            // Not part of the tested paternal genotype, but of the tested proband ca|cb genotype:
-                            // penalize by increasing fpl -> weaker genotype fa|fb
-                            else if ( cals&(1<<i) )
-                                fpl += qs[iFATHER][i];
-
-                            // Not part of the tested paternal or proband genotypes, and the tested paternal genotype
-                            // is a hom: penalize presence of different allles
-                            else if ( fa==fb )
-                                fpl += qs[iFATHER][i];
+                            // Shouldn't be present and strong  fpl += -big_value
+                            //          weak (no read support)  fpl += 0
+                            else fpl += qs[iFATHER][i];
                         }
                     }
                     int mi = 0;
@@ -928,29 +1356,35 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             if ( args->with_ppl ) mpl = pl[iMOTHER][mi];
                             else
                             {
-                                mpl = 0;
                                 for (i=0; i<nals; i++)
                                 {
-                                    if ( mals&(1<<i) )
-                                        mpl += subtract_log(0,qs[iMOTHER][i]);
-                                    else if ( cals&(1<<i) )
-                                        mpl += qs[iMOTHER][i];
-                                    else if ( ma==mb )
-                                        mpl += qs[iMOTHER][i];
+                                    if ( mals&(1<<i) ) mpl += subtract_log(0,qs[iMOTHER][i]);
+                                    else mpl += qs[iMOTHER][i];
                                 }
                             }
                             double val = cpl + fpl + mpl + priors->pprob[fi][mi][ci];   // L_{p,f,m}
                             sum = sum_log(sum,val);                                     // this is the denominator, adding to \sum L_{p,f,m}
 #define DEBUG 0
 #if DEBUG
-                            if(val!=-HUGE_VAL)
-                                fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
-                                    mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],fi,mi,ci,mpl,fpl,cpl,priors->pprob[fi][mi][ci], val,sum,(priors->denovo[fi][mi][ci] && max < val)?'*':'-');
+                            static int first_time = 1;
+                            if ( first_time )
+                                fprintf(stderr,"#DBG \t m,f,c GTs \t is_dn \t pval \t norm_pval \t (norm) \t mpl,fpl,cpl \t prior \t max_now\n");
+                            first_time = 0;
+
+                           // if ( val!=-INFINITY)
+                            {
+                                fprintf(stderr,"DBG \t %d%d+%d%d=%d%d \t %d \t %+e \t %e \t (%e) \t %+e %+e %+e \t %+e \t %c\n",
+                                    mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],
+                                    val,val-sum,sum,mpl,fpl,cpl,priors->pprob[fi][mi][ci],(priors->denovo[fi][mi][ci] && max_dnm < val)?'*':'-');
+                            }
 #endif
                             // Is this a valid de novo combination of p,f,m genotypes (ie not inherited), and is it most likely thus far?
-                            if ( priors->denovo[fi][mi][ci] && max < val )
+                            if ( priors->denovo[fi][mi][ci] && max_dnm < val )
                             {
-                                max = val;
+                                max_dnm = val;
+                                max_gt[iCHILD]  = cals;
+                                max_gt[iMOTHER] = mals;
+                                max_gt[iFATHER] = fals;
                                 if ( priors->denovo_allele[fi][mi][ci] == ca )
                                     *al0 = cb, *al1 = ca;
                                 else
@@ -965,9 +1399,27 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
             ci++;
         }
     }
-#if DEBUG
-    fprintf(stderr,"max=%e sum=%e   ret=%e\n",max,sum,max-sum);
-#endif
+
+    // site noisiness
+    double lnoise = 0;
+    if ( args->noise_prior )
+    {
+        double err = fabs(args->min_qm);
+        double lprior = log(1e6*fabs(args->noise_prior));
+        lnoise += site_noise(args,nals,ad[iMOTHER],max_gt[iMOTHER],err,lprior);
+        lnoise += site_noise(args,nals,ad[iFATHER],max_gt[iFATHER],err,lprior);
+        lnoise += args->noise_prior > 0 ? site_noise(args,nals,ad[iCHILD],max_gt[iCHILD],err,lprior) : 0;
+    }
+
+    if ( args->allelic_dropout )
+    {
+        lnoise += missed_inherited(args, nals, ad[iMOTHER], max_gt[iMOTHER], *al1);
+        lnoise += priors!=&args->priors_X ? missed_inherited(args, nals, ad[iFATHER], max_gt[iFATHER], *al1) : 0;
+    }
+
+    // downplay mosaics
+    if ( args->min_vaf )
+        lnoise += mosaic_noise(args,nals,ad[iCHILD],max_gt[iCHILD],*al1);
 
     if ( args->strictly_novel )
     {
@@ -979,17 +1431,21 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
             if ( qs[iMOTHER][ial] ) tmp += subtract_log(0,qs[iMOTHER][ial]);
             if ( qs[iFATHER][ial] ) tmp += subtract_log(0,qs[iFATHER][ial]);
             sum = sum_log(sum,tmp);
-            max += tmp;
+            max_dnm += tmp;
 #if DEBUG
-            fprintf(stderr,"max=%e sum=%e   ret=%e  after adjusting with --strictly-novel\n",max,sum,max-sum);
+            fprintf(stderr,"max=%e sum=%e   ret=%e  after adjusting with --strictly-novel\n",max_dnm,sum,max_dnm-sum);
 #endif
         }
     }
 
-    // This is the log( 1 - (\max L_pfm) / (\sum L_pfm) ). The default output (DNM:log) prints the inverse. Note log
-    // values smaller than ~40 will be output as -inf due to a loss of precision. That's OK, we are interested
-    // in values very close to 0, bigger than, say, -8
-    return log2phred(subtract_log(0,max-sum));
+#if DEBUG
+    fprintf(stderr,"max_dnm=%e  lnoise=%e  sum=%e  score=%e   %d%d+%d%d=%d%d\n",max_dnm,lnoise,sum,max_dnm+lnoise-sum,
+            seq2[seq3[max_gt[iMOTHER]]],seq1[seq3[max_gt[iMOTHER]]],
+            seq2[seq3[max_gt[iFATHER]]],seq1[seq3[max_gt[iFATHER]]],
+            seq2[seq3[max_gt[iCHILD]]],seq1[seq3[max_gt[iCHILD]]]);
+#endif
+
+    return max_dnm + lnoise - sum;
 }
 static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double *pl[3], int npl, int *al0, int *al1)
 {
@@ -997,7 +1453,7 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 
     *al0 = *al1 = 0;
 
-    double sum = -HUGE_VAL, max = -HUGE_VAL;
+    double sum = -INFINITY, max = -INFINITY;
     int ca,cb, fa,fb, ma,mb, ci=0;
     for (ca=0; ca<nals; ca++)
     {
@@ -1017,7 +1473,7 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
                             val = pl[iCHILD][ci] + pl[iFATHER][fi] + pl[iMOTHER][mi] + priors->pprob[fi][mi][ci];
                             sum = sum_log(val,sum);
 #if DEBUG
-                            if(val!=-HUGE_VAL)
+                            if(val!=-INFINITY)
                                 fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
                                     mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],fi,mi,ci,pl[iMOTHER][mi],pl[iFATHER][fi],pl[iCHILD][ci],priors->pprob[fi][mi][ci], val,sum,(priors->denovo[fi][mi][ci] && max < val)?'*':'-');
 #endif
@@ -1041,7 +1497,7 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 #if DEBUG
     fprintf(stderr,"max=%e sum=%e   ret=%e\n",max,sum,max-sum);
 #endif
-    return log2phred(subtract_log(0,max-sum));
+    return max - sum;
 }
 static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3], int *denovo_allele)
 {
@@ -1098,22 +1554,23 @@ static int test_filters(args_t *args, bcf1_t *rec)
     for (i=0; i<args->ntrio; i++) args->trio[i].pass = 1;
     return 1;
 }
-static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, double *qs[3])
+static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, double *qs[3], double *qm[3], int32_t *ad[3])
 {
     assert(*_nals > 4);
 
     // Find the most likely set of alleles from FORMAT/QS
     int nals = *_nals;
     hts_expand(int,nals,args->malt_idx,args->alt_idx);
-    hts_expand(double,nals,args->malt_tmp,args->alt_tmp);
-    hts_expand(double,10,args->malt_tmp,args->alt_tmp);
-    memset(args->alt_tmp,0,sizeof(*args->alt_tmp)*nals);
+    hts_expand(double,nals,args->malt_dbl,args->alt_dbl);
+    hts_expand(int32_t,4,args->malt_int,args->alt_int);
+    hts_expand(double,10,args->malt_dbl,args->alt_dbl);
+    memset(args->alt_dbl,0,sizeof(*args->alt_dbl)*nals);
     int i,j,k;
     for (i=0; i<3; i++)
-        for (j=0; j<nals; j++) args->alt_tmp[j] += qs[i][j];
+        for (j=0; j<nals; j++) args->alt_dbl[j] += qs[i][j];
 
     // sort in ascending order, make REF allele always come first; insertion sort
-    double *arr = args->alt_tmp;
+    double *arr = args->alt_dbl;
     int tmp, *idx = args->alt_idx;
     for (i=0; i<nals; i++) idx[i] = i;
     for (i=2; i<nals; i++)
@@ -1122,22 +1579,42 @@ static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, d
 
     for (i=0; i<3; i++)
     {
-        for (j=0; j<4; j++) args->alt_tmp[j] = qs[i][args->alt_idx[j]];
-        memcpy(qs[i],args->alt_tmp,4*sizeof(*args->alt_tmp));
+        for (j=0; j<4; j++) args->alt_dbl[j] = qs[i][args->alt_idx[j]];
+        memcpy(qs[i],args->alt_dbl,4*sizeof(*args->alt_dbl));
     }
-    for (i=0; i<3; i++)
+    if ( qm[0] )
     {
-        for (j=0; j<4; j++)
-            for (k=0; k<=j; k++)
-            {
-                int idst = bcf_alleles2gt(j,k);
-                int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
-                args->alt_tmp[idst] = pl[i][isrc];
-            }
-        memcpy(pl[i],args->alt_tmp,10*sizeof(*args->alt_tmp));
+        for (i=0; i<3; i++)
+        {
+            for (j=0; j<4; j++) args->alt_dbl[j] = qm[i][args->alt_idx[j]];
+            memcpy(qm[i],args->alt_dbl,4*sizeof(*args->alt_dbl));
+        }
     }
-    *_nals = 4;
+    if ( ad[0] )
+    {
+        for (i=0; i<3; i++)
+        {
+            for (j=0; j<4; j++) args->alt_int[j] = ad[i][args->alt_idx[j]];
+            memcpy(ad[i],args->alt_int,4*sizeof(*args->alt_int));
+        }
+    }
     *_npl  = 10;
+    *_nals = 4;
+    if ( pl[0] )
+    {
+        for (i=0; i<3; i++)
+        {
+            for (j=0; j<4; j++)
+                for (k=0; k<=j; k++)
+                {
+                    int idst = bcf_alleles2gt(j,k);
+                    int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
+                    args->alt_dbl[idst] = pl[i][isrc];
+                }
+            memcpy(pl[i],args->alt_dbl,10*sizeof(*args->alt_dbl));
+        }
+    }
+    else *_npl = 0;
 }
 static void many_alts_translate(args_t *args, int *al0, int *al1)
 {
@@ -1154,6 +1631,43 @@ static void set_trio_PL(args_t *args, trio_t *trio, double *ppl[3], int npl1)
         double sum = 0;
         for (k=0; k<npl1; k++) { dst[k] = phred2num(src[k]); sum += dst[k]; }
         for (k=0; k<npl1; k++) dst[k] = log(dst[k]/sum);
+    }
+}
+static void set_trio_AD(args_t *args, trio_t *trio, int32_t *ad3[3], int nad1, int nals)
+{
+    int j,k;
+    for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *src = args->ad + nad1 * trio->idx[j];
+        int32_t *dst = ad3[j] = args->ad3 + j*nals;
+        for (k=0; k<nals; k++) dst[k] = src[k];
+    }
+}
+static void set_trio_QM(args_t *args, trio_t *trio, double *pqm[3], int nqm1)
+{
+    double min_qm = fabs(args->min_qm);
+    int j,k;
+
+    if ( !args->qm )    // FMT/QM not available or should be ignored
+    {
+        for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+        {
+            double *dst = pqm[j] = args->qm3 + j*nqm1;
+            for (k=0; k<nqm1; k++) dst[k] = min_qm;
+        }
+    }
+    else
+    {
+        for (j=0; j<3; j++)
+        {
+            int32_t *qm = args->qm + nqm1 * trio->idx[j];
+            double *dst = pqm[j] = args->qm3 + j*nqm1;
+            for (k=0; k<nqm1; k++)
+            {
+                dst[k] = qm[k] ? phred2num(qm[k]) : min_qm;
+                if ( dst[k] < min_qm ) dst[k] = min_qm;
+            }
+        }
     }
 }
 static void set_trio_QS(args_t *args, trio_t *trio, double *pqs[3], int nqs1)
@@ -1323,15 +1837,11 @@ static int set_trio_GT_many_alts(args_t *args, trio_t *trio, int32_t gts[3], int
     }
     return 0;
 }
-static void process_record_naive(args_t *args, bcf1_t *rec)
+static bcf1_t *process_record_naive(args_t *args, bcf1_t *rec)
 {
     int nsmpl = bcf_hdr_nsamples(args->hdr);
     int ngts = bcf_get_genotypes(args->hdr,rec,&args->gt,&args->mgt);
-    if ( ngts<=0 || ngts==nsmpl )
-    {
-        if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-        return;
-    }
+    if ( ngts<=0 || ngts==nsmpl ) return rec;
     ngts /= nsmpl;
 
     if ( ngts!=2 ) error("todo: ploidy>2\n");
@@ -1371,27 +1881,31 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
         if ( ret )
             error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_allele_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 )
-        error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+    return rec;
 }
-static void process_record(args_t *args, bcf1_t *rec)
+static bcf1_t *process_record(args_t *args, bcf1_t *rec)
 {
     int skip_site = 0;
     if ( rec->n_allele==1 || bcf_get_variant_types(rec)==VCF_REF ) skip_site = 1;
     else if ( args->filter && !test_filters(args,rec) ) skip_site = 1;
-    if ( skip_site )
-    {
-        if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-        return;
-    }
-    if ( args->use_model==USE_NAIVE )
-    {
-        process_record_naive(args, rec);
-        return;
-    }
+    if ( skip_site ) return rec;
+    if ( args->use_model==USE_NAIVE ) return process_record_naive(args, rec);
 
-    static int n_ad_warned = 0;
-    int nret, nsmpl = bcf_hdr_nsamples(args->hdr), n_ad = args->has_fmt_ad;
+    static int n_ad_warned = 0, n_sp_warned = 0;
+    int nret, nsmpl = bcf_hdr_nsamples(args->hdr);
+    int n_ad = args->has_fmt_ad, n_sp = args->has_fmt_sp;
+    if ( n_sp && args->use_model!=USE_NAIVE )
+    {
+        nret = bcf_get_format_int32(args->hdr,rec,"SP",&args->sp,&args->msp);
+        if ( nret<=0 ) n_sp = 0;
+        else if ( nret!=nsmpl )
+        {
+            if ( !n_sp_warned )
+                hts_log_warning("Incorrect number of fields for FORMAT/SP at %s:%"PRId64". This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+            n_sp_warned = 1;
+            n_sp = 0;
+        }
+    }
     if ( n_ad )
     {
         nret = bcf_get_format_int32(args->hdr,rec,"AD",&args->ad,&args->mad);
@@ -1410,16 +1924,23 @@ static void process_record(args_t *args, bcf1_t *rec)
             }
         }
     }
+    if ( args->use_model==USE_DMM && !n_ad )
+        error("Error: the FMT/AD tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
 
     nret = bcf_get_format_int32(args->hdr,rec,"PL",&args->pl,&args->mpl);
-    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-    int npl1  = nret/nsmpl;
-    if ( npl1!=rec->n_allele*(rec->n_allele+1)/2 )
+    if ( nret<=0 )
+    {
+        if ( args->need_PL ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        nret = 0;
+    }
+    int npl1 = nret/nsmpl;
+    if ( npl1 && npl1!=rec->n_allele*(rec->n_allele+1)/2 )
         error("todo: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
+    if ( n_ad ) hts_expand(int32_t,3*n_ad,args->mad3,args->ad3);
 
-    int i,j, nqs1 = 0;
-    if ( args->use_model==USE_ACM || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
+    int i,j, nqs1 = 0, nqm1 = 0;
+    if ( args->use_model==USE_ALM || args->use_model==USE_DMM || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
     {
         nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
         if ( nret<0 )
@@ -1431,12 +1952,14 @@ static void process_record(args_t *args, bcf1_t *rec)
                 static int missing_AD_warned = 0;
                 if ( !missing_AD_warned )
                 {
+                    const char *chr = bcf_seqname(args->hdr, rec);
+                    if (!chr) chr = "NA";
                     hts_log_warning(
                         "Neither FMT/QS nor FMT/AD present at %s:%"PRId64", cannot trim the number of alleles to four, skipping.\n"
-                        "This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+                        "This warning is printed only once", chr,(int64_t)rec->pos+1);
                     missing_AD_warned = 1;
                 }
-                return;
+                return rec;
             }
 
             // fake QS from AD assuming average BQ=30, used by --with-pAD
@@ -1454,8 +1977,22 @@ static void process_record(args_t *args, bcf1_t *rec)
         nqs1 = nret<=0 ? 0 : nret/nsmpl;
         hts_expand(double,3*nqs1,args->mqs3,args->qs3);
     }
+    if ( args->use_model==USE_DMM )
+    {
+        if ( args->min_qm > 0 )
+        {
+            nret = bcf_get_format_int32(args->hdr,rec,"QM",&args->qm,&args->mqm);
+            if ( nret<0 ) error("Error: the FMT/QM tag is not available at %s:%"PRId64", run with negative value of --max-QM.\n",bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+            if ( nret != nsmpl * rec->n_allele )
+                error("Error: incorrect number of FMT/QM values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+            nqm1 = nret<=0 ? 0 : nret/nsmpl;
+        }
+        else
+            nqm1 = n_ad;
+        hts_expand(double,3*nqm1,args->mqm3,args->qm3);
+    }
 
-    pnoise_t *pnoise = (bcf_get_variant_types(rec) & VCF_INDEL) ? &args->pn_indel : &args->pn_snv;
+    args->pn_cur = (bcf_get_variant_types(rec) & VCF_INDEL) ? &args->pn_indel : &args->pn_snv;
 
     int is_chrX = 0;
     if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
@@ -1472,14 +2009,22 @@ static void process_record(args_t *args, bcf1_t *rec)
         if ( args->filter && !args->trio[i].pass ) continue;
 
         // Samples can be in any order in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
-        double *ppl[3];
-        set_trio_PL(args,&args->trio[i],ppl,npl1);
+        double *ppl[3] = {NULL,NULL,NULL};
+        if ( npl1 ) set_trio_PL(args,&args->trio[i],ppl,npl1);
 
-        double *pqs[3];
-        if ( args->use_model==USE_ACM )
-            set_trio_QS_noisy(args,&args->trio[i],pqs,nqs1,n_ad,pnoise);
+        double *pqs[3], *pqm[3] = {NULL,NULL,NULL};
+        if ( args->use_model==USE_DMM  )
+        {
+            set_trio_QM(args,&args->trio[i],pqm,nqm1);
+            set_trio_QS(args,&args->trio[i],pqs,nqs1);
+        }
+        else if ( args->use_model==USE_ALM )
+            set_trio_QS_noisy(args,&args->trio[i],pqs,nqs1,n_ad,args->pn_cur);
         else if ( rec->n_allele > 4 )       // DNG does not use QS, but QS is needed when trimming ALTs
             set_trio_QS(args,&args->trio[i],pqs,nqs1);
+
+        int32_t *ad[3] = {NULL,NULL,NULL};
+        if ( n_ad ) set_trio_AD(args,&args->trio[i],ad,n_ad,rec->n_allele);
 
         priors_t *priors;
         if ( !is_chrX ) priors = &args->priors;
@@ -1487,12 +2032,21 @@ static void process_record(args_t *args, bcf1_t *rec)
         else priors = &args->priors_XX;
 
         int nals = rec->n_allele;
-        if ( rec->n_allele > 4 ) many_alts_trim(args, &nals,ppl,&npl1,pqs);
+        if ( rec->n_allele > 4 )
+            many_alts_trim(args, &nals,ppl,&npl1,pqs,pqm,ad);
 
         double score;
-        if ( args->use_model==USE_ACM ) score = process_trio_ACM(args, priors, nals, ppl, npl1, pqs, &al0, &al1);
+        if ( args->use_model==USE_DMM ) score = process_trio_DMM(args, priors, nals, ppl, npl1, ad, n_ad, pqm, &al0, &al1);
+        else if ( args->use_model==USE_ALM ) score = process_trio_ALM(args, priors, nals, ppl, npl1, ad, pqs, &al0, &al1);
         else if ( args->use_model==USE_DNG ) score = process_trio_DNG(args, priors, nals, ppl, npl1, &al0, &al1);
         else error("Uh, this should not happen\n");
+
+        // strand bias
+        if ( n_sp )
+        {
+            int32_t *sp = args->sp + args->trio[i].idx[iCHILD];
+            if ( *sp>=0 ) score += args->sb_coeff * phred2log(*sp);
+        }
 
         if ( rec->n_allele > 4 ) many_alts_translate(args, &al0, &al1);
 
@@ -1500,11 +2054,12 @@ static void process_record(args_t *args, bcf1_t *rec)
         {
             write_dnm = 1;
             if ( args->dnm_score_type==DNM_LOG )
-                args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = score==HUGE_VAL ? 0 : subtract_log(0,phred2log(score));
+                args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = score;
             else if ( args->dnm_score_type==DNM_PROB )
-                args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = score==HUGE_VAL ? 1 : 1 - phred2num(score);
+                args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = exp(score);
             else
             {
+                score = log2phred(subtract_log(0,score));
                 if ( score>255 ) score = 255;
                 args->dnm_qual_int[ args->trio[i].idx[iCHILD] ] = round(score);
             }
@@ -1546,7 +2101,7 @@ static void process_record(args_t *args, bcf1_t *rec)
                 error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_vaf_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         }
     }
-    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+    return rec;
 }
 
 static void set_option(args_t *args, char *optarg)
@@ -1631,14 +2186,21 @@ int run(int argc, char **argv)
     args->dnm_vaf_tag    = strdup("VAF");
     args->dnm_allele_tag = strdup("VA");
     args->mrate = 1e-8;
-    args->pn_snv.frac  = 0.005;
-    args->pn_snv.frac1 = 0.045;
-    args->pn_snv.abs   = 0;
-    args->pn_snv.abs1  = 0;
     args->record_cmd_line = 1;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
     args->clevel = -1;
+    args->min_score = -INFINITY;
+    args->min_qm = phred2num(30);
+    args->phi = 1e3;
+    args->noise_prior = 1e-3;
+    args->min_vaf = -1;
+    args->pn_snv.frac  = 0.011;
+    args->pn_snv.frac1 = 0.045;
+    args->pn_snv.abs   = 0;
+    args->pn_snv.abs1  = 0;
+    args->allelic_dropout = 0;
+    args->sb_coeff = -1;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1650,14 +2212,27 @@ int run(int argc, char **argv)
         {"mrate",required_argument,0,6},
         {"pn",required_argument,0,7},
         {"pns",required_argument,0,8},
-        {"use-DNG",no_argument,0,9},
         {"ppl",no_argument,0,10},
         {"with-pPL",no_argument,0,10},
         {"with-ppl",no_argument,0,10},
+        {"max-QM",required_argument,0,18},
+        {"phi",required_argument,0,19},
+        {"noise-prior",required_argument,0,20},
+        {"np",required_argument,0,20},
+        {"ad",required_argument,0,21},
+        {"allelic-dropout",required_argument,0,21},
+        {"strand-bias",required_argument,0,22},
+        {"sb",required_argument,0,22},
+        {"min-vaf",required_argument,0,23},
+        {"use-DMM",no_argument,0,17},
+        {"use-ALM",no_argument,0,16},
+        {"use-DNG",no_argument,0,9},
         {"use-NAIVE",no_argument,0,11},
         {"no-version",no_argument,NULL,12},
         {"with-pAD",no_argument,0,13},
         {"with-pad",no_argument,0,13},
+        {"with-cAD",no_argument,0,24},
+        {"with-cad",no_argument,0,24},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"strictly-novel",no_argument,0,'n'},
@@ -1696,9 +2271,9 @@ int run(int argc, char **argv)
             case  7 :
                 pn_frac = strtod(optarg,&tmp);
                 pn_abs  = 0;
-                if ( *tmp && *tmp==',' )
+                if ( *tmp && (*tmp==',' || *tmp==':') )
                 {
-                    pn_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp==',' ) pn_abs = strtod(tmp+1,&tmp);
                     if ( *tmp )
                     {
                         if ( *tmp!=':' ) error("Could not parse: --pn %s\n", optarg);
@@ -1726,9 +2301,9 @@ int run(int argc, char **argv)
             case 8 :
                 pn_frac = strtod(optarg,&tmp);
                 pn_abs  = 0;
-                if ( *tmp && *tmp==',' )
+                if ( *tmp && (*tmp==',' || *tmp==':') )
                 {
-                    pn_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp==',' ) pn_abs = strtod(tmp+1,&tmp);
                     if ( *tmp )
                     {
                         if ( *tmp!=':' ) error("Could not parse: --pns %s\n", optarg);
@@ -1756,8 +2331,40 @@ int run(int argc, char **argv)
             case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
             case 10 : args->with_ppl = 1; break;
             case 11 : args->use_model = USE_NAIVE; break;
+            case 16 : args->use_model = USE_ALM; break;
+            case 17 : args->use_model = USE_DMM; break;
+            case 18 :
+                args->min_qm = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --max-QM %s\n",optarg);
+                args->min_qm = args->min_qm < 0 ? -phred2num(-args->min_qm) : phred2num(args->min_qm);
+                if ( fabs(args->min_qm)>1 ) args->min_qm = args->min_qm < 0 ? -1 : 1;
+                break;
+            case 19 :
+                args->phi = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --phi %s\n",optarg);
+                if ( args->phi<=0 ) error("Expected positive values: --phi %s\n",optarg);
+                break;
+            case 20 :
+                args->noise_prior = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --noise-prior %s\n",optarg);
+                if ( fabs(args->noise_prior)>1 ) error("Expected value [1,1] --noise-prior %s\n",optarg);
+                break;
+            case 21 :
+                args->allelic_dropout = strtod(optarg,&tmp);
+                 if ( *tmp ) error("Could not parse: --allelic-dropout %s\n",optarg);
+                break;
+            case 22 :
+                args->sb_coeff = strtod(optarg,&tmp);
+                 if ( *tmp ) error("Could not parse: --strand-bias %s\n",optarg);
+                break;
+            case 23 :
+                args->min_vaf = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --min-vaf %s\n",optarg);
+                if ( args->min_vaf<0 || args->min_vaf>0.5 ) error("Expected value [0,0.5]: --min-vaf %s\n",optarg);
+                break;
             case 12 : args->record_cmd_line = 0; break;
             case 13 : args->with_pad = 1; break;
+            case 24 : args->with_cad = 1; break;
             case 14 :
                 args->regions_overlap = parse_overlap_option(optarg);
                 if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
@@ -1826,7 +2433,10 @@ int run(int argc, char **argv)
     init_data(args);
 
     while ( bcf_sr_next_line(args->sr) )
-        process_record(args, bcf_sr_get_line(args->sr,0));
+    {
+        bcf1_t *rec = process_record(args, bcf_sr_get_line(args->sr,0));
+        if ( rec && bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    }
 
     destroy_data(args);
 

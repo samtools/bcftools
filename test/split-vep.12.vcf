@@ -1,0 +1,6 @@
+##fileformat=VCFv4.3
+##contig=<ID=chr1,length=1000000>
+##INFO=<ID=ANN,Number=.,Type=String,Description="Format: 'Allele | Annotation | Annotation_Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID | Transcript_BioType | Score'">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	1000	.	A	G	.	PASS	ANN=G|splice_region_variant&missense_variant|MODERATE|GENE1|GENE0001|transcript|TX001|protein_coding|3.14
+chr1	2000	.	C	T	.	PASS	ANN=T|synonymous_variant|LOW|GENE2|GENE0002|transcript|TX002|protein_coding|2.71

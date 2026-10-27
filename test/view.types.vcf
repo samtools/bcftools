@@ -1,0 +1,14 @@
+##fileformat=VCFv4.3
+##contig=<ID=chr1,length=1000000>
+##contig=<ID=chr2,length=1000000>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate for symbolic alleles">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	10	ref_only	A	.	.	PASS	.
+chr1	20	snp	A	C	.	PASS	.
+chr1	30	mnp	AC	GT	.	PASS	.
+chr1	40	ins	A	AT	.	PASS	.
+chr1	50	del	AT	A	.	PASS	.
+chr1	60	other_symbolic	N	<DUP>	.	PASS	END=100
+chr1	70	bnd	N	N]chr2:100]	.	PASS	.
+chr1	80	overlap_star	A	*	.	PASS	.
+chr1	90	mixed_snp_indel	A	C,AT	.	PASS	.

@@ -143,7 +143,14 @@ static int cmp_reg_ptrs(const void *a, const void *b)
 }
 static int cmp_reg_ptrs2(const void *a, const void *b)
 {
-    return cmp_regs(*((reg_t**)a),*((reg_t**)b));
+    reg_t **ra = (reg_t**) a;
+    reg_t **rb = (reg_t**) b;
+    int res = cmp_regs(*ra, *rb);
+    // Ensure sort is stable by comparing pointers.  This is safe as we're
+    // sorting a list of pointers to the original regions rather than the
+    // regions themselves.  As they all point into the same array, they
+    // can be safely compared and also preserve the original ordering.
+    return res ? res : (*ra > *rb) - (*ra < *rb);
 }
 
 inline int regidx_push(regidx_t *idx, char *chr_beg, char *chr_end, uint32_t beg, uint32_t end, void *payload)
@@ -289,6 +296,7 @@ regidx_t *regidx_init(const char *fname, regidx_parse_f parser, regidx_free_f fr
     }
 
     free(str.s);
+    str.s = NULL;
     if ( hts_close(fp)!=0 )
     {
         fprintf(stderr,"[%s] Error: close failed .. %s\n", __func__,fname);
@@ -441,7 +449,7 @@ int regidx_overlap(regidx_t *regidx, const char *chr, uint32_t beg, uint32_t end
         if ( !i )
         {
             int iend = iBIN(end);
-            if ( iend > list->nidx ) iend = list->nidx;
+            if ( iend > list->nidx ) iend = list->nidx; // NB: this is correct, nidx+1 items were allocated
             for (i=ibeg; i<=iend; i++)
                 if ( list->idx[i] ) break;
             if ( i>iend ) return 0;

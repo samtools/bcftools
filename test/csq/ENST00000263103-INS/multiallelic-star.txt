@@ -1,0 +1,6 @@
+280440	A	<INS:ME:ALU>,*	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+280440	A	<INS:ME:ALU>,*	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315772	G	*,<DEL>	feature_truncation|BICC1|ENST00000373886|protein_coding
+315772	G	*,<DEL>	feature_truncation|BICC1|ENST00000373886|protein_coding
+

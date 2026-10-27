@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=100>
+##INFO=<ID=XX,Number=1,Type=Integer>
+##FORMAT=<ID=ff,Number=1,Type=Integer>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+chr1	1	.	C	A	.	.	XX=1	ff	2

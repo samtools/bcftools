@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2025 Genome Research Ltd.
+   Copyright (c) 2016-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1015,6 +1015,19 @@ int vcfbuf_ld(vcfbuf_t *buf, bcf1_t *rec, vcfbuf_ld_t *ld)
     for (i=-1; rbuf_next(&buf->rbuf,&i); )
     {
         if ( buf->vcf[i].filter ) continue;
+
+        int inside_win = 1;
+        if ( buf->vcf[i].rec->rid != rec->rid ) inside_win = 0;
+        else if ( buf->win > 0 )
+        {
+            if ( buf->rbuf.n - rbuf_ridx2l(&buf->rbuf,i) > buf->win ) inside_win = 0;
+        }
+        else if ( buf->win < 0 )
+        {
+            if ( !(buf->vcf[i].rec->pos - rec->pos > buf->win) ) inside_win = 0;
+        }
+        if ( !inside_win ) continue;
+
         if ( _calc_r2_ld(buf, buf->vcf[i].rec, rec, &tmp) < 0 ) continue;   // missing genotypes
 
         int done = 0;

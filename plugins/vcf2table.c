@@ -402,7 +402,7 @@ static CellPtr TableAt(TablePtr ptr, unsigned int x, unsigned int y) {
   return RowAt(TableRowAt(ptr, y), x);
 }
 
-/** test wether the content of a column is empty */
+/** test whether the content of a column is empty */
 static int TableIsColumnEmpty(TablePtr ptr, unsigned int x) {
   unsigned int y;
   ASSERT_NOT_NULL(ptr);
@@ -611,8 +611,8 @@ static int findContigs(bcf_hdr_t* hdr_in, const char* ctg1a, uint64_t len1,
   char ctg1b[10];
   char ctg2b[10];
   // try to add a 'chr' prefix to the chromosome name
-  sprintf(ctg1b, "chr%s", ctg1a);
-  sprintf(ctg2b, "chr%s", ctg2a);
+  snprintf(ctg1b, sizeof(ctg1b), "chr%s", ctg1a);
+  snprintf(ctg2b, sizeof(ctg2b), "chr%s", ctg2a);
   int found = 0;
   int i, n_contigs = hdr_in->n[BCF_DT_CTG];
   for (i = 0; i < n_contigs && found < 2; i++) {

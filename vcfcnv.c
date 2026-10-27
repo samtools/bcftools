@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2025 Genome Research Ltd.
+   Copyright (c) 2014-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -831,7 +831,7 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR genotypes
 
-        double prob_cn3 = 0, *probs = fwd + i*nstates;
+        double prob_cn3 = 0, *probs = &HMM_PPROB(fwd,nstates,i,0);
         if ( !args->control_sample.name )
         {
             prob_cn3 = probs[CN3];
@@ -871,6 +871,7 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
     for (i=0; i<args->nsites; i++)
     {
         float baf = smpl->baf[i];
+        if ( baf>4/5.) continue;        // skip AA genotypes
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR,AA genotypes
 
@@ -1032,12 +1033,12 @@ static void cnv_flush_viterbi(args_t *args)
     // Output the results
     uint8_t *vpath = hmm_get_viterbi_path(hmm);
     double qual = 0, *fwd = hmm_get_fwd_bwd_prob(hmm);
-    int i,j, isite, start_cn = vpath[0], start_pos = args->sites[0], istart_pos = 0;
+    int i,j, isite, start_cn = HMM_VPATH(vpath,args->nstates,0), start_pos = args->sites[0], istart_pos = 0;
     int ctrl_ntot = 0, smpl_ntot = 0, ctrl_nhet = 0, smpl_nhet = 0;
     for (isite=0; isite<args->nsites; isite++)
     {
-        int state = vpath[args->nstates*isite];
-        double *pval = fwd + isite*args->nstates;
+        int state = HMM_VPATH(vpath,args->nstates,isite);
+        double *pval = &HMM_PPROB(fwd, args->nstates, isite, 0);
 
         qual += pval[start_cn];
 
@@ -1118,6 +1119,10 @@ static void cnv_flush_viterbi(args_t *args)
 
 static int parse_lrr_baf(sample_t *smpl, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fmt, float *baf, float *lrr)
 {
+    *baf = -0.1;
+    *lrr = 0;
+    if ( !smpl->name || smpl->idx<0 ) return 0;
+
     *baf = ((float*)(baf_fmt->p + baf_fmt->size*smpl->idx))[0];
     if ( bcf_float_is_missing(*baf) || isnan(*baf) ) *baf = -0.1;    // arbitrary negative value == missing value
 

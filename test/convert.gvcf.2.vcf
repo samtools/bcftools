@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##reference=file://some/path/human_g1k_v37.fasta
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the region described in this record">
+##contig=<ID=22,length=450>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+22	10	.	C	.	.	.	END=40	GT	0/0
+22	21	.	C	T	.	.	END=26	GT	0/0
+22	27	.	C	T	.	.	END=42	GT	0/0

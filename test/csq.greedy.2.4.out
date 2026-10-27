@@ -1,0 +1,3 @@
+CSQ	-	-	chr1	40	non_coding|GENENC||lncRNA
+CSQ	-	-	chr1	40	intron|GENE2||protein_coding
+CSQ	-	-	chr1	40	missense|GENE1|pc1|protein_coding|+|4K>4Q|40A>C

@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -48,6 +48,14 @@ THE SOFTWARE.  */
 #include "dbuf.h"
 
 struct _args_t;
+
+typedef struct
+{
+    int type;   // one of BCF_HL_INFO, BCF_HL_FMT, BCF_HL_FLT
+    int old_id, new_id;
+    char *old_tag, *new_tag;
+}
+rename_tag_t;
 
 typedef struct _rm_tag_t
 {
@@ -178,12 +186,12 @@ typedef struct _args_t
     char *tmps, *tmps2, **tmpp, **tmpp2;
     kstring_t tmpks;
 
+    rename_tag_t *rename_annots_map;
+    int rename_annots_nmap;
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns, *rename_chrs, *rename_annots, *sample_names, *mark_sites;
-    char **rename_annots_map;
+    char *remove_annots, *columns, *rename_chrs, *rename_annots_file, *sample_names, *mark_sites;
     char *min_overlap_str;
     float min_overlap_ann, min_overlap_vcf;
-    int rename_annots_nmap;
     kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
     int columns_is_file, has_append_mode, pair_logic;
@@ -785,7 +793,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
     if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
-    int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
+    int ntmpi2 = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
     if ( ntmpi2 < ndst ) hts_expand(int32_t,ndst,args->mtmpi2,args->tmpi2);
 
     int i;
@@ -802,7 +810,8 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 
         args->tmpi2[i] = args->tmpi[ map[i] ];
     }
-    return bcf_update_info_int32(args->hdr_out,line,col->hdr_key_dst,args->tmpi2,ndst);
+    int ret = bcf_update_info_int32(args->hdr_out,line,col->hdr_key_dst,args->tmpi2,ndst);
+    return ret<0 ? ret : 1;
 }
 static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -911,7 +920,10 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
+    {
+        assert(tab);
         return setter_ARinfo_int32(args,line,col,tab->nals,tab->als,ntmpi);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -967,7 +979,8 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 
         args->tmpf2[i] = args->tmpf[ map[i] ];
     }
-    return bcf_update_info_float(args->hdr_out,line,col->hdr_key_dst,args->tmpf2,ndst);
+    int ret = bcf_update_info_float(args->hdr_out,line,col->hdr_key_dst,args->tmpf2,ndst);
+    return ret<0 ? ret : 1;
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -1095,7 +1108,10 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
+    {
+        assert(tab);
         return setter_ARinfo_real(args,line,col,tab->nals,tab->als,ntmpf);
+    }
 
     if ( col->replace & REPLACE_MISSING )
     {
@@ -1743,36 +1759,47 @@ static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void 
     for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++) free(args->tmpp[ismpl]);
     return ret;
 }
-static int determine_ploidy(int nals, int *vals, int nvals1, uint8_t *smpl, int nsmpl)
-{
-    int i, j, ndip = nals*(nals+1)/2, max_ploidy = 0;
-    for (i=0; i<nsmpl; i++)
-    {
-        int *ptr = vals + i*nvals1;
-        int has_value = 0;
-        for (j=0; j<nvals1; j++)
-        {
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-            if ( ptr[j]!=bcf_int32_missing ) has_value = 1;
-        }
-        if ( has_value )
-        {
-            if ( j==ndip )
-            {
-                smpl[i] = 2;
-                max_ploidy = 2;
-            }
-            else if ( j==nals )
-            {
-                smpl[i] = 1;
-                if ( !max_ploidy ) max_ploidy = 1;
-            }
-            else return -j;
-        }
-        else smpl[i] = 0;
-    }
-    return max_ploidy;
+#define DEFINE_DETERMINE_PLOIDY(NAME, TYPE, IS_MISSING, IS_VECTOR_END)         \
+static int NAME(int nals, TYPE *vals, int nvals1, uint8_t *smpl, int nsmpl)    \
+{                                                                              \
+    int i, j, ndip = nals*(nals+1)/2, max_ploidy = 0;                          \
+    for (i=0; i<nsmpl; i++)                                                    \
+    {                                                                          \
+        TYPE *ptr = vals + i*nvals1;                                           \
+        int has_value = 0;                                                     \
+        for (j=0; j<nvals1; j++)                                               \
+        {                                                                      \
+            if ( IS_VECTOR_END(ptr[j]) ) break;                                \
+            if ( !IS_MISSING(ptr[j]) ) has_value = 1;                          \
+        }                                                                      \
+        if ( has_value )                                                       \
+        {                                                                      \
+            if ( j==ndip )                                                     \
+            {                                                                  \
+                smpl[i] = 2;                                                   \
+                max_ploidy = 2;                                                \
+            }                                                                  \
+            else if ( j==nals )                                                \
+            {                                                                  \
+                smpl[i] = 1;                                                   \
+                if ( !max_ploidy ) max_ploidy = 1;                             \
+            }                                                                  \
+            else return -j;                                                    \
+        }                                                                      \
+        else smpl[i] = 0;                                                      \
+    }                                                                          \
+    return max_ploidy;                                                         \
 }
+
+#define INT32_IS_MISSING(x)    ((x) == bcf_int32_missing)
+#define INT32_IS_VECTOR_END(x) ((x) == bcf_int32_vector_end)
+
+#define FLOAT_IS_MISSING(x)    bcf_float_is_missing(x)
+#define FLOAT_IS_VECTOR_END(x) bcf_float_is_vector_end(x)
+
+DEFINE_DETERMINE_PLOIDY(determine_ploidy_int32, int32_t, INT32_IS_MISSING, INT32_IS_VECTOR_END)
+DEFINE_DETERMINE_PLOIDY(determine_ploidy_float, float,   FLOAT_IS_MISSING, FLOAT_IS_VECTOR_END)
+
 static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
@@ -1825,10 +1852,10 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
             args->src_smpl_pld = (uint8_t*) malloc(nsmpl_src);
             args->dst_smpl_pld = (uint8_t*) malloc(nsmpl_dst);
         }
-        int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
+        int pld_src = determine_ploidy_int32(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
-        int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
+        int pld_dst = determine_ploidy_int32(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
@@ -1932,10 +1959,10 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
             args->src_smpl_pld = (uint8_t*) malloc(nsmpl_src);
             args->dst_smpl_pld = (uint8_t*) malloc(nsmpl_dst);
         }
-        int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
+        int pld_src = determine_ploidy_float(rec->n_allele, args->tmpf, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
-        int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
+        int pld_dst = determine_ploidy_float(line->n_allele, args->tmpf2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
             error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
@@ -2854,78 +2881,265 @@ static void rename_chrs(args_t *args, char *fname)
     for (i=0; i<n; i++) free(map[i]);
     free(map);
 }
-// Dirty: this relies on bcf_hdr_sync NOT being called
-static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
+static int rename_annots_init1(args_t *args, rename_tag_t *map)
 {
-    int type;
-    if ( !strncasecmp("info/",ori_tag,5) ) type = BCF_HL_INFO, ori_tag += 5;
-    else if ( !strncasecmp("format/",ori_tag,7) ) type = BCF_HL_FMT, ori_tag += 7;
-    else if ( !strncasecmp("fmt/",ori_tag,4) ) type = BCF_HL_FMT, ori_tag += 4;
-    else if ( !strncasecmp("filter/",ori_tag,7) ) type = BCF_HL_FLT, ori_tag += 7;
+    map->type = map->old_id = map->new_id = -1;
+    char *ori_tag = map->old_tag;
+    char *new_tag = map->new_tag;
+
+    if ( !strncasecmp("info/",ori_tag,5) ) map->type = BCF_HL_INFO, ori_tag += 5;
+    else if ( !strncasecmp("format/",ori_tag,7) ) map->type = BCF_HL_FMT, ori_tag += 7;
+    else if ( !strncasecmp("fmt/",ori_tag,4) ) map->type = BCF_HL_FMT, ori_tag += 4;
+    else if ( !strncasecmp("filter/",ori_tag,7) ) map->type = BCF_HL_FLT, ori_tag += 7;
     else return -1;
+
     if ( !strncasecmp("info/",new_tag,5) )
     {
-        if ( type != BCF_HL_INFO ) error("Cannot transfer %s to INFO\n", ori_tag);
+        if ( map->type != BCF_HL_INFO ) error("Cannot transfer %s to INFO\n", ori_tag);
         new_tag += 5;
     }
     else if ( !strncasecmp("format/",new_tag,7) )
     {
-        if ( type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
+        if ( map->type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
         new_tag += 7;
     }
     else if ( !strncasecmp("fmt/",new_tag,4) )
     {
-        if ( type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
+        if ( map->type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
         new_tag += 4;
     }
     else if ( !strncasecmp("filter/",new_tag,7) )
     {
-        if ( type != BCF_HL_FLT ) error("Cannot transfer %s to FILTER\n", ori_tag);
+        if ( map->type != BCF_HL_FLT ) error("Cannot transfer %s to FILTER\n", ori_tag);
         new_tag += 7;
     }
-    int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, ori_tag);
-    if ( id<0 ) return 1;
-    bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, type, "ID", ori_tag, NULL);
-    if ( !hrec ) return 1;  // the ID attribute not present
-    int j = bcf_hrec_find_key(hrec, "ID");
-    assert( j>=0 );
-    free(hrec->vals[j]);
-    char *ptr = new_tag;
-    while ( *ptr && !isspace_c(*ptr) ) ptr++;
-    *ptr = 0;
-    hrec->vals[j] = strdup(new_tag);
-    args->hdr_out->id[BCF_DT_ID][id].key = hrec->vals[j];
+    char *rmme;
+    rmme = strdup(ori_tag); free(map->old_tag); map->old_tag = ori_tag = rmme;
+    rmme = strdup(new_tag); free(map->new_tag); map->new_tag = new_tag = rmme;
+
+    map->old_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, ori_tag);
+    if ( map->old_id < 0 ) return -1;
+
+    bcf_hrec_t *old_hrec = bcf_hdr_get_hrec(args->hdr_out, map->type, "ID", ori_tag, NULL);
+    if ( !old_hrec ) return -1;
+
+    int shared = 0;
+    if ( map->type != BCF_HL_INFO && bcf_hdr_idinfo_exists(args->hdr_out, BCF_HL_INFO, map->old_id) ) shared = 1;
+    if ( map->type != BCF_HL_FMT  && bcf_hdr_idinfo_exists(args->hdr_out, BCF_HL_FMT,  map->old_id) ) shared = 1;
+    if ( map->type != BCF_HL_FLT  && bcf_hdr_idinfo_exists(args->hdr_out, BCF_HL_FLT,  map->old_id) ) shared = 1;
+
+    // The easy case: the original tag name is not shared with other types and the new tag does not exist
+    map->new_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, new_tag);
+    if ( !shared && map->new_id<=0 )
+    {
+        map->new_id = map->old_id;
+
+        int j = bcf_hrec_find_key(old_hrec, "ID");
+        assert( j >= 0 );
+
+        vdict_t *d = (vdict_t*) args->hdr_out->dict[BCF_DT_ID];
+        khint_t k = kh_get(vdict, d, old_hrec->vals[j]);
+        assert( k != kh_end(d) );
+
+        bcf_idinfo_t val = kh_val(d, k);
+        char *old_hrec_key = old_hrec->vals[j];
+        char *old_dict_key = (char*) kh_key(d, k);
+        char *new_dict_key = strdup(new_tag);
+
+        kh_del(vdict, d, k);
+        free(old_dict_key);
+
+        int ret;
+        k = kh_put(vdict, d, new_dict_key, &ret);
+        if ( ret < 0 ) error("Failed to rename header key %s to %s\n", old_hrec_key, new_tag);
+        if ( ret == 0 ) error("The tag \"%s\" already exists in the header\n", new_tag);
+
+        kh_val(d, k) = val;
+
+        char *new_hrec_key = strdup(new_tag);
+        free(old_hrec_key);
+        old_hrec->vals[j] = new_hrec_key;
+        args->hdr_out->id[BCF_DT_ID][map->old_id].key = new_hrec_key;
+    }
+    else
+    {
+        if ( bcf_hdr_get_hrec(args->hdr_out, map->type, "ID", new_tag, NULL) )
+            error("The tag \"%s/%s\" already exists in the header\n",
+                  map->type==BCF_HL_INFO ? "INFO" : (map->type==BCF_HL_FMT ? "FORMAT" : "FILTER"),
+                  new_tag);
+
+        kstring_t tmp = {0,0,0};
+        if ( bcf_hrec_format(old_hrec, &tmp)<0 ) error("Failed to format header record for %s\n", ori_tag);
+
+        // replace ID=old with ID=new in the formatted header line
+        char *idp = strstr(tmp.s, "ID=");
+        if ( !idp ) error("Malformed header record for %s: %s\n", ori_tag,tmp.s);
+        idp += 3;
+        char *idend = idp;
+        while ( *idend && *idend!=',' && *idend!='>' ) idend++;
+
+        kstring_t out = {0,0,0};
+        kputsn(tmp.s, idp - tmp.s, &out);
+        kputs(new_tag, &out);
+        kputs(idend, &out);
+
+        if ( bcf_hdr_append(args->hdr_out, out.s) ) error("Failed to append renamed header line: %s\n", out.s);
+        if ( bcf_hdr_sync(args->hdr_out) < 0 ) error_errno("[%s] Failed to sync header", __func__);
+
+        map->new_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, new_tag);
+        if ( map->new_id < 0 ) error("Failed to obtain new header ID for %s\n", new_tag);
+
+        bcf_hdr_remove(args->hdr_out, map->type, ori_tag);
+        if ( bcf_hdr_sync(args->hdr_out) < 0 ) error_errno("[%s] Failed to sync header", __func__);
+
+        free(tmp.s);
+        free(out.s);
+    }
     return 0;
 }
-static void rename_annots(args_t *args)
+static void rename_annots_init(args_t *args)
 {
-    int i;
-    if ( args->rename_annots )
+    int i, n;
+    if ( args->rename_annots_file )
     {
-        args->rename_annots_map = hts_readlist(args->rename_annots, 1, &args->rename_annots_nmap);
-        if ( !args->rename_annots_map ) error("Could not read: %s\n", args->rename_annots);
+        char **map = hts_readlist(args->rename_annots_file, 1, &n);
+        if ( !map ) error("Could not read: %s\n", args->rename_annots_file);
+        for (i=0; i<n; i++)
+        {
+            char *ptr = map[i];
+            while ( *ptr && !isspace_c(*ptr) ) ptr++;
+            if ( !*ptr ) error("Could not parse: %s\n", map[i]);
+            char *rmme = ptr++;
+            *rmme = 0;
+            while ( *ptr && isspace_c(*ptr) ) ptr++;
+            if ( !*ptr ) { *rmme = ' '; error("Could not parse: %s\n", map[i]); }   // there is no second column
+            char *new_tag = ptr;
+            while ( *ptr && !isspace_c(*ptr) ) ptr++;
+            *ptr = 0;   // removing trailing spaces
+            rename_annots_push(args, map[i], new_tag);
+            free(map[i]);
+        }
+        free(map);
     }
     for (i=0; i<args->rename_annots_nmap; i++)
     {
-        char *ptr = args->rename_annots_map[i];
-        while ( *ptr && !isspace_c(*ptr) ) ptr++;
-        if ( !*ptr ) error("Could not parse: %s\n", args->rename_annots_map[i]);
-        char *rmme = ptr;
-        *ptr = 0;
-        ptr++;
-        while ( *ptr && isspace_c(*ptr) ) ptr++;
-        if ( !*ptr ) { *rmme = ' '; error("Could not parse: %s\n", args->rename_annots_map[i]); }
-        if ( rename_annots_core(args, args->rename_annots_map[i], ptr) < 0 )
-            error("Cannot rename \"%s\" to \"%s\"\n",args->rename_annots_map[i],ptr);
+        rename_tag_t *map = &args->rename_annots_map[i];
+        if ( rename_annots_init1(args, map) < 0 ) error("Cannot rename \"%s\" to \"%s\"\n",map->old_tag,map->new_tag);
     }
 }
 static void rename_annots_push(args_t *args, char *src, char *dst)
 {
-    args->rename_annots_nmap++;
-    args->rename_annots_map = (char**)realloc(args->rename_annots_map,sizeof(*args->rename_annots_map)*args->rename_annots_nmap);
+    int i = args->rename_annots_nmap++;
+    args->rename_annots_map = (rename_tag_t*)realloc(args->rename_annots_map,sizeof(*args->rename_annots_map)*args->rename_annots_nmap);
+    rename_tag_t *tag = &args->rename_annots_map[i];
+    tag->old_tag = strdup(src);
+    tag->new_tag = strdup(dst);
+}
+static inline int bcf_id_inttype(int id)
+{
+    return id < 128 ? BCF_BT_INT8 : id < 32768 ? BCF_BT_INT16 : BCF_BT_INT32;
+}
+static void rename_annots_info(bcf1_t *rec, bcf_info_t *info, int new_id)
+{
+    int old_id = info->key;
+    if ( old_id == new_id || !info->vptr ) { info->key = new_id; return; }
+
+    int old_sz = bcf_id_inttype(old_id);
+    int new_sz = bcf_id_inttype(new_id);
+    uint8_t *p = info->vptr - info->vptr_off;   // INFO: encoded key starts here
+
+    info->key = new_id;
+
+    if ( old_sz == new_sz )
+    {
+        if ( new_sz == BCF_BT_INT8 ) p[1] = (uint8_t)new_id;
+        else if ( new_sz == BCF_BT_INT16 ) i16_to_le(new_id, p);
+        else i32_to_le(new_id, p);
+        return;
+    }
+
     kstring_t str = {0,0,0};
-    ksprintf(&str,"%s %s",src,dst);
-    args->rename_annots_map[ args->rename_annots_nmap - 1 ] = str.s;
+    bcf_enc_int1(&str, new_id);
+    bcf_enc_size(&str, info->len, info->type);
+    uint32_t vptr_off = str.l;
+    kputsn((char*)info->vptr, info->vptr_len, &str);
+
+    if ( info->vptr_free ) free(info->vptr - info->vptr_off);
+    info->vptr_off  = vptr_off;
+    info->vptr      = (uint8_t*)str.s + vptr_off;
+    info->vptr_free = 1;
+    rec->d.shared_dirty |= BCF1_DIRTY_INF;
+}
+
+static void rename_annots_format(bcf1_t *rec, bcf_fmt_t *fmt, int new_id)
+{
+    int old_id = fmt->id;
+    if ( old_id == new_id || !fmt->p ) { fmt->id = new_id; return; }
+
+    int old_sz = bcf_id_inttype(old_id);
+    int new_sz = bcf_id_inttype(new_id);
+    uint8_t *p = fmt->p - fmt->p_off;   // FORMAT: p points to size/type byte
+
+    fmt->id = new_id;
+
+    if ( old_sz == new_sz )
+    {
+        if ( new_sz == BCF_BT_INT8 ) p[1] = (uint8_t)new_id;
+        else if ( new_sz == BCF_BT_INT16 ) i16_to_le(new_id, p + 1);
+        else i32_to_le(new_id, p + 1);
+        return;
+    }
+
+    kstring_t str = {0,0,0};
+    bcf_enc_int1(&str, new_id);
+    bcf_enc_size(&str, fmt->n, fmt->type);
+    uint32_t p_off = str.l;
+    kputsn((char*)fmt->p, fmt->p_len, &str);
+
+    if ( fmt->p_free ) free(fmt->p - fmt->p_off);
+    fmt->p      = (uint8_t*)str.s + p_off;
+    fmt->p_off  = p_off;
+    fmt->p_free = 1;
+    rec->d.indiv_dirty = 1;
+}
+static void rename_annots(args_t *args, bcf1_t *rec)
+{
+    int i, j;
+    for (i = 0; i < args->rename_annots_nmap; i++)
+    {
+        int old_id = args->rename_annots_map[i].old_id;
+        int new_id = args->rename_annots_map[i].new_id;
+
+        if ( old_id==new_id ) continue;
+
+        if (args->rename_annots_map[i].type == BCF_HL_INFO)
+        {
+            bcf_unpack(rec, BCF_UN_INFO);
+            for (j = 0; j < rec->n_info; j++)
+            {
+                if (rec->d.info[j].vptr && rec->d.info[j].key == old_id)
+                    rename_annots_info(rec, &rec->d.info[j], new_id);
+            }
+        }
+        else if (args->rename_annots_map[i].type == BCF_HL_FMT)
+        {
+            bcf_unpack(rec, BCF_UN_FMT);
+            for (j = 0; j < rec->n_fmt; j++)
+            {
+                if (rec->d.fmt[j].p && rec->d.fmt[j].id == old_id)
+                    rename_annots_format(rec, &rec->d.fmt[j], new_id);
+            }
+        }
+        else if (args->rename_annots_map[i].type == BCF_HL_FLT)
+        {
+            bcf_unpack(rec, BCF_UN_FLT);
+            for (j = 0; j < rec->d.n_flt; j++)
+            {
+                if (rec->d.flt[j] == old_id) rec->d.flt[j] = new_id;
+            }
+            rec->d.shared_dirty |= BCF1_DIRTY_FLT;
+        }
+    }
 }
 static void init_filters(args_t *args)
 {
@@ -3115,7 +3329,7 @@ static void init_data(args_t *args)
     if ( !args->drop_header )
     {
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
-        if ( args->rename_annots || args->rename_annots_map ) rename_annots(args);
+        if ( args->rename_annots_file || args->rename_annots_map ) rename_annots_init(args);
 
         char wmode[8];
         set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
@@ -3180,7 +3394,11 @@ static void destroy_data(args_t *args)
     }
     if ( args->rename_annots_map )
     {
-        for (i=0; i<args->rename_annots_nmap; i++) free(args->rename_annots_map[i]);
+        for (i=0; i<args->rename_annots_nmap; i++)
+        {
+            free(args->rename_annots_map[i].old_tag);
+            free(args->rename_annots_map[i].new_tag);
+        }
         free(args->rename_annots_map);
     }
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
@@ -3579,7 +3797,7 @@ static int annotate_from_vcf(args_t *args, bcf1_t *line)
     for (j=0; j<args->ncols; j++)
     {
         if ( !args->cols[j].setter ) continue;
-        if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
+        if ( args->cols[j].setter(args,line,&args->cols[j],aline) < 0 )
             error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     }
     return 1;
@@ -3590,7 +3808,7 @@ static int annotate_from_self(args_t *args, bcf1_t *line)
     for (j=0; j<args->ncols; j++)
     {
         if ( !args->cols[j].setter ) continue;
-        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) )
+        if ( args->cols[j].setter(args,line,&args->cols[j],NULL) < 0 )
             error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     }
     return 0;
@@ -3602,6 +3820,9 @@ static int annotate_line(args_t *args, bcf1_t *line)
     int i;
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
+
+    if ( args->rename_annots_map )
+        rename_annots(args,line);
 
     int has_overlap = 0;
     if ( args->tgt_idx )
@@ -3816,7 +4037,7 @@ int main_vcfannotate(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->single_overlaps = 1; break;
-            case 11 : args->rename_annots = optarg; break;
+            case 11 : args->rename_annots_file = optarg; break;
             case 12 : args->min_overlap_str = optarg; break;
             case 'W':
                 if (!(args->write_index = write_index_parse(optarg)))

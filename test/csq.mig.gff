@@ -1,0 +1,4 @@
+##gff-version 3
+annotated	reproducer	gene	1	9	.	+	.	ID=gene1
+annotated	reproducer	mRNA	1	9	.	+	.	ID=transcript1;Parent=gene1
+annotated	reproducer	CDS	1	9	.	+	0	ID=cds1;Parent=transcript1

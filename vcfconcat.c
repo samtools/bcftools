@@ -939,7 +939,9 @@ static void naive_concat(args_t *args)
             if ( !nread ) break;
             if ( nread != nheader || check_header(buf)!=0 ) error("\nCould not parse the header of a bgzf block: %s\n",args->fnames[i]);
             nblock = unpackInt16(buf+16) + 1;
-            assert( nblock <= page_size && nblock >= nheader );
+            if ( nblock > page_size || nblock < nheader )
+                error("\nError: malformed bgzf block in %s: block size %"PRId64" out of valid range [%d,%d]\n",
+                    args->fnames[i],(int64_t)nblock,nheader,(int)page_size);
             nread += bgzf_raw_read(fp, buf+nheader, nblock - nheader);
             if ( nread!=nblock ) error("\nCould not read %"PRId64" bytes: %s\n",(uint64_t)nblock,args->fnames[i]);
             if ( nread==neof && !memcmp(buf,eof,neof) ) continue;

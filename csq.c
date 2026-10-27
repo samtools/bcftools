@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2025 Genome Research Ltd.
+   Copyright (c) 2016-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -146,6 +146,7 @@
 #include <htslib/kseq.h>
 #include <htslib/faidx.h>
 #include <htslib/bgzf.h>
+#include <limits.h>
 #include <errno.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -223,6 +224,17 @@
 #define CHR_GFF 1
 #define CHR_FAI 2
 
+// parsing and validation options, see --force and --allow
+#define FORCE_CTG_MISSING_IN_FA  (1u << 0)
+#define FORCE_CTG_MISSING_IN_GFF (1u << 1)
+#define FORCE_OUT_OF_PHASE       (1u << 2)
+#define FORCE_REF_MISMATCH       (1u << 3)
+#define FORCE_ALL (~0u)
+
+#define FMT_CDS_POS  (1u << 0)
+#define FMT_EXON     (1u << 1)
+#define FMT_EXON_POS (1u << 2)
+
 // see kput_vcsq()
 const char *csq_strings[] =
 {
@@ -243,7 +255,7 @@ const char *csq_strings[] =
     "3_prime_utr",
     "non_coding",
     "intron",
-    "intergenic",
+    NULL,
     "inframe_altering",
     NULL,
     NULL,
@@ -286,11 +298,28 @@ struct _vcsq_t
 };
 typedef struct
 {
+    int idx;        // index into vrec_t::vcsq[]
+    int ismpl;      // header sample index, or -1 when no GT/sample is available
+    int ihap;       // 1 or 2 for phased haplotypes, 0 when no haplotype is available
+}
+txt_csq_t;
+typedef struct
+{
+    uint32_t trid;
+    uint32_t vcf_ial;
+}
+tr_alt_t;
+typedef struct
+{
     bcf1_t *line;
     uint32_t *fmt_bm;   // bitmask of sample consequences with first/second haplotype interleaved
     uint32_t nfmt:4,    // the bitmask size (the number of integers per sample)
              nvcsq:28, mvcsq;
     vcsq_t *vcsq;       // there can be multiple consequences for a single VCF record
+    int ntxt, mtxt;     // delayed text-output annotations, printed from canonical vcsq[] entries
+    txt_csq_t *txt;
+    int nclaimed, mclaimed; // transcript/ALT pairs handled by CDS/UTR/splice logic, used by --greedy
+    tr_alt_t *claimed;      // to recognise if intron needs to be reported
 }
 vrec_t;
 typedef struct
@@ -424,7 +453,7 @@ typedef struct _args_t
     char *outdir, **argv, *fa_fname, *gff_fname, *output_fname;
     char *bcsq_tag;
     int argc, output_type, clevel;
-    int phase, verbosity, local_csq, record_cmd_line;
+    int phase, verbosity, local_csq, greedy, record_cmd_line;
     int ncsq2_max, nfmt_bcsq;   // maximum number of csq per site that can be accessed from FORMAT/BCSQ (*2 and 1 bit skipped to avoid BCF missing values)
     int ncsq2_small_warned;
     int brief_predictions;
@@ -439,6 +468,11 @@ typedef struct _args_t
         int faidx_fetch_failed;
     } warned;
 
+    // additional output fields
+    char *format_str,
+         *format_str_empty;
+    uint32_t format;
+
     char *gencode_str;          // which genetic code table to use
     gencode_t *gencode;         // genetic code table
     int rid;                    // current chromosome
@@ -451,7 +485,7 @@ typedef struct _args_t
     int nrm_tr, mrm_tr;
     csq_t *csq_buf;             // pool of csq not managed by hap_node_t, i.e. non-CDS csqs
     int ncsq_buf, mcsq_buf;
-    int force;                  // force run under various conditions. Currently only to skip out-of-phase transcripts
+    uint32_t force;             // force run under various conditions; see FORCE_* definitions above
     int n_threads;              // extra compression/decompression threads
 
     faidx_t *fai;
@@ -464,7 +498,7 @@ args_t;
 // AAA, AAC, ...
 gencode_t gencode_tables[] =
 {
-    {.id=0, .name="Standard sipmlified",
+    {.id=0, .name="Standard simplified",
      .code="KNKNTTTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV*Y*YSSSS*CWCLFLF",
      .stop="--------------M---------------------------------*-*-----*-------" },
     {.id=1, .name="Standard",
@@ -570,10 +604,30 @@ const uint8_t cnt4[] =
     4,3,4,2, 4,4,4,1, 4,4,4,4, 4,4,4,4,
     4,4,4,4, 0
 };
-#define dna2aa(x)    gencode->code[  nt4[(uint8_t)(x)[0]]<<4 |  nt4[(uint8_t)(x)[1]]<<2 |  nt4[(uint8_t)(x)[2]] ]
-#define cdna2aa(x)   gencode->code[ cnt4[(uint8_t)(x)[2]]<<4 | cnt4[(uint8_t)(x)[1]]<<2 | cnt4[(uint8_t)(x)[0]] ]
-#define dna2stop(x)  gencode->stop[  nt4[(uint8_t)(x)[0]]<<4 |  nt4[(uint8_t)(x)[1]]<<2 |  nt4[(uint8_t)(x)[2]] ]
-#define cdna2stop(x) gencode->stop[ cnt4[(uint8_t)(x)[2]]<<4 | cnt4[(uint8_t)(x)[1]]<<2 | cnt4[(uint8_t)(x)[0]] ]
+static inline char dna2aa(char *codon)
+{
+    if (!codon || !gencode) return 'X';
+    int idx = (nt4[(uint8_t)codon[0]] << 4) | (nt4[(uint8_t)codon[1]] << 2) | nt4[(uint8_t)codon[2]];
+    return (idx > 63) ? 'X' : gencode->code[idx];
+}
+static inline char cdna2aa(char *codon)
+{
+    if (!codon || !gencode) return 'X';
+    int idx = (cnt4[(uint8_t)codon[2]] << 4) | (cnt4[(uint8_t)codon[1]] << 2) | cnt4[(uint8_t)codon[0]];
+    return (idx > 63) ? 'X' : gencode->code[idx];
+}
+static inline int dna2stop(char *codon)
+{
+    if (!codon || !gencode) return 0;
+    int idx = (nt4[(uint8_t)codon[0]] << 4) | (nt4[(uint8_t)codon[1]] << 2) | nt4[(uint8_t)codon[2]];
+    return (idx > 63) ? 0 : gencode->stop[idx];
+}
+static inline int cdna2stop(char *codon)
+{
+    if (!codon || !gencode) return 0;
+    int idx = (cnt4[(uint8_t)codon[2]] << 4) | (cnt4[(uint8_t)codon[1]] << 2) | cnt4[(uint8_t)codon[0]];
+    return (idx > 63) ? 0 : gencode->stop[idx];
+}
 
 static inline int ncsq2_to_nfmt(int ncsq2)
 {
@@ -650,7 +704,7 @@ void init_chr_names(args_t *args)
     char **tmp;
 
     // chr prefixes given explicitly
-    args->unify_chr_names_err = strdup("check if --unify-chr-names or --force could help");
+    args->unify_chr_names_err = strdup("check if --unify-chr-names, --force, or --allow could help");
     if ( args->unify_chr_names && (tmp=hts_readlist(args->unify_chr_names,0,&n)) )
     {
         if ( n!=3 ) error("Error: expected three strings, got --unify-chr-names %s\n",args->unify_chr_names);
@@ -663,7 +717,7 @@ void init_chr_names(args_t *args)
 
     int nseq;
     const char **vcf = bcf_hdr_seqnames(args->hdr, &nseq);
-    if ( !vcf ) return;
+    if ( !vcf || !nseq ) { free(vcf); return; }
     const char *seq_vcf = vcf[0];
     const char *seq_gff = gff_iseq(args->gff,0);
     const char *seq_fa  = faidx_iseq(args->fai,0);
@@ -680,14 +734,14 @@ void init_chr_names(args_t *args)
     if ( strcmp(!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l,!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l) ) same_chr = 0;
     if ( strcmp(!strcmp("-",chr_gff.s)?seq_gff:seq_gff+chr_gff.l,!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l) ) same_chr = 0;
     if ( strcmp(!strcmp("-",chr_fa.s)?seq_fa:seq_fa+chr_fa.l,!strcmp("-",chr_vcf.s)?seq_vcf:seq_vcf+chr_vcf.l) ) same_chr = 0;
-    free(args->unify_chr_names_err);
     if ( same_chr )
         ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, try to run with --unify-chr-names %s,%s,%s\n",seq_vcf,seq_gff,seq_fa,chr_vcf.s,chr_gff.s,chr_fa.s);
     else
-        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, check if running with --unify-chr-names or --force coud help\n",seq_vcf,seq_gff,seq_fa);
+        ksprintf(&str,"the first sequence name in VCF/GFF/fasta is %s/%s/%s, %s\n",seq_vcf,seq_gff,seq_fa,args->unify_chr_names_err);
     free(chr_vcf.s);
     free(chr_gff.s);
     free(chr_fa.s);
+    free(args->unify_chr_names_err);
     args->unify_chr_names_err = str.s;
 }
 void init_data(args_t *args)
@@ -699,8 +753,9 @@ void init_data(args_t *args)
 
     args->gff = gff_init(args->gff_fname);
     gff_set(args->gff,verbosity,args->verbosity);
-    gff_set(args->gff,force_out_of_phase,args->force);
+    gff_set(args->gff,force_out_of_phase,(args->force&FORCE_OUT_OF_PHASE)?1:0);
     gff_set(args->gff,dump_fname,args->dump_gff);
+    if ( !(args->format&(FMT_EXON|FMT_EXON_POS)) ) gff_set(args->gff,link_exons,0);
     gff_parse(args->gff);
     args->idx_cds  = gff_get(args->gff,idx_cds);
     args->idx_utr  = gff_get(args->gff,idx_utr);
@@ -765,7 +820,7 @@ void init_data(args_t *args)
         if ( args->n_threads > 0)
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);
         if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
-        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
+        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: %s\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware", args->format_str);
         if ( args->hdr_nsmpl )
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
         if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
@@ -826,6 +881,8 @@ void destroy_data(args_t *args)
             if ( vbuf->vrec[j]->line ) bcf_destroy(vbuf->vrec[j]->line);
             free(vbuf->vrec[j]->fmt_bm);
             free(vbuf->vrec[j]->vcsq);
+            free(vbuf->vrec[j]->txt);
+            free(vbuf->vrec[j]->claimed);
             free(vbuf->vrec[j]);
         }
         free(vbuf->vrec);
@@ -846,7 +903,62 @@ void destroy_data(args_t *args)
     free(args->str.s);
     free(args->str2.s);
     free(args->unify_chr_names_err);
+    free(args->format_str);
+    free(args->format_str_empty);
 }
+
+static inline vrec_t *rec2vrec(args_t *args, bcf1_t *rec)
+{
+    khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)rec->pos);
+    vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
+    if ( !vbuf ) error("This should not happen. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec), (int64_t) rec->pos+1);
+
+    int i;
+    for (i=0; i<vbuf->n; i++)
+        if ( vbuf->vrec[i]->line==rec ) return vbuf->vrec[i];
+
+    error("This should not happen.. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec), (int64_t) rec->pos+1);
+    return NULL;
+}
+// Do not let the later generic transcript-level logic handle this transcript/ALT pair
+static inline void claim_tscript_allele(args_t *args, bcf1_t *rec, uint32_t trid, uint32_t vcf_ial)
+{
+    if ( !args->greedy ) return;
+
+    vrec_t *vrec = rec2vrec(args, rec);
+    int i;
+    for (i=0; i<vrec->nclaimed; i++)
+        if ( vrec->claimed[i].trid==trid && vrec->claimed[i].vcf_ial==vcf_ial ) return;
+
+    hts_expand0(tr_alt_t, vrec->nclaimed+1, vrec->mclaimed, vrec->claimed);
+    vrec->claimed[vrec->nclaimed].trid = trid;
+    vrec->claimed[vrec->nclaimed].vcf_ial = vcf_ial;
+    vrec->nclaimed++;
+}
+static inline void claim_tscript_alleles(args_t *args, bcf1_t *rec, uint32_t trid)
+{
+    if ( !args->greedy ) return;
+
+    int ial;
+    for (ial=1; ial<rec->n_allele; ial++)
+    {
+        if ( rec->d.allele[ial][0]=='<' || rec->d.allele[ial][0]=='*' ) continue;
+        claim_tscript_allele(args, rec, trid, ial);
+    }
+}
+static inline int tscript_allele_is_claimed(args_t *args, bcf1_t *rec, uint32_t trid, uint32_t vcf_ial)
+{
+    if ( !args->greedy ) return 0;
+
+    vrec_t *vrec = rec2vrec(args, rec);
+    int i;
+    for (i=0; i<vrec->nclaimed; i++)
+        if ( vrec->claimed[i].trid==trid && vrec->claimed[i].vcf_ial==vcf_ial ) return 1;
+
+    return 0;
+}
+
+
 
 /*
     The splice_* functions are for consequences around splice sites: start,stop,splice_*
@@ -859,7 +971,10 @@ typedef struct
 {
     gf_tscript_t *tr;
     struct {
-        int32_t pos, rlen, alen, ial;
+        hts_pos_t pos;
+        hts_pos_t rec_len;      // rec->rlen: interval represented by the record
+        int rlen, alen;         // working lengths; literal for sequence alleles, virtual for symbolic
+        int ial;
         char *ref, *alt;
         bcf1_t *rec;
     } vcf;
@@ -878,18 +993,25 @@ typedef struct
     kstring_t kref, kalt;       // trimmed alleles, set only with SPLICE_OLAP
 }
 splice_t;
-void splice_init(splice_t *splice, bcf1_t *rec)
+
+static inline int vcf_allele_len(const char *allele)
 {
-    memset(splice,0,sizeof(*splice));
-    splice->vcf.rec  = rec;
-    splice->vcf.pos  = rec->pos;
-    splice->vcf.rlen = rec->rlen;
-    splice->vcf.ref  = rec->d.allele[0];
-    splice->csq      = 0;
+    size_t len = strlen(allele);
+    if ( len > INT_MAX ) error("Error: excessively long VCF allele\n");
+    return (int) len;
+}
+static void splice_init(splice_t *splice, bcf1_t *rec)
+{
+    memset(splice, 0, sizeof(*splice));
+    splice->vcf.rec     = rec;
+    splice->vcf.pos     = rec->pos;
+    splice->vcf.rec_len = rec->rlen;
+    splice->vcf.ref     = rec->d.allele[0];
+    splice->vcf.rlen    = vcf_allele_len(splice->vcf.ref);
 }
 static inline void splice_build_hap(splice_t *splice, uint32_t beg, int len)
 {
-    // beg .. the beggining of the splice region
+    // beg .. the beginning of the splice region
     // len>0 .. beg is the first base, del filled from right
     // len<0 .. beg is the last base, del filled from left
 
@@ -1026,6 +1148,7 @@ static inline int csq_stage_utr(args_t *args, regitr_t *itr, bcf1_t *rec, uint32
         csq.type.trid    = tr->id;
         csq.type.vcf_ial = ial;
         csq.type.gene    = tr->gene->name;
+        claim_tscript_allele(args, rec, tr->id, ial);
         csq_stage(args, &csq, rec);
         return csq.type.type;
     }
@@ -1046,6 +1169,7 @@ fprintf(stderr,"csq_stage_splice %d: type=%d ial=%d\n",(int)rec->pos+1,type,ial)
     csq.type.trid    = tr->id;
     csq.type.vcf_ial = ial;
     csq.type.gene    = tr->gene->name;
+    claim_tscript_allele(args, rec, tr->id, ial);
     csq_stage(args, &csq, rec);
 }
 static inline const char *unify_chr_name(args_t *args, const char *chr, int isrc, int idst)
@@ -1236,7 +1360,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         {
             if ( !small_ref_padding_warned )
             {
-                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%"PRIhts_pos" due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
                 small_ref_padding_warned = 1;
             }
             return 0;
@@ -1265,7 +1389,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         {
             if ( !small_ref_padding_warned )
             {
-                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                fprintf(stderr,"Warning: Could not verify synonymous start/stop at %s:%"PRIhts_pos" due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
                 small_ref_padding_warned = 1;
             }
             return 0;
@@ -1287,7 +1411,7 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
 
 static inline int splice_csq_del(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
-    if ( splice->check_start )
+    if ( splice->check_start && splice->set_refalt )
     {
         // check for synonymous start
         //      test/csq/ENST00000375992/incorrect-synon-del-not-start-lost.txt
@@ -1555,9 +1679,35 @@ static inline int splice_csq_complex(args_t *args, splice_t *splice, uint32_t ex
     int ret = splice_csq_mnp(args, splice, ex_beg, ex_end);
     return ret;
 }
+static inline int splice_csq_symbolic(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
+{
+    assert( splice->vcf.alt[0]=='<' );
+    assert( !splice->set_refalt );
+
+    // Use virtual sequence lengths to reuse the coordinate-only splice logic.
+    // Symbolic alleles are padded by one REF base.
+    splice->tbeg = 1;
+    splice->tend = 0;
+    if ( splice->csq & CSQ_ELONGATION )
+    {
+        splice->vcf.rlen = 1;
+        splice->vcf.alen = 2;
+        return splice_csq_ins(args, splice, ex_beg, ex_end);
+    }
+    if ( splice->csq & CSQ_TRUNCATION )
+    {
+        if ( splice->vcf.rec_len > INT_MAX ) error("Error: symbolic deletion is too long\n");
+        splice->vcf.rlen = (int) splice->vcf.rec_len;
+        splice->vcf.alen = 1;
+        return splice_csq_del(args, splice, ex_beg, ex_end);
+    }
+    return SPLICE_OUTSIDE;
+}
 static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
-    splice->vcf.alen = strlen(splice->vcf.alt);
+    if ( splice->vcf.alt[0]=='<' ) return splice_csq_symbolic(args, splice, ex_beg, ex_end);
+
+    splice->vcf.alen = vcf_allele_len(splice->vcf.alt);
 
     int rlen1 = splice->vcf.rlen - 1, alen1 = splice->vcf.alen - 1, i = 0;
     splice->tbeg = 0, splice->tend = 0;
@@ -1579,7 +1729,6 @@ static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, ui
 
     int rtrim = splice->vcf.rlen - splice->tbeg - splice->tend;
     int atrim = splice->vcf.alen - splice->tbeg - splice->tend;
-    if ( splice->vcf.alt[0]=='<' ) rtrim = atrim = 0;
 
     // The mnp, ins and del code was split into near-identical functions for clarity and debugging;
     // possible todo: generalize once stable
@@ -1983,11 +2132,12 @@ void tscript_splice_ref(gf_tscript_t *tr)
         memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[i]->beg - tr->beg, tr->cds[i]->len);
         len += tr->cds[i]->len;
     }
-    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg, N_REF_PAD);
+    memcpy(TSCRIPT_AUX(tr)->sref + len, TSCRIPT_AUX(tr)->ref + N_REF_PAD + tr->cds[tr->ncds-1]->beg - tr->beg + tr->cds[tr->ncds-1]->len, N_REF_PAD);
     len += N_REF_PAD;
 
     TSCRIPT_AUX(tr)->sref[len] = 0;
 }
+
 
 // returns: 0 if consequence was added, 1 if it already exists or could not be added
 int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
@@ -1995,23 +2145,17 @@ int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 #if XDBG
 fprintf(stderr,"csq_push: pos=%d .. type=%d  ial=%d\n",(int)rec->pos+1,csq->type.type,csq->type.vcf_ial);
 #endif
-    khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
-    vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
-    if ( !vbuf ) error("This should not happen. %s:%d  %s\n",bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
+    assert( csq->pos==rec->pos );   // if not, extend rec2vrec to pass csq->pos
+    vrec_t *vrec = rec2vrec(args, rec);
 
     if ( csq->type.type&CSQ_INFRAME_INSERTION && csq->type.type&CSQ_ELONGATION ) csq->type.type &= ~CSQ_INFRAME_INSERTION;
     if ( csq->type.type&CSQ_INFRAME_DELETION && csq->type.type&CSQ_TRUNCATION ) csq->type.type &= ~CSQ_INFRAME_DELETION;
-
-    int i;
-    for (i=0; i<vbuf->n; i++)
-        if ( vbuf->vrec[i]->line==rec ) break;
-    if ( i==vbuf->n ) error("This should not happen.. %s:%d  %s\n", bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
-    vrec_t *vrec = vbuf->vrec[i];
 
     // if the variant overlaps donor/acceptor and also splice region, report only donor/acceptor
     if ( csq->type.type & CSQ_SPLICE_REGION && csq->type.type & (CSQ_SPLICE_DONOR|CSQ_SPLICE_ACCEPTOR) )
         csq->type.type &= ~CSQ_SPLICE_REGION;
 
+    int i;
     if ( csq->type.type & CSQ_PRINTED_UPSTREAM )
     {
         for (i=0; i<vrec->nvcsq; i++)
@@ -2107,34 +2251,37 @@ exit_duplicate:
 #define node2rbeg(i) (hap->stack[i].node->sbeg)
 #define node2rend(i) (hap->stack[i].node->sbeg + hap->stack[i].node->rlen)
 #define node2rpos(i) (hap->stack[i].node->rec->pos)
+#define node2cds(i) (tr->cds[hap->stack[i].node->icds])
 
 // Format variant consequence into a string like "inframe_deletion|XYZ|ENST01|+|5TY>5I|121ACG>A+124TA>T"
-void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
+void kput_vcsq(args_t *args, const vcsq_t *csq, kstring_t *str)
 {
+    uint32_t csq_type = csq->type;
+
     // Remove start/stop from incomplete CDS, but only if there is another
     // consequence as something must be reported
-    if ( csq->type & CSQ_INCOMPLETE_CDS && (csq->type & ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS|CSQ_UPSTREAM_STOP)) ) csq->type &= ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS);
+    if ( csq_type & CSQ_INCOMPLETE_CDS && (csq_type & ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS|CSQ_UPSTREAM_STOP)) ) csq_type &= ~(CSQ_START_STOP|CSQ_INCOMPLETE_CDS);
 
     // Remove missense from start/stops
-    if ( csq->type & CSQ_START_STOP && csq->type & CSQ_MISSENSE_VARIANT ) csq->type &= ~CSQ_MISSENSE_VARIANT;
+    if ( csq_type & CSQ_START_STOP && csq_type & CSQ_MISSENSE_VARIANT ) csq_type &= ~CSQ_MISSENSE_VARIANT;
 
-    if ( csq->type & CSQ_PRINTED_UPSTREAM && csq->ref )
+    if ( csq_type & CSQ_PRINTED_UPSTREAM && csq->ref )
     {
         kputc_('@',str);
         kputw(csq->ref->pos+1, str);
         return;
     }
-    if ( csq->type & CSQ_UPSTREAM_STOP )
+    if ( csq_type & CSQ_UPSTREAM_STOP )
         kputc_('*',str);
 
     int has_csq = 0, i, n = sizeof(csq_strings)/sizeof(char*);
     for (i=1; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputs(csq_strings[i],str); break; }
+        if ( csq_strings[i] && csq_type&(1<<i) ) { has_csq = 1; kputs(csq_strings[i],str); break; }
     i++;
     for (; i<n; i++)
-        if ( csq_strings[i] && csq->type&(1<<i) ) { has_csq = 1; kputc_('&',str); kputs(csq_strings[i],str); }
+        if ( csq_strings[i] && csq_type&(1<<i) ) { has_csq = 1; kputc_('&',str); kputs(csq_strings[i],str); }
 
-    if ( (csq->biotype==GF_NMD) && (csq->type & CSQ_PRN_NMD) )
+    if ( (csq->biotype==GF_NMD) && (csq_type & CSQ_PRN_NMD) )
     {
         if ( has_csq ) kputc_('&',str); // just in case, this should always be true
         kputs("NMD_transcript",str);
@@ -2144,16 +2291,23 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
     if ( csq->gene ) kputs(csq->gene , str);
 
     kputc_('|', str);
-    if ( csq->type & CSQ_PRN_TSCRIPT ) kputs(gff_id2string(args->gff,transcript,csq->trid), str);
+    if ( csq_type & CSQ_PRN_TSCRIPT ) kputs(gff_id2string(args->gff,transcript,csq->trid), str);
 
     kputc_('|', str);
     kputs(gf_type2gff_string(csq->biotype), str);
 
-    if ( CSQ_PRN_STRAND(csq->type) || csq->vstr.l )
+    if ( CSQ_PRN_STRAND(csq_type) || csq->vstr.l )
         kputs(csq->strand==STRAND_FWD ? "|+" : (csq->strand==STRAND_REV ? "|-" : "|."), str);
 
     if ( csq->vstr.l )
         kputs(csq->vstr.s, str);
+    else if ( args->format_str_empty )
+    {
+        // With -F, output all preceding standard fields so that the additional empty fields align with the header description.
+        kputs(csq->strand==STRAND_FWD ? "|+" : csq->strand==STRAND_REV ? "|-" : "|.", str);
+        kputs("||", str);    // amino_acid_change and dna_change
+        kputs(args->format_str_empty, str);
+    }
 }
 
 void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *stop, kstring_t *str)
@@ -2172,7 +2326,7 @@ void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *stop,
 
 void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg, int iend, int dlen, int indel)
 {
-    int i;
+    int i, suppress_aa = 0;
     gf_tscript_t *tr = hap->tr;
     assert( tr->strand==STRAND_FWD || tr->strand==STRAND_REV );
     int ref_node = tr->strand==STRAND_FWD ? ibeg : iend;
@@ -2193,10 +2347,13 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         csq->type.type |= hap->stack[i].node->csq & CSQ_COMPOUND;
     if ( dlen==0 && indel ) csq->type.type |= CSQ_INFRAME_ALTERING;
 
+    assert(hap->tref_stop.l==hap->tref.l);
+    assert(hap->tseq_stop.l==hap->tseq.l);
+
     int has_upstream_stop = hap->upstream_stop;
     if ( hap->stack[ibeg].node->type != HAP_SSS )
     {
-        // check for truncating stops
+        // check for truncating stops; this is safe, note t*_stop vs t* are of the same length, see the asserts above
         for (i=0; i<hap->tref_stop.l; i++)
             if ( hap->tref_stop.s[i]=='*' ) break;
         if ( i!=hap->tref_stop.l )
@@ -2208,7 +2365,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         }
         for (i=0; i<hap->tseq_stop.l; i++)
             if ( hap->tseq_stop.s[i]=='*' ) break;
-        if ( i!=hap->tseq.l )
+        if ( i!=hap->tseq_stop.l )
         {
             hap->tseq.l = i+1;
             hap->tseq.s[i+1] = 0;
@@ -2285,7 +2442,13 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         //    4959	GA	G	start_lost|NBPF3|ENST00000318249|protein_coding|+
         //    4959	GA	G	start_lost|NBPF3|ENST00000318249|protein_coding|+|1M>1?|4959GA>G
         rm_csq |= CSQ_FRAMESHIFT_VARIANT;
-        hap->stack[ibeg].node->type = HAP_SSS;
+
+        //  Once the start codon is lost, the amino-acid prediction obtained
+        //  by translating from the original CDS start is misleading. Suppress
+        //  the AA-change string, but for compound events still keep the DNA
+        //  haplotype below
+        suppress_aa = 1;
+        if ( ibeg == iend ) hap->stack[ibeg].node->type = HAP_SSS;
     }
     if ( has_upstream_stop ) csq->type.type |= CSQ_UPSTREAM_STOP;
     csq->type.type &= ~rm_csq;
@@ -2302,19 +2465,38 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
     kstring_t str = node->csq_list[icsq].type.vstr;
     str.l = 0;
 
-    // create the aa variant string
-    int aa_rbeg = tr->strand==STRAND_FWD ? node2rbeg(ibeg)/3+1 : (TSCRIPT_AUX(hap->tr)->nsref - 2*N_REF_PAD - node2rend(iend))/3+1;
-    int aa_sbeg = tr->strand==STRAND_FWD ? node2sbeg(ibeg)/3+1 : (tlen - node2send(iend))/3+1;
-    kputc_('|', &str);
-    kputw(aa_rbeg, &str);
-    kprint_aa_prediction(args,aa_rbeg,&hap->tref,&hap->tref_stop,&str);
-    if ( !(csq->type.type & CSQ_SYNONYMOUS_VARIANT) )
+    int cds_len = TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD;;
+    if ( suppress_aa )
     {
-        kputc_('>', &str);
-        kputw(aa_sbeg, &str);
-        kprint_aa_prediction(args,aa_sbeg,&hap->tseq,&hap->tseq_stop,&str);
+        // Leave amino_acid_change empty and keep only the DNA haplotype.
+        //
+        // kput_vcsq() prints:
+        //   Consequence|gene|transcript|biotype|strand
+        //
+        // Therefore this leading "||" gives:
+        //   ...|strand||dna_change
+        //
+        // For example:
+        //   start_lost|hypF|...|protein_coding|-||2214T>G+2216A>AT
+        //
+        kputs("||", &str);   // empty AA field, then DNA field
     }
-    kputc_('|', &str);
+    else
+    {
+        // create the aa variant string
+        int aa_rbeg = tr->strand==STRAND_FWD ? node2rbeg(ibeg)/3+1 : (TSCRIPT_AUX(hap->tr)->nsref - 2*N_REF_PAD - node2rend(iend))/3+1;
+        int aa_sbeg = (tr->strand==STRAND_FWD ? node2sbeg(ibeg) : tlen - node2send(iend))/3 + 1;
+        kputc_('|', &str);
+        kputw(aa_rbeg, &str);
+        kprint_aa_prediction(args,aa_rbeg,&hap->tref,&hap->tref_stop,&str);
+        if ( !(csq->type.type & CSQ_SYNONYMOUS_VARIANT) )
+        {
+            kputc_('>', &str);
+            kputw(aa_sbeg, &str);
+            kprint_aa_prediction(args,aa_sbeg,&hap->tseq,&hap->tseq_stop,&str);
+        }
+        kputc_('|', &str);
+    }
 
     // create the dna variant string and, in case of combined variants,
     // insert silent CSQ_PRINTED_UPSTREAM variants
@@ -2324,6 +2506,58 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
         kputw(node2rpos(i)+1, &str);
         kputs(hap->stack[i].node->var, &str);
     }
+
+    // CDS position
+    if ( args->format & FMT_CDS_POS )
+    {
+        kputc_('|', &str);
+        for (i=ibeg; i<=iend; i++)
+        {
+            if ( i>ibeg ) kputc_('+', &str);
+            int cds_beg = tr->strand==STRAND_FWD ? node2rbeg(i) : cds_len - node2rend(i);
+            kputw(cds_beg + 1, &str);
+        }
+        kputc_('/', &str);
+        kputw(cds_len, &str);
+    }
+
+    // exon idx and number of exons
+    if ( args->format & FMT_EXON )
+    {
+        kputc_('|', &str);
+        if ( node2cds(ibeg)->exon )
+        {
+            for (i=ibeg; i<=iend; i++)
+            {
+                if ( i>ibeg ) kputc_('+', &str);
+                gf_exon_t *exon = node2cds(i)->exon;
+                kputw(exon->iexon+1, &str);
+            }
+            kputc_('/', &str);
+            kputw(tr->nexons, &str);
+        }
+    }
+
+    // position within exon and exon length
+    if ( args->format & FMT_EXON_POS )
+    {
+        kputc_('|', &str);
+        if ( node2cds(ibeg)->exon )
+        {
+            for (i=ibeg; i<=iend; i++)
+            {
+                if ( i>ibeg ) kputc_('+', &str);
+                gf_exon_t *exon  = node2cds(i)->exon;
+                hap_node_t *inode = hap->stack[i].node;
+                uint32_t rend = inode->rbeg + (inode->rlen > 0 ? inode->rlen - 1 : 0);
+                int exon_pos = tr->strand == STRAND_FWD ? inode->rbeg - exon->beg + 1 : exon->end - rend + 1;
+                kputw(exon_pos+1, &str);
+                kputc_('/', &str);
+                kputw(exon->end - exon->beg + 1, &str);
+            }
+        }
+    }
+
     node->csq_list[icsq].type.vstr = str;
     csq_push(args, node->csq_list+icsq, hap->stack[ref_node].node->rec);
 
@@ -2547,47 +2781,58 @@ void hap_finalize(args_t *args, hap_t *hap)
     }
 }
 
-static inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
+static inline void text_stage(args_t *args, csq_t *csq, int ismpl, int ihap)
 {
-    if ( csq->type.type & CSQ_PRINTED_UPSTREAM ) return;
+    if ( args->output_type!=FT_TAB_TEXT ) return;
+    if ( !csq->vrec ) return;
 
-    char *smpl = ismpl >= 0 ? args->hdr->samples[ismpl] : "-";
-    const char *chr = bcf_hdr_id2name(args->hdr,args->rid);
+    vrec_t *vrec = csq->vrec;
+    if ( csq->idx < 0 || (uint32_t) csq->idx >= vrec->nvcsq ) return;
+
+    int i;
+    for (i=0; i<vrec->ntxt; i++)
+    {
+        if ( vrec->txt[i].idx   != csq->idx ) continue;
+        if ( vrec->txt[i].ismpl != ismpl ) continue;
+        if ( vrec->txt[i].ihap  != ihap ) continue;
+        return;
+    }
+
+    hts_expand0(txt_csq_t, vrec->ntxt+1, vrec->mtxt, vrec->txt);
+    vrec->txt[vrec->ntxt].idx   = csq->idx;
+    vrec->txt[vrec->ntxt].ismpl = ismpl;
+    vrec->txt[vrec->ntxt].ihap  = ihap;
+    vrec->ntxt++;
+}
+static inline void hap_stage_text(args_t *args, hap_node_t *node, int ismpl, int ihap)
+{
+    if ( !node || !node->ncsq_list ) return;
+    int i;
+    for (i=0; i<node->ncsq_list; i++)
+        text_stage(args, node->csq_list + i, ismpl, ihap);
+}
+static inline void text_print_vcsq(args_t *args, vrec_t *vrec, txt_csq_t *txt)
+{
+    if ( txt->idx < 0 || (uint32_t) txt->idx >= vrec->nvcsq ) return;
+
+    vcsq_t *vcsq = &vrec->vcsq[txt->idx];
+
+    // CSQ_PRINTED_UPSTREAM is VCF-only bookkeeping. Tab-delimited output is
+    // consequence-centric, so print only the canonical consequence record.
+    if ( vcsq->type & CSQ_PRINTED_UPSTREAM ) return;
+
+    const char *smpl = txt->ismpl >= 0 ? args->hdr->samples[txt->ismpl] : "-";
+    const char *chr  = bcf_seqname(args->hdr, vrec->line);
 
     fprintf(args->out,"CSQ\t%s\t", smpl);
-    if ( ihap>0 )
-        fprintf(args->out,"%d", ihap);
+    if ( txt->ihap>0 )
+        fprintf(args->out,"%d", txt->ihap);
     else
         fprintf(args->out,"-");
 
     args->str.l = 0;
-    kput_vcsq(args, &csq->type, &args->str);    // format the csq string
-    fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
-}
-static inline void hap_print_text(args_t *args, gf_tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
-{
-    if ( !node || !node->ncsq_list ) return;
-
-    char *smpl = ismpl >= 0 ? args->hdr->samples[ismpl] : "-";
-    const char *chr = bcf_hdr_id2name(args->hdr,args->rid);
-
-    int i;
-    for (i=0; i<node->ncsq_list; i++)
-    {
-        csq_t *csq = node->csq_list + i;
-        if ( csq->type.type & CSQ_PRINTED_UPSTREAM ) continue;
-        if ( !csq->type.vstr.l ) continue;  // not sure why this happens, see test/csq/ENST00000000001
-
-        fprintf(args->out,"CSQ\t%s\t", smpl);
-        if ( ihap>0 )
-            fprintf(args->out,"%d", ihap);
-        else
-            fprintf(args->out,"-");
-
-        args->str.l = 0;
-        kput_vcsq(args, &csq->type, &args->str);    // format the csq string
-        fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,args->str.s);
-    }
+    kput_vcsq(args, vcsq, &args->str);
+    fprintf(args->out,"\t%s\t%d\t%s\n", chr, (int)vrec->line->pos+1, args->str.s);
 }
 
 static inline void hap_stage_vcf(args_t *args, gf_tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
@@ -2616,10 +2861,11 @@ static inline void hap_stage_vcf(args_t *args, gf_tscript_t *tr, int ismpl, int 
         int ival, ibit;
         icsq2_to_bit(icsq2, &ival,&ibit);
         if ( vrec->nfmt < 1 + ival ) vrec->nfmt = 1 + ival;
-        vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1 << ibit;
+        vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1u << ibit;
     }
 }
 
+// hap_flush: Finish transcript and haplotype analysis
 void hap_flush(args_t *args, uint32_t pos)
 {
     int i,j;
@@ -2636,15 +2882,13 @@ void hap_flush(args_t *args, uint32_t pos)
             if ( args->output_type==FT_TAB_TEXT )   // plain text output, not a vcf
             {
                 if ( args->phase==PHASE_DROP_GT )
-                {
-                    hap_print_text(args, tr, -1,0, TSCRIPT_AUX(tr)->hap[0]);
-                }
+                     hap_stage_text(args, TSCRIPT_AUX(tr)->hap[0], -1,0);
                 else
                 {
                     for (i=0; i<args->smpl->n; i++)
                     {
                         for (j=0; j<2; j++)
-                            hap_print_text(args, tr, args->smpl->idx[i],j+1, TSCRIPT_AUX(tr)->hap[i*2+j]);
+                            hap_stage_text(args, TSCRIPT_AUX(tr)->hap[i*2+j], args->smpl->idx[i],j+1);
                     }
                 }
             }
@@ -2665,6 +2909,7 @@ void hap_flush(args_t *args, uint32_t pos)
         args->rm_tr[args->nrm_tr-1] = tr;
     }
 }
+
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 
@@ -2693,7 +2938,11 @@ vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
         vbuf->vrec[vbuf->n - 1] = (vrec_t*) calloc(1,sizeof(vrec_t));
 
     vrec_t *vrec = vbuf->vrec[vbuf->n - 1];
-    if ( args->phase!=PHASE_DROP_GT && args->smpl->n )
+    vrec->nvcsq = 0;
+    vrec->ntxt  = 0;
+    vrec->nfmt  = 0;
+    vrec->nclaimed = 0;
+    if ( args->out_fh && args->phase!=PHASE_DROP_GT && args->smpl->n )
     {
         if ( !vrec->fmt_bm ) vrec->fmt_bm = (uint32_t*) calloc(args->hdr_nsmpl,sizeof(*vrec->fmt_bm) * args->nfmt_bcsq);
         else memset(vrec->fmt_bm,0,args->hdr_nsmpl*sizeof(*vrec->fmt_bm) * args->nfmt_bcsq);
@@ -2708,6 +2957,7 @@ vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
     return vbuf;
 }
 
+// vbuf_flush: Write out buffered records
 void vbuf_flush(args_t *args, uint32_t pos)
 {
     int i,j;
@@ -2726,13 +2976,20 @@ void vbuf_flush(args_t *args, uint32_t pos)
         i = rbuf_shift(&args->vcf_rbuf);
         assert( i>=0 );
         vbuf = args->vcf_buf[i];
-        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
+        int vbuf_pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
         for (i=0; i<vbuf->n; i++)
         {
             vrec_t *vrec = vbuf->vrec[i];
-            if ( !args->out_fh ) // not a VCF output
+            if ( !args->out_fh ) // tab-delimited text output
             {
+                for (j=0; j<vrec->ntxt; j++)
+                    text_print_vcsq(args, vrec, &vrec->txt[j]);
+                vrec->ntxt  = 0;
                 vrec->nvcsq = 0;
+                vrec->nfmt  = 0;
+                int save_pos = vrec->line->pos;
+                bcf_empty(vrec->line);
+                vrec->line->pos = save_pos;  // this is necessary for compound variants
                 continue;
             }
             if ( !vrec->nvcsq )
@@ -2765,9 +3022,9 @@ void vbuf_flush(args_t *args, uint32_t pos)
             bcf_empty(vrec->line);
             vrec->line->pos = save_pos;
         }
-        if ( pos!=-1 )
+        if ( vbuf_pos!=-1 )
         {
-            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, pos);
+            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, vbuf_pos);
             if ( k != kh_end(args->pos2vbuf) ) kh_del(pos2vbuf, args->pos2vbuf, k);
         }
         vbuf->n = 0;
@@ -2790,21 +3047,23 @@ void vbuf_flush(args_t *args, uint32_t pos)
     args->ncsq_buf = 0;
 }
 
-// returns 0 on success, -1 if sequence is not present in the fasta file (eg chrM)
+// Returns 0 on success, -1 if sequence is not present in the fasta file (eg chrM).
+// The sequence will be padded with N_REF_PAD bases either side. If out of bounds,
+// N's will be filled instead.
 int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
 {
-    int i, len;
-    int pad_beg = tr->beg >= N_REF_PAD ? N_REF_PAD : tr->beg;
+    hts_pos_t len,
+        fa_beg = tr->beg <= N_REF_PAD ? 0 : tr->beg - N_REF_PAD,
+        fa_end = tr->end + N_REF_PAD;
 
-    // if forced to repeatedly faidx-fetch a non-existent chromosome, turn off hts verbosity, unless
-    // explicitly asked not to
+    // if forced to repeatedly faidx-fetch a non-existent chromosome, turn off hts verbosity, unless explicitly asked not to
     int verbose = hts_verbose;
     if ( args->warned.faidx_fetch_failed && args->verbosity < 2 ) hts_verbose = 0;
-    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq(args->fai, chr, tr->beg - pad_beg, tr->end + N_REF_PAD, &len);
+    TSCRIPT_AUX(tr)->ref = faidx_fetch_seq64(args->fai, chr, fa_beg, fa_end, &len);
     hts_verbose = verbose;
     if ( !TSCRIPT_AUX(tr)->ref )
     {
-        if ( !args->force )
+        if ( !(args->force & FORCE_CTG_MISSING_IN_FA) )
             error("Error: unable to fetch the region of the fasta reference %s:%d-%d\n", chr,tr->beg+1,tr->end+1);
 
         else if ( args->verbosity && (!args->warned.faidx_fetch_failed || args->verbosity > 1) )
@@ -2817,15 +3076,18 @@ int tscript_init_ref(args_t *args, gf_tscript_t *tr, const char *chr)
         return -1;
     }
 
-    int pad_end = len - (tr->end - tr->beg + 1 + pad_beg);
-    if ( pad_beg + pad_end != 2*N_REF_PAD )
+    int exp_len = (int)(fa_end - fa_beg + 1);
+    int pad_len = tr->beg < N_REF_PAD ? N_REF_PAD - tr->beg : 0;
+    if ( len != exp_len || pad_len )
     {
-        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD + 1);
-        for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
+        char *ref = (char*) malloc(exp_len+pad_len+1);
+        int i;
+        for (i=0; i<pad_len; i++) ref[i] = 'N';
         memcpy(ref+i, TSCRIPT_AUX(tr)->ref, len);
-        len += i;
-        for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
-        ref[i+len] = 0;
+        i += len;
+        ref[i] = 0;
+        while ( i<exp_len+pad_len ) ref[i++] = 'N';
+        ref[i] = 0;
         free(TSCRIPT_AUX(tr)->ref);
         TSCRIPT_AUX(tr)->ref = ref;
     }
@@ -2837,30 +3099,36 @@ static int sanity_check_ref(args_t *args, gf_tscript_t *tr, bcf1_t *rec)
 {
     int vbeg = 0;
     int rbeg = rec->pos - tr->beg + N_REF_PAD;
-    if ( rbeg < 0 ) { vbeg += abs(rbeg); rbeg = 0; }
+    if ( rbeg < 0 ) { vbeg = -rbeg; rbeg = 0; }
+
+    int vlen = vcf_allele_len(rec->d.allele[0]);
+    int rlen = tr->end - tr->beg + 1 + 2*N_REF_PAD;
+    if ( vbeg >= vlen || rbeg >= rlen ) return 0;   // no REF bases overlap the cached transcript sequence
+
+    int ncmp = vlen - vbeg;
+    if ( ncmp > rlen - rbeg ) ncmp = rlen - rbeg;
     char *ref = TSCRIPT_AUX(tr)->ref + rbeg;
     char *vcf = rec->d.allele[0] + vbeg;
-    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) && ref - TSCRIPT_AUX(tr)->ref < tr->end - tr->beg + 2*N_REF_PAD );
-    int i = 0;
-    while ( ref[i] && vcf[i] )
+
+    int i;
+    for (i=0; i<ncmp; i++)
     {
         if ( ref[i]!=vcf[i] && toupper_c(ref[i])!=toupper_c(vcf[i]) )
         {
-            if ( !args->force )
+            if ( !(args->force & FORCE_REF_MISMATCH) )
                 error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
-                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+i+1,ref[i],vcf[i]);
 
             else if ( args->verbosity && (!args->warned.ref_allele_mismatch || args->verbosity > 1) )
             {
                 fprintf(stderr,"Warning: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
-                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
+                        bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+i+1,ref[i],vcf[i]);
                 if ( args->verbosity < 2 )
                     fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbosity 2`\n");
             }
             args->warned.ref_allele_mismatch++;
             return -1;
         }
-        i++;
     }
     return 0;
 }
@@ -2872,7 +3140,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     // structures to fake the normal test_cds machinery
     hap_node_t root, node;
@@ -2892,6 +3160,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             tr->aux = calloc(sizeof(tscript_t),1);
             if ( tscript_init_ref(args, tr, chr_fai) )
             {
+                claim_tscript_alleles(args, rec, tr->id);
                 free(tr->aux);
                 tr->aux = NULL;
                 continue;
@@ -2900,7 +3169,11 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
 
-        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
+        if ( sanity_check_ref(args, tr, rec)<0 )
+        {
+            claim_tscript_alleles(args, rec, tr->id);
+            continue;
+        }
 
         kstring_t sref;
         sref.s = TSCRIPT_AUX(tr)->sref;
@@ -2910,7 +3183,9 @@ int test_cds_local(args_t *args, bcf1_t *rec)
         for (i=1; i<rec->n_allele; i++)
         {
             if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
-            if ( hap_init(args, &root, &node, cds, rec, i)!=0 ) continue;
+            int hap_ret = hap_init(args, &root, &node, cds, rec, i);
+            if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, i);    // new or overlapping variant
+            if ( hap_ret ) continue;
 
             csq_t csq;
             memset(&csq, 0, sizeof(csq_t));
@@ -3028,8 +3303,11 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                 {
                     // create the aa variant string
                     kstring_t str = {0,0,0};
-                    int aa_rbeg = tr->strand==STRAND_FWD ? node.sbeg/3+1 : (TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD - node.sbeg - node.rlen)/3+1;
-                    int aa_sbeg = tr->strand==STRAND_FWD ? node.sbeg/3+1 : (TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD + node.dlen - node.sbeg - alen)/3+1;
+                    int cds_len = TSCRIPT_AUX(tr)->nsref - 2*N_REF_PAD;
+                    int cds_beg = tr->strand==STRAND_FWD ? node.sbeg : cds_len - node.sbeg - node.rlen;
+                    int alt_cds_beg = tr->strand==STRAND_FWD ? node.sbeg : cds_len + node.dlen - node.sbeg - alen;
+                    int aa_rbeg = cds_beg/3+1;
+                    int aa_sbeg = alt_cds_beg/3+1;
                     kputc_('|', &str);
                     kputw(aa_rbeg, &str);
                     kprint_aa_prediction(args,aa_rbeg,tref,tref_stop,&str);
@@ -3042,6 +3320,42 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                     kputc_('|', &str);
                     kputw(rec->pos+1, &str);
                     kputs(node.var, &str);
+
+                    // CDS position
+                    if ( args->format & FMT_CDS_POS )
+                    {
+                        kputc_('|', &str);
+                        kputw(cds_beg + 1, &str);
+                        kputc_('/', &str);
+                        kputw(cds_len, &str);
+                    }
+
+                    // exon idx and number of exons
+                    if ( args->format & FMT_EXON )
+                    {
+                        kputc_('|', &str);
+                        if ( cds->exon )
+                        {
+                            kputw(cds->exon->iexon+1, &str);
+                            kputc_('/', &str);
+                            kputw(tr->nexons, &str);
+                        }
+                    }
+
+                    // position within exon and exon length
+                    if ( args->format & FMT_EXON_POS )
+                    {
+                        kputc_('|', &str);
+                        if ( cds->exon )
+                        {
+                            uint32_t rend = node.rbeg + (node.rlen > 0 ? node.rlen - 1 : 0);
+                            int exon_pos = tr->strand == STRAND_FWD ? node.rbeg - cds->exon->beg + 1 : cds->exon->end - rend + 1;
+                            kputw(exon_pos+1, &str);
+                            kputc_('/', &str);
+                            kputw(cds->exon->end - cds->exon->beg + 1, &str);
+                        }
+                    }
+
                     csq.type.vstr = str;
                     csq.type.type = csq_type & CSQ_COMPOUND;
                     csq_stage(args, &csq, rec);
@@ -3077,7 +3391,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     const char *chr_fai = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_FAI);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_cds,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
     while ( regitr_overlap(args->itr) )
     {
         gf_cds_t *cds = regitr_payload(args->itr,gf_cds_t*);
@@ -3091,6 +3405,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             tr->aux = calloc(sizeof(tscript_t),1);
             if ( tscript_init_ref(args, tr, chr_fai) )
             {
+                claim_tscript_alleles(args, rec, tr->id);
                 free(tr->aux);
                 tr->aux = NULL;
                 continue;
@@ -3106,7 +3421,11 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             khp_insert(trhp, args->active_tr, &tr);
         }
 
-        if ( sanity_check_ref(args, tr, rec)<0 ) continue;
+        if ( sanity_check_ref(args, tr, rec)<0 )
+        {
+            claim_tscript_alleles(args, rec, tr->id);
+            continue;
+        }
 
         if ( args->phase==PHASE_DROP_GT )
         {
@@ -3114,6 +3433,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             hap_node_t *parent = TSCRIPT_AUX(tr)->hap[0] ? TSCRIPT_AUX(tr)->hap[0] : TSCRIPT_AUX(tr)->root;
             hap_node_t *child  = (hap_node_t*)calloc(1,sizeof(hap_node_t));
             hap_ret = hap_init(args, parent, child, cds, rec, 1);
+            if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, 1);
             if ( hap_ret!=0 )
             {
                 // overlapping or intron variant, cannot apply
@@ -3131,7 +3451,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     if ( args->out )
                         fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
-                else ret = 1;   // prevent reporting as intron in test_tscript
+                else ret = 1;   // no csq in the CDS path; --greedy may still add intron via test_tscript
                 hap_destroy(child);
                 continue;
             }
@@ -3177,6 +3497,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             }
             if ( args->out )
                 fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s\n", chr_vcf,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+            claim_tscript_alleles(args, rec, tr->id);
             continue;
         }
         for (ismpl=0; ismpl<args->smpl->n; ismpl++)
@@ -3195,7 +3516,16 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     if ( args->phase==PHASE_REQUIRE )
                         error("Unphased heterozygous genotype at %s:%"PRId64", sample %s. See the --phase option.\n", chr_vcf,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
                     if ( args->phase==PHASE_SKIP )
+                    {
+                        if ( !args->greedy ) continue;
+
+                        int a0 = bcf_gt_allele(gt[0]);
+                        int a1 = bcf_gt_allele(gt[1]);
+
+                        if ( a0>0 && a0<rec->n_allele && rec->d.allele[a0][0] != '<' && rec->d.allele[a0][0] != '*' ) claim_tscript_allele(args, rec, tr->id, a0);
+                        if ( a1>0 && a1<rec->n_allele && rec->d.allele[a1][0] != '<' && rec->d.allele[a1][0] != '*' ) claim_tscript_allele(args, rec, tr->id, a1);
                         continue;
+                    }
                     if ( args->phase==PHASE_NON_REF )
                     {
                         if ( !bcf_gt_allele(gt[0]) ) gt[0] = gt[1];
@@ -3219,6 +3549,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                 if ( parent->cur_rec==rec && parent->cur_child[ial]>=0 )
                 {
                     // this haplotype has been seen in another sample
+                    claim_tscript_allele(args, rec, tr->id, ial);
                     TSCRIPT_AUX(tr)->hap[i] = parent->child[ parent->cur_child[ial] ];
                     TSCRIPT_AUX(tr)->hap[i]->nend++;
                     parent->nend--;
@@ -3227,6 +3558,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 
                 hap_node_t *child = (hap_node_t*)calloc(1,sizeof(hap_node_t));
                 hap_ret = hap_init(args, parent, child, cds, rec, ial);
+                if ( hap_ret<2 ) claim_tscript_allele(args, rec, tr->id, ial);
                 if ( hap_ret!=0 )
                 {
                     // overlapping or intron variant, cannot apply
@@ -3285,9 +3617,8 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 
 void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
 {
-    // known issues: tab output leads to unsorted output. This is because
-    // coding haplotypes are printed in one go and buffering is not used
-    // with tab output. VCF output is OK though.
+    // Text output is delayed via vbuf so it is printed from the same
+    // canonical consequence objects as VCF output.
     if ( csq_push(args, csq, rec)!=0 && args->phase==PHASE_DROP_GT ) return;    // the consequence already exists
 
     int i,j,ngt = 0;
@@ -3298,42 +3629,30 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
     }
     if ( ngt<=0 )
     {
-        if ( args->output_type==FT_TAB_TEXT )
-            csq_print_text(args, csq, -1,0);
+        text_stage(args, csq, -1,0);
         return;
     }
     assert( ngt<=2 );
 
-    if ( args->output_type==FT_TAB_TEXT )
-    {
-        for (i=0; i<args->smpl->n; i++)
-        {
-            int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
-            for (j=0; j<ngt; j++)
-            {
-                if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
-                int ial = bcf_gt_allele(gt[j]);
-                if ( !ial || ial!=csq->type.vcf_ial ) continue;
-                csq_print_text(args, csq, args->smpl->idx[i],j+1);
-            }
-        }
-        return;
-    }
-
     vrec_t *vrec = csq->vrec;
     for (i=0; i<args->smpl->n; i++)
     {
-        int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
+        int ismpl = args->smpl->idx[i];
+        int32_t *gt = args->gt_arr + ismpl*ngt;
         for (j=0; j<ngt; j++)
         {
             if ( bcf_gt_is_missing(gt[j]) || gt[j]==bcf_int32_vector_end ) continue;
             int ial = bcf_gt_allele(gt[j]);
             if ( !ial || ial!=csq->type.vcf_ial ) continue;
+            if ( args->output_type==FT_TAB_TEXT )
+            {
+                text_stage(args, csq, ismpl, j+1);
+                continue;
+            }
 
             int icsq2 = 2*csq->idx + j;
             if ( icsq2 >= args->ncsq2_max ) // more than ncsq_max consequences, so can't fit it in FMT
             {
-                int ismpl = args->smpl->idx[i];
                 if ( args->verbosity && (!args->ncsq2_small_warned || args->verbosity > 1) )
                 {
                     fprintf(stderr,
@@ -3349,7 +3668,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
             int ival, ibit;
             icsq2_to_bit(icsq2, &ival,&ibit);
             if ( vrec->nfmt < 1 + ival ) vrec->nfmt = 1 + ival;
-            vrec->fmt_bm[i*args->nfmt_bcsq + ival] |= 1 << ibit;
+            vrec->fmt_bm[ismpl*args->nfmt_bcsq + ival] |= 1u << ibit;
         }
     }
 }
@@ -3358,7 +3677,7 @@ int test_utr(args_t *args, bcf1_t *rec)
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
     // note that the off-by-one extension of rlen is deliberate to account for insertions
-    if ( !regidx_overlap(args->idx_utr,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_utr,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3385,6 +3704,7 @@ int test_utr(args_t *args, bcf1_t *rec)
             csq.type.trid    = tr->id;
             csq.type.vcf_ial = i;
             csq.type.gene    = tr->gene->name;
+            claim_tscript_allele(args, rec, tr->id, i);
             csq_stage(args, &csq, rec);
             ret = 1;
         }
@@ -3397,7 +3717,7 @@ int test_splice(args_t *args, bcf1_t *rec)
 {
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
-    if ( !regidx_overlap(args->idx_exon,chr_gff,rec->pos,rec->pos + rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_exon,chr_gff,rec->pos,rec->pos + vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3415,12 +3735,16 @@ int test_splice(args_t *args, bcf1_t *rec)
 
         for (i=1; i<rec->n_allele; i++)
         {
-            if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
             splice.vcf.ial = i;
             splice.csq     = 0;
             splice_csq(args, &splice, exon->beg, exon->end);
-            if ( splice.csq ) ret = 1;
+            if ( splice.csq )
+            {
+                claim_tscript_allele(args, rec, splice.tr->id, i);
+                ret = 1;
+            }
         }
     }
     free(splice.kref.s);
@@ -3431,7 +3755,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
 {
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
-    if ( !regidx_overlap(args->idx_tscript,chr_gff,rec->pos,rec->pos+rec->rlen, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_tscript,chr_gff,rec->pos,rec->pos+vcf_allele_len(rec->d.allele[0]), args->itr) ) return 0;
 
     splice_t splice;
     splice_init(&splice, rec);
@@ -3446,6 +3770,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
             splice.vcf.alt = rec->d.allele[i];
             splice.vcf.ial = i;
             splice.csq     = 0;
+            if ( GF_is_coding(tr->type) && tscript_allele_is_claimed(args, rec, tr->id, i) ) continue;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
             if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
             csq_t csq;
@@ -3455,6 +3780,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
             csq.type.biotype = tr->type;
             csq.type.strand  = tr->strand;
             csq.type.trid    = tr->id;
+            csq.type.vcf_ial = i;
             csq.type.gene    = tr->gene->name;
             csq_stage(args, &csq, rec);
             ret = 1;
@@ -3470,102 +3796,122 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
     static int warned = 0;
     if ( args->verbosity && (!warned && args->verbosity > 0) )
     {
-        fprintf(stderr,"Warning: The support for symbolic ALT insertions is experimental.\n");
+        fprintf(stderr,"Warning: The support for symbolic ALT alleles is experimental.\n");
         warned = 1;
     }
 
     const char *chr_vcf = bcf_seqname(args->hdr,rec);
     const char *chr_gff = unify_chr_name(args, chr_vcf, CHR_VCF,CHR_GFF);
 
-    // only insertions atm
-    int beg = rec->pos + 1;
-    int end = beg;
-    int csq_class;
-    if ( !strncasecmp("<INS",rec->d.allele[1],4) ) csq_class = CSQ_ELONGATION;
-    else if ( !strncasecmp("<DEL",rec->d.allele[1],4) ) csq_class = CSQ_TRUNCATION;
-    else return;
+    // The experimental symbolic logic assumes the standard single padding base.
+    if ( vcf_allele_len(rec->d.allele[0]) != 1 ) return;
 
-    int hit = 0;
-    if ( regidx_overlap(args->idx_cds,chr_gff,beg,end, args->itr) )
+    int ial;
+    for (ial=1; ial<rec->n_allele; ial++)
     {
-        while ( regitr_overlap(args->itr) )
-        {
-            csq_t csq;
-            memset(&csq, 0, sizeof(csq_t));
-            gf_cds_t *cds    = regitr_payload(args->itr,gf_cds_t*);
-            gf_tscript_t *tr = cds->tr;
-            csq.type.type    = (GF_is_coding(tr->type) ? CSQ_CODING_SEQUENCE : CSQ_NON_CODING) | csq_class;
-            csq.pos          = rec->pos;
-            csq.type.biotype = tr->type;
-            csq.type.strand  = tr->strand;
-            csq.type.trid    = tr->id;
-            csq.type.gene    = tr->gene->name;
-            csq.type.vcf_ial = 1;
-            csq_stage(args, &csq, rec);
-            hit = 1;
-        }
-    }
-    if ( regidx_overlap(args->idx_utr,chr_gff,beg,end, args->itr) )
-    {
-        while ( regitr_overlap(args->itr) )
-        {
-            csq_t csq;
-            memset(&csq, 0, sizeof(csq_t));
-            gf_utr_t *utr    = regitr_payload(args->itr, gf_utr_t*);
-            gf_tscript_t *tr = utr->tr;
-            csq.type.type    = (utr->which==prime5 ? CSQ_UTR5 : CSQ_UTR3) | csq_class;
-            csq.pos          = rec->pos;
-            csq.type.biotype = tr->type;
-            csq.type.strand  = tr->strand;
-            csq.type.trid    = tr->id;
-            csq.type.gene    = tr->gene->name;
-            csq.type.vcf_ial = 1;
-            csq_stage(args, &csq, rec);
-            hit = 1;
-        }
-    }
-    if ( regidx_overlap(args->idx_exon,chr_gff,beg,end, args->itr) )
-    {
-        splice_t splice;
-        splice_init(&splice, rec);
-        splice.check_acceptor = splice.check_donor = 1;
+        if ( rec->d.allele[ial][0]!='<' ) continue;    // not a symbolic allele, handled elsewhere
 
-        while ( regitr_overlap(args->itr) )
+        hts_pos_t beg = rec->pos + 1, end = beg;
+        int csq_class;
+        if ( !strncasecmp("<INS",rec->d.allele[ial],4) ) csq_class = CSQ_ELONGATION;
+        else if ( !strncasecmp("<DEL",rec->d.allele[ial],4) )
         {
-            gf_exon_t *exon = regitr_payload(args->itr, gf_exon_t*);
-            splice.tr = exon->tr;
-            if ( !splice.tr->ncds ) continue;  // not a coding transcript, no interest in splice sites
-            splice.check_region_beg = splice.tr->beg==exon->beg ? 0 : 1;
-            splice.check_region_end = splice.tr->end==exon->end ? 0 : 1;
-            splice.vcf.alt = rec->d.allele[1];
-            splice.vcf.ial = 1;
-            splice.csq     = csq_class;
-            splice_csq(args, &splice, exon->beg, exon->end);
-            if ( splice.csq ) hit = 1;
+            if ( rec->rlen <= 1 ) continue;
+            csq_class = CSQ_TRUNCATION;
+            end = rec->pos + rec->rlen - 1;
         }
-    }
-    if ( !hit && regidx_overlap(args->idx_tscript,chr_gff,beg,end, args->itr) )
-    {
-        splice_t splice;
-        splice_init(&splice, rec);
+        else continue;
 
-        while ( regitr_overlap(args->itr) )
+        int hit = 0;
+        if ( regidx_overlap(args->idx_cds,chr_gff,beg,end, args->itr) )
         {
-            csq_t csq;
-            memset(&csq, 0, sizeof(csq_t));
-            gf_tscript_t *tr = splice.tr = regitr_payload(args->itr, gf_tscript_t*);
-            splice.vcf.alt = rec->d.allele[1];
-            splice.vcf.ial = 1;
-            splice.csq     = csq_class;
-            int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
-            if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
-            csq.type.type    = (GF_is_coding(tr->type) ? CSQ_INTRON : CSQ_NON_CODING) | csq_class;
-            csq.pos          = rec->pos;
-            csq.type.biotype = tr->type;
-            csq.type.strand  = tr->strand;
-            csq.type.trid    = tr->id;
-            csq.type.gene    = tr->gene->name;
-            csq_stage(args, &csq, rec);
+            while ( regitr_overlap(args->itr) )
+            {
+                csq_t csq;
+                memset(&csq, 0, sizeof(csq_t));
+                gf_cds_t *cds    = regitr_payload(args->itr,gf_cds_t*);
+                gf_tscript_t *tr = cds->tr;
+                csq.type.type    = (GF_is_coding(tr->type) ? CSQ_CODING_SEQUENCE : CSQ_NON_CODING) | csq_class;
+                csq.pos          = rec->pos;
+                csq.type.biotype = tr->type;
+                csq.type.strand  = tr->strand;
+                csq.type.trid    = tr->id;
+                csq.type.gene    = tr->gene->name;
+                csq.type.vcf_ial = ial;
+                claim_tscript_allele(args, rec, tr->id, ial);
+                csq_stage(args, &csq, rec);
+                hit = 1;
+            }
+        }
+        if ( regidx_overlap(args->idx_utr,chr_gff,beg,end, args->itr) )
+        {
+            while ( regitr_overlap(args->itr) )
+            {
+                csq_t csq;
+                memset(&csq, 0, sizeof(csq_t));
+                gf_utr_t *utr    = regitr_payload(args->itr, gf_utr_t*);
+                gf_tscript_t *tr = utr->tr;
+                csq.type.type    = (utr->which==prime5 ? CSQ_UTR5 : CSQ_UTR3) | csq_class;
+                csq.pos          = rec->pos;
+                csq.type.biotype = tr->type;
+                csq.type.strand  = tr->strand;
+                csq.type.trid    = tr->id;
+                csq.type.gene    = tr->gene->name;
+                csq.type.vcf_ial = ial;
+                claim_tscript_allele(args, rec, tr->id, ial);
+                csq_stage(args, &csq, rec);
+                hit = 1;
+            }
+        }
+        if ( regidx_overlap(args->idx_exon,chr_gff,beg,end, args->itr) )
+        {
+            splice_t splice;
+            splice_init(&splice, rec);
+            splice.check_acceptor = splice.check_donor = 1;
+
+            while ( regitr_overlap(args->itr) )
+            {
+                gf_exon_t *exon = regitr_payload(args->itr, gf_exon_t*);
+                splice.tr = exon->tr;
+                if ( !splice.tr->ncds ) continue;  // not a coding transcript, no interest in splice sites
+                splice.check_region_beg = splice.tr->beg==exon->beg ? 0 : 1;
+                splice.check_region_end = splice.tr->end==exon->end ? 0 : 1;
+                splice.vcf.alt = rec->d.allele[ial];
+                splice.vcf.ial = ial;
+                splice.csq     = csq_class;
+                splice_csq(args, &splice, exon->beg, exon->end);
+                if ( splice.csq )
+                {
+                    claim_tscript_allele(args, rec, splice.tr->id, ial);
+                    hit = 1;
+                }
+            }
+        }
+        if ( (!hit || args->greedy) && regidx_overlap(args->idx_tscript,chr_gff,beg,end, args->itr) )
+        {
+            splice_t splice;
+            splice_init(&splice, rec);
+
+            while ( regitr_overlap(args->itr) )
+            {
+                csq_t csq;
+                memset(&csq, 0, sizeof(csq_t));
+                gf_tscript_t *tr = splice.tr = regitr_payload(args->itr, gf_tscript_t*);
+                splice.vcf.alt = rec->d.allele[ial];
+                splice.vcf.ial = ial;
+                splice.csq     = csq_class;
+                if ( GF_is_coding(tr->type) && tscript_allele_is_claimed(args, rec, tr->id, ial) ) continue;
+                int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
+                if ( splice_ret!=SPLICE_INSIDE && splice_ret!=SPLICE_OVERLAP ) continue;    // SPLICE_OUTSIDE or SPLICE_REF
+                csq.type.type    = (GF_is_coding(tr->type) ? CSQ_INTRON : CSQ_NON_CODING) | csq_class;
+                csq.pos          = rec->pos;
+                csq.type.biotype = tr->type;
+                csq.type.strand  = tr->strand;
+                csq.type.trid    = tr->id;
+                csq.type.vcf_ial = ial;
+                csq.type.gene    = tr->gene->name;
+                csq_stage(args, &csq, rec);
+            }
         }
     }
 }
@@ -3619,7 +3965,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         if ( !faidx_has_seq(args->fai,chr_fai) )
         {
             static int missing_chr_fai_warned = 0;
-            if ( !args->force )
+            if ( !(args->force & FORCE_CTG_MISSING_IN_FA) )
                 error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_fai,args->fa_fname,args->unify_chr_names_err);
             else if ( !missing_chr_fai_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_fai,args->fa_fname);
@@ -3629,7 +3975,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
         if ( !gff_has_seq(args->gff,chr_gff) )
         {
             static int missing_chr_gff_warned = 0;
-            if ( !args->force )
+            if ( !(args->force & FORCE_CTG_MISSING_IN_GFF) )
                 error("Error: the chromosome \"%s\" is not present in %s\n       %s\n",chr_gff,args->gff_fname,args->unify_chr_names_err);
             else if ( !missing_chr_gff_warned++ )
                 fprintf(stderr,"Warning: the chromosome \"%s\" is not present in %s. This warning is printed only once.\n",chr_gff,args->gff_fname);
@@ -3663,14 +4009,20 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     args->rid = rec->rid;
     vbuf_t *vbuf = vbuf_push(args, rec_ptr);
 
-    if ( rec->d.allele[1][0]!='<' )
+    int ial, has_symbolic = 0, has_sequence = 0;
+    for (ial=1; ial<rec->n_allele; ial++)
+    {
+        if ( rec->d.allele[ial][0]=='<' ) has_symbolic = 1;
+        else if ( rec->d.allele[ial][0]!='*' ) has_sequence = 1;
+    }
+    if ( has_sequence )
     {
         int hit = args->local_csq ? test_cds_local(args, rec) : test_cds(args, rec, vbuf);
         hit += test_utr(args, rec);
         hit += test_splice(args, rec);
-        if ( !hit ) test_tscript(args, rec);
+        if ( !hit || args->greedy ) test_tscript(args, rec);
     }
-    else
+    if ( has_symbolic )
         test_symbolic_alt(args, rec);
 
     if ( rec->pos > 0 )
@@ -3680,6 +4032,60 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     }
 
     return;
+}
+static void parse_allow(args_t *args, char *allow)
+{
+    char *bptr = allow;
+    while (bptr && *bptr)
+    {
+        char *eptr = strchr(bptr,',');
+        if ( eptr && *eptr ) *eptr++ = '\0';
+
+        if ( !strcasecmp(bptr,"mif") || !strcasecmp(bptr,"missing-in-FASTA") )
+            args->force |= FORCE_CTG_MISSING_IN_FA;
+        else if ( !strcasecmp(bptr,"mig") || !strcasecmp(bptr,"missing-in-GFF") )
+            args->force |= FORCE_CTG_MISSING_IN_GFF;
+        else if ( !strcasecmp(bptr,"cds-oop") || !strcasecmp(bptr,"CDS-out-of-phase") )
+            args->force |= FORCE_OUT_OF_PHASE;
+        else if ( !strcasecmp(bptr,"ref-mm") || !strcasecmp(bptr,"ref-mismatch") )
+            args->force |= FORCE_REF_MISMATCH;
+        else
+            error("Could not parse the argument: --allow %s\n",bptr);
+        bptr = eptr;
+    }
+}
+static void parse_format(args_t *args, char *format)
+{
+    char *bptr = format;
+    while (bptr && *bptr)
+    {
+        char *eptr = strchr(bptr,',');
+        if ( eptr && *eptr ) *eptr++ = '\0';
+
+        if ( !strcasecmp(bptr,"cds_position") )
+            args->format |= FMT_CDS_POS;
+        else if ( !strcasecmp(bptr,"exon") )
+            args->format |= FMT_EXON;
+        else if ( !strcasecmp(bptr,"exon_position") )
+            args->format |= FMT_EXON_POS;
+        else if ( !strcasecmp(bptr,"all") )
+            args->format |= FMT_CDS_POS|FMT_EXON|FMT_EXON_POS;
+        else
+            error("Could not parse the argument: --format %s\n",bptr);
+        bptr = eptr;
+    }
+    kstring_t str = {0,0,0};
+    kputs("Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change", &str);
+    if ( args->format & FMT_CDS_POS ) kputs("|cds_position", &str);
+    if ( args->format & FMT_EXON ) kputs("|exon", &str);
+    if ( args->format & FMT_EXON_POS ) kputs("|exon_position", &str);
+    args->format_str = str.s;
+
+    str.s = NULL, str.l = 0, str.m = 0;
+    if ( args->format & FMT_CDS_POS ) kputs("|", &str);
+    if ( args->format & FMT_EXON ) kputs("|", &str);
+    if ( args->format & FMT_EXON_POS ) kputs("|", &str);
+    args->format_str_empty = str.s;
 }
 
 static const char *usage(void)
@@ -3697,6 +4103,12 @@ static const char *usage(void)
         "   -B, --trim-protein-seq INT        Abbreviate protein-changing predictions to max INT aminoacids\n"
         "   -C, --genetic-code INT|l          Specify the genetic code table to use, 'l' to print a list [0]\n"
         "   -c, --custom-tag STRING           Use this tag instead of the default BCSQ\n"
+        "   -F, --format LIST                 Additional fields to output (all coordinates are 1-based):\n"
+        "                                       cds_position: position in the coding sequence and CDS length\n"
+        "                                       exon: exon number and the number of exons in the transcript\n"
+        "                                       exon_position: position within the exon and exon length\n"
+        "                                       all: all of the above\n"
+        "   -G, --greedy 0|1                  Also check transcript-level consequences after feature hits [0]\n"
         "   -l, --local-csq                   Localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq INT                    Maximum number of per-haplotype consequences to consider for each site [15]\n"
         "   -p, --phase a|m|r|R|s             How to handle unphased heterozygous genotypes: [r]\n"
@@ -3705,7 +4117,12 @@ static const char *usage(void)
         "                                       r: require phased GTs, throw an error on unphased het GTs\n"
         "                                       R: create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)\n"
         "                                       s: skip unphased hets\n"
-        "GFF options:\n"
+        "Parsing and validation options:\n"
+        "       --allow LIST                  Run even if these sanity checks fail (case insensitive)\n"
+        "                                       mif, missing-in-FASTA     .. skip records w/o fasta reference\n"
+        "                                       mig, missing-in-GFF       .. skip contigs w/o GFF annotations\n"
+        "                                       cds-oop, CDS-out-of-phase .. skip transcripts with phase errors\n"
+        "                                       ref-mm, ref-mismatch      .. skip records with REF mismatch in VCF and FASTA\n"
         "       --dump-gff FILE.gz            Dump the parsed GFF file (for debugging purposes)\n"
         "       --force                       Run even if some sanity checks fail\n"
         "       --unify-chr-names 0|LIST      Unify chromosome naming by stripping a prefix in VCF,GFF,fasta, respectively [0]\n"
@@ -3748,6 +4165,7 @@ int main_csq(int argc, char *argv[])
     args->verbosity = 1;
     args->record_cmd_line = 1;
     args->clevel = -1;
+    char *allow = NULL;
 
     static struct option loptions[] =
     {
@@ -3761,7 +4179,9 @@ int main_csq(int argc, char *argv[])
         {"custom-tag",1,0,'c'},
         {"local-csq",0,0,'l'},
         {"gff-annot",1,0,'g'},
+        {"greedy",required_argument,0,'G'},
         {"fasta-ref",1,0,'f'},
+        {"format",1,0,'F'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
         {"output",1,0,'o'},
@@ -3782,17 +4202,18 @@ int main_csq(int argc, char *argv[])
         {"write-index",optional_argument,NULL,'W'},
         {"dump-gff",required_argument,NULL,7},
         {"unify-chr-names",required_argument,NULL,8},
+        {"allow",required_argument,NULL,9},
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0;
     int regions_overlap = 1;
     int targets_overlap = 0;
     char *targets_list = NULL, *regions_list = NULL, *tmp;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:C:ln:bB:v:W::",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:F:o:O:g:s:S:p:qc:C:G:ln:bB:v:W::",loptions,NULL)) >= 0)
     {
         switch (c)
         {
-            case  1 : args->force = 1; break;
+            case  1 : args->force = FORCE_ALL; break;
             case  2 :
                 args->n_threads = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
@@ -3808,6 +4229,10 @@ int main_csq(int argc, char *argv[])
                     break;
             case 'l': args->local_csq = 1; break;
             case 'C': args->gencode_str = optarg; break;
+            case 'G':
+                    args->greedy = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->greedy<0 || args->greedy>1 ) error("Could not parse argument: --greedy %s\n", optarg);
+                    break;
             case 'c': args->bcsq_tag = optarg; break;
             case 'q': error("Error: the -q option has been deprecated, use -v, --verbose instead.\n"); break;
             case 'v':
@@ -3827,6 +4252,7 @@ int main_csq(int argc, char *argv[])
                 }
                 break;
             case 'f': args->fa_fname = optarg; break;
+            case 'F': parse_format(args,optarg); break;
             case 'g': args->gff_fname = optarg; break;
             case 'n':
                 args->ncsq2_max = 2 * atoi(optarg);
@@ -3878,11 +4304,14 @@ int main_csq(int argc, char *argv[])
                 break;
             case  7 : args->dump_gff = optarg; break;
             case  8 : args->unify_chr_names = optarg; break;
+            case  9 : allow = optarg; break;
             case 'h':
             case '?': error("%s",usage());
             default: error("The option not recognised: %s\n\n", optarg); break;
         }
     }
+    if (!args->format) parse_format(args, NULL);
+    parse_allow(args, allow);
     init_gencode(args);
 
     char *fname = NULL;

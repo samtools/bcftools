@@ -101,6 +101,6 @@ int bin_get_idx(bin_t *bin, float value)
         else return i;
     }
     if ( bin->bins[imax] <= value ) return imax;
-    return imin - 1;
+    return imin > 0 ? imin - 1 : 0;
 }
 

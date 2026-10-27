@@ -162,7 +162,7 @@ static int iaux_init_scores(indel_aux_t *iaux, int ismpl)
         iaux->mread_scores = n;
         iaux->read_scores  = tmp;
     }
-    memset(iaux->read_scores,0,n);
+    memset(iaux->read_scores,0,n*sizeof(int));
     return 0;
 }
 
@@ -228,7 +228,7 @@ static int iaux_init_ins_types(indel_aux_t *iaux)
         iaux->minscns = ncns;
     }
     else cns = iaux->inscns;
-    memset(aux,0,ncns*sizeof(*cns));
+    memset(cns,0,ncns*sizeof(*cns));
 
     // use the majority rule to construct the consensus
     for (t=0; t<iaux->ntypes; t++)
@@ -287,7 +287,7 @@ static int iaux_init_types(indel_aux_t *iaux)
         nalt = naux - nalt;
         if ( iaux->bca->per_sample_flt )
         {
-            double frac = (double)nalt/naux;
+            double frac = (double)nalt/ntot;
             if ( nalt >= iaux->bca->min_support && frac >= iaux->bca->min_frac ) indel_support_ok = 1;
             if ( nalt > iaux->bca->max_support && frac > 0 ) iaux->bca->max_support = nalt, iaux->bca->max_frac = frac;
         }

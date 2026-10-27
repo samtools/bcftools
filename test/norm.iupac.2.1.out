@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=249250621>
+##INFO=<ID=XX,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	A	.	.	.	.
+1	2	.	C	.	.	.	.
+1	3	.	G	.	.	.	.
+1	4	.	T	.	.	.	.
+1	5	.	N	.	.	.	.
+1	6	.	A	.	.	.	XX=1|6|R|
+1	7	.	C	.	.	.	XX=1|7|Y|
+1	8	.	C	.	.	.	XX=1|8|S|
+1	9	.	A	.	.	.	XX=1|9|W|
+1	10	.	G	.	.	.	XX=1|10|K|
+1	11	.	A	.	.	.	XX=1|11|M|
+1	12	.	C	.	.	.	XX=1|12|B|
+1	13	.	A	.	.	.	XX=1|13|D|
+1	14	.	A	.	.	.	XX=1|14|H|
+1	15	.	A	.	.	.	XX=1|15|V|

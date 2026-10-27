@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2022 Genome Research Ltd.
+   Copyright (c) 2016-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -38,6 +38,8 @@ typedef struct
     char *af_tag;
     bcf_hdr_t *hdr;
     int32_t *gt, ngt, naf;
+    size_t *nsmpl_prob;
+    double *smpl_prob;
     float *af, list_min, list_max;
     bin_t *dev_bins, *prob_bins;
     uint64_t *dev_dist, *prob_dist;
@@ -64,10 +66,11 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -d, --dev-bins <list>       AF deviation bins\n"
-        "   -l, --list <min,max>        list genotypes from the given bin (for debugging)\n"
-        "   -p, --prob-bins <list>      probability distribution bins\n"
-        "   -t, --af-tag <tag>          VCF INFO tag to use [AF]\n"
+        "   -d, --dev-bins LIST       AF deviation bins\n"
+        "   -l, --list MIN,MAX        List genotypes from the given bin (for debugging)\n"
+        "   -p, --prob-bins LIST      Probability distribution bins\n"
+        "   -s, --samples             Output overall per-sample probability (geometric mean)\n"
+        "   -t, --af-tag <tag>        VCF INFO tag to use [AF]\n"
         "\n"
         "Default binning:\n"
         "   -d: 0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1\n"
@@ -82,6 +85,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args = (args_t*) calloc(1,sizeof(args_t));
     char *dev_bins  = "0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1";
     char *prob_bins = "0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1";
+    int samples = 0;
     args->hdr = in;
     args->af_tag = "AF";
     args->list_min = -1;
@@ -90,11 +94,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"list",required_argument,NULL,'l'},
         {"dev-bins",required_argument,NULL,'d'},
         {"prob-bins",required_argument,NULL,'p'},
+        {"samples",no_argument,NULL,'s'},
         {"af-tag",required_argument,NULL,'t'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:d:p:l:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:d:p:l:s",loptions,NULL)) >= 0)
     {
         switch (c)
         {
@@ -107,6 +112,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( a+1==b || *b ) error("Could not parse: --list %s\n", optarg);
                 break;
             }
+            case 's': samples = 1; break;
             case 'd': dev_bins = optarg; break;
             case 'p': prob_bins = optarg; break;
             case 't': args->af_tag = optarg; break;
@@ -123,6 +129,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args->prob_bins = bin_init(prob_bins,0,1);
     nbins = bin_get_size(args->prob_bins);
     args->prob_dist = (uint64_t*)calloc(nbins,sizeof(*args->prob_dist));
+
+    if ( samples )
+    {
+        args->nsmpl_prob = calloc(bcf_hdr_nsamples(args->hdr),sizeof(*args->nsmpl_prob));
+        args->smpl_prob  = calloc(bcf_hdr_nsamples(args->hdr),sizeof(*args->smpl_prob));
+    }
 
     printf("# This file was produced by: bcftools +af-dist(%s+htslib-%s)\n", bcftools_version(),hts_version());
     printf("# The command line was:\tbcftools +af-dist %s", argv[0]);
@@ -141,10 +153,14 @@ bcf1_t *process(bcf1_t *rec)
     if ( naf<=0 ) return NULL;
     float af = args->af[0];
 
+    float pRR = (1-af)*(1-af);
     float pRA = 2*af*(1-af);
     float pAA = af*af;
     int iRA = bin_get_idx(args->prob_bins,pRA);
     int iAA = bin_get_idx(args->prob_bins,pAA);
+    double lRR = log(pRR);
+    double lRA = log(pRA);
+    double lAA = log(pAA);
 
     int list_RA = args->list_min==-1 || pRA < args->list_min || pRA > args->list_max ? 0 : 1;
     int list_AA = args->list_min==-1 || pAA < args->list_min || pAA > args->list_max ? 0 : 1;
@@ -169,15 +185,23 @@ bcf1_t *process(bcf1_t *rec)
         nals += j;
         nalt += dosage;
 
+        double lprob = lRR;
         if ( dosage==1 )
         {
+            lprob = lRA;
             args->prob_dist[iRA]++;
             if ( list_RA ) printf("GT\t%s\t%"PRId64"\t%s\t1\t%f\n",chr,(int64_t) rec->pos+1,args->hdr->samples[i],pRA);
         }
         else if ( dosage==2 )
         {
+            lprob = lAA;
             args->prob_dist[iAA]++;
             if ( list_AA ) printf("GT\t%s\t%"PRId64"\t%s\t2\t%f\n",chr,(int64_t) rec->pos+1,args->hdr->samples[i],pAA);
+        }
+        if ( args->smpl_prob )
+        {
+            args->smpl_prob[i] = lprob;
+            args->nsmpl_prob[i]++;
         }
     }
 
@@ -210,8 +234,20 @@ void destroy(void)
         float max = bin_get_value(args->dev_bins,i+1);
         printf("DEV_DIST\t%f\t%f\t%"PRId64"\n", min,max,args->dev_dist[i]);
     }
+    if ( args->smpl_prob )
+    {
+        printf("# SMPL_PROB, per-sample HWE log probability (geometric mean) and the number of genotypes\n");
+        n = bcf_hdr_nsamples(args->hdr);
+        for (i=0; i<n; i++)
+        {
+            printf("SMPL_PROB\t%s\t%e\t%zu\n", bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,i),
+                args->nsmpl_prob[i]?args->smpl_prob[i]/args->nsmpl_prob[i]:0,args->nsmpl_prob[i]);
+        }
+    }
     bin_destroy(args->dev_bins);
     bin_destroy(args->prob_bins);
+    free(args->smpl_prob);
+    free(args->nsmpl_prob);
     free(args->dev_dist);
     free(args->prob_dist);
     free(args->gt);

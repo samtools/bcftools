@@ -1,0 +1,6 @@
+0	1	0	good_high
+1	0	0	bad_ref_collision
+1	0	0	bad_alt_collision
+0	0	1	missing_ok
+1	0	1	missing_error
+0	1	0	all_ref

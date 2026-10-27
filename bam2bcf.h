@@ -1,7 +1,7 @@
 /*  bam2bcf.h -- variant calling.
 
     Copyright (C) 2010-2012 Broad Institute.
-    Copyright (C) 2012-2022 Genome Research Ltd.
+    Copyright (C) 2012-2026 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -67,7 +67,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_INFO_RPBZ   (1<<21)
 #define B2B_INFO_SCBZ   (1<<22)
 #define B2B_INFO_SGB    (1<<23)
-#define B2B_INFO_MIN_PL_SUM (1<<24)
+#define B2B_FMT_QM      (1<<24)
 #define B2B_INFO_NM     (1<<25)
 #define B2B_INFO_MQ0F   (1<<26)
 #define B2B_INFO_IDV    (1<<27)
@@ -144,7 +144,8 @@ typedef struct __bcf_callaux_t {
 typedef struct {
     uint32_t ori_depth;     // ori_depth = anno[0..3] but before --min-BQ is applied
     unsigned int mq0;
-    int32_t *ADF, *ADR, SCR, *QS;   // FMT/QS
+    double *QM;                     // FMT/QM
+    int32_t *ADF, *ADR, SCR, *QS;   // FMT/ADF, ADR, QS are pointers to the arrays in bcf_call_t
     int32_t *ref_nm, *alt_nm;
     // The fields are:
     //      depth fwd   .. ref (0) and non-ref (2)
@@ -169,11 +170,10 @@ typedef struct {
     int a[5]; // alleles: ref, alt, alt2, alt3
     float qsum[B2B_MAX_ALLELES];  // INFO/QS tag
     int n, n_alleles, ori_ref, unseen;
-    int32_t shift;  // shift is the sum of min_PL before normalization to 0 across all samples
     int n_supp; // number of supporting non-reference reads
     double anno[16];
     unsigned int depth, ori_depth, mq0;
-    int32_t *PL, *DP4, *ADR, *ADF, *SCR, *QS, *ref_nm, *alt_nm;
+    int32_t *PL, *DP4, *ADR, *ADF, *SCR, *QS, *QM, *ref_nm, *alt_nm;
     uint8_t *fmt_arr;
     float vdb; // variant distance bias
     float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc, *mwu_nm, nm[2];

@@ -1,0 +1,4 @@
+C1	c
+C2	c
+A	c
+LONG1	c

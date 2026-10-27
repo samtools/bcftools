@@ -1,6 +1,6 @@
 /*  vcfconvert.c -- convert between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -44,6 +44,7 @@ THE SOFTWARE.  */
 #include "filter.h"
 #include "convert.h"
 #include "tsv2vcf.h"
+#include "vcfbuf.h"
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -52,6 +53,7 @@ THE SOFTWARE.  */
 typedef struct _args_t args_t;
 struct _args_t
 {
+    vcfbuf_t *vcfbuf;
     faidx_t *ref;
     filter_t *filter;
     char *filter_str;
@@ -64,7 +66,8 @@ struct _args_t
         int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing, written;
     } n;
     kstring_t str;
-    int32_t *gts;
+    int32_t *gts, *itmp;
+    int nitmp;
     float *flt;
     int rev_als, output_vcf_ids, hap2dip, gen_3N6;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
@@ -201,8 +204,8 @@ static int _set_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( *se!='_' ) return -1;
     kputsn(ss,se-ss,&args->str);
     ss = ++se;
-    while ( se < tsv->se && *se!='_' && isspace_c(*tsv->se) ) se++;
-    if ( se < tsv->se && *se!='_' && isspace_c(*tsv->se) ) return -1;
+    while ( se < tsv->se && *se!='_' && !isspace_c(*se) ) se++;
+    if ( se < tsv->se && *se!='_' && !isspace_c(*se) ) return -1;
     kputc(',',&args->str);
     kputsn(ss,se-ss,&args->str);
 
@@ -917,7 +920,7 @@ static void vcf_to_gensample(args_t *args)
     free(files);
 
     if ( gen_fname && (strlen(gen_fname)<3 || strcasecmp(".gz",gen_fname+strlen(gen_fname)-3)) ) gen_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (gen_fname) fprintf(stderr, "Gen file: %s\n", gen_fname);
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
@@ -1042,7 +1045,7 @@ static void vcf_to_haplegendsample(args_t *args)
 
     if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
     if ( legend_fname && (strlen(legend_fname)<3 || strcasecmp(".gz",legend_fname+strlen(legend_fname)-3)) ) legend_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (hap_fname) fprintf(stderr, "Hap file: %s\n", hap_fname);
     if (legend_fname) fprintf(stderr, "Legend file: %s\n", legend_fname);
@@ -1078,7 +1081,7 @@ static void vcf_to_haplegendsample(args_t *args)
 
     // open haps and legend outputs
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
-    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
+    if ( hout && hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
     BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "wg" : "wu") : NULL;
     if (legend_fname) {
         str.l = 0;
@@ -1191,7 +1194,7 @@ static void vcf_to_hapsample(args_t *args)
     free(files);
 
     if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
-    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 1;
 
     if (hap_fname) fprintf(stderr, "Hap file: %s\n", hap_fname);
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
@@ -1229,7 +1232,7 @@ static void vcf_to_hapsample(args_t *args)
 
     // open haps output
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
-    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
+    if ( hout && hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
 
     int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
@@ -1512,6 +1515,50 @@ static void vcf_to_vcf(args_t *args)
     if ( hts_close(out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->outfname);
 }
 
+static bcf1_t *gvcf_next_line(args_t *args, int *end1)
+{
+    *end1 = 0;
+    while ( vcfbuf_nsites(args->vcfbuf)!=2 && bcf_sr_next_line(args->files) )
+    {
+        bcf1_t *rec = bcf_sr_get_line(args->files,0);
+        args->files->readers[0].buffer[0] = vcfbuf_push(args->vcfbuf, rec);
+    }
+    bcf1_t *rec = vcfbuf_flush(args->vcfbuf, 0);
+    if ( !rec ) return NULL;
+
+    // is it a gVCF record?
+    // - ALT must be one of ., <*>, <X>, <NON_REF>
+    // - INFO/END must be present
+    int i, gallele = -1;
+    if ( rec->n_allele==1 ) gallele = 0; // illumina/bcftools-call gvcf (if INFO/END present)
+    else if ( rec->d.allele[1][0]=='<' )
+    {
+        for (i=1; i<rec->n_allele; i++)
+        {
+            if ( rec->d.allele[i][1]=='*' && rec->d.allele[i][2]=='>' && rec->d.allele[i][3]=='\0' ) { gallele = i; break; } // mpileup/spec compliant gVCF
+            if ( rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' && rec->d.allele[i][3]=='\0' ) { gallele = i; break; } // old mpileup gVCF
+            if ( strcmp(rec->d.allele[i],"<NON_REF>")==0 ) { gallele = i; break; }               // GATK gVCF
+        }
+    }
+    if ( gallele<0 ) return rec;
+
+    int nend = bcf_get_info_int32(args->header,rec,"END",&args->itmp,&args->nitmp);
+    if ( nend!=1 ) return rec;
+    *end1 = args->itmp[0];
+
+    bcf1_t *peek = vcfbuf_peek(args->vcfbuf, 0);
+    if ( peek && rec->rid==peek->rid && (*end1)-1>=peek->pos )
+    {
+        static int warned = 0;
+        if ( !warned )
+        {
+            hts_log_warning("Malformed gVCF: INFO/END at %s:%"PRIhts_pos" overlaps the next record",bcf_seqname(args->header,rec),rec->pos+1);
+            warned = 1;
+        }
+        *end1 = rec->pos < peek->pos ? peek->pos : 0;
+    }
+    return rec;
+}
 static void gvcf_to_vcf(args_t *args)
 {
     if ( !args->ref_fname ) error("--gvcf2vcf requires the --fasta-ref option\n");
@@ -1529,15 +1576,16 @@ static void gvcf_to_vcf(args_t *args)
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
     if (args->record_cmd_line) bcf_hdr_append_version(hdr, args->argc, args->argv, "bcftools_convert");
     if ( bcf_hdr_write(out_fh,hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
-    if ( init_index2(out_fh,hdr,args->outfname,&args->index_fn,
-                     args->write_index)<0 )
+    if ( init_index2(out_fh,hdr,args->outfname,&args->index_fn,args->write_index)<0 )
         error("Error: failed to initialise index for %s\n",args->outfname);
 
-    int32_t *itmp = NULL, nitmp = 0;
+    args->vcfbuf = vcfbuf_init(hdr, 0);
+    vcfbuf_set(args->vcfbuf,VCFBUF_DUMMY,1);
 
-    while ( bcf_sr_next_line(args->files) )
+    int end1 = 0;
+    bcf1_t *line;
+    while ( (line=gvcf_next_line(args, &end1)) )
     {
-        bcf1_t *line = bcf_sr_get_line(args->files,0);
         if ( args->filter )
         {
             int pass = filter_test(args->filter, line, NULL);
@@ -1549,39 +1597,15 @@ static void gvcf_to_vcf(args_t *args)
             }
         }
 
-        // check if alleles compatible with being a gVCF record
-        // ALT must be one of ., <*>, <X>, <NON_REF>
-        // check for INFO/END is below
-        int i, gallele = -1;
-        if (line->n_allele==1)
-            gallele = 0; // illumina/bcftools-call gvcf (if INFO/END present)
-        else if ( line->d.allele[1][0]=='<' )
-        {
-            for (i=1; i<line->n_allele; i++)
-            {
-                if ( line->d.allele[i][1]=='*' && line->d.allele[i][2]=='>' && line->d.allele[i][3]=='\0' ) { gallele = i; break; } // mpileup/spec compliant gVCF
-                if ( line->d.allele[i][1]=='X' && line->d.allele[i][2]=='>' && line->d.allele[i][3]=='\0' ) { gallele = i; break; } // old mpileup gVCF
-                if ( strcmp(line->d.allele[i],"<NON_REF>")==0 ) { gallele = i; break; }               // GATK gVCF
-            }
-        }
-
-        // no gVCF compatible alleles
-        if (gallele<0)
+        if ( !end1 )
         {
             if ( bcf_write(out_fh,hdr,line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
             continue;
         }
 
-        int nend = bcf_get_info_int32(hdr,line,"END",&itmp,&nitmp);
-        if ( nend!=1 )
-        {
-            // No INFO/END => not gVCF record
-            if ( bcf_write(out_fh,hdr,line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
-            continue;
-        }
         bcf_update_info_int32(hdr,line,"END",NULL,0);
         int pos, len;
-        for (pos=line->pos; pos<itmp[0]; pos++)
+        for (pos=line->pos; pos<end1; pos++)
         {
             line->pos = pos;
             char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
@@ -1593,7 +1617,7 @@ static void gvcf_to_vcf(args_t *args)
         }
     }
     if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
-    free(itmp);
+    free(args->itmp);
     if ( args->write_index )
     {
         if ( bcf_idx_save(out_fh)<0 )
@@ -1604,6 +1628,7 @@ static void gvcf_to_vcf(args_t *args)
         free(args->index_fn);
     }
     if ( hts_close(out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->outfname);
+    vcfbuf_destroy(args->vcfbuf);
 }
 
 static void usage(void)
