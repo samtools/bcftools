@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.23">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2026-08-30 16:37 BST</strong> and refers to bcftools git version <strong>1.24-12-g9fb92d77+</strong>.</p>
+<p>This manual page was last updated <strong>2026-10-27</strong> and refers to bcftools git version <strong>1.25</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -3308,6 +3308,15 @@ will take care of this, but to write to an entirely numeric filename use <strong
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--progress</strong>[=<em>INT</em>]</dt>
+<dd>
+<p>Periodically print the current position (CHR:POS) of the pileup to standard
+error, to indicate how far the program has progressed. A line of the form
+"<code>[progress] mpileup: 1:1234567</code>" is printed for the first position and then
+about once every <em>INT</em> seconds; with <em>INT</em>=0 it is printed for every position.
+Positions outside the requested regions or targets may also be reported. Note
+that <em>INT</em> must follow with no space, e.g. <strong>--progress=10</strong>. Default: 60.</p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3565,7 +3574,7 @@ See also <strong>--atom-overlaps</strong> and <strong>--old-rec-tag</strong>.</p
 <dd>
 <p>Alleles missing because of an overlapping variant can be set either
 to missing (.) or to the star alele (*), as recommended by
-the VCF specification. IMPORTANT: Note that asterisk is expaneded
+the VCF specification. IMPORTANT: Note that asterisk is expanded
 by shell and must be put in quotes or escaped by a backslash:</p>
 </dd>
 </dl>
@@ -3601,7 +3610,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)
 See also the option <strong>-N, --no-realign</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
@@ -3665,10 +3674,6 @@ biallelic sites with both <strong>-m -snps</strong> and <strong>-m -indels</stro
 <p>use the reference (<em>0</em>) or missing (<em>.</em>) allele for overlapping alleles after
 splitting multiallelic sites</p>
 </dd>
-<dt class="hdlist1"><strong>--no-version</strong></dt>
-<dd>
-<p>see <strong><a href="#common_options">Common Options</a></strong></p>
-</dd>
 <dt class="hdlist1"><strong>-N, --no-realign</strong> [<em>NUM</em>]<a id="do_not_normalize"></a></dt>
 <dd>
 <p>do not realign indels and symbolic alleles (normally performed
@@ -3676,6 +3681,15 @@ when <strong>-f, --fasta-ref</strong> option is provided). If <em>NUM</em> is gi
 skip realignment only for events longer than <em>NUM</em> bp. Note
 that <em>NUM</em> must follow with no space, e.g. <strong>-N1000</strong> or <strong>--no-realign=1000</strong>.
 Previously named <strong>--do-not-normalize</strong> and did not accept an argument.</p>
+</dd>
+<dt class="hdlist1"><strong>--no-update</strong> <em>LIST</em></dt>
+<dd>
+<p>Do not recalculate INFO tags from GT.
+Currently supported tags: AC,AN</p>
+</dd>
+<dt class="hdlist1"><strong>--no-version</strong></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--old-rec-tag</strong> <em>STR</em></dt>
 <dd>
@@ -3689,6 +3703,14 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--progress</strong>[=<em>INT</em>]</dt>
+<dd>
+<p>Periodically print the position (CHR:POS) of the record being processed to
+standard error, to indicate how far the program has progressed. A line of the
+form "<code>[progress] norm: 1:1234567</code>" is printed for the first record and then
+about once every <em>INT</em> seconds; with <em>INT</em>=0 it is printed for every record.
+Note that <em>INT</em> must follow with no space, e.g. <strong>--progress=10</strong>. Default: 60.</p>
 </dd>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -4768,6 +4790,10 @@ your system limit on the number of open files ("ulimit") may need to be increase
 <p>Use this directory to store temporary files. If the last six characters of the string DIR are XXXXXX,
 then these are replaced with a string that makes the directory name unique.</p>
 </dd>
+<dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-v, --verbosity</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -4952,6 +4978,14 @@ best compression.</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--progress</strong>[=<em>INT</em>]</dt>
+<dd>
+<p>Periodically print the position (CHR:POS) of the record being processed to
+standard error, to indicate how far the program has progressed. A line of the
+form "<code>[progress] view: 1:1234567</code>" is printed for the first record and then
+about once every <em>INT</em> seconds; with <em>INT</em>=0 it is printed for every record.
+Note that <em>INT</em> must follow with no space, e.g. <strong>--progress=10</strong>. Default: 60.</p>
+</dd>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -5297,7 +5331,7 @@ web browser.</p>
 </dd>
 <dt class="hdlist1"><strong>-l, --min-length</strong> <em>NUM</em></dt>
 <dd>
-<p>Mimimum length of ROH [1e6]</p>
+<p>Minimum length of ROH [1e6]</p>
 </dd>
 <dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
 <dd>
@@ -5889,7 +5923,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-08-30 16:37:36 +0100
+Last updated 2026-10-27 07:56:46 UTC
 </div>
 </div>
 </body>
