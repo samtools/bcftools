@@ -2478,6 +2478,7 @@ sub test_vcf_merge_big
 sub test_trio_dnm3
 {
     my ($opts,%args) = @_;
+    if ( !$$opts{test_plugins} ) { return; }
     test_cmd($opts,%args,cmd=>qq[export BCFTOOLS_PLUGINS=$$opts{bin}/plugins; $$opts{path}/trio-dnm3/test.sh $$opts{bin}/bcftools],out=>'trio-dnm3.1.out');
 }
 

@@ -362,11 +362,14 @@ docs: doc/bcftools.1 doc/bcftools.html
 # Since there is no make dependency, bcftools.1 can be out-of-date and
 # make docs can be run to update if asciidoc is available
 install: $(PROGRAMS) $(PLUGINS)
-	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
+	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
 	$(INSTALL_PROGRAM) $(PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_SCRIPT) $(MISC_SCRIPTS) $(DESTDIR)$(misc_bindir)
 	$(INSTALL_MAN) doc/bcftools.1 $(DESTDIR)$(man1dir)
+ifneq "$(PLUGINS_ENABLED)" "no"
+	$(INSTALL_DIR) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) plugins/*$(PLUGIN_EXT) $(DESTDIR)$(plugindir)
+endif
 
 clean: testclean clean-plugins
 	-rm -f gmon.out *.o mpileup2/*.o *.a *~ $(PROGRAMS) version.h
