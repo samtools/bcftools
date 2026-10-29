@@ -1,8 +1,16 @@
 ## Release a.b
 
+
+Changes affecting specific commands:
+
+* bcftools query
+
+    - Fix `query -f '%TGT'` and `'%IUPACGT'` to work with sites with 64 or more
+      ALT alleles (#2613)
+
+
+
 ## Release 1.25 (27th October 2026)
-
-
 
 Changes affecting the whole of bcftools, or multiple commands:
 

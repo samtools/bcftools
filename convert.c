@@ -446,32 +446,40 @@ static void process_tgt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isampl
         return;
     }
 
-    if ( fmt->fmt->type!=BCF_BT_INT8 )
-    {
-        fprintf(stderr,"Warning: skipping GT field with unexpected type %d at %s:%"PRId64"\n", fmt->fmt->type,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
-        kputc('.', str);
-        return;
+    int l = 0;
+    #define BRANCH(type_t, convert_le, vector_end) { \
+        uint8_t *ptr = fmt->fmt->p + isample*fmt->fmt->size; \
+        for (l=0; l<fmt->fmt->n; l++, ptr+=sizeof(type_t)) \
+        { \
+            type_t val = convert_le(ptr); \
+            if ( val==vector_end ) break; \
+            if (l) kputc("/|"[val&1], str); \
+            if (val>>1) \
+            { \
+                int ial = (val>>1) - 1; \
+                if ( ial >= line->n_allele ) \
+                { \
+                    fprintf(stderr,"Warning: allele index %d >= n_allele %d at %s:%"PRId64"\n", ial,line->n_allele,bcf_seqname(convert->header,line),(int64_t)line->pos+1); \
+                    kputc('.', str); \
+                    continue; \
+                } \
+                kputs(line->d.allele[ial], str); \
+            } \
+            else \
+                kputc('.', str); \
+        } \
     }
-
-    int l;
-    int8_t *x = (int8_t*)(fmt->fmt->p + isample*fmt->fmt->size); // FIXME: does not work with n_alt >= 64
-    for (l = 0; l < fmt->fmt->n && x[l] != bcf_int8_vector_end; ++l)
+    switch (fmt->fmt->type)
     {
-        if (l) kputc("/|"[x[l]&1], str);
-        if (x[l]>>1)
-        {
-            int ial = (x[l]>>1) - 1;
-            if ( ial >= line->n_allele )
-            {
-                fprintf(stderr,"Warning: allele index %d >= n_allele %d at %s:%"PRId64"\n", ial,line->n_allele,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
-                kputc('.', str);
-                continue;
-            }
-            kputs(line->d.allele[ial], str);
-        }
-        else
+        case BCF_BT_INT8:  BRANCH(int8_t,  le_to_i8,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, bcf_int32_vector_end); break;
+        default:
+            fprintf(stderr,"Warning: skipping GT field with unexpected type %d at %s:%"PRId64"\n", fmt->fmt->type,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
             kputc('.', str);
+            return;
     }
+    #undef BRANCH
     if (l == 0) kputc('.', str);
 }
 static void destroy_tbcsq(void *usr)
@@ -619,47 +627,72 @@ static void process_iupac_gt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int i
         return;
     }
 
-    if ( fmt->fmt->type!=BCF_BT_INT8 )
-    {
-        fprintf(stderr,"Warning: skipping GT field with unexpected type %d at %s:%"PRId64"\n", fmt->fmt->type,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
-        kputc('.', str);
-        return;
-    }
-
     static const char iupac[4][4] = { {'A','M','R','W'},{'M','C','S','Y'},{'R','S','G','K'},{'W','Y','K','T'} };
     int8_t *dat = (int8_t*)convert->dat;
 
-    int8_t *x = (int8_t*)(fmt->fmt->p + isample*fmt->fmt->size); // FIXME: does not work with n_alt >= 64
+    int32_t val0 = 0, val1 = 0;
     int l = 0;
-    while ( l<fmt->fmt->n && x[l]!=bcf_int8_vector_end && x[l]!=bcf_int8_missing ) l++;
+    #define BRANCH(type_t, convert_le, missing, vector_end) { \
+        uint8_t *ptr = fmt->fmt->p + isample*fmt->fmt->size; \
+        for (l=0; l<fmt->fmt->n; l++, ptr+=sizeof(type_t)) \
+        { \
+            type_t val = convert_le(ptr); \
+            if ( val==vector_end || val==missing ) break; \
+            if ( l==0 ) val0 = val; else if ( l==1 ) val1 = val; \
+        } \
+    }
+    switch (fmt->fmt->type)
+    {
+        case BCF_BT_INT8:  BRANCH(int8_t,  le_to_i8,  bcf_int8_missing,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, bcf_int16_missing, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, bcf_int32_missing, bcf_int32_vector_end); break;
+        default:
+            fprintf(stderr,"Warning: skipping GT field with unexpected type %d at %s:%"PRId64"\n", fmt->fmt->type,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
+            kputc('.', str);
+            return;
+    }
+    #undef BRANCH
 
     if ( l==2 )
     {
         // diploid
-        int ia = (x[0]>>1) - 1, ib = (x[1]>>1) - 1;
+        int ia = (val0>>1) - 1, ib = (val1>>1) - 1;
         if ( ia>=0 && ia<line->n_allele && ib>=0 && ib<line->n_allele && dat[ia]>=0 && dat[ib]>=0 )
         {
             kputc(iupac[dat[ia]][dat[ib]], str);
             return;
         }
     }
-    for (l = 0; l < fmt->fmt->n && x[l] != bcf_int8_vector_end; ++l)
-    {
-        if (l) kputc("/|"[x[l]&1], str);
-        if (x[l]>>1)
-        {
-            int ial = (x[l]>>1) - 1;
-            if ( ial >= line->n_allele )
-            {
-                fprintf(stderr,"Warning: allele index %d >= n_allele %d at %s:%"PRId64"\n", ial,line->n_allele,bcf_seqname(convert->header,line),(int64_t)line->pos+1);
-                kputc('.', str);
-                continue;
-            }
-            kputs(line->d.allele[ial], str);
-        }
-        else
-            kputc('.', str);
+
+    #define BRANCH(type_t, convert_le, vector_end) { \
+        uint8_t *ptr = fmt->fmt->p + isample*fmt->fmt->size; \
+        for (l=0; l<fmt->fmt->n; l++, ptr+=sizeof(type_t)) \
+        { \
+            type_t val = convert_le(ptr); \
+            if ( val==vector_end ) break; \
+            if (l) kputc("/|"[val&1], str); \
+            if (val>>1) \
+            { \
+                int ial = (val>>1) - 1; \
+                if ( ial >= line->n_allele ) \
+                { \
+                    fprintf(stderr,"Warning: allele index %d >= n_allele %d at %s:%"PRId64"\n", ial,line->n_allele,bcf_seqname(convert->header,line),(int64_t)line->pos+1); \
+                    kputc('.', str); \
+                    continue; \
+                } \
+                kputs(line->d.allele[ial], str); \
+            } \
+            else \
+                kputc('.', str); \
+        } \
     }
+    switch (fmt->fmt->type)
+    {
+        case BCF_BT_INT8:  BRANCH(int8_t,  le_to_i8,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, le_to_i16, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, le_to_i32, bcf_int32_vector_end); break;
+    }
+    #undef BRANCH
     if (l == 0) kputc('.', str);
 }
 static void process_sample(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)

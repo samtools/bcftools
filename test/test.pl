@@ -124,6 +124,7 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'me
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.5.a','merge.gvcf.5.b'],out=>'merge.gvcf.5.1.out',args=>'--gvcf - --merge none');
 run_test(\&test_vcf_merge,$opts,in=>['merge.gvcf.11.a','merge.gvcf.11.b','merge.gvcf.11.c'],out=>'merge.gvcf.11.1.out',args=>'--gvcf -');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+run_test(\&test_vcf_query,$opts,in=>'query.many-alts',out=>'query.many-alts.out',args=>q[-f '%CHROM\\t%POS[\\t%GT\\t%TGT\\t%IUPACGT]\\n']);
 run_test(\&test_vcf_query,$opts,in=>'filter.regex',out=>'filter.regex.1.out',args=>q[-f '%ID \\t %ANN' -i'ANN~"MODIFIER"']);
 run_test(\&test_vcf_query,$opts,in=>'filter.regex',out=>'filter.regex.2.out',args=>q[-f '%ID \\t %ANN' -i'ANN!~"MODIFIER"']);
 run_test(\&test_vcf_query,$opts,in=>'filter.regex',out=>'filter.regex.3.out',args=>q[-f '%ID \\t %ANN' -e'ANN~"MODIFIER"']);
