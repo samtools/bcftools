@@ -298,6 +298,22 @@ run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.out',args=>q[-
 run_test(\&test_vcf_query,$opts,in=>'query.header',out=>'query.98.2.out',args=>q[-HH -f'%CHROM %POS[ %SAMPLE][ %DP][ %GT]']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.1.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 || DP=2']);
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.2.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 |  DP=2']);
+# JOIN: reconstruct overlapping or touching variants; unphased calls use a heuristic.
+run_test(\&test_atomize_join,$opts);
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.multiallelic',out=>'atomize.join.multiallelic.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.adjacent_phased_snvs',out=>'atomize.join.adjacent_phased_snvs.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.adjacent_snvs_no_gt',out=>'atomize.join.adjacent_snvs_no_gt.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.adjacent_unphased_limitation',out=>'atomize.join.adjacent_unphased_limitation.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.biallelic_snvs',out=>'atomize.join.biallelic_snvs.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.fully_missing_genotype',out=>'atomize.join.fully_missing_genotype.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.gap_between_snvs_control',out=>'atomize.join.gap_between_snvs_control.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.indel_snv_overlap',out=>'atomize.join.indel_snv_overlap.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.multicontig_boundary',out=>'atomize.join.multicontig_boundary.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.phased_multisample',out=>'atomize.join.phased_multisample.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_multisample_limitation',args=>'-A all',expected_failure=>1,expected_error=>'conflicting overlapping alleles');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_overlap_caveat',args=>'-A all',expected_failure=>1,expected_error=>'conflicting overlapping alleles');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_compound_het',out=>'atomize.join.unphased_compound_het.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.mixed_format',out=>'atomize.join.mixed_format.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'norm.atom-multiallelic',out=>'norm.atom-multiallelic.out',args=>qq[-a --atom-overlaps .]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.2',out=>'norm.letter-case.2.1.out',args=>qq[-m +any]);
 run_test(\&test_vcf_norm,$opts,in=>'norm.letter-case.1',fai=>'norm.letter-case.1',out=>'norm.letter-case.1.1.out',args=>qq[-c e]);
@@ -1386,6 +1402,8 @@ sub test_cmd
     if ( $args{expected_failure} )
     {
         if ( !$ret ) { failed($opts,$test,"Expected failure but the test returned $ret$err"); }
+        elsif ( exists($args{expected_error}) && $err !~ /$args{expected_error}/ )
+        { failed($opts,$test,"Expected diagnostic '$args{expected_error}', got $err"); }
         else { passed($opts,$test,"ok, expected non-zero status"); }
         return;
     }
@@ -1722,6 +1740,183 @@ sub test_vcf_convert_tsv2vcf
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert --no-version $params --tsv2vcf $$opts{path}/$args{in}");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert -Ou $params --tsv2vcf $$opts{path}/$args{in} | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
+sub test_atomize_join
+{
+    my ($opts) = @_;
+    my $fasta = "$$opts{tmp}/join.fa";
+    open my $ref,'>',$fasta or error("$fasta: $!");
+    print $ref ">2\nCAAAT\n";
+    close $ref;
+    # Expectations are haplotype sequences computed from the input, not snapshots
+    # of the implementation. Keep failures specific so a crash cannot pass.
+    my @tests = (
+        [ 'multiallelic-unphased', 'A', "10 A C,G 1/2\n11 T C 0/0", "10\tAT\tCT,GT\t1/2\n" ],
+        [ 'mixed-ploidy', 'A B C', "10 A C 1 0/1 0|1|1\n11 T G 1 1/1 1|0|1", "10\tAT\tCG,AG,CT\t1\t2/1\t2|3|1\n" ],
+        [ 'partial-phase', 'A', "10 A C 0|1/0\n11 T G 0|0/1", "10\tAT\tCG\t0/0/1\n" ],
+        [ 'missing-adjacent', 'A B', "10 A C 0|1 ./.\n11 T G .|1 ./.", "10\tAT\tCG\t.|1\t./.\n" ],
+        [ 'missing-covered', 'A', "10 AT C 1|0\n11 T G .|0", "10\tAT\tC\t1|0\n" ],
+        [ 'anchor-substitution', 'A', "10 A C 1|0\n10 AT A 1|0", "10\tAT\tC\t1|0\n" ],
+        [ 'anchor-insertion', 'A', "10 A C 1|0\n10 A AT 1|0", "10\tA\tCT\t1|0\n" ],
+        [ 'duplicate-edit', 'A', "10 AT A 1|0\n10 AT A 1|0", "10\tAT\tA\t1|0\n" ],
+        [ 'duplicate-unphased', 'A', "10 A C 0/1\n10 A C 1/0", "10\tA\tC\t0/1\n" ],
+        [ 'duplicate-hom-alt', 'A', "10 A C 1/1\n10 A C 1/1", "10\tA\tC\t1/1\n" ],
+        [ 'duplicate-multisample', 'A B C', "10 A C 0/1 1/1 1\n10 A C 1/0 1/1 1", "10\tA\tC\t0/1\t1/1\t1\n" ],
+        [ 'duplicate-separated', 'A', "10 A C 0/1\n10 A G 0/1\n10 A C 1/0", "10\tA\tG,C\t1/2\n" ],
+        [ 'reuse-block-buffers', 'A B',
+          "10 A C 0/1 1\n10 A C 1/0 1\n11 T G 0/0 0\n20 A C,G 1|2 0|1\n21 T G 0|0 1|0\n30 A C 0 0/1\n31 T G 0 0/0\n40 A C ./. .\n41 T G ./. .\n50 A C 0/1 1\n50 A C 1/0 1\n51 T G 0/0 0",
+          "10\tAT\tCT\t0/1\t1\n20\tAT\tCT,GT,AG\t1|2\t3|1\n30\tAT\tCT\t0\t0/1\n40\tAT\t.\t./.\t.\n50\tAT\tCT\t0/1\t1\n" ],
+        [ 'mixed-case', 'A', "10 at a 1|0\n10 AT A 1|0", "10\tAT\tA\t1|0\n" ],
+        [ 'missing-overlap-tail', 'A', "10 ACGT A 1|.\n11 C T .|1", "10\tACGT\tA,ATGT\t1|2\n" ],
+        [ 'star-overlap-tail', 'A', "10 ACGT A,* 1|2\n11 C T,* 2|1", "10\tACGT\tA,ATGT\t1|2\n" ],
+        [ 'missing-anchor-only', 'A', "10 AT A .|0\n10 A C 1|0", "10\tAT\t.\t.|0\n" ],
+        [ 'star-placeholder', 'A', "10 AT A 1|0\n11 T G,* 2|1", "10\tAT\tA,AG\t1|2\n" ],
+        [ 'all-reference', 'A', "10 A C 0/0\n11 T G 0/0", "10\tAT\t.\t0/0\n" ],
+        [ 'all-missing', 'A', "10 A C ./.\n11 T G ./.", "10\tAT\t.\t./.\n" ],
+        [ 'no-format', 'A', "10 A C .\n11 T G .", "10\tAT\tCG\t.\n", '', undef, 2 ],
+        [ 'monomorphic', '', "10 A .\n11 T .", "10\tAT\t.\n" ],
+        [ 'dedup-no-gt', '', "10 A C\n10 A C", "10\tA\tC\n" ],
+        [ 'symbolic-boundary', '', "10 A C\n11 T <DEL>\n12 G A", "10\tA\tC\n11\tT\t<DEL>\n12\tG\tA\n" ],
+        [ 'breakend-boundary', '', "10 A C\n11 T T]1:50]\n12 G A", "10\tA\tC\n11\tT\tT]1:50]\n12\tG\tA\n" ],
+        [ 'filter-boundary', 'A', "10 A C 1|0\n11 T G 1|0\n12 G A 1|0\n20 A C 1|0\n21 T G 1|0",
+          "10\tA\tC\t1|0\n11\tT\tG\t1|0\n12\tG\tA\t1|0\n20\tA\tC\t1|0\n21\tT\tG\t1|0\n", q[-e 'POS=11 || POS=21'] ],
+        [ 'contig-filter-order', 'A', "10 A C 1|0\n11 T G 1|0\n1:1 G A 1|0",
+          "10\tAT\tCG\t1|0\n1\tG\tA\t1|0\n", q[-e 'CHROM="1"'] ],
+        [ 'realignment-order', 'A', "2 A G 1|0\n4 A AA 0|1", "1\tCA\tCG,CAA\t1|2\n", "-f $fasta" ],
+        [ 'conflicting-snvs', 'A', "10 A C 1|0\n10 A G 1|0", undef, '', 'conflicting overlapping alleles' ],
+        [ 'conflicting-deletion', 'A', "10 AT A 1|0\n11 T G 1|0", undef, '', 'conflicting overlapping alleles' ],
+        [ 'insertion-conflict', 'A', "10 A AT 1|0\n10 A AG 1|0", undef, '', 'conflicting overlapping alleles' ],
+        [ 'empty-allele', 'A', "10 AT A 1|0\n10 AT T 1|0", undef, '', 'empty joined allele' ],
+        [ 'ref-mismatch', '', "10 AT A\n11 C G", undef, '', 'inconsistent REF' ],
+        [ 'too-many-copies', 'A', "10 A C 1/1\n10 A G 0/1", undef, '', 'too many unphased ALT copies' ],
+        [ 'duplicate-conflict', 'A', "10 A C 0/1\n10 A C 1/1", undef, '', 'inconsistent duplicate genotypes' ],
+        [ 'duplicate-multisample-conflict', 'A B', "10 A C 0/1 0/1\n10 A C 1/0 1/1", undef, '', 'inconsistent duplicate genotypes for sample B' ],
+        [ 'ploidy-increase', 'A', "10 A C 1\n11 T G 0/1", undef, '', 'inconsistent ploidy' ],
+        [ 'ploidy-decrease', 'A', "10 A C 0/1\n11 T G 1", undef, '', 'inconsistent ploidy' ],
+        [ 'invalid-unphased-index', 'A', "10 A C 0/2\n11 T G 0/1", undef, '', 'invalid GT allele index' ],
+        [ 'invalid-phased-index', 'A', "10 A C 0|2\n11 T G 0|1", undef, '', 'invalid GT allele index' ],
+        [ 'extra-format', 'A', "10 A C 0|1\n11 T G 0|1:20", "10\tAT\tCG\t0|1\n" ],
+        [ 'missing-format', 'A', "10 A C 0|1\n11 T G .", undef, '', 'all have FORMAT/GT', 1 ],
+        [ 'substitution-contained', 'A', "10 AT CG 1|0\n11 T G 1|0", "10\tAT\tCG\t1|0\n" ],
+        [ 'substitution-extending', 'A', "10 AT CG 1|0\n11 TG GA 1|0", "10\tATG\tCGA\t1|0\n" ],
+        [ 'substitution-same-start', 'A', "10 A C 1|0\n10 AT CG 1|0", "10\tAT\tCG\t1|0\n" ],
+        [ 'substitution-chain', 'A', "10 ACG TTA 1|0\n11 CG TA 1|0\n12 G A 1|0", "10\tACG\tTTA\t1|0\n" ],
+        [ 'substitution-conflict', 'A', "10 AT CG 1|0\n11 T A 1|0", undef, '', 'conflicting overlapping alleles' ],
+        [ 'missing-compatible-identical', 'A', "10 AC GT 1|0\n10 ACG GTG .|0", "10\tACG\t.\t.|0\n" ],
+        [ 'missing-compatible-overlap', 'A', "10 AC GT 1|0\n11 CG TA .|0", "10\tACG\t.\t.|0\n" ],
+        [ 'missing-conflicting-substitution', 'A', "10 AC GT 1|0\n11 CG AA .|0", "10\tACG\tGTG\t1|0\n" ],
+        [ 'missing-identical-indel', 'A', "10 AT A 1|0\n10 ATG AG .|0", "10\tATG\t.\t.|0\n" ],
+        [ 'missing-conflicting-insertion', 'A', "10 A AT 1|0\n10 AC AGC .|0", "10\tAC\tATC\t1|0\n" ],
+        [ 'star-no-gt', '', "10 AT A\n11 T *", undef, '', 'cannot join star alleles without FORMAT/GT' ],
+        [ 'merge-options', 'A', "10 A C 0|1", undef, '-m+', 'Cannot combine' ],
+    );
+    my @snv_tests = (
+        (grep { $_->[0] =~ /^(substitution-|missing-compatible-|missing-conflicting-substitution$)/ } @tests),
+        (grep { $_->[0] =~ /^(multiallelic-unphased|mixed-ploidy|partial-phase|missing-adjacent|all-reference|all-missing|contig-filter-order|filter-boundary|extra-format)$/ } @tests),
+        [ 'snvs-chain', '', "10 A C\n11 T G\n12 G A", "10\tATG\tCGA\n" ],
+        [ 'snvs-gap', '', "10 A C\n12 G A", "10\tA\tC\n12\tG\tA\n" ],
+        [ 'snvs-same-position', 'A', "10 A C 0/1\n10 A G 1/0", "10\tA\tG,C\t1/2\n" ],
+        [ 'snvs-same-position-phased', 'A', "10 A C 1|0\n10 A G 0|1", "10\tA\tC,G\t1|2\n" ],
+        [ 'snvs-same-position-no-gt', '', "10 A C\n10 A G", "10\tA\tC,G\n" ],
+        [ 'snvs-same-position-adjacent', 'A', "10 A C 0/1\n10 A G 1/0\n11 T G 0/0", "10\tAT\tGT,CT\t1/2\n" ],
+        [ 'snvs-insertion-boundary', '', "10 A C\n11 T TG\n12 G A\n20 A C\n21 T G", "10\tA\tC\n11\tT\tTG\n12\tG\tA\n20\tAT\tCG\n" ],
+        [ 'snvs-deletion-boundary', '', "10 A C\n11 TG T\n12 G A", "10\tA\tC\n11\tTG\tT\n12\tG\tA\n" ],
+        [ 'snvs-existing-mnv', '', "10 A C\n11 TG CA\n13 T C", "10\tATGT\tCCAC\n" ],
+        [ 'snvs-adjacent-mnvs', 'A', "10 AT CG 1|0\n12 GT AC 1|0", "10\tATGT\tCGAC\t1|0\n" ],
+        [ 'snvs-overlapping-mnv', 'A', "10 AT CG 1|0\n11 T G 0|1", "10\tAT\tCG,AG\t1|2\n" ],
+        [ 'snvs-mixed-substitutions', 'A', "10 AT CG,AG 1|2\n12 G A 1|0", "10\tATG\tCGA,AGG\t1|2\n" ],
+        [ 'snvs-mnv-indel-boundary', '', "10 AT CG\n12 G GA\n13 T C", "10\tAT\tCG\n12\tG\tGA\n13\tT\tC\n" ],
+        [ 'snvs-mixed-alleles', '', "10 A C\n11 T G,TA\n12 G A", "10\tA\tC\n11\tT\tG,TA\n12\tG\tA\n" ],
+        [ 'snvs-star-boundary', 'A', "10 A C 1|0\n11 T G,* 2|1\n12 G A 1|0", "10\tA\tC\t1|0\n11\tT\tG,*\t2|1\n12\tG\tA\t1|0\n" ],
+        [ 'snvs-reference-boundary', '', "10 A C\n11 T .\n12 G A", "10\tA\tC\n11\tT\t.\n12\tG\tA\n" ],
+        [ 'snvs-symbolic-boundary', '', "10 A C\n11 T <DEL>\n12 G A", "10\tA\tC\n11\tT\t<DEL>\n12\tG\tA\n" ],
+        [ 'snvs-contigs', '', "10 A C\n11 T G\n1:1 G A\n1:2 T C", "10\tAT\tCG\n1\tGT\tAC\n" ],
+        [ 'snvs-non-snv-format', 'A', "10 A C 1|0\n11 T TG 1|0:20\n12 G A 1|0", "10\tA\tC\t1|0\n11\tT\tTG\t1|0\n12\tG\tA\t1|0\n" ],
+    );
+    for my $case ((map { ['all',$_] } @tests), (map { ['snvs',$_] } @snv_tests))
+    {
+        my ($mode,$test_case) = @$case;
+        my ($name,$samples,$rows,$expected,$args,$expected_error,$no_format) = @$test_case;
+        $args //= '';
+        my $vcf = "$$opts{tmp}/join.$name.vcf";
+        open my $vcf_fh,'>',$vcf or error("$vcf: $!");
+        print $vcf_fh qq[##fileformat=VCFv4.3\n##contig=<ID=2,length=100>\n##contig=<ID=1,length=100>\n];
+        print $vcf_fh qq[##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">\n];
+        print $vcf_fh "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO";
+        print $vcf_fh "\tFORMAT\t",join("\t",split / /,$samples) if length $samples;
+        print $vcf_fh "\n";
+        for my $row (split /\n/,$rows)
+        {
+            my ($pos,$ref,$alt,@sample_gts) = split / /,$row;
+            my $chr = $pos =~ s/^(.*):// ? $1 : '2';
+            print $vcf_fh join("\t",$chr,$pos,'.',$ref,$alt,'.','.','.');
+            if (length $samples)
+            {
+                my $fmt = $row =~ /\d:\d/ ? 'GT:DP' : 'GT';
+                $fmt = '.' if $no_format && ($no_format==2 || $pos==11);
+                print $vcf_fh "\t",join("\t",$fmt,@sample_gts);
+            }
+            print $vcf_fh "\n";
+        }
+        close $vcf_fh;
+        my $cmd = "$$opts{bin}/bcftools norm --no-version --deatomize $mode $args $vcf";
+        if ( defined $expected_error )
+        {
+            test_cmd($opts,out=>"join.regression.out",cmd=>$cmd,exp=>'',expected_failure=>1,expected_error=>$expected_error);
+        }
+        else
+        {
+            test_cmd($opts,out=>"join.regression.out",cmd=>"$cmd | $$opts{bin}/bcftools query -f '%POS\t%REF\t%ALT[\t%GT]\n'",exp=>$expected);
+            test_cmd($opts,out=>"join.regression.out",cmd=>"$$opts{bin}/bcftools view -Ou $vcf | $$opts{bin}/bcftools norm -A $mode $args -Ob | $$opts{bin}/bcftools query -f '%POS\t%REF\t%ALT[\t%GT]\n'",exp=>$expected);
+        }
+    }
+
+    # Exercise the actual atomizer's default star output as well as missing
+    # overlap placeholders, with haploid, diploid and triploid samples.
+    my $vcf = "$$opts{tmp}/join.roundtrip.vcf";
+    for my $alleles (['AT','A,CG'],['ACGT','A,ATGT'],['ACGT','A,ACAGT'])
+    {
+        open my $vcf_fh,'>',$vcf or error("$vcf: $!");
+        print $vcf_fh qq[##fileformat=VCFv4.3\n##contig=<ID=2,length=100>\n];
+        print $vcf_fh qq[##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n];
+        print $vcf_fh "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tA\tB\tC\n";
+        print $vcf_fh "2\t10\t.\t$$alleles[0]\t$$alleles[1]\t.\t.\t.\tGT\t1|2\t1\t0|2|1\n";
+        close $vcf_fh;
+        for my $overlaps (q['*'],'.')
+        {
+            test_cmd($opts,out=>'join.roundtrip.out',
+                cmd=>"$$opts{bin}/bcftools norm -a --atom-overlaps $overlaps $vcf -Ou | $$opts{bin}/bcftools norm -A all -Ob | $$opts{bin}/bcftools query -f '%POS\t%REF\t%ALT[\t%GT]\n'",
+                exp=>"10\t$$alleles[0]\t$$alleles[1]\t1|2\t1\t0|2|1\n");
+        }
+    }
+
+    # Required expressions, short/long forms, and order-independent exclusion
+    # of atomization and deatomization. -a must remain a no-argument flag.
+    for my $args ('-Aall','--deatomize=all','-Asnvs','--deatomize=snvs')
+    {
+        test_cmd($opts,out=>'join.cli.out',
+            cmd=>"$$opts{bin}/bcftools norm $args $vcf | $$opts{bin}/bcftools query -f '%REF\t%ALT[\t%GT]\n'",
+            exp=>"ACGT\tA,ACAGT\t1|2\t1\t0|2|1\n");
+    }
+    test_cmd($opts,out=>'join.cli.out',
+        cmd=>"$$opts{bin}/bcftools norm -aN $vcf -Ou | $$opts{bin}/bcftools norm -A all -Ou | $$opts{bin}/bcftools query -f '%REF\t%ALT[\t%GT]\n'",
+        exp=>"ACGT\tA,ACAGT\t1|2\t1\t0|2|1\n");
+    test_cmd($opts,out=>'join.cli.out',
+        cmd=>"$$opts{bin}/bcftools norm -A snvs $$opts{tmp}/join.snvs-non-snv-format.vcf -Ou | $$opts{bin}/bcftools query -i 'POS=11' -f '%REF\t%ALT[\t%GT\t%DP]\n'",
+        exp=>"T\tTG\t1|0\t20\n");
+    for my $test_case (
+        ['-A','requires an argument'],
+        ['--deatomize','requires an argument'],
+        ["-A '' $vcf",'not recognised, expected all'],
+        ["--deatomize=unknown $vcf",'not recognised, expected all'],
+        ["-a -A all $vcf",'Cannot combine --atomize with --deatomize'],
+        ["-A all -a $vcf",'Cannot combine --atomize with --deatomize'],
+        ["--atomize=join $vcf","doesn't allow an argument"])
+    {
+        test_cmd($opts,out=>'join.cli.out',cmd=>"$$opts{bin}/bcftools norm $$test_case[0]",
+            exp=>'',expected_failure=>1,expected_error=>$$test_case[1]);
+    }
+}
+
 sub test_vcf_norm
 {
     my ($opts,%args) = @_;
