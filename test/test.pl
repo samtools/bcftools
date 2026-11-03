@@ -1131,6 +1131,7 @@ run_test(\&test_mpileup,$opts,in=>[qw(iupac)],out=>'mpileup/iupac.1.out',ref=>'i
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.12.out',args=>q[-r17:100-102,17:102-103,17:103-104,17:104-105,17:100-105],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150 -a -AD],test_list=>1);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600 -a -AD]); # test files from samtools mpileup test suite
+run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.13.out',args=>q[-a DP,DV -r17:100-600 -a -AD -s HG00101,HG00102 -L 2147483647]);
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060 -a -AD]); # test file converted to vcf from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP,-AD -r17:100-600]); #test files from samtools mpileup test suite
 run_test(\&test_mpileup,$opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.5.out',args=>q[-a DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
