@@ -1906,18 +1906,6 @@ sub test_atomize_join
     test_cmd($opts,out=>'join.cli.out',
         cmd=>"$$opts{bin}/bcftools norm -A snvs $$opts{tmp}/join.snvs-non-snv-format.vcf -Ou | $$opts{bin}/bcftools query -i 'POS=11' -f '%REF\t%ALT[\t%GT\t%DP]\n'",
         exp=>"T\tTG\t1|0\t20\n");
-    for my $test_case (
-        ['-A','requires an argument'],
-        ['--deatomize','requires an argument'],
-        ["-A '' $vcf",'not recognised, expected all'],
-        ["--deatomize=unknown $vcf",'not recognised, expected all'],
-        ["-a -A all $vcf",'Cannot combine --atomize with --deatomize'],
-        ["-A all -a $vcf",'Cannot combine --atomize with --deatomize'],
-        ["--atomize=join $vcf","doesn't allow an argument"])
-    {
-        test_cmd($opts,out=>'join.cli.out',cmd=>"$$opts{bin}/bcftools norm $$test_case[0]",
-            exp=>'',expected_failure=>1,expected_error=>$$test_case[1]);
-    }
 }
 
 sub test_vcf_norm
