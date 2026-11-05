@@ -25,6 +25,7 @@
  */
 
 #include <assert.h>
+#include <limits.h>
 #include <strings.h>
 #include <htslib/vcf.h>
 #include <ctype.h>
@@ -59,10 +60,50 @@ typedef struct
 }
 split_t;
 
+typedef struct
+{
+    int beg, end, len;       // half-open REF interval and replacement length
+    const char *alt;
+}
+join_edit_t;
+
+typedef struct
+{
+    int32_t *gt;
+    int mgt, width;          // allocation and per-sample width, including padding
+    int duplicate_of;       // earlier matching record, or -1
+}
+join_gt_t;
+
+typedef struct
+{
+    bcf1_t **rec;   // records of the currently open block, in position order, not yet merged
+    int nrec, mrec; // number of records in the open block; allocated size of rec
+    hts_pos_t end;  // 0-based, exclusive end of the block's REF span accumulated so far
+    int snvs_only;
+
+    // Reusable working buffers. Active lengths are reset for each merged block.
+    join_gt_t *gts;
+    int mgts;
+    int *smpl_ploidy;
+    uint8_t *is_phased;
+    int msmpl_ploidy, mis_phased;
+    int32_t *alt_indices, *joined_gt;
+    int malt_indices, mjoined_gt, ngt;
+    join_edit_t *edits;
+    uint8_t *covered;
+    int medits, mcovered;
+    kstring_t ref, seq, allele_str;
+    kstring_t *alt;
+    int nalt, malt;
+}
+join_t;
+
 struct _abuf_t
 {
     abuf_opt_t mode;
     split_t split;
+    join_t join;
     atom_t *atoms;
     int natoms, matoms;
     const bcf_hdr_t *hdr;
@@ -79,7 +120,7 @@ struct _abuf_t
 
 abuf_t *abuf_init(const bcf_hdr_t *hdr, abuf_opt_t mode)
 {
-    if ( mode!=SPLIT ) error("todo\n");
+    if ( mode!=SPLIT && mode!=JOIN ) error("todo\n");
     abuf_t *buf = (abuf_t*) calloc(1,sizeof(abuf_t));
     buf->hdr  = hdr;
     buf->out_hdr = (bcf_hdr_t*) hdr;
@@ -104,6 +145,22 @@ void abuf_destroy(abuf_t *buf)
     for (i=0; i<buf->rbuf.m; i++)
         if ( buf->vcf[i] ) bcf_destroy(buf->vcf[i]);
     free(buf->vcf);
+    for (i=0; i<buf->join.mrec; i++)
+        if ( buf->join.rec[i] ) bcf_destroy(buf->join.rec[i]);
+    free(buf->join.rec);
+    for (i=0; i<buf->join.mgts; i++) free(buf->join.gts[i].gt);
+    free(buf->join.gts);
+    free(buf->join.smpl_ploidy);
+    free(buf->join.is_phased);
+    free(buf->join.alt_indices);
+    free(buf->join.joined_gt);
+    free(buf->join.edits);
+    free(buf->join.covered);
+    free(buf->join.ref.s);
+    free(buf->join.seq.s);
+    free(buf->join.allele_str.s);
+    for (i=0; i<buf->join.malt; i++) free(buf->join.alt[i].s);
+    free(buf->join.alt);
     free(buf->gt);
     free(buf->tmpi);
     free(buf->tmp);
@@ -122,6 +179,7 @@ void abuf_set(abuf_t *buf, abuf_opt_t key, void *value)
         return;
     }
     if ( key==STAR_ALLELE ) { buf->star_allele = *((int*)value); return; }
+    if ( key==SNVS_ONLY ) { buf->join.snvs_only = *((int*)value); return; }
 }
 
 /*
@@ -845,21 +903,536 @@ void _abuf_split(abuf_t *buf, bcf1_t *rec)
     }
 }
 
+/*
+    JOIN groups adjacent or overlapping REF spans. It is not a general inverse of
+    SPLIT: annotations cannot be reconstructed, and unphased haplotypes are not
+    uniquely determined. Only GT is merged; other FORMAT fields are dropped.
+
+    For unphased samples, non-reference alleles are assigned to the rightmost free
+    copies within each position group, e.g. 1/0 -> 0/1. This deterministic heuristic
+    recovers split compound heterozygotes, but can also combine variants that were
+    in trans.
+    Incompatible edits are rejected rather than overwriting an earlier allele.
+*/
+static int _abuf_join_edit_cmp(const void *ap, const void *bp)
+{
+    const join_edit_t *a = ap, *b = bp;
+    if ( a->beg!=b->beg ) return a->beg < b->beg ? -1 : 1;
+    if ( a->end!=b->end ) return a->end < b->end ? -1 : 1;
+    return 0;
+}
+
+// trim sequence identical in REF and ALT, from both ends
+static int _abuf_join_edit(const char *ref, const char *alt, int ref_offset, join_edit_t *edit)
+{
+    int ref_end = strlen(ref), alt_end = strlen(alt), beg = 0;
+    while ( beg<ref_end && beg<alt_end && toupper_c(ref[beg])==toupper_c(alt[beg]) ) beg++;
+    while ( ref_end>beg && alt_end>beg && toupper_c(ref[ref_end-1])==toupper_c(alt[alt_end-1]) ) { ref_end--; alt_end--; }
+    *edit = (join_edit_t){ref_offset+beg,ref_offset+ref_end,alt_end-beg,alt+beg};
+    return beg!=ref_end || beg!=alt_end;
+}
+
+// Check if the query conflicts with sorted, non-overlapping edits. Identical
+// edits and substitutions that agree on their overlapping bases are compatible.
+static int _abuf_join_conflicts(join_edit_t *edits, int nedit, join_edit_t *query)
+{
+    int lo = 0, hi = nedit;
+    while ( lo<hi )
+    {
+        int mid = lo+(hi-lo)/2;
+        if ( edits[mid].end<query->beg ) lo = mid+1;
+        else hi = mid;
+    }
+    for (; lo<nedit && edits[lo].beg<=query->end; lo++)
+    {
+        join_edit_t *edit = &edits[lo];
+        if ( edit->beg==query->beg && edit->end==query->end && edit->len==query->len
+                && !strncasecmp(edit->alt,query->alt,edit->len) ) continue;
+        if ( edit->len==edit->end-edit->beg && query->len==query->end-query->beg )
+        {
+            int beg = edit->beg > query->beg ? edit->beg : query->beg;
+            int end = edit->end < query->end ? edit->end : query->end;
+            if ( beg<end && strncasecmp(edit->alt+beg-edit->beg,query->alt+beg-query->beg,end-beg) ) return 1;
+            continue;
+        }
+        if ( edit->beg<query->end && query->beg<edit->end ) return 1;
+        if ( edit->beg==edit->end && query->beg==query->end && edit->beg==query->beg ) return 1; // two insertions count as overlapping
+    }
+    return 0;
+}
+
+
+// find the first earlier record with the same POS, REF and ordered ALT list.
+static void _abuf_join_find_duplicates(join_t *blk)
+{
+    int irec, grp_beg = 0;
+    for (irec=0; irec<blk->nrec; irec++)
+    {
+        bcf1_t *rec = blk->rec[irec];
+        if ( rec->pos!=blk->rec[grp_beg]->pos ) grp_beg = irec;
+        blk->gts[irec].duplicate_of = -1;
+        int iprev;
+        for (iprev=grp_beg; iprev<irec; iprev++)
+        {
+            bcf1_t *prev = blk->rec[iprev];
+            if ( prev->n_allele!=rec->n_allele ) continue;
+            int ial;
+            for (ial=0; ial<rec->n_allele; ial++)
+                if ( strcasecmp(prev->d.allele[ial],rec->d.allele[ial]) ) break;
+            if ( ial<rec->n_allele ) continue;
+            blk->gts[irec].duplicate_of = iprev;
+            break;
+        }
+    }
+}
+
+// Unphased genotypes are currently handled as follows:
+//  - at the same POS assign distinct ALT calls to separate chromosome copies, recovering split multiallelic genotypes
+//  - across positions preferentially assign ALT calls to the same copy, effectively favoring cis
+//
+// A future option could control the second choice, cis or trans
+//
+static void _abuf_join_assign_unphased(abuf_t *buf, int ismpl)
+{
+    join_t *blk = &buf->join;
+    join_gt_t *record_gts = blk->gts;
+    int smpl_ploidy = blk->smpl_ploidy[ismpl];
+    int32_t *alt_indices = blk->alt_indices;
+    int grp_end = 0;
+    while ( grp_end<blk->nrec )
+    {
+        int grp_beg = grp_end, irec, icopy, nfree = smpl_ploidy;
+        while ( grp_end<blk->nrec && blk->rec[grp_end]->pos==blk->rec[grp_beg]->pos ) grp_end++;
+        for (irec=grp_beg; irec<grp_end; irec++)
+        {
+            int32_t *smpl_gt = record_gts[irec].gt + ismpl*record_gts[irec].width;
+            int nalt = 0, nmissing = 0;
+            for (icopy=0; icopy<smpl_ploidy; icopy++)
+            {
+                if ( bcf_gt_is_missing(smpl_gt[icopy]) ) nmissing++;
+                else if ( bcf_gt_allele(smpl_gt[icopy]) ) alt_indices[nalt++] = bcf_gt_allele(smpl_gt[icopy]);
+            }
+            // Sort ALT indices ascending, then place them from right to left.
+            int ial, isort;
+            for (ial=1; ial<nalt; ial++)
+                for (isort=ial; isort>0 && alt_indices[isort]<alt_indices[isort-1]; isort--)
+                {
+                    int32_t tmp = alt_indices[isort];
+                    alt_indices[isort] = alt_indices[isort-1];
+                    alt_indices[isort-1] = tmp;
+                }
+
+            // Duplicate rows describe the same copies; assigning fresh slots
+            // would turn a repeated heterozygous call into a homozygous one.
+            int iprev = record_gts[irec].duplicate_of;
+            if ( iprev>=0 )
+            {
+                bcf1_t *rec = blk->rec[irec];
+                int prev_nalt = 0, prev_nmissing = 0, same_gt = 1;
+                int32_t *prev_gt = record_gts[iprev].gt + ismpl*record_gts[iprev].width;
+                for (icopy=0; icopy<smpl_ploidy; icopy++)
+                {
+                    if ( bcf_gt_is_missing(prev_gt[icopy]) ) prev_nmissing++;
+                    else if ( bcf_gt_allele(prev_gt[icopy]) )
+                    {
+                        if ( prev_nalt>=nalt || bcf_gt_allele(prev_gt[icopy])!=alt_indices[prev_nalt] ) same_gt = 0;
+                        prev_nalt++;
+                    }
+                }
+                if ( !same_gt || prev_nalt!=nalt || prev_nmissing!=nmissing )
+                    error("Error: inconsistent duplicate genotypes for sample %s at %s:%"PRIhts_pos"\n",
+                          buf->hdr->samples[ismpl],bcf_seqname(buf->hdr,rec),rec->pos+1);
+                memcpy(smpl_gt,prev_gt,sizeof(*smpl_gt)*smpl_ploidy);
+                continue;
+            }
+            if ( nalt>nfree )
+                error("Error: too many unphased ALT copies for sample %s at %s:%"PRIhts_pos"\n",
+                      buf->hdr->samples[ismpl],bcf_seqname(buf->hdr,blk->rec[irec]),blk->rec[irec]->pos+1);
+
+            // Note that ALT alleles reserved in previous duplicates can shift the ALT block
+            // in the current record to the left.
+            // First initialize to reference, place ALT calls, then fill missing calls.
+            for (icopy=0; icopy<smpl_ploidy; icopy++) smpl_gt[icopy] = bcf_gt_unphased(0);
+            for (ial=nalt-1; ial>=0; ial--) smpl_gt[--nfree] = bcf_gt_unphased(alt_indices[ial]);
+            for (icopy=0; icopy<smpl_ploidy && nmissing; icopy++)
+            {
+                if ( bcf_gt_allele(smpl_gt[icopy]) ) continue;
+                smpl_gt[icopy] = bcf_gt_missing;
+                nmissing--;
+            }
+        }
+    }
+}
+
+static bcf1_t *_abuf_new_rec(abuf_t *buf)
+{
+    rbuf_expand0(&buf->rbuf, bcf1_t*, buf->rbuf.n+1, buf->vcf);
+    int ibuf = rbuf_append(&buf->rbuf);
+    if ( !buf->vcf[ibuf] ) buf->vcf[ibuf] = bcf_init1();
+    bcf1_t *out = buf->vcf[ibuf];
+    bcf_clear1(out);
+    return out;
+}
+
+// Copy a new ALT sequence into a reusable buffer, or return its existing index.
+static int _abuf_join_add_alt(join_t *blk, const char *seq)
+{
+    int ial;
+    for (ial=0; ial<blk->nalt; ial++)
+        if ( !strcasecmp(blk->alt[ial].s,seq) ) return ial+1;
+    hts_expand0(kstring_t,blk->nalt+1,blk->malt,blk->alt);
+    blk->alt[blk->nalt].l = 0;
+    kputs(seq,&blk->alt[blk->nalt]);
+    return ++blk->nalt;
+}
+
+// no-genotype case: greedily concatenate ALTs in position order, fill gaps with
+// reference bases. When two variants overlap, start a new ALT
+static void _abuf_join_greedy(join_t *blk)
+{
+    // the joined REF covers [new_pos, new_pos + ref_len), end excluded.
+    hts_pos_t new_pos = blk->rec[0]->pos;   // 0-based
+    const char *new_ref = blk->ref.s;       // new_ref[0] is at new_pos
+    int ref_len = blk->ref.l;
+    int irec, ial, has_alt = 0;
+    kstring_t *alt_seq = &blk->seq;
+    alt_seq->l = 0;
+    hts_pos_t ref_end = new_pos;            // first ref pos not yet represented in alt_seq
+    for (irec=0; irec<blk->nrec; irec++)
+    {
+        bcf1_t *rec = blk->rec[irec];
+        for (ial=1; ial<rec->n_allele; ial++)
+        {
+            if ( !strcmp(rec->d.allele[ial],"*") )
+                error("Error: cannot join star alleles without FORMAT/GT at position %"PRIhts_pos"\n",rec->pos+1);
+
+            if ( has_alt && rec->pos<ref_end )  // another ALT of the same record also overlaps its preceding ALT
+            {
+                // append the remaining reference suffix, save the completed ALT
+                kputsn(new_ref+(ref_end-new_pos), ref_len-(ref_end-new_pos), alt_seq);
+
+                // add the new ALT unless identical to REF
+                if ( strcasecmp(alt_seq->s,new_ref) ) _abuf_join_add_alt(blk,alt_seq->s);
+
+                // clear ALT seq and reset ref_end to begin another ALT spanning the same joined block
+                alt_seq->l = 0;
+                ref_end = new_pos;
+            }
+
+            // copy unchanged REF up until the current variant
+            kputsn(new_ref+(ref_end-new_pos), rec->pos-ref_end, alt_seq);
+
+            // replace this record's entire REF span with the selected ALT
+            kputs(rec->d.allele[ial], alt_seq);
+            ref_end = rec->pos + (hts_pos_t)strlen(rec->d.allele[0]);
+            has_alt = 1;
+        }
+    }
+    if ( has_alt ) // flush the last sequence
+    {
+        kputsn(new_ref+(ref_end-new_pos), ref_len-(ref_end-new_pos), alt_seq);
+        if ( strcasecmp(alt_seq->s,new_ref) ) _abuf_join_add_alt(blk,alt_seq->s);
+    }
+}
+
+// reconstruct called haplotypes and deduplicate their sequences into the ALT list
+static void _abuf_join_genotypes(abuf_t *buf)
+{
+    join_t *blk = &buf->join;
+    hts_pos_t new_pos = blk->rec[0]->pos;
+    const char *new_ref = blk->ref.s;
+    int ref_len = blk->ref.l;
+    int nsmpl = bcf_hdr_nsamples(buf->hdr);
+    int irec, icopy, ismpl, iedit;
+    hts_expand0(join_gt_t,blk->nrec,blk->mgts,blk->gts);
+    hts_expand(int,nsmpl,blk->msmpl_ploidy,blk->smpl_ploidy);
+    hts_expand(uint8_t,nsmpl,blk->mis_phased,blk->is_phased);
+    join_gt_t *jgts = blk->gts;
+    int *smpl_ploidy = blk->smpl_ploidy;
+    uint8_t *is_phased = blk->is_phased;
+    memset(is_phased,1,nsmpl);
+    int max_ploidy = 0;
+
+    // load genotypes, determine samples' ploidies and phase
+    for (irec=0; irec<blk->nrec; irec++)
+    {
+        bcf1_t *rec = blk->rec[irec];
+        int ngt = bcf_get_genotypes(buf->hdr,rec,&jgts[irec].gt,&jgts[irec].mgt);
+        if ( ngt<=0 || !nsmpl || ngt%nsmpl )
+            error("Error: could not read FORMAT/GT at %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,rec),rec->pos+1);
+        jgts[irec].width = ngt/nsmpl;
+        for (ismpl=0; ismpl<nsmpl; ismpl++)
+        {
+            int32_t *smpl_gt = jgts[irec].gt + ismpl*jgts[irec].width;
+            int ncopy = 0;
+            while ( ncopy<jgts[irec].width && smpl_gt[ncopy]!=bcf_int32_vector_end )
+            {
+                if ( ncopy && !bcf_gt_is_phased(smpl_gt[ncopy]) ) is_phased[ismpl] = 0;
+                if ( !bcf_gt_is_missing(smpl_gt[ncopy]) )
+                {
+                    int ial = bcf_gt_allele(smpl_gt[ncopy]);
+                    if ( ial<0 || ial>=rec->n_allele )
+                        error("Error: invalid GT allele index at %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,rec),rec->pos+1);
+
+                    // a star is an overlapping allele placeholder, never sequence; phased 0|* becomes 0|.
+                    if ( !strcmp(rec->d.allele[ial],"*") ) smpl_gt[ncopy] = bcf_gt_is_phased(smpl_gt[ncopy]) ? bcf_gt_phased(-1) : bcf_gt_missing;
+                }
+                ncopy++;
+            }
+            if ( !ncopy || (irec && ncopy!=smpl_ploidy[ismpl]) )
+                error("Error: inconsistent ploidy for sample %s at %s:%"PRIhts_pos"\n",buf->hdr->samples[ismpl],bcf_seqname(buf->hdr,rec),rec->pos+1);
+            smpl_ploidy[ismpl] = ncopy;
+            if ( ncopy>max_ploidy ) max_ploidy = ncopy;
+        }
+    }
+
+    // mark duplicate VCF records (pos,ref,alt) so they don't mess up deatomization
+    hts_expand(int32_t,max_ploidy,blk->malt_indices,blk->alt_indices);
+    int duplicates_ready = 0;
+    for (ismpl=0; ismpl<nsmpl; ismpl++)
+    {
+        if ( is_phased[ismpl] ) continue;
+        if ( !duplicates_ready )
+        {
+            // run only once and only for unphased data, so that two 0/1 records with the same pos can become 1/2
+            _abuf_join_find_duplicates(blk);
+            duplicates_ready = 1;
+        }
+        // check consistency and reorder alleles in sample's GTs, favors cis placement
+        _abuf_join_assign_unphased(buf,ismpl);
+    }
+
+    if ( max_ploidy>INT_MAX/nsmpl ) error("Error: too many genotype copies to join\n");
+    blk->ngt = nsmpl*max_ploidy;
+    hts_expand(int32_t,blk->ngt,blk->mjoined_gt,blk->joined_gt);
+    hts_expand(join_edit_t,blk->nrec,blk->medits,blk->edits);
+    hts_expand(uint8_t,ref_len,blk->mcovered,blk->covered);
+    join_edit_t *edits = blk->edits;
+    uint8_t *covered = blk->covered;
+    kstring_t *seq = &blk->seq;
+    for (ismpl=0; ismpl<nsmpl; ismpl++)
+    {
+        for (icopy=0; icopy<max_ploidy; icopy++)
+        {
+            int32_t *out_call = blk->joined_gt + (size_t)ismpl*max_ploidy+icopy;
+            if ( icopy>=smpl_ploidy[ismpl] ) { *out_call = bcf_int32_vector_end; continue; }
+
+            // check which ref bases are accounted for by the this chromosomal copy across records,
+            // collect changes that need to be applied to ref
+            int nedit = 0;
+            memset(covered,0,ref_len);
+            for (irec=0; irec<blk->nrec; irec++)
+            {
+                bcf1_t *rec = blk->rec[irec];
+                int32_t gt_call = jgts[irec].gt[ismpl*jgts[irec].width+icopy];
+                if ( bcf_gt_is_missing(gt_call) ) continue;
+                int ref_offset = rec->pos-new_pos, record_ref_len = strlen(rec->d.allele[0]);
+                memset(covered+ref_offset,1,record_ref_len);
+                int ial = bcf_gt_allele(gt_call);
+                if ( !ial ) continue;
+                if ( _abuf_join_edit(rec->d.allele[0],rec->d.allele[ial],ref_offset,&edits[nedit]) ) nedit++;
+            }
+            qsort(edits,nedit,sizeof(*edits),_abuf_join_edit_cmp);  // sort edits by position
+
+            // build one chr copy from the edits
+            seq->l = 0;
+            int ref_end = 0, nunique = 0;   // ref_end: how much ref has been consumed; nunique: number of accepted edits
+            for (iedit=0; iedit<nedit; iedit++)
+            {
+                join_edit_t *edit = &edits[iedit];
+                join_edit_t *prev = nunique ? &edits[nunique-1] : NULL;
+
+                // skip duplicates
+                int same_span = prev && edit->beg==prev->beg && edit->end==prev->end;
+                if ( same_span && edit->len==prev->len && !strncasecmp(edit->alt,prev->alt,edit->len) ) continue;
+
+                // Overlapping substitutions can share bases if they agree.
+                // Keep only the suffix not already represented in the sequence.
+                if ( same_span || edit->beg<ref_end )
+                {
+                    if ( _abuf_join_conflicts(edits,nunique,edit) )
+                        error("Error: conflicting overlapping alleles for sample %s at %s:%"PRIhts_pos"\n",
+                              buf->hdr->samples[ismpl],bcf_seqname(buf->hdr,blk->rec[0]),new_pos+edit->beg+1);
+                    if ( edit->end<=ref_end ) continue;
+                    int skip = ref_end-edit->beg;
+                    edit->beg += skip;
+                    edit->alt += skip;
+                    edit->len -= skip;
+                }
+
+                // process the accepted edit
+                kputsn(new_ref+ref_end,edit->beg-ref_end,seq);  // unchanged REF before the edit
+                kputsn(edit->alt,edit->len,seq);                // replacement sequence
+                ref_end = edit->end;                            // skip replaced REF
+                edits[nunique++] = *edit;
+            }
+            kputsn(new_ref+ref_end,ref_len-ref_end,seq);        // append ref after the last edit
+
+            if ( !seq->l )
+                error("Error: empty joined allele for sample %s at %s:%"PRIhts_pos"\n", buf->hdr->samples[ismpl],bcf_seqname(buf->hdr,blk->rec[0]),new_pos+1);
+
+            // handle missing calls caused by overlapping variants during `-a --atom-overlaps .`
+            // - if a non-star ALT candidate from a record with a missing genotype conflicts a called ALT edit on the same copy, mark it as covered
+            for (irec=0; irec<blk->nrec; irec++)
+            {
+                if ( !bcf_gt_is_missing(jgts[irec].gt[ismpl*jgts[irec].width+icopy]) ) continue;
+                bcf1_t *rec = blk->rec[irec];
+                int ial, ref_offset = rec->pos-new_pos;
+                for (ial=1; ial<rec->n_allele; ial++)
+                {
+                    if ( !strcmp(rec->d.allele[ial],"*") ) continue;
+                    join_edit_t query;
+                    if ( !_abuf_join_edit(rec->d.allele[0],rec->d.allele[ial],ref_offset,&query) ) continue;    // ref,alt are identical, no change to apply?
+                    if ( !_abuf_join_conflicts(edits,nunique,&query) ) continue;
+                    memset(covered+ref_offset,1,strlen(rec->d.allele[0]));
+                    break;
+                }
+            }
+            int ial = -1;
+            if ( !memchr(covered,0,ref_len) )
+                ial = !strcasecmp(seq->s,new_ref) ? 0 : _abuf_join_add_alt(blk,seq->s);
+            *out_call = icopy && is_phased[ismpl] ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
+        }
+    }
+}
+
+// Finalize the block and queue its output. Singletons pass through unchanged.
+static void _abuf_join_close(abuf_t *buf)
+{
+    join_t *blk = &buf->join;
+    int irec, ial;
+
+    if ( blk->nrec<=0 ) return;
+    if ( blk->nrec==1 )
+    {
+        bcf1_t *out = _abuf_new_rec(buf);
+        bcf_copy(out, blk->rec[0]);
+        bcf_unpack(out, BCF_UN_ALL);
+        blk->nrec = 0;
+        return;
+    }
+
+    // join receives records sorted by their normalized positions.
+    bcf1_t *first_rec = blk->rec[0];
+    hts_pos_t new_pos = first_rec->pos;
+    if ( blk->end<=new_pos || blk->end-new_pos>=INT_MAX )
+        error("Error: invalid joined REF span at %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,first_rec),new_pos+1);
+    int ref_len = blk->end-new_pos;
+
+    // Only GT is copied to the merged record; warn once about discarded fields.
+    static int warned = 0;
+    int has_gt = bcf_get_fmt(buf->hdr,first_rec,"GT")!=NULL;
+    for (irec=0; irec<blk->nrec; irec++)
+    {
+        bcf1_t *rec = blk->rec[irec];
+        int rec_has_gt = bcf_get_fmt(buf->hdr,rec,"GT")!=NULL;
+        if ( rec_has_gt!=has_gt )
+            error("Error: records to be joined must either all have FORMAT/GT or all lack it, "
+                    "see %s:%"PRIhts_pos" and %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,first_rec),first_rec->pos+1,bcf_seqname(buf->hdr,rec),rec->pos+1);
+        if ( rec->n_fmt>rec_has_gt && !warned )
+        {
+            fprintf(stderr,"Warning: dropping FORMAT fields other than GT from joined records\n");
+            warned = 1;
+        }
+    }
+
+    // Overlapping or touching REF spans cover the block without gaps.
+    // Copy their bases, checking that overlapping records agree.
+    if ( ks_resize(&blk->ref,(size_t)ref_len+1)<0 ) error("Error: could not allocate joined REF sequence\n");
+    blk->ref.l = ref_len;
+    char *ref = blk->ref.s;
+    memset(ref,0,(size_t)ref_len+1);
+    for (irec=0; irec<blk->nrec; irec++)
+    {
+        bcf1_t *rec = blk->rec[irec];
+        int ref_offset = rec->pos - new_pos;
+        int ibase;
+        for (ibase=0; rec->d.allele[0][ibase]; ibase++)
+        {
+            char base = rec->d.allele[0][ibase];
+            if ( ref[ref_offset+ibase] && toupper_c(ref[ref_offset+ibase])!=toupper_c(base) )
+                error("Error: inconsistent REF at %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,rec),rec->pos+ibase+1);
+            ref[ref_offset+ibase] = base;
+        }
+    }
+
+    blk->nalt = blk->ngt = 0;
+    if ( has_gt )
+        _abuf_join_genotypes(buf);
+    else
+        _abuf_join_greedy(blk);
+
+    bcf1_t *out = _abuf_new_rec(buf);
+    out->rid = first_rec->rid;
+    out->pos = new_pos;
+    bcf_update_id(buf->out_hdr, out, ".");
+
+    kstring_t *allele_str = &blk->allele_str;
+    allele_str->l = 0;
+    kputs(ref, allele_str);
+    for (ial=0; ial<blk->nalt; ial++)
+    {
+        kputc(',',allele_str);
+        kputs(blk->alt[ial].s,allele_str);
+    }
+    if ( !blk->nalt ) kputs(",.", allele_str);
+    bcf_update_alleles_str(buf->out_hdr, out, allele_str->s);
+
+    bcf_float_set_missing(out->qual);
+    bcf_update_filter(buf->out_hdr, out, NULL, 0);
+    if ( has_gt ) bcf_update_genotypes(buf->out_hdr, out, blk->joined_gt, blk->ngt);
+    else out->n_sample = first_rec->n_sample;
+
+    blk->nrec = 0;
+}
+
+static void _abuf_join(abuf_t *buf, bcf1_t *rec)
+{
+    join_t *blk = &buf->join;
+    hts_pos_t end = rec->pos + (hts_pos_t)strlen(rec->d.allele[0]);   // 0-based, exclusive
+
+    if ( blk->nrec && rec->rid==blk->rec[blk->nrec-1]->rid && rec->pos<blk->rec[blk->nrec-1]->pos )
+        error("Error: join requires position-sorted records, see %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,rec),rec->pos+1);
+
+    // SNVs and MNVs can extend a substitution block; other variant types end it.
+    int can_join = 1;
+    if ( blk->snvs_only ) can_join = bcf_has_variant_types(rec, VCF_SNP|VCF_MNP, bcf_match_subset) > 0;
+    int ial;
+    for (ial=0; can_join && ial<rec->n_allele; ial++)
+    {
+        if ( ial && !strcmp(rec->d.allele[ial],"*") ) continue;
+        if ( strspn(rec->d.allele[ial],"ACGTNacgtn")!=strlen(rec->d.allele[ial]) ) can_join = 0;
+    }
+    if ( !can_join )
+    {
+        _abuf_join_close(buf);
+        bcf_copy(_abuf_new_rec(buf),rec);
+        return;
+    }
+
+    if ( blk->nrec && (rec->rid!=blk->rec[0]->rid || rec->pos>blk->end) ) _abuf_join_close(buf);
+
+    hts_expand0(bcf1_t*,blk->nrec+1,blk->mrec,blk->rec);
+    if ( !blk->rec[blk->nrec] ) blk->rec[blk->nrec] = bcf_init1();
+    bcf_copy(blk->rec[blk->nrec], rec);
+    bcf_unpack(blk->rec[blk->nrec], BCF_UN_ALL);
+    if ( !blk->nrec || end>blk->end ) blk->end = end;
+    blk->nrec++;
+}
+
 void abuf_push(abuf_t *buf, bcf1_t *rec)
 {
     bcf_unpack(rec, BCF_UN_ALL);
     if ( buf->mode==SPLIT ) _abuf_split(buf,rec);
+    else if ( buf->mode==JOIN ) _abuf_join(buf,rec);
 }
 
 bcf1_t *abuf_flush(abuf_t *buf, int flush_all)
 {
-    int i;
+    if ( flush_all && buf->mode==JOIN && buf->join.nrec ) _abuf_join_close(buf);
 
     if ( buf->rbuf.n==0 ) return NULL;
-    if ( flush_all ) goto ret;
-
-ret:
-    i = rbuf_shift(&buf->rbuf);
+    int i = rbuf_shift(&buf->rbuf);
     return buf->vcf[i];
 }
 

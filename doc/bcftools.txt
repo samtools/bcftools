@@ -2703,6 +2703,23 @@ split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows. Left-alignment and normalization will only be applied if
 the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
+*-A, --deatomize* 'EXPR'::
+    Join atomic variants using the strategy specified by 'EXPR':
+    'all' joins overlapping and adjacent records;
+    'snvs' joins SNVs and MNVs. In the 'snvs'
+    mode, indels, reference-only records, star alleles and other
+    variant types pass through unchanged and end the current block.
+    Joining runs after normalization and position sorting.
+    In merged records, currently only FORMAT/GT
+    is reconstructed; other FORMAT fields are dropped with a one-time warning
+    and ID, QUAL, FILTER and INFO are reset to missing.
+    +
+    Joining is not a lossless inverse of atomization. Phased GTs must refer
+    to the same phase set across the block; PS values are not checked.
+    Unphased GTs use a deterministic heuristic: ALT copies occupy the rightmost
+    available slots within each position group.
+    Without GT, ALTs are concatenated greedily in input order.
+
 *-a, --atomize*::
     Decompose complex variants, e.g. split MNVs into consecutive SNVs.
     See also *--atom-overlaps* and *--old-rec-tag*.

@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2021 Genome Research Ltd.
+   Copyright (c) 2021-2026 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -45,8 +45,11 @@ typedef enum
     JOIN,
 
     BCF_HDR,        // should the records be annotated, a writable bcf header is required
-    INFO_TAG,       // set BCF_HDR first
-    STAR_ALLELE     // 1: use STAR allele (the default), 0: set overlaps to missing
+    INFO_TAG,       // store CHR|POS|REF|ALT|USED_ALT_IDX of the original variant; must set BCF_HDR first
+    STAR_ALLELE,    // 1: use STAR allele (the default), 0: set overlaps to missing
+
+    // these are likely to change upon extension
+    SNVS_ONLY       // 1: join only SNVs and MNVs with overlapping or touching REF spans
 }
 abuf_opt_t;
 

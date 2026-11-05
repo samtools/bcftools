@@ -1,0 +1,5 @@
+##fileformat=VCFv4.3
+##contig=<ID=11,length=135086622>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+11	101	.	G	C	199	PASS	.
+11	101	.	G	T	199	PASS	.

@@ -129,7 +129,8 @@ typedef struct
     int record_cmd_line, force, force_warned, keep_sum_ad;
     progress_t *progress;
     abuf_t *abuf;
-    abuf_opt_t atomize;
+    abuf_opt_t abuf_mode;
+    int snvs_only;
     int use_star_allele, ma_use_ref_allele;
     char *old_rec_tag;
     htsFile *out;
@@ -2376,6 +2377,21 @@ static void write_norm_record(args_t *args, htsFile *file, bcf1_t *line, int pas
     args->ncase_changed += changed;
 }
 
+static void join_or_write(args_t *args, htsFile *file, bcf1_t *line, int pass)
+{
+    if ( args->abuf_mode!=JOIN )
+    {
+        write_norm_record(args,file,line,pass);
+        return;
+    }
+    // JOIN receives records sorted by their normalized positions.
+    // An excluded record closes the block before passing through unchanged.
+    bcf1_t *out;
+    if ( pass ) abuf_push(args->abuf,line);
+    while ( (out=abuf_flush(args->abuf,!pass)) ) write_norm_record(args,file,out,1);
+    if ( !pass ) write_norm_record(args,file,line,0);
+}
+
 static void flush_buffer(args_t *args, htsFile *file, int n)
 {
     bcf1_t *line;
@@ -2386,7 +2402,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
         k = rbuf_shift(&args->rbuf);
         if ( !args->lines[k].pass )
         {
-            write_norm_record(args,file,args->lines[k].rec,0);
+            join_or_write(args,file,args->lines[k].rec,0);
             continue;
         }
         if ( args->mrows_op==MROWS_MERGE )
@@ -2419,7 +2435,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             prev_type |= line_type;
             if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args,&args->cmpals_out, args->lines[k].rec);
         }
-        write_norm_record(args,file,args->lines[k].rec,1);
+        join_or_write(args,file,args->lines[k].rec,1);
     }
     if ( args->mrows_op==MROWS_MERGE && !args->rbuf.n )
     {
@@ -2465,16 +2481,23 @@ static void init_data(args_t *args)
                 "Warning: the tag INFO/SVLEN must be defined as Number=A in order for the field to be split\n"
                 "         (the command `bcftools reheader` can be used to fix the header)\n");
     }
-    if ( args->atomize==SPLIT )
+    if ( args->abuf_mode!=NONE )
     {
-        args->abuf = abuf_init(args->hdr, SPLIT);
+        args->abuf = abuf_init(args->hdr, args->abuf_mode);
         abuf_set_opt(args->abuf, bcf_hdr_t*, BCF_HDR, args->out_hdr);
-        if ( args->old_rec_tag )
+        if ( args->abuf_mode==JOIN )
         {
-            abuf_set_opt(args->abuf, const char*, INFO_TAG, args->old_rec_tag);
-            if ( bcf_hdr_sync(args->out_hdr)!=0 ) error("bcf_hdr_sync failed\n");
+            abuf_set_opt(args->abuf, int, SNVS_ONLY, args->snvs_only);
         }
-        abuf_set_opt(args->abuf, int, STAR_ALLELE, args->use_star_allele);
+        if ( args->abuf_mode==SPLIT )
+        {
+            if ( args->old_rec_tag )
+            {
+                abuf_set_opt(args->abuf, const char*, INFO_TAG, args->old_rec_tag);
+                if ( bcf_hdr_sync(args->out_hdr)!=0 ) error("bcf_hdr_sync failed\n");
+            }
+            abuf_set_opt(args->abuf, int, STAR_ALLELE, args->use_star_allele);
+        }
     }
     if ( args->gff_fname )
     {
@@ -2588,16 +2611,16 @@ static int normalize_line(args_t *args, bcf1_t *line)
         }
     }
 
-    if ( args->filter_pass && args->atomize==SPLIT ) abuf_push(args->abuf,line);
+    if ( args->filter_pass && args->abuf_mode==SPLIT ) abuf_push(args->abuf,line);
     while (1)
     {
-        if ( args->filter_pass && args->atomize==SPLIT )
+        if ( args->filter_pass && args->abuf_mode==SPLIT )
         {
             line = abuf_flush(args->abuf, 0);
             if ( !line ) break;
         }
 
-        // insert into sorted buffer
+        // insert line into sorted buffer
         rbuf_expand0(&args->rbuf,line_t,args->rbuf.n+1,args->lines);
         int i,j;
         i = j = rbuf_append(&args->rbuf);
@@ -2614,7 +2637,7 @@ static int normalize_line(args_t *args, bcf1_t *line)
             }
             j = i;
         }
-        if ( !args->filter_pass || args->atomize!=SPLIT ) break;
+        if ( !args->filter_pass || args->abuf_mode!=SPLIT ) break;
     }
     return 0;
 }
@@ -2718,6 +2741,11 @@ static void normalize_vcf(args_t *args)
         if ( j>0 ) flush_buffer(args, args->out, j);
     }
     flush_buffer(args, args->out, args->rbuf.n);
+    if ( args->abuf_mode==JOIN )
+    {
+        bcf1_t *line;
+        while ( (line=abuf_flush(args->abuf,1)) ) write_norm_record(args,args->out,line,1);
+    }
     if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     if ( args->write_index )
     {
@@ -2746,6 +2774,9 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools norm [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -A, --deatomize EXPR            Join atomic variants using the specified strategy (EXPERIMENTAL)\n");
+    fprintf(stderr, "                                       all  .. adjacent or overlapping records (only FORMAT/GT for now)\n");
+    fprintf(stderr, "                                       snvs .. join adjacent or overlapping SNVs and MNVs\n");
     fprintf(stderr, "    -a, --atomize                   Decompose complex variants (e.g. MNVs become consecutive SNVs)\n");
     fprintf(stderr, "        --atom-overlaps '*'|.       Use the star allele (*) for overlapping alleles or set to missing (.) [*]\n");
     fprintf(stderr, "    -c, --check-ref ACTION          Check REF and control allele case [e]\n");
@@ -2850,6 +2881,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"help",no_argument,NULL,'h'},
         {"force",no_argument,NULL,7},
         {"atomize",no_argument,NULL,'a'},
+        {"deatomize",required_argument,NULL,'A'},
         {"atom-overlaps",required_argument,NULL,11},
         {"include",required_argument,NULL,'i'},
         {"exclude",required_argument,NULL,'e'},
@@ -2886,7 +2918,7 @@ int main_vcfnorm(int argc, char *argv[])
         {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN::ag:W::v:S:i:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN::aA:g:W::v:S:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case  10:
                 // possibly generalize this also to INFO/AD and other tags
@@ -2900,7 +2932,17 @@ int main_vcfnorm(int argc, char *argv[])
                 if ( *tmp || args->verbose<0 ) error("Could not parse argument: --verbosity %s\n", optarg);
                 if ( args->verbose > 3 ) hts_verbose = args->verbose;
                 break;
-            case 'a': args->atomize = SPLIT; break;
+            case 'a':
+                if ( args->abuf_mode==JOIN ) error("Cannot combine --atomize with --deatomize\n");
+                args->abuf_mode = SPLIT;
+                break;
+            case 'A':
+                if ( args->abuf_mode==SPLIT ) error("Cannot combine --atomize with --deatomize\n");
+                if ( strcasecmp(optarg,"all") && strcasecmp(optarg,"snvs") )
+                    error("Error: the --deatomize expression \"%s\" is not recognised, expected all or snvs\n",optarg);
+                args->abuf_mode = JOIN;
+                args->snvs_only = !strcasecmp(optarg,"snvs");
+                break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
@@ -3023,13 +3065,16 @@ int main_vcfnorm(int argc, char *argv[])
     }
     else fname = argv[optind];
 
+    if ( args->abuf_mode==JOIN && args->mrows_op==MROWS_MERGE )
+        error("Cannot combine --deatomize with -m+; run them separately\n");
+
     // Keep mismatch actions separate from case handling: e overrides w/x/s.
     if ( args->check_ref & CHECK_REF_EXIT ) args->check_ref = CHECK_REF_EXIT;
     if ( !args->check_ref && args->ref_fname ) args->check_ref = CHECK_REF_EXIT;
     if ( !args->ref_fname && (args->check_ref || args->allele_case==ALLELE_CASE_FASTA) )
         error("The requested --check-ref action requires --fasta-ref\n");
-    if ( !args->ref_fname && !args->mrows_op && !args->rmdup && args->atomize==NONE && args->allele_case==ALLELE_CASE_KEEP )
-        error("Expected -a, -f, -m, -D, -d or --check-ref C\n");
+    if ( !args->ref_fname && !args->mrows_op && !args->rmdup && args->abuf_mode==NONE && args->allele_case==ALLELE_CASE_KEEP )
+        error("Expected -a, -A, -f, -m, -D, -d or --check-ref C\n");
 
     if ( args->region )
     {
