@@ -953,7 +953,8 @@ static int mpileup(mplp_conf_t *conf)
             fprintf(stderr, "Note: The maximum per-sample depth with -d %d is %.1fx\n", conf->max_depth,(double)conf->max_depth * conf->nfiles / nsmpl);
     }
     bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
-    conf->max_indel_depth = conf->max_indel_depth * nsmpl;
+    int64_t max_indel_depth = (int64_t)conf->max_indel_depth * nsmpl;
+    conf->max_indel_depth = max_indel_depth > INT_MAX ? INT_MAX : max_indel_depth;
     conf->bcf_rec = bcf_init1();
     bam_mplp_constructor(conf->iter, pileup_constructor);
     bam_mplp_destructor(conf->iter, pileup_destructor);
@@ -1301,7 +1302,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -h, --tandem-qual INT   Coefficient for homopolymer errors [%d]\n", mplp->tandemQ);
     fprintf(fp,
         "  -I, --skip-indels       Do not perform indel calling\n"
-        "  -L, --max-idepth INT    Maximum per-file depth for INDEL calling [%d]\n", mplp->max_indel_depth);
+        "  -L, --max-idepth INT    Maximum average per-sample depth for INDEL calling [%d]\n", mplp->max_indel_depth);
     fprintf(fp,
         "  -m, --min-ireads INT    Minimum number gapped reads for indel candidates [%d]\n", mplp->min_support);
     fprintf(fp,
