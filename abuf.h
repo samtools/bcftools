@@ -49,12 +49,24 @@ typedef enum
     STAR_ALLELE,    // 1: use STAR allele (the default), 0: set overlaps to missing
 
     // these are likely to change upon extension
-    SNVS_ONLY       // 1: join only SNVs and MNVs with overlapping or touching REF spans
+    SNVS_ONLY,      // 1: join only SNVs and MNVs with overlapping or touching REF spans
+
+    // read-only values, to be retrieved with abuf_get() or abuf_get_val()
+    N_JOINED        // uint64_t; number of output records joining two or more input records
 }
 abuf_opt_t;
 
 #define abuf_set_opt(buf,type,key,value) { type tmp = value; abuf_set(buf, key, (void*)&tmp); }
 void abuf_set(abuf_t *buf, abuf_opt_t key, void *value);
+
+/*
+ *  abuf_get()     - return a pointer to the requested value, or NULL for an unsupported key
+ *  abuf_get_val() - wrapper returning a typed value; see abuf_opt_t for the type
+ *
+ *  The returned pointer is owned by abuf and must not be freed or modified.
+ */
+void *abuf_get(abuf_t *buf, abuf_opt_t key);
+#define abuf_get_val(buf,type,key) (*(type*)abuf_get(buf, key))
 
 /*
  *  abuf_init() - init buffer

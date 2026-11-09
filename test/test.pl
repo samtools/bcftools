@@ -301,6 +301,8 @@ run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.1.ou
 run_test(\&test_vcf_query,$opts,in=>'query.filter-or',out=>'query.filter-or.2.out',args=>q[-f'[%SAMPLE %DP\\n]' -i'DP=1 |  DP=2']);
 # JOIN: reconstruct overlapping or touching variants; unphased calls use a heuristic.
 run_test(\&test_atomize_join,$opts);
+run_test(\&test_atomize_join_issues,$opts);
+run_test(\&test_atomize_join_summary,$opts);
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.multiallelic',out=>'atomize.join.multiallelic.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.adjacent_phased_snvs',out=>'atomize.join.adjacent_phased_snvs.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.adjacent_snvs_no_gt',out=>'atomize.join.adjacent_snvs_no_gt.out',args=>'-A all');
@@ -311,8 +313,8 @@ run_test(\&test_vcf_norm,$opts,in=>'atomize.join.gap_between_snvs_control',out=>
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.indel_snv_overlap',out=>'atomize.join.indel_snv_overlap.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.multicontig_boundary',out=>'atomize.join.multicontig_boundary.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.phased_multisample',out=>'atomize.join.phased_multisample.out',args=>'-A all');
-run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_multisample_limitation',args=>'-A all',expected_failure=>1,expected_error=>'conflicting overlapping alleles');
-run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_overlap_caveat',args=>'-A all',expected_failure=>1,expected_error=>'conflicting overlapping alleles');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_multisample_limitation',out=>'atomize.join.unphased_multisample_limitation.out',args=>'-A all');
+run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_overlap_caveat',out=>'atomize.join.unphased_overlap_caveat.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.unphased_compound_het',out=>'atomize.join.unphased_compound_het.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'atomize.join.mixed_format',out=>'atomize.join.mixed_format.out',args=>'-A all');
 run_test(\&test_vcf_norm,$opts,in=>'norm.atom-multiallelic',out=>'norm.atom-multiallelic.out',args=>qq[-a --atom-overlaps .]);
@@ -1753,6 +1755,19 @@ sub test_atomize_join
     # Expectations are haplotype sequences computed from the input, not snapshots
     # of the implementation. Keep failures specific so a crash cannot pass.
     my @tests = (
+        [ 'combined-GT00', 'A', "10 ATCT A 0/0\n12 CT TC 0/0", "10 ATCT . 0/0\n"],
+        [ 'combined-GT10', 'A', "10 ATCT A 1|0\n12 CT TC 0|1", "10 ATCT A,ATTC 1|2\n"],
+        [ 'combined-GT01', 'A', "10 ATCT A 0|1\n12 CT TC 1|0", "10 ATCT ATTC,A 1|2\n"],
+        [ 'combined-GT01-unphased', 'A', "10 ATCT A 0/1\n12 CT TC 0/1", "10 ATCT ATTC,A 1/2\n"],
+        [ 'unphased-overlapping-trans', 'A', "10 ATCT A 0/1\n12 CT TC 0/1", "10\tATCT\tATTC,A\t1/2\n" ],
+        [ 'unphased-overlapping-trans-reversed', 'A', "10 ATCT A 1/0\n12 CT TC 1/0", "10\tATCT\tATTC,A\t1/2\n" ],
+        [ 'unphased-overlapping-no-copy', 'A', "10 ATCT A 1/1\n12 CT TC 0/1", undef, '', 'cannot assign unphased ALT copies' ],
+        [ 'unphased-overlapping-phased-conflict', 'A', "10 ATCT A 0|1\n12 CT TC 0|1", undef, '', 'conflicting overlapping alleles' ],
+        [ 'unphased-overlapping-multiallelic', 'A', "10 AT A 0/1\n11 T G,C 1/2", undef, '', 'cannot assign unphased ALT copies' ],
+        [ 'unphased-overlapping-triploid', 'A', "10 AT A 0/0/1\n11 T G,C 0/1/2", "10\tAT\tAG,AC,A\t1/2/3\n" ],
+        [ 'unphased-overlapping-group-duplicates', 'A', "10 ATCT A 0/1\n12 CT TC 0/1\n12 CT TC 1/0", "10\tATCT\tATTC,A\t1/2\n" ],
+        [ 'unphased-joint-position-assignment', 'A', "10 AT CG,CA 1/2\n11 T A 0/1\n11 TG T 0/1\n11 TG T 1/0", "10\tATG\tCG,CAG\t1/2\n" ],
+        [ 'unphased-overlapping-compatible', 'A', "10 AT CG 0/1\n11 T G 0/1", "10\tAT\tCG\t0/1\n" ],
         [ 'multiallelic-unphased', 'A', "10 A C,G 1/2\n11 T C 0/0", "10\tAT\tCT,GT\t1/2\n" ],
         [ 'mixed-ploidy', 'A B C', "10 A C 1 0/1 0|1|1\n11 T G 1 1/1 1|0|1", "10\tAT\tCG,AG,CT\t1\t2/1\t2|3|1\n" ],
         [ 'partial-phase', 'A', "10 A C 0|1/0\n11 T G 0|0/1", "10\tAT\tCG\t0/0/1\n" ],
@@ -1839,6 +1854,11 @@ sub test_atomize_join
     {
         my ($mode,$test_case) = @$case;
         my ($name,$samples,$rows,$expected,$args,$expected_error,$no_format) = @$test_case;
+        if ( defined $expected )
+        {
+            $expected =~ s/[ \t]+/\t/g;
+            $expected =~ s/\n*\z/\n/;
+        }
         $args //= '';
         my $vcf = "$$opts{tmp}/join.$name.vcf";
         open my $vcf_fh,'>',$vcf or error("$vcf: $!");
@@ -1906,6 +1926,52 @@ sub test_atomize_join
     test_cmd($opts,out=>'join.cli.out',
         cmd=>"$$opts{bin}/bcftools norm -A snvs $$opts{tmp}/join.snvs-non-snv-format.vcf -Ou | $$opts{bin}/bcftools query -i 'POS=11' -f '%REF\t%ALT[\t%GT\t%DP]\n'",
         exp=>"T\tTG\t1|0\t20\n");
+}
+
+sub test_atomize_join_issues
+{
+    my ($opts) = @_;
+    # #1724: independent left-alignment makes the two deletions overlap on
+    # haploid sample a4. Keep the unresolved case explicit, with its diagnostic.
+    # Copy the FASTA so the generated index stays in the temporary directory.
+    my $fasta = "$$opts{tmp}/join.issue1724.fa";
+    cmd("cp $$opts{path}/atomize.join.issue1724.fa $fasta");
+    test_cmd($opts,out=>'join.issue1724.out',
+        cmd=>"$$opts{bin}/bcftools norm -f $fasta -A all $$opts{path}/atomize.join.issue1724.vcf",
+        expected_failure=>1,expected_error=>'conflicting overlapping alleles for sample a4 at a1:4');
+
+    # #1886: joining reconstructs called haplotypes, so the unused ALTs in
+    # these two 0/0 records are discarded rather than recovered as multiallelics.
+    test_cmd($opts,out=>'join.issue1886.out',
+        cmd=>"$$opts{bin}/bcftools norm -A all $$opts{path}/atomize.join.issue1886.vcf | $$opts{bin}/bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%GT]\n'",
+        exp=>"chr7\t117559590\tATCT\t.\t0/0\n");
+}
+
+sub test_atomize_join_summary
+{
+    my ($opts) = @_;
+    my $vcf = "$$opts{tmp}/join.summary.vcf";
+    open my $fh,'>',$vcf or error("$vcf: $!");
+    print $fh "##fileformat=VCFv4.3\n##contig=<ID=2,length=100>\n##contig=<ID=1,length=100>\n";
+    print $fh "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
+    for my $row ('2 10 A C','2 11 T G','2 12 G A','2 20 A C',
+                 '2 30 A C','2 31 T TG','2 32 G A','2 40 A C','2 41 T <DEL>',
+                 '1 10 A C','1 11 T G')
+    {
+        my ($chr,$pos,$ref,$alt) = split / /,$row;
+        print $fh join("\t",$chr,$pos,'.',$ref,$alt,'.','.','.'),"\n";
+    }
+    close $fh;
+    # Count merged output records, not consumed inputs. Include singletons,
+    # variant-type and contig boundaries, excluded records, and the EOF flush.
+    for my $case (['all','',3,0],['snvs','',2,0],
+                  ['all',q[-e 'POS=11'],1,2],['snvs',q[-e 'POS=11'],0,2])
+    {
+        my ($mode,$args,$njoined,$nexcluded) = @$case;
+        test_cmd($opts,out=>'join.summary.out',
+            cmd=>"$$opts{bin}/bcftools norm -A $mode $args $vcf -o $$opts{tmp}/join.summary.out.vcf 2>$$opts{tmp}/join.summary.log && grep '^Lines' $$opts{tmp}/join.summary.log",
+            exp=>"Lines   total/split/joined/realigned/mismatch_removed/dup_removed/skipped:\t11/0/$njoined/0/0/0/$nexcluded\n");
+    }
 }
 
 sub test_vcf_norm

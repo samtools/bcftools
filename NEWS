@@ -3,6 +3,10 @@
 
 Changes affecting specific commands:
 
+* bcftools norm
+
+    - Add new -A, --deatomize option (#327,#1724,#1886,#1843,#2229,#2438,#2460)
+
 * bcftools query
 
     - Fix `query -f '%TGT'` and `'%IUPACGT'` to work with sites with 64 or more

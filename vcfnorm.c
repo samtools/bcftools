@@ -2745,6 +2745,7 @@ static void normalize_vcf(args_t *args)
     {
         bcf1_t *line;
         while ( (line=abuf_flush(args->abuf,1)) ) write_norm_record(args,args->out,line,1);
+        args->njoined += abuf_get_val(args->abuf,uint64_t,N_JOINED);
     }
     if ( args->files->errnum ) error("Error: %s\n", bcf_sr_strerror(args->files->errnum));
     if ( args->write_index )
