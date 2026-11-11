@@ -1,0 +1,12 @@
+chr1	10	A	G	.	.	.	.	.	.	.	.	.	.	20,21	.	20,21	.	new
+chr1	20	A	G	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	20	A	G	.	.	.	.	.	.	.	.	.	30,31	40,41	30,31	40,41	first	second
+chr1	180	A	G	.	.	.	1	.	.	.	.	.	.	.	.	.	.	.
+chr1	180	A	G	new	20	new	.	1	20	20	new	181	20	20	20	20	new	new
+chr1	380	A	G	first	30	PASS	1	1	30	30	first	381	30	30	30	30	first	first
+chr1	380	A	G	second	40	new	0	0	40	40	second	380	40	40	40	40	second	second
+chr1	580	A	G	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	580	A	G	new	20	new	1	1	20	20	new	581	20	20	20	20	new	new
+chr1	780	A	G	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	1180	A	G	zero	0	PASS	0	0	0	0	zero	1181	0	0	0	0	zero	zero
+chr1	1180	A	G	second	40	new	1	1	40	40	second	1180	40	40	40	40	second	second

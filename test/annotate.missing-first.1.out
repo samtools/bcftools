@@ -1,0 +1,22 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=2000>
+##FILTER=<ID=old,Description="Existing filter">
+##FILTER=<ID=new,Description="Annotation filter">
+##INFO=<ID=A,Number=0,Type=Flag,Description="First flag">
+##INFO=<ID=B,Number=0,Type=Flag,Description="Second flag">
+##INFO=<ID=INT,Number=1,Type=Integer,Description="Integer control">
+##INFO=<ID=FLT,Number=1,Type=Float,Description="Float control">
+##INFO=<ID=STR,Number=1,Type=String,Description="String control">
+##FORMAT=<ID=FI,Number=.,Type=Integer,Description="Integer format">
+##FORMAT=<ID=FF,Number=.,Type=Float,Description="Float format">
+##FORMAT=<ID=FS,Number=1,Type=String,Description="String format">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	FIRST	SECOND
+chr1	10	.	A	G	.	.	.	FI:FF:FS	10:10:old	20,21:20,21:new
+chr1	20	.	A	G	.	.	.	FI:FF:FS	30,31:30,31:first	40,41:40,41:second
+chr1	180	new	A	G	20	new	A;B;INT=20;FLT=20;STR=new	FI:FF:FS	20:20:new	20:20:new
+chr1	380	first	A	G	30	PASS	A;B;INT=30;FLT=30;STR=first	FI:FF:FS	30:30:first	30:30:first
+chr1	580	new	A	G	20	new	A;B;INT=20;FLT=20;STR=new	FI:FF:FS	20:20:new	20:20:new
+chr1	780	old	A	G	10	old	A;B;INT=10;FLT=10;STR=old	FI:FF:FS	10:10:old	10:10:old
+chr1	980	old	A	G	10	old	A;B;INT=10;FLT=10;STR=old	FI:FF:FS	10:10:old	10:10:old
+chr1	1180	zero	A	G	0	PASS	INT=0;FLT=0;STR=zero	FI:FF:FS	0:0:zero	0:0:zero

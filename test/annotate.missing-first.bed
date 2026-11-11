@@ -1,0 +1,12 @@
+chr1	9	10	.	.	.	.	.	.	.	.	.	.	20,21	.	20,21	.	new
+chr1	19	20	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	19	20	.	.	.	.	.	.	.	.	.	30,31	40,41	30,31	40,41	first	second
+chr1	100	200	.	.	.	1	.	.	.	.	.	.	.	.	.	.	.
+chr1	150	300	new	20	new	.	1	20	20	new	181	20	20	20	20	new	new
+chr1	300	400	first	30	PASS	1	1	30	30	first	381	30	30	30	30	first	first
+chr1	350	500	second	40	new	0	0	40	40	second	380	40	40	40	40	second	second
+chr1	500	600	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	550	700	new	20	new	1	1	20	20	new	581	20	20	20	20	new	new
+chr1	700	800	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+chr1	1100	1200	zero	0	PASS	0	0	0	0	zero	1181	0	0	0	0	zero	zero
+chr1	1150	1300	second	40	new	1	1	40	40	second	1180	40	40	40	40	second	second

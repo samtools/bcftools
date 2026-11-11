@@ -3,6 +3,12 @@
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - Fix a bug where later overlapping annotations are ignored when an earlier
+      value is missing, and correct FORMAT handling of missing values and sample
+      mappings (#2616)
+
 * bcftools norm
 
     - Add new -A, --deatomize option (#327,#1724,#1886,#1843,#2229,#2438,#2460)
