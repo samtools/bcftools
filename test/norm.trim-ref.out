@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=norm.trim-ref.fa
+##contig=<ID=1,length=59>
+##INFO=<ID=XX,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2	.	C	.	.	.	.
+1	12	.	G	.	.	.	XX=1|12|GTTTT|
