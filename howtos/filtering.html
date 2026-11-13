@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.23">
+<meta name="generator" content="Asciidoctor 2.0.20">
 <title>Filtering</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -141,11 +141,11 @@ Using the same filtering expression directly with the <code>query</code> command
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>$ bcftools query -i'GT!="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+<pre>$ bcftools query -i'GT!="mis"' -f'%CHROM %POS [ %GT]\n' file.vcf | head -2
 1 3000150  0/1 1/1
 1 3000151  0|0 0|0
 
-$ bcftools query -e'GT="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+$ bcftools query -e'GT="mis"' -f'%CHROM %POS [ %GT]\n' file.vcf | head -2
 1 3000150  0/1 1/1
 1 3000151  0|0 0|0</pre>
 </div>

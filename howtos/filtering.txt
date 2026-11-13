@@ -45,11 +45,11 @@ Note we used `bcftools view .. | bcftools query ...` to filter first by site, th
 Using the same filtering expression directly with the `query` command would not work, because
 `query` excludes samples that do not satisfy the filtering expression
 ----
-$ bcftools query -i'GT!="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+$ bcftools query -i'GT!="mis"' -f'%CHROM %POS [ %GT]\n' file.vcf | head -2
 1 3000150  0/1 1/1
 1 3000151  0|0 0|0
 
-$ bcftools query -e'GT="mis"' f'%CHROM %POS [ %GT]\n' file.vcf | head -2
+$ bcftools query -e'GT="mis"' -f'%CHROM %POS [ %GT]\n' file.vcf | head -2
 1 3000150  0/1 1/1
 1 3000151  0|0 0|0
 ----
