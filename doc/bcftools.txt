@@ -4181,6 +4181,24 @@ they will evaluate to a vector of per-sample values when applied on FORMAT tags:
         SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM, SMPL_COUNT,
         sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM, sCOUNT
 
+* MAX, MIN, AVG, MEAN, MEDIAN, STDEV, and SUM accept an optional second argument
+  to select the samples used in the calculation. The first argument must be a
+  numeric FORMAT expression. Missing values are ignored and the result is missing
+  if no selected sample has a non-missing value. If the second argument is a site-only
+  expression (e.g., QUAL>20), all samples are included when the expression is true and
+  none when it is false.
+
+        MEAN(FMT/DP, GT!="mis")                 .. mean depth of samples with called genotypes
+        MEDIAN(FMT/DP, GT!="mis" & FMT/GQ>=20)  .. median depth of called, high-quality samples
+        SUM(sSUM(FMT/AD), GT="het")             .. total allelic depth of heterozygous samples
++
+The selection applies only to the aggregate and does not filter the record or
+the samples printed by *query*. Conversely, *query -i/-e* does not restrict the
+samples used by aggregates in the format string. For example:
+
+        bcftools query -f '%CHROM %POS %MEAN(FMT/DP,GT!="mis")\n' file.vcf
+        bcftools +fill-tags file.vcf -- -t 'MEAN_DP:1=MEAN(FMT/DP,GT!="mis")'
+
 * two-tailed binomial and fisher test. Note that for N=0 the test evaluates to a missing
   value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.

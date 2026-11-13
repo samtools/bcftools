@@ -1366,8 +1366,19 @@ static char *set_filter_expr(convert_t *convert, char *key, int is_gtf)
 {
     kstring_t str = {0,0,0};
     char *ptr = key;
-    while ( *ptr && *ptr!=')' ) ptr++;
-    if ( !*ptr ) error("Could not parse format string: %s\n",convert->format_str);
+    int depth = 0, quote = 0;
+    while ( *ptr )
+    {
+        if ( quote )
+        {
+            if ( *ptr==quote ) quote = 0;
+        }
+        else if ( *ptr=='"' || *ptr=='\'' ) quote = *ptr;
+        else if ( *ptr=='(' ) depth++;
+        else if ( *ptr==')' && --depth==0 ) break;
+        ptr++;
+    }
+    if ( !*ptr || quote ) error("Could not parse format string: %s\n",convert->format_str);
     kputsn(key, ptr-key+1, &str);
     register_tag(convert, str.s, is_gtf, T_FILTER_EXPR);
     free(str.s);
