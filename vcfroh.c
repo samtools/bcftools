@@ -188,7 +188,8 @@ static void init_data(args_t *args)
     }
 
     args->roh_smpl = smpl_ilist_init(args->hdr, args->samples, args->samples_is_file, SMPL_NONE|SMPL_VERBOSE);
-    if ( args->samples )
+    int af_needs_all_samples = args->estimate_AF && !args->af_smpl;     // AF estimation from all samples must retain them all
+    if ( args->samples && !af_needs_all_samples )
     {
         // we may be able to subset to a few samples, for a text VCF this can be a major speedup
         if ( (bcf_sr_get_reader(args->files,0))->file->format.format==vcf )
@@ -837,10 +838,20 @@ int process_line(args_t *args, bcf1_t *line, int ial)
     {
         // Use an INFO tag provided by the user
         ret = bcf_get_info_float(args->hdr, line, args->af_tag, &args->AFs, &args->mAFs);
-        if ( ret>0 )
-            alt_freq = args->AFs[ial-1];
         if ( ret==-2 )
             error("Type mismatch for INFO/%s tag at %s:%"PRId64"\n", args->af_tag, bcf_seqname(args->hdr,line), (int64_t) line->pos+1);
+        if ( ial <= 0 || ial > ret ) ret = -1;  // INFO/AF missing or had no value for ial
+        else
+        {
+            float af = args->AFs[ial-1];
+            if ( bcf_float_is_missing(af) || bcf_float_is_vector_end(af) ) ret = -1;
+            else
+            {
+                if ( !isfinite(af) || af < 0 || af > 1 )
+                    error("Invalid INFO/%s frequency at %s:%"PRId64"\n", args->af_tag, bcf_seqname(args->hdr,line), (int64_t) line->pos+1);
+                alt_freq = af;
+            }
+        }
     }
     else if ( args->af_fname )
     {
@@ -893,6 +904,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
     if ( args->fake_PLs )
     {
         if ( !GTs ) GTs = get_GT(args, line);
+        if ( !GTs ) return -1;  // GT absent from this record, or unsupported ploidy
     }
     else
     {

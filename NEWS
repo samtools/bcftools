@@ -18,6 +18,14 @@ Changes affecting specific commands:
     - Fix `query -f '%TGT'` and `'%IUPACGT'` to work with sites with 64 or more
       ALT alleles (#2613)
 
+* bcftools roh
+
+    - Fix --estimate-AF with -s/-S so that requesting frequencies from all samples
+      actually does as advertised
+
+    - Prevent out-of-bounds INFO AF access, including with --include-noalt;
+      handle missing AF values and reject invalid frequencies. Prevent a crash in
+      GT-only mode when a record lacks usable GT data.
 
 
 ## Release 1.25 (27th October 2026)
