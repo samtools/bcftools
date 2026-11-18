@@ -3509,6 +3509,14 @@ Transition probabilities:
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--include-noalt*::
+    include sites without an ALT allele
+
+*--noalt-PL* 'FLOAT'::
+    assumed PL of unseen genotypes at *--include-noalt* sites. Uses the
+    same genotype likelihood settings as *-G*, but only for ALT=. records.
+    Overridden by *-G*.
+
 *-I, --skip-indels*::
     skip indels as their genotypes are usually enriched for errors
 

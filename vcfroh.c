@@ -103,7 +103,7 @@ typedef struct _args_t
     int ntot;                   // some stats to detect if things didn't go wrong
     int nno_af;                 // number of sites rejected because AF could not be determined
     int nfiltered;              // .. because of filters
-    int nno_alt, nmultiallelic, ndup;
+    int nno_alt, nno_alt_used, nmultiallelic, ndup;
     smpl_t *smpl;               // HMM data for each sample
     smpl_ilist_t *af_smpl;      // list of samples to estimate AF from (--estimate-AF)
     smpl_ilist_t *roh_smpl;     // list of samples to analyze (--samples, --samples-file)
@@ -180,10 +180,10 @@ static void init_data(args_t *args)
                 error("Error: The FORMAT/GT tag not found in the header\n");
         }
     }
-    if ( args->fake_PLs )
+    if ( args->fake_PLs || args->include_noalt_sites )
     {
         args->gt_hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT");
-        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,args->gt_hdr_id) )
+        if ( args->fake_PLs && !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,args->gt_hdr_id) )
             error("Error: The FORMAT/GT tag not found in the header\n");
     }
 
@@ -831,6 +831,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
     double alt_freq;
     int8_t *GTs = NULL;
     bcf_fmt_t *fmt_pl = NULL;
+    int no_alt = line->n_allele==1;
 
     // Set allele frequency
     int ret = 0, i,j;
@@ -901,7 +902,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
     else if ( alt_freq==0.0 ) { args->nno_af++; return -1; }
 
     int irr = bcf_alleles2gt(0,0), ira = bcf_alleles2gt(0,ial), iaa = bcf_alleles2gt(ial,ial);
-    if ( args->fake_PLs )
+    if ( args->fake_PLs || no_alt )
     {
         if ( !GTs ) GTs = get_GT(args, line);
         if ( !GTs ) return -1;  // GT absent from this record, or unsupported ploidy
@@ -919,13 +920,14 @@ int process_line(args_t *args, bcf1_t *line, int ial)
 
         // set P(D|G)
         double pdg[3];
-        if ( args->fake_PLs )
+        if ( args->fake_PLs || no_alt )     // either relying on GTs (-G), or was given --include-noalt and this site is ALT=.
         {
             int8_t *gt = GTs + 2*ismpl;
             if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) continue;
 
             int a = bcf_gt_allele(gt[0]);
             int b = bcf_gt_allele(gt[1]);
+            if ( no_alt && !args->fake_PLs && (a!=0 || b!=0) ) continue;  // GT validity check, should never happen, or smpl not diploid
             if ( a!=b )
             {
                 pdg[0] = pdg[2] = args->unseen_PL;
@@ -968,6 +970,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
         if ( !sum ) continue;
         for (j=0; j<3; j++) pdg[j] /= sum;
         if ( args->skip_homref && pdg[0]>0.99 ) continue;
+        if ( no_alt && !args->fake_PLs ) args->nno_alt_used++;
 
         smpl_t *smpl = &args->smpl[i];
         smpl->nused++;
@@ -1085,6 +1088,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   HMM model for detecting runs of autozygosity.\n");
+    fprintf(stderr, "         Uses FORMAT/PL genotype likelihoods by default, or FORMAT/GT with -G.\n");
     fprintf(stderr, "Usage:   bcftools roh [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "General Options:\n");
@@ -1102,6 +1106,7 @@ static void usage(args_t *args)
     fprintf(stderr, "        --include EXPR               Select sites for which the expression is true\n");
     fprintf(stderr, "    -i, --ignore-homref              Skip hom-ref genotypes (0/0)\n");
     fprintf(stderr, "        --include-noalt              Include sites with no ALT allele (ignored by default)\n");
+    fprintf(stderr, "        --noalt-PL FLOAT             Assumed PL of unseen genotypes at --include-noalt sites, ignored with -G [30]\n");
     fprintf(stderr, "    -I, --skip-indels                Skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map FILE           Genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\"\n");
     fprintf(stderr, "                                       is replaced with chromosome name\n");
@@ -1143,6 +1148,7 @@ int main_vcfroh(int argc, char *argv[])
     args->t2AZ    = 6.7e-8;
     args->t2HW    = 5e-9;
     args->rec_rate = 0;
+    args->unseen_PL = 1e-3;
     int regions_is_file = 0, targets_is_file = 0;
     int regions_overlap = 1;
     int targets_overlap = 0;
@@ -1155,6 +1161,7 @@ int main_vcfroh(int argc, char *argv[])
         {"include",1,0,3},
         {"exclude",1,0,4},
         {"include-noalt",0,0,5},
+        {"noalt-PL",required_argument,NULL,8},
         {"buffer-size",1,0,'b'},
         {"ignore-homref",0,0,'i'},
         {"estimate-AF",1,0,'e'},
@@ -1243,6 +1250,14 @@ int main_vcfroh(int argc, char *argv[])
                 regions_overlap = parse_overlap_option(optarg);
                 if ( regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
                 break;
+            case  8 :
+                {
+                    double pl = strtod(optarg,&tmp);
+                    if ( tmp==optarg || *tmp || !isfinite(pl) || pl<3 )
+                        error("Expected a finite value >= 3 for --noalt-PL: %s\n", optarg);
+                    if ( !args->fake_PLs ) args->unseen_PL = pow(10,-pl/10.);  // -G takes precedence
+                }
+                break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'V':
                 args->vi_training = 1;
@@ -1312,6 +1327,8 @@ int main_vcfroh(int argc, char *argv[])
     else
         fprintf(stderr,"Number of lines total/processed: %d/%d\n", args->ntot,nmin);
     fprintf(stderr,"Number of lines filtered/no AF/no alt/multiallelic/dup: %d/%d/%d/%d/%d\n", args->nfiltered,args->nno_af,args->nno_alt,args->nmultiallelic,args->ndup);
+    if ( args->include_noalt_sites && !args->fake_PLs )
+        fprintf(stderr,"Number of no-ALT observations with assumed confidence: %d\n", args->nno_alt_used);
     if ( nmin==0 )
     {
         fprintf(stderr,"No usable sites were found.\n");

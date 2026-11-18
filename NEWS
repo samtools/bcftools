@@ -36,6 +36,8 @@ Changes affecting specific commands:
       handle missing AF values and reject invalid frequencies. Prevent a crash in
       GT-only mode when a record lacks usable GT data.
 
+    - New option --noalt-PL to set the default PL at ALT=. sites with --include-noalt
+
 
 ## Release 1.25 (27th October 2026)
 
