@@ -1,6 +1,15 @@
 ## Release a.b
 
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The `-i/-e` filtering expressions, query format strings, and
+  +fill-tags expressions
+
+    - Add an optional sample selection expression to MAX, MIN, AVG, MEAN,
+      MEDIAN, STDEV, and SUM (#2444)
+
+
 Changes affecting specific commands:
 
 * bcftools annotate

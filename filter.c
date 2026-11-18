@@ -180,6 +180,7 @@ struct _filter_t
 #define TOK_EXT     41      // external values set before each filter_test_ext() call, can be one of {},{str},{int},{float}
 #define TOK_FISHER  42
 #define TOK_sCOUNT  43
+#define TOK_COMMA   44      // separates aggregate value and sample selection expressions
 
 //                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43
 //                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s                          %
@@ -188,6 +189,12 @@ static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 
 
 static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok);
 inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok);
+
+static int is_aggregate(int tok_type)
+{
+    return tok_type==TOK_MAX || tok_type==TOK_MIN || tok_type==TOK_AVG ||
+           tok_type==TOK_MEDIAN || tok_type==TOK_STDEV || tok_type==TOK_SUM;
+}
 
 
 // Return negative values if it is a function with variable number of arguments
@@ -278,6 +285,7 @@ static int filters_next_token(char **str, int *len)
             if ( tmp[0]=='|' ) break;
             if ( tmp[0]=='(' ) break;
             if ( tmp[0]==')' ) break;
+            if ( tmp[0]==',' ) break;
             if ( tmp[0]=='+' ) break;
             if ( tmp[0]=='*' ) break;
             if ( tmp[0]=='-' ) break;
@@ -325,6 +333,7 @@ static int filters_next_token(char **str, int *len)
     }
     if ( tmp[0]=='(' ) { (*str) += 1; return TOK_LFT; }
     if ( tmp[0]==')' ) { (*str) += 1; return TOK_RGT; }
+    if ( tmp[0]==',' ) { (*str) += 1; return TOK_COMMA; }
     if ( tmp[0]=='&' && tmp[1]=='&' ) { (*str) += 2; return TOK_AND_VEC; }
     if ( tmp[0]=='|' && tmp[1]=='|' ) { (*str) += 2; return TOK_OR_VEC; }
     if ( tmp[0]=='&' ) { (*str) += 1; return TOK_AND; }
@@ -2037,6 +2046,33 @@ static int func_smpl_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **s
         else bcf_double_set_missing(rtok->values[i]);
     }
     return 1;
+}
+static int func_select_samples(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    if ( nstack<2 ) error("Could not parse the expression: %s\n", flt->str);
+    token_t *tok = stack[nstack-2], *sel = stack[nstack-1];
+    if ( !tok->nsamples || tok->is_str )
+        error("Sample selection requires a numeric FORMAT expression: %s\n", flt->str);
+
+    // Apply the selection only to this aggregate, preserving the input sample mask.
+    token_t tmp = *tok;
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    int i;
+    for (i=0; i<tok->nsamples; i++)
+        rtok->usmpl[i] = tok->usmpl[i] && (sel->nsamples ? sel->pass_samples[i] : sel->pass_site);
+    tmp.usmpl = rtok->usmpl;
+    stack[nstack-2] = &tmp;
+    switch ( rtok->tok_type )
+    {
+        case TOK_MAX:    func_max(flt,line,rtok,stack,nstack-1); break;
+        case TOK_MIN:    func_min(flt,line,rtok,stack,nstack-1); break;
+        case TOK_AVG:    func_avg(flt,line,rtok,stack,nstack-1); break;
+        case TOK_MEDIAN: func_median(flt,line,rtok,stack,nstack-1); break;
+        case TOK_STDEV:  func_stddev(flt,line,rtok,stack,nstack-1); break;
+        case TOK_SUM:    func_sum(flt,line,rtok,stack,nstack-1); break;
+    }
+    stack[nstack-2] = tok;
+    return 2;
 }
 static int func_abs(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
@@ -3882,6 +3918,21 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
             hts_expand0(token_t, nops, mops, ops);
             ops[nops-1].tok_type = ret;
         }
+        else if ( ret==TOK_COMMA )
+        {
+            if ( last_op!=TOK_VAL && last_op!=TOK_RGT ) error("Could not parse the expression: %s\n", str);
+            while ( nops>0 && ops[nops-1].tok_type!=TOK_LFT )
+            {
+                nout++;
+                hts_expand0(token_t, nout, mout, out);
+                out[nout-1] = ops[nops-1];
+                memset(&ops[nops-1],0,sizeof(token_t));
+                nops--;
+            }
+            if ( nops<2 || !is_aggregate(ops[nops-2].tok_type) || ops[nops-2].nargs )
+                error("Sample selection is supported only as the second argument of MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM: %s\n", str);
+            ops[nops-2].nargs = 2;
+        }
         else if ( ret==TOK_RGT )    // right bracket
         {
             while ( nops>0 && ops[nops-1].tok_type!=TOK_LFT )
@@ -3893,6 +3944,8 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
                 nops--;
             }
             if ( nops<=0 ) error("Could not parse: %s\n", str);
+            if ( nops>1 && is_aggregate(ops[nops-2].tok_type) && ops[nops-2].nargs && last_op==TOK_COMMA )
+                error("Could not parse the expression: %s\n", str);
             memset(&ops[nops-1],0,sizeof(token_t));
             nops--;
         }
@@ -4237,7 +4290,8 @@ static filter_t *filter_init_(bcf_hdr_t *hdr, const char *str, int exit_on_error
     }
     for (i=0; i<nout; i++)
     {
-        if ( out[i].tok_type==TOK_MAX )      { out[i].func = func_max; out[i].tok_type = TOK_FUNC; }
+        if ( is_aggregate(out[i].tok_type) && out[i].nargs==2 ) { out[i].func = func_select_samples; }
+        else if ( out[i].tok_type==TOK_MAX ) { out[i].func = func_max; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_MIN ) { out[i].func = func_min; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_AVG ) { out[i].func = func_avg; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_MEDIAN ) { out[i].func = func_median; out[i].tok_type = TOK_FUNC; }

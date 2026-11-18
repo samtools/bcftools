@@ -147,6 +147,19 @@ run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.1.out',arg
 run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.2.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t%SUM(FORMAT/AD)']);
 run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.3.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t[ %SUM(FORMAT/AD)]']);
 run_test(\&test_vcf_query,$opts,in=>'query.func.1',out=>'query.func.1.4.out',args=>q[-f '%CHROM:%POS\\t[%AD ]\\t[ %sSUM(FORMAT/AD)]']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.1.out',args=>q[-f '%POS %MEAN(FMT/DP) %MEAN(FMT/DP,GT!="mis") %AVG(FMT/DP,GT!="mis") %MEDIAN(FMT/DP,GT!="mis") %MIN(FMT/DP,GT!="mis") %MAX(FMT/DP,GT!="mis") %SUM(FMT/DP,GT!="mis") %STDEV(FMT/DP,GT!="mis")']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.2.out',args=>q[-f '%POS %MEAN(FMT/DP,GT!="mis" & FMT/GQ>=20) %MEAN(FMT/DP+2,(GT!="mis" & FMT/GQ>=20)) %SUM(FMT/AD,GT!="mis") %MEAN(sSUM(FMT/AD),GT!="mis") %SUM(FMT/AD[0,2:0,1],GT!="mis") %MEAN(FMT/DP,QUAL>20)']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.3.out',args=>q[-s D,A -f '%POS %MEAN(FMT/DP,GT!="mis") %MEAN(FMT/DP)']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.4.out',args=>q[-i 'MEAN(FMT/DP,GT!="mis")>=10' -f '%POS[ %SAMPLE] %MEAN(FMT/DP,GT="mis") %MEAN(FMT/DP,GT!="mis")']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.5.out',args=>q[-i 'GT="mis"' -f '%POS[ %SAMPLE] %MEAN(FMT/DP,GT!="mis")']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.5.out',args=>q[-e 'GT!="mis"' -f '%POS[ %SAMPLE] %MEAN(FMT/DP,GT!="mis")']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.6.out',args=>q[-f '%POS %MEAN(FMT/DP,GT="het" | FMT/GQ<20) %MEAN(FMT/DP,GT="het" || FMT/GQ<20) %MEAN(FMT/DP,ID~"^[^)]*$" & QUAL>20 & GT!="mis")']);
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',out=>'query.func.samples.7.out',args=>q[-i 'SUM(FMT/DP,GT!="mis")+SUM(FMT/DP,GT="mis")>100' -f '%POS %MEAN(FMT/DP,FMT/DP>MEAN(FMT/DP,GT!="mis"))']);
+for my $expr ('MEAN(FMT/DP,)','MEAN(,GT!="mis")','MEAN(FMT/DP,GT!="mis",FMT/GQ>20)','sMEAN(FMT/DP,GT!="mis")')
+{
+    run_test(\&test_vcf_query,$opts,in=>'query.func.samples',args=>"-f '%$expr'",expected_failure=>1,expected_error=>'Could not parse|Sample selection');
+}
+run_test(\&test_vcf_query,$opts,in=>'query.func.samples',args=>q[-f '%MEAN(QUAL,GT!="mis")'],expected_failure=>1,expected_error=>'Sample selection requires a numeric FORMAT expression');
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.2.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" && CLNREVSTAT="_conflicting_interpretations"']);
@@ -776,6 +789,8 @@ run_test(\&test_vcf_plugin,$opts,in=>'fill-tags-context',out=>'fill-tags-context
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags.MAC-MAF',out=>'fill-tags.MAC-MAF.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fill-tags.3.smpl -t 'MAC:1=MAC' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'fill-tags.MAC-MAF',out=>'fill-tags.MAC-MAF.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fill-tags.3.smpl -t 'MAC:1=int(MAF*AN)' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'query.func.1',out=>'fill-tags.func.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FMT/AB:1=float(FMT/AD[*:0] / ssum(FMT/AD[*]))' | grep -v ^#]);
+run_test(\&test_vcf_plugin,$opts,in=>'query.func.samples',out=>'fill-tags.func.samples.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'AVG:1=MEAN(FMT/DP,GT!="mis"),MED:1=MEDIAN(FMT/DP,GT!="mis" & FMT/GQ>=20),AD:1=SUM(FMT/AD,GT!="mis")']);
+run_test(\&test_vcf_plugin,$opts,in=>'query.func.samples',out=>'fill-tags.func.samples.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/query.func.samples.txt -t 'AVG:1=MEAN(FMT/DP,GT!="mis")']);
 run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'F_MISSING' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'F_MISSING:1=F_PASS(GT="mis")' | grep -v ^#]);
 run_test(\&test_vcf_plugin,$opts,in=>'fmissing',out=>'fmissing.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -S {PATH}/fmissing.txt -t 'N_MISSING:1=int(N_PASS(GT="mis"))' | grep -v ^#]);
