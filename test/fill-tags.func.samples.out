@@ -1,0 +1,17 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=1000>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##INFO=<ID=AVG,Number=1,Type=Float,Description="Added by +fill-tags expression AVG:1=MEAN(FMT/DP,GT!=\"mis\")">
+##INFO=<ID=MED,Number=1,Type=Float,Description="Added by +fill-tags expression MED:1=MEDIAN(FMT/DP,GT!=\"mis\" & FMT/GQ>=20)">
+##INFO=<ID=AD,Number=1,Type=Float,Description="Added by +fill-tags expression AD:1=SUM(FMT/AD,GT!=\"mis\")">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C	D
+1	1	one	A	C	50	.	AVG=13.3333;MED=15;AD=40	GT:DP:GQ:AD	0/0:0:30:0,0	./.:100:99:50,50	0/1:10:10:4,6	1/1:30:40:0,30
+1	2	two	A	C	10	.	AVG=8;MED=8;AD=8	GT:DP:GQ:AD	./.:20:50:10,10	0/1:8:30:3,5	0/0:.:40:.	./.:40:60:20,20
+1	3	three	A	C	50	.	AVG=.;MED=.;AD=.	GT:DP:GQ:AD	./.:4:30:2,2	.|.:8:40:4,4	.:12:50:6,6	./.:16:60:8,8
+1	4	four	A	C	10	.	AVG=.;MED=.;AD=.	GT:DP:GQ:AD	0/0:.:30:.	0/1:.:40:.	1/1:.:50:.	0/0:.:60:.
+1	5	five	A	C	50	.	AVG=12;MED=16;AD=36	GT:DP:GQ:AD	0/0:4:10:4,0	./.:100:99:50,50	0/1:12:30:5,7	1/1:20:40:0,20
+1	6	six	A	C,G	10	.	AVG=6;MED=8;AD=18	GT:DP:GQ:AD	0/1:2:10:1,1	./.:100:99:50,50,0	1/2:6:30:0,2,4	0/2:10:40:4,0,6
