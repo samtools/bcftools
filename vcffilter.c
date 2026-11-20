@@ -1,6 +1,6 @@
 /*  vcffilter.c -- Apply fixed-threshold filters.
 
-    Copyright (C) 2013-2025 Genome Research Ltd.
+    Copyright (C) 2013-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -189,6 +189,7 @@ static void init_data(args_t *args)
     }
 
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_filter");
+    else if ( bcf_hdr_sync(args->hdr) < 0 ) error("bcf_hdr_sync failed\n");
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);

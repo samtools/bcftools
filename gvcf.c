@@ -1,6 +1,6 @@
 /*  gvcf.c -- support for gVCF files.
 
-    Copyright (C) 2014-2015 Genome Research Ltd.
+    Copyright (C) 2014-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -40,8 +40,11 @@ struct _gvcf_t
 
 void gvcf_update_header(gvcf_t *gvcf, bcf_hdr_t *hdr)
 {
-    bcf_hdr_append(hdr,"##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
-    bcf_hdr_append(hdr,"##INFO=<ID=MIN_DP,Number=1,Type=Integer,Description=\"Minimum per-sample depth in this gVCF block\">");
+    if ( bcf_hdr_append(hdr,"##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">")<0 )
+        error("Failed to add the INFO/END header line\n");
+    if ( bcf_hdr_append(hdr,"##INFO=<ID=MIN_DP,Number=1,Type=Integer,Description=\"Minimum per-sample depth in this gVCF block\">")<0 )
+        error("Failed to add the INFO/MIN_DP header line\n");
+    if ( bcf_hdr_sync(hdr) < 0 ) error("bcf_hdr_sync failed\n");
 }
 
 gvcf_t *gvcf_init(const char *dp_ranges)

@@ -2457,7 +2457,13 @@ static void init_data(args_t *args)
 
     args->out_hdr = args->hdr;
     if ( args->old_rec_tag )
-        bcf_hdr_printf(args->out_hdr,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX\">",args->old_rec_tag);
+    {
+        if ( bcf_hdr_printf(args->out_hdr,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX\">",args->old_rec_tag) < 0 )
+            error("Failed to add the INFO/%s header line\n", args->old_rec_tag);
+
+        // Adding a line can rehash the header dictionaries, leaving the pointers used by bcf_hdr_id2*() stale until bcf_hdr_sync() (htslib PR #2146).
+        if ( bcf_hdr_sync(args->out_hdr) < 0 ) error("bcf_hdr_sync failed\n");
+    }
 
     rbuf_init(&args->rbuf, 100);
     args->lines = (line_t*) calloc(args->rbuf.m, sizeof(*args->lines));

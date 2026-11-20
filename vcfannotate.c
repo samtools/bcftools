@@ -2884,27 +2884,69 @@ static void rename_chrs(args_t *args, char *fname)
 {
     int n, i;
     char **map = hts_readlist(fname, 1, &n);
-    if ( !map ) error("Could not read: %s\n", fname);
+    if ( !map || !n ) error("Could not read chr name mappings: %s\n", fname);
+
+    // Rename the keys in the contig dictionary rather than only the cached hdr->id[] names, otherwise
+    // the next bcf_hdr_sync() restores the old names. To allow swaps (e.g. chrA->chrB and chrB->chrA),
+    // all old keys are removed first and the new keys inserted afterwards; the header is then synced
+    // because kh_put() can rehash the dictionary, invalidating the pointers cached in hdr->id[].
+    bcf_hdr_t *hdr = args->hdr_out;
+    int nctg = hdr->n[BCF_DT_CTG];
+    char **new_name = (char**) calloc(nctg, sizeof(*new_name));
+    if ( nctg && !new_name ) error("Could not allocate memory\n");
     for (i=0; i<n; i++)
     {
         char *ss = map[i];
         while ( *ss && !isspace_c(*ss) ) ss++;
         if ( !*ss ) error("Could not parse: %s\n", fname);
         *ss = 0;
-        int rid = bcf_hdr_name2id(args->hdr_out, map[i]);
-        bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, BCF_HL_CTG, "ID", map[i], NULL);
-        if ( !hrec ) continue;  // the sequence not present
-        int j = bcf_hrec_find_key(hrec, "ID");
-        assert( j>=0 );
-        free(hrec->vals[j]);
+        int rid = bcf_hdr_name2id(hdr, map[i]);
+        if ( rid<0 ) continue;  // the sequence not present
         ss++;
         while ( *ss && isspace_c(*ss) ) ss++;
+        if ( !*ss ) error("Missing destination chromosome name in %s\n", fname);
         char *se = ss;
         while ( *se && !isspace_c(*se) ) se++;
         *se = 0;
-        hrec->vals[j] = strdup(ss);
-        args->hdr_out->id[BCF_DT_CTG][rid].key = hrec->vals[j];
+        free(new_name[rid]);
+        new_name[rid] = strdup(ss);
+        if ( !new_name[rid] ) error("Failed to allocate memory\n");
     }
+
+    vdict_t *d = (vdict_t*) hdr->dict[BCF_DT_CTG];
+    bcf_idinfo_t *vals = (bcf_idinfo_t*) calloc(nctg, sizeof(*vals));
+    if ( nctg && !vals ) error("Could not allocate memory\n");
+    for (i=0; i<nctg; i++)
+    {
+        if ( !new_name[i] ) continue;
+        khint_t k = kh_get(vdict, d, hdr->id[BCF_DT_CTG][i].key);
+        assert( k != kh_end(d) );
+        vals[i] = kh_val(d, k);
+        char *old_key = (char*) kh_key(d, k);
+        kh_del(vdict, d, k);
+        free(old_key);
+    }
+    for (i=0; i<nctg; i++)
+    {
+        if ( !new_name[i] ) continue;
+        int ret;
+        khint_t k = kh_put(vdict, d, new_name[i], &ret);
+        if ( ret < 0 ) error("Failed to rename the sequence to %s\n", new_name[i]);
+        if ( ret == 0 ) error("Cannot rename to \"%s\", the sequence already exists in the header\n", new_name[i]);
+        kh_val(d, k) = vals[i];
+
+        bcf_hrec_t *hrec = vals[i].hrec[0];
+        int j = bcf_hrec_find_key(hrec, "ID");
+        assert( j>=0 );
+        free(hrec->vals[j]);
+        hrec->vals[j] = strdup(new_name[i]);
+        if ( !hrec->vals[j] ) error("Could not allocate memory\n");
+    }
+    hdr->dirty = 1;
+    if ( bcf_hdr_sync(hdr) < 0 ) error_errno("[%s] Failed to sync header", __func__);
+
+    free(vals);
+    free(new_name);     // the strings are now owned by the dictionary
     for (i=0; i<n; i++) free(map[i]);
     free(map);
 }
@@ -2943,6 +2985,7 @@ static int rename_annots_init1(args_t *args, rename_tag_t *map)
     char *rmme;
     rmme = strdup(ori_tag); free(map->old_tag); map->old_tag = ori_tag = rmme;
     rmme = strdup(new_tag); free(map->new_tag); map->new_tag = new_tag = rmme;
+    if ( !ori_tag || !new_tag ) error("Failed to allocate memory\n");
 
     map->old_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, ori_tag);
     if ( map->old_id < 0 ) return -1;
@@ -2972,6 +3015,7 @@ static int rename_annots_init1(args_t *args, rename_tag_t *map)
         char *old_hrec_key = old_hrec->vals[j];
         char *old_dict_key = (char*) kh_key(d, k);
         char *new_dict_key = strdup(new_tag);
+        if ( !new_dict_key ) error("Failed to allocate memory\n");
 
         kh_del(vdict, d, k);
         free(old_dict_key);
@@ -2984,9 +3028,15 @@ static int rename_annots_init1(args_t *args, rename_tag_t *map)
         kh_val(d, k) = val;
 
         char *new_hrec_key = strdup(new_tag);
+        if ( !new_hrec_key ) error("Failed to allocate memory\n");
         free(old_hrec_key);
         old_hrec->vals[j] = new_hrec_key;
-        args->hdr_out->id[BCF_DT_ID][map->old_id].key = new_hrec_key;
+
+        // kh_put() above can rehash the dictionary, invalidating the value pointers cached in
+        // hdr->id[], and the renamed entry now lives in a different bucket anyway. Sync before
+        // anything (the next iteration, or bcf_update_*() when processing records) reads them.
+        args->hdr_out->dirty = 1;
+        if ( bcf_hdr_sync(args->hdr_out) < 0 ) error_errno("[%s] Failed to sync header", __func__);
     }
     else
     {
@@ -3080,8 +3130,8 @@ static void rename_annots_info(bcf1_t *rec, bcf_info_t *info, int new_id)
     if ( old_sz == new_sz )
     {
         if ( new_sz == BCF_BT_INT8 ) p[1] = (uint8_t)new_id;
-        else if ( new_sz == BCF_BT_INT16 ) i16_to_le(new_id, p);
-        else i32_to_le(new_id, p);
+        else if ( new_sz == BCF_BT_INT16 ) i16_to_le(new_id, p + 1);
+        else i32_to_le(new_id, p + 1);
         return;
     }
 
@@ -3352,7 +3402,10 @@ static void init_data(args_t *args)
                 args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
 
+    // Finish header additions before the rename initializers read cached metadata.
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
+    else if ( bcf_hdr_sync(args->hdr_out) < 0 ) error_errno("[%s] Failed to sync header", __func__);
+
     if ( !args->drop_header )
     {
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);

@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2017-2025 Genome Research Ltd.
+    Copyright (C) 2017-2026 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -116,7 +116,9 @@ static const char *usage_text(void)
 static void init_groups(args_t *args)
 {
     args->hdr_out = bcf_hdr_dup(args->hdr_in);
-    bcf_hdr_printf(args->hdr_out, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"Stop position of the interval\">");
+    if ( bcf_hdr_printf(args->hdr_out, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"Stop position of the interval\">")<0 )
+        error("Failed to add the INFO/END header line\n");
+    if ( bcf_hdr_sync(args->hdr_out) < 0 ) error("bcf_hdr_sync failed\n");
 
     // avoid nested double quotes in FILTER description
     char *hdr_str = strdup(args->group_by);
