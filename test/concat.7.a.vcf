@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=q10,Description="Quality below 10">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Allele number">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##contig=<ID=1,length=1000>
+##contig=<ID=2,length=1000>
+##contig=<ID=3,length=1000>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	100	.	A	C	10	PASS	DP=7;AN=4	GT:DP	0/1:3	1/1:5
+1	200	.	A	C	10	PASS	DP=8;AN=4	GT:DP	0/1:3	1/1:5
+1	300	.	A	C	10	PASS	DP=9;AN=4	GT:DP	0/1:3	1/1:5
