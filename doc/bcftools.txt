@@ -2522,7 +2522,10 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     that 'INT' must follow with no space, e.g. *--progress=10*. Default: 60.
 
 *--threads* 'INT'::
-    see *<<common_options,Common Options>>*
+    see *<<common_options,Common Options>>*. When all input files are indexed, the
+    regions (or, without *-r*/*-R*, the whole genome) are also cut into chunks which
+    'INT' worker threads pile up in parallel. The output is the same as without
+    *--threads*. *--indels-2.0* still runs in a single thread.
 
 *-U, --mwu-u*::
     The the previous Mann-Whitney U test score from version 1.12 and

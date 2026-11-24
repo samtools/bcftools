@@ -40,6 +40,9 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/kstring.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/hts_os.h>
+#include <htslib/thread_pool.h>
+#include <htslib/bgzf.h>
+#include <htslib/hfile.h>
 #include <assert.h>
 #include "regidx.h"
 #include "bcftools.h"
@@ -108,6 +111,8 @@ typedef struct {
     int write_index;
     char *index_fn;
     progress_t *progress;
+    struct _mplp_chunk_t *chunk;    // set in the per-chunk copies used by --threads, see mpileup_threaded()
+    int chunk_size;                 // --threads chunk size, for testing; 0 for the default
 } mplp_conf_t;
 
 typedef struct {
@@ -269,20 +274,11 @@ static int mplp_func(void *data, bam1_t *b)
                 bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
                 free(ZQ);
             } else {
-                static uint8_t ZQ[501] =
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@";
+                // on the stack, not static: --threads runs this in several threads
+                uint8_t ZQ[501];
+                memset(ZQ, '@', b->core.l_qseq);
                 ZQ[b->core.l_qseq] = 0;
                 bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
-                ZQ[b->core.l_qseq] = '@';
             }
         }
 
@@ -379,8 +375,189 @@ static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, c
     }
 }
 
+/*
+ *  --threads: the regions are cut into chunks which worker threads pile up
+ *  independently, writing what a single-threaded run writes (the approach is
+ *  ported from pasta, https://github.com/DylanCosto/pasta, MIT licence).
+ *
+ *  A chunk other than a region's first starts reading a margin before its
+ *  first position to rebuild the state of the pileup there: the reads in the
+ *  pileup, BAQ applied to them by mplp_realn() and overlapping mates. At the
+ *  first column at or after its start where all inputs have reads, it takes a
+ *  fingerprint of the pileup and starts writing records. The chunk before it
+ *  stops writing at the first such column at or after that same position, and
+ *  takes a fingerprint there too. The main thread takes the chunks in order
+ *  and uses a chunk's records only if the two fingerprints match; otherwise
+ *  it carries on the previous chunk's pileup through the chunk itself, as the
+ *  single-threaded run does.
+ *
+ *  Besides the pileup, the INFO/BQBZ and INFO/MQSBZ values of indel records
+ *  are carried over from the last SNP site with an alternate allele: a chunk's
+ *  records are also used only if what it used of these values is what the
+ *  single-threaded run had.
+ */
+typedef struct _mplp_chunk_t
+{
+    const mplp_conf_t *main;    // the main configuration
+    hts_idx_t **shared_idx;     // indexes shared by all chunks, NULL for CRAM
+    hts_idx_t **idx;            // the chunk's own CRAM indexes
+    int tid, first, last;       // last: the region's last chunk
+    hts_pos_t beg, end;         // the region, as passed to mpileup_reg()
+    hts_pos_t from, start, next;    // reads are queried from `from`, records written from `start` to `next`
+    int phase;                  // 0: before the first column written, 1: writing
+    int pending, ptid, ppos;    // paused before this column
+    int ret;                    // mpileup_reg's return value: 1 paused, 0 done, <0 error
+    int has_fp_in, has_fp_out;
+    hts_pos_t fp_in_pos, fp_out_pos;
+    uint64_t fp_in[2], fp_out[2];
+    float carried_in[2];        // BQBZ and MQSBZ values when the chunk started writing
+    int fresh[2], used;         // recomputed since then; used before recomputed
+    int text;                   // records stored as VCF text, otherwise as packed BCF
+    kstring_t out;              // the records
+    int *len, nlen, mlen;       // the length of each record in `out`
+    bcf1_t *tmp;
+    char *ref;                  // the reference sequence, shared
+    int ref_len;
+    bam_hdr_t *hdr;
+    mplp_ref_t mref;
+    mplp_conf_t conf;           // the chunk's copy of the configuration
+}
+mplp_chunk_t;
+
+// A record packed in mplp_chunk_t.out, followed by its shared and indiv data
+typedef struct
+{
+    hts_pos_t pos, rlen;
+    int32_t rid;
+    float qual;
+    uint32_t n_info, n_allele, n_fmt, n_sample, l_shared, l_indiv;
+}
+mplp_packed_t;
+
+static inline float mplp_unset(void)
+{
+    union { uint32_t u; float f; } x = { 0x7fc0beef };  // a NaN not otherwise produced
+    return x.f;
+}
+static inline int mplp_is_unset(float f)
+{
+    float u = mplp_unset();
+    return memcmp(&f, &u, sizeof(f))==0;
+}
+static inline int mplp_same_float(float a, float b)
+{
+    return memcmp(&a, &b, sizeof(a))==0;
+}
+
+static void mplp_fp_add(uint64_t *h, const void *data, size_t n)
+{
+    const uint8_t *p = (const uint8_t*) data;
+    size_t i;
+    for (i=0; i<n; i++)
+    {
+        h[0] = (h[0] ^ p[i]) * 0x100000001b3ULL;                        // FNV-1a
+        h[1] = ((h[1] ^ (h[1]>>29)) + p[i] + 1) * 0x9e3779b97f4a7c15ULL;
+    }
+}
+
+// Fingerprints the pileup of the current column; returns 0 if an input has no reads there
+static int mplp_fingerprint(mplp_conf_t *conf, int tid, int pos, uint64_t *fp)
+{
+    int i, j;
+    for (i=0; i<conf->nfiles; i++)
+        if ( conf->n_plp[i] <= 0 ) return 0;
+    fp[0] = 0xcbf29ce484222325ULL;
+    fp[1] = 0x84222325cbf29ce4ULL;
+    mplp_fp_add(fp, &tid, sizeof(tid));
+    mplp_fp_add(fp, &pos, sizeof(pos));
+    for (i=0; i<conf->nfiles; i++)
+    {
+        mplp_fp_add(fp, &conf->n_plp[i], sizeof(int));
+        for (j=0; j<conf->n_plp[i]; j++)
+        {
+            const bam_pileup1_t *p = conf->plp[i] + j;
+            const bam1_t *b = p->b;
+            int32_t v[16] = { b->core.tid, b->core.flag, b->core.qual, b->core.l_qname, b->core.n_cigar,
+                b->core.l_qseq, b->core.mtid, b->l_data, p->qpos, p->indel, p->is_del, p->is_head,
+                p->is_tail, p->is_refskip, PLP_IS_REALN(&p->cd) ? 1 : 0, 0 };
+            int64_t w[3] = { b->core.pos, b->core.mpos, b->core.isize };
+            mplp_fp_add(fp, v, sizeof(v));
+            mplp_fp_add(fp, w, sizeof(w));
+            mplp_fp_add(fp, b->data, b->l_data);
+        }
+    }
+    return 1;
+}
+
+// Called for each column; returns -1 to pause the chunk before the column
+static int mplp_chunk_check(mplp_conf_t *conf, int tid, int pos)
+{
+    mplp_chunk_t *ck = conf->chunk;
+    if ( !ck->phase )
+    {
+        if ( tid!=ck->tid || pos<ck->start ) return 0;
+        if ( !mplp_fingerprint(conf, tid, pos, ck->fp_in) ) return 0;
+        ck->has_fp_in = 1;
+        ck->fp_in_pos = pos;
+        ck->phase = 1;
+        ck->carried_in[0] = conf->bc.mwu_bq;
+        ck->carried_in[1] = conf->bc.mwu_mqs;
+        ck->fresh[0] = ck->fresh[1] = ck->used = 0;
+        return 0;
+    }
+    if ( ck->last || tid!=ck->tid || pos<ck->next ) return 0;
+    if ( !mplp_fingerprint(conf, tid, pos, ck->fp_out) ) return 0;
+    ck->has_fp_out = 1;
+    ck->fp_out_pos = pos;
+    ck->pending = 1;
+    ck->ptid = tid;
+    ck->ppos = pos;
+    return -1;
+}
+
+// After a SNP site: whether BQBZ and MQSBZ were recomputed, restoring them if not
+static void mplp_chunk_fresh(mplp_conf_t *conf, float bq, float mqs)
+{
+    mplp_chunk_t *ck = conf->chunk;
+    if ( mplp_is_unset(conf->bc.mwu_bq) ) conf->bc.mwu_bq = bq; else ck->fresh[0] = 1;
+    if ( mplp_is_unset(conf->bc.mwu_mqs) ) conf->bc.mwu_mqs = mqs; else ck->fresh[1] = 1;
+}
+
+// An indel record repeats BQBZ and MQSBZ from the last SNP site
+static void mplp_chunk_used(mplp_conf_t *conf)
+{
+    mplp_chunk_t *ck = conf->chunk;
+    if ( !ck->phase ) return;
+    if ( (conf->fmt_flag & B2B_INFO_BQBZ) && !ck->fresh[0] ) ck->used = 1;
+    if ( (conf->fmt_flag & B2B_INFO_MQSBZ) && !ck->fresh[1] ) ck->used = 1;
+}
+
+static void mplp_chunk_store(mplp_chunk_t *ck, bcf_hdr_t *hdr, bcf1_t *rec)
+{
+    size_t l0 = ck->out.l;
+    if ( ck->text )
+    {
+        if ( vcf_format(hdr, rec, &ck->out)!=0 ) error("[%s] Error: failed to format the record\n", __func__);
+    }
+    else
+    {
+        bcf1_t *r = bcf_copy(ck->tmp, rec);
+        mplp_packed_t p = { r->pos, r->rlen, r->rid, r->qual, r->n_info, r->n_allele, r->n_fmt, r->n_sample, r->shared.l, r->indiv.l };
+        if ( kputsn((char*)&p, sizeof(p), &ck->out)<0
+             || kputsn(r->shared.s, r->shared.l, &ck->out)<0
+             || kputsn(r->indiv.s, r->indiv.l, &ck->out)<0 ) error("[%s] Error: out of memory\n", __func__);
+    }
+    hts_expand(int, ck->nlen+1, ck->mlen, ck->len);
+    ck->len[ck->nlen++] = ck->out.l - l0;
+}
+
 static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bcf1_t *rec)
 {
+    if ( conf->chunk )
+    {
+        if ( rec && conf->chunk->phase ) mplp_chunk_store(conf->chunk, hdr, rec);
+        return;
+    }
     if ( !conf->gvcf )
     {
         if ( rec && bcf_write1(fp, hdr, rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
@@ -560,8 +737,17 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
     int ret, i, tid, pos, ref_len;
     char *ref;
 
-    while ( (ret=bam_mplp_auto(conf->iter, &tid, &pos, conf->n_plp, conf->plp)) > 0)
+    while ( 1 )
     {
+        if ( conf->chunk && conf->chunk->pending )
+        {
+            // resume with the column the chunk paused before
+            conf->chunk->pending = 0;
+            tid = conf->chunk->ptid;
+            pos = conf->chunk->ppos;
+        }
+        else if ( (ret=bam_mplp_auto(conf->iter, &tid, &pos, conf->n_plp, conf->plp)) <= 0 ) break;
+        if ( conf->chunk && mplp_chunk_check(conf, tid, pos) < 0 ) return 1;   // paused
         if ( conf->progress && tid>=0 ) progress_update(conf->progress, hdr->target_name[tid], pos+1);
         if ( pos<beg || pos>end ) continue;
         if ( conf->bed && tid >= 0 )
@@ -583,7 +769,10 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         for (i = 0; i < conf->gplp->n; ++i)
             bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], ref16, conf->bca, conf->bcr + i);
         conf->bc.tid = tid; conf->bc.pos = pos;
+        float bq = conf->bc.mwu_bq, mqs = conf->bc.mwu_mqs;
+        if ( conf->chunk ) conf->bc.mwu_bq = conf->bc.mwu_mqs = mplp_unset();
         bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, ref16, &conf->bc);
+        if ( conf->chunk ) mplp_chunk_fresh(conf, bq, mqs);
         bcf_clear1(conf->bcf_rec);
         bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, 0);
         flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
@@ -609,12 +798,472 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
                 {
                     bcf_clear1(conf->bcf_rec);
                     bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, ref);
+                    if ( conf->chunk ) mplp_chunk_used(conf);
                     flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
                 }
             }
         }
     }
     return ret;
+}
+
+static void mplp_init_calling(mplp_conf_t *conf, int nsmpl)
+{
+    int i;
+    conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ,
+                              conf->delta_baseQ);
+    conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
+    conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
+    conf->bca->indel_bias = conf->indel_bias;
+    conf->bca->del_bias = conf->del_bias;
+    conf->bca->min_frac = conf->min_frac;
+    conf->bca->min_support = conf->min_support;
+    conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
+    conf->bca->fmt_flag = conf->fmt_flag;
+    conf->bca->ambig_reads = conf->ambig_reads;
+    conf->bca->indel_win_size = conf->indel_win_size;
+    conf->bca->indels_v20 = conf->indels_v20;
+    conf->bca->edlib = conf->edlib;
+    conf->bca->seqQ_offset = conf->seqQ_offset;
+    conf->bca->poly_mqual = conf->poly_mqual;
+    conf->bca->vs_ref = conf->vs_ref;
+
+    conf->bc.bcf_hdr = conf->bcf_hdr;
+    conf->bc.n  = nsmpl;
+    conf->bc.PL = (int32_t*) malloc(15 * nsmpl * sizeof(*conf->bc.PL));
+    conf->bc.QS = (int32_t*) malloc(nsmpl*sizeof(*conf->bc.QS)*B2B_MAX_ALLELES);
+    for (i=0; i<nsmpl; i++)
+        conf->bcr[i].QS = conf->bc.QS + i*B2B_MAX_ALLELES;
+    if (conf->fmt_flag)
+    {
+        assert( sizeof(float)==sizeof(int32_t) );
+        conf->bc.DP4 = (int32_t*) malloc(nsmpl * sizeof(int32_t) * 4);
+        conf->bc.fmt_arr = (uint8_t*) malloc(nsmpl * sizeof(float)); // all fmt_flag fields, float and int32
+        if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
+        {
+            // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
+            conf->bc.ADR = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            conf->bc.ADF = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<nsmpl; i++)
+            {
+                conf->bcr[i].ADR = conf->bc.ADR + (i+1)*B2B_MAX_ALLELES;
+                conf->bcr[i].ADF = conf->bc.ADF + (i+1)*B2B_MAX_ALLELES;
+            }
+        }
+        if ( conf->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) )
+            conf->bc.SCR = (int32_t*) malloc((nsmpl+1)*sizeof(*conf->bc.SCR));
+        if ( conf->fmt_flag & B2B_FMT_QM )
+        {
+            double *tmp = (double*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(double));
+            conf->bc.QM = (int32_t*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<nsmpl; i++)
+                conf->bcr[i].QM = tmp + i*B2B_MAX_ALLELES;
+        }
+    }
+    int nnmbz = (conf->fmt_flag&B2B_FMT_NMBZ) ? nsmpl + 1 : 1;
+    conf->bc.ref_nm = (int32_t*) malloc(sizeof(*conf->bc.ref_nm) * nnmbz * B2B_N_NM);
+    conf->bc.alt_nm = (int32_t*) malloc(sizeof(*conf->bc.alt_nm) * nnmbz * B2B_N_NM);
+    conf->bc.mwu_nm = (float*) malloc((nsmpl+1)*sizeof(*conf->bc.mwu_nm));
+    conf->bca->ref_nm = conf->bc.ref_nm;     // this is just to make the arrays available in bcf_call_glfgen()
+    conf->bca->alt_nm = conf->bc.alt_nm;
+    if ( conf->fmt_flag&B2B_FMT_NMBZ )
+    {
+        for (i=0; i<nsmpl; i++) conf->bcr[i].ref_nm = conf->bc.ref_nm + (i+1)*B2B_N_NM;
+        for (i=0; i<nsmpl; i++) conf->bcr[i].alt_nm = conf->bc.alt_nm + (i+1)*B2B_N_NM;
+    }
+}
+
+static void mplp_destroy_calling(mplp_conf_t *conf)
+{
+    bcf_call_destroy(conf->bca);
+    free(conf->bc.PL);
+    free(conf->bc.DP4);
+    free(conf->bc.ADR);
+    free(conf->bc.ADF);
+    free(conf->bc.SCR);
+    free(conf->bc.QS);
+    free(conf->bc.QM);
+    free(conf->bcr[0].QM);
+    free(conf->bc.ref_nm);
+    free(conf->bc.alt_nm);
+    free(conf->bc.fmt_arr);
+    free(conf->bc.mwu_nm);
+    free(conf->bcr);
+}
+
+#define MPLP_CHUNK_MIN 20000
+#define MPLP_CHUNK_MAX 200000
+
+static void mplp_alloc_gplp(mplp_conf_t *conf)
+{
+    conf->gplp = (mplp_pileup_t *) calloc(1,sizeof(mplp_pileup_t));
+    bam_smpl_get_samples(conf->bsmpl, &conf->gplp->n);
+    conf->gplp->n_plp = (int*) calloc(conf->gplp->n, sizeof(int));
+    conf->gplp->m_plp = (int*) calloc(conf->gplp->n, sizeof(int));
+    conf->gplp->plp = (bam_pileup1_t**) calloc(conf->gplp->n, sizeof(bam_pileup1_t*));
+}
+static void mplp_free_gplp(mplp_conf_t *conf)
+{
+    int i;
+    for (i = 0; i < conf->gplp->n; ++i) free(conf->gplp->plp[i]);
+    free(conf->gplp->plp); free(conf->gplp->n_plp); free(conf->gplp->m_plp); free(conf->gplp);
+}
+
+// Opens the inputs and sets up the pileup and calling of a chunk
+static void mplp_chunk_open(mplp_chunk_t *ck)
+{
+    const mplp_conf_t *main = ck->main;
+    mplp_conf_t *conf = &ck->conf;
+    int i, nsmpl;
+    *conf = *main;
+    conf->chunk = ck;
+    conf->gvcf = NULL;
+    conf->progress = NULL;
+    memset(&conf->buf, 0, sizeof(conf->buf));
+    memset(&conf->bc, 0, sizeof(conf->bc));
+    conf->bed_itr = main->bed ? regitr_init(main->bed) : NULL;
+    if ( !ck->ref ) conf->fai = NULL;    // no sequence: mplp_get_ref() returns none, as it does single-threaded
+    ck->mref = (mplp_ref_t) MPLP_REF_INIT;
+    ck->mref.ref[0] = ck->ref;
+    ck->mref.ref_id[0] = ck->ref ? ck->tid : -1;
+    ck->mref.ref_len[0] = ck->ref_len;
+    conf->mplp_data = (mplp_aux_t**) calloc(conf->nfiles, sizeof(mplp_aux_t*));
+    conf->plp = (const bam_pileup1_t**) calloc(conf->nfiles, sizeof(bam_pileup1_t*));
+    conf->n_plp = (int*) calloc(conf->nfiles, sizeof(int));
+    ck->idx = (hts_idx_t**) calloc(conf->nfiles, sizeof(hts_idx_t*));
+    for (i=0; i<conf->nfiles; i++)
+    {
+        mplp_aux_t *ma = conf->mplp_data[i] = (mplp_aux_t*) calloc(1, sizeof(mplp_aux_t));
+        ma->fp = sam_open(conf->files[i], "rb");
+        if ( !ma->fp ) error("[%s] failed to open %s: %s\n", __func__, conf->files[i], strerror(errno));
+        if ( hts_set_opt(ma->fp, CRAM_OPT_DECODE_MD, 1) ) error("Failed to set CRAM_OPT_DECODE_MD value\n");
+        if ( conf->fai_fname && hts_set_fai_filename(ma->fp, conf->fai_fname)!=0 )
+            error("[%s] failed to process %s: %s\n", __func__, conf->fai_fname, strerror(errno));
+        bam_hdr_t *h = sam_hdr_read(ma->fp);
+        if ( !h ) error("[%s] fail to read the header of %s\n", __func__, conf->files[i]);
+        if ( !i ) ck->hdr = h;
+        else bam_hdr_destroy(h);    // as single-threaded, the first file's header is used for all
+        ma->h = ck->hdr;
+        ma->conf = conf;
+        ma->ref = &ck->mref;
+        ma->bam_id = main->mplp_data[i]->bam_id;
+        hts_idx_t *idx = ck->shared_idx[i];
+        if ( !idx )
+        {
+            idx = ck->idx[i] = sam_index_load(ma->fp, conf->files[i]);
+            if ( !idx ) error("[%s] fail to load index for %s\n", __func__, conf->files[i]);
+        }
+        ma->iter = sam_itr_queryi(idx, ck->tid, ck->from, ck->end+1);
+        if ( !ma->iter ) error("[%s] fail to query %s\n", __func__, conf->files[i]);
+    }
+    bam_smpl_get_samples(conf->bsmpl, &nsmpl);
+    mplp_alloc_gplp(conf);
+    mplp_init_calling(conf, nsmpl);
+    conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
+    if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
+    bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
+    bam_mplp_constructor(conf->iter, pileup_constructor);
+    bam_mplp_destructor(conf->iter, pileup_destructor);
+    conf->bcf_rec = bcf_init1();
+    ck->tmp = bcf_init1();
+    ck->phase = ck->first;
+}
+
+static void mplp_chunk_close(mplp_chunk_t *ck)
+{
+    if ( !ck ) return;
+    mplp_conf_t *conf = &ck->conf;
+    int i;
+    bam_mplp_destroy(conf->iter);
+    for (i=0; i<conf->nfiles; i++)
+    {
+        hts_itr_destroy(conf->mplp_data[i]->iter);
+        sam_close(conf->mplp_data[i]->fp);
+        if ( ck->idx[i] ) hts_idx_destroy(ck->idx[i]);
+        free(conf->mplp_data[i]);
+    }
+    bam_hdr_destroy(ck->hdr);
+    free(conf->mplp_data); free(conf->plp); free(conf->n_plp); free(ck->idx);
+    mplp_free_gplp(conf);
+    mplp_destroy_calling(conf);
+    bcf_destroy1(conf->bcf_rec);
+    bcf_destroy1(ck->tmp);
+    free(conf->bc.tmp.s);
+    free(conf->buf.s);
+    if ( conf->bed_itr ) regitr_destroy(conf->bed_itr);
+    if ( ck->mref.ref[0]!=ck->ref ) free(ck->mref.ref[0]);  // the shared sequence is freed by the main thread
+    if ( ck->mref.ref[1]!=ck->ref ) free(ck->mref.ref[1]);
+    free(ck->out.s);
+    free(ck->len);
+    free(ck);
+}
+
+static void *mplp_chunk_job(void *arg)
+{
+    mplp_chunk_t *ck = (mplp_chunk_t*) arg;
+    mplp_chunk_open(ck);
+    ck->ret = mpileup_reg(&ck->conf, ck->beg, ck->end);
+    return ck;
+}
+
+// Writes the chunk's records, in the main thread
+static void mplp_chunk_write(mplp_conf_t *conf, mplp_chunk_t *ck)
+{
+    htsFile *fp = conf->bcf_fp;
+    size_t off = 0;
+    int i;
+    if ( ck->text && fp->format.compression==no_compression )
+    {
+        if ( ck->out.l && hwrite(fp->fp.hfile, ck->out.s, ck->out.l)!=ck->out.l )
+            error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
+    }
+    else
+    {
+        for (i=0; i<ck->nlen; i++)
+        {
+            char *s = ck->out.s + off;
+            off += ck->len[i];
+            if ( ck->text )
+            {
+                // as vcf_write() does
+                if ( bgzf_flush_try(fp->fp.bgzf, ck->len[i])<0 || bgzf_write(fp->fp.bgzf, s, ck->len[i])!=ck->len[i] )
+                    error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
+                continue;
+            }
+            mplp_packed_t p;
+            memcpy(&p, s, sizeof(p));
+            s += sizeof(p);
+            bcf1_t *rec = conf->bcf_rec;
+            bcf_clear1(rec);
+            rec->rid = p.rid; rec->pos = p.pos; rec->rlen = p.rlen; rec->qual = p.qual;
+            rec->n_info = p.n_info; rec->n_allele = p.n_allele; rec->n_fmt = p.n_fmt; rec->n_sample = p.n_sample;
+            rec->shared.l = rec->indiv.l = 0;
+            if ( kputsn(s, p.l_shared, &rec->shared)<0 || kputsn(s+p.l_shared, p.l_indiv, &rec->indiv)<0 )
+                error("[%s] Error: out of memory\n", __func__);
+            if ( conf->gvcf ) bcf_unpack(rec, BCF_UN_STR);    // flush_bcf_records() reads the alleles
+            flush_bcf_records(conf, fp, conf->bcf_hdr, rec);
+        }
+    }
+    ck->out.l = 0;
+    ck->nlen = 0;
+}
+
+// The BQBZ and MQSBZ values of the single-threaded run after the chunk
+static void mplp_chunk_carry(mplp_chunk_t *ck, float *carried)
+{
+    if ( ck->fresh[0] ) carried[0] = ck->conf.bc.mwu_bq; else ck->conf.bc.mwu_bq = carried[0];
+    if ( ck->fresh[1] ) carried[1] = ck->conf.bc.mwu_mqs; else ck->conf.bc.mwu_mqs = carried[1];
+}
+
+typedef struct
+{
+    int tid, first, last;
+    hts_pos_t beg, end, from, start, next;
+}
+mplp_plan_t;
+
+// Whether the inputs may have reads from beg to end (0-based, inclusive), from their indexes
+static int mplp_may_read(mplp_conf_t *conf, hts_idx_t **idx, int tid, hts_pos_t beg, hts_pos_t end)
+{
+    int i;
+    for (i=0; i<conf->nfiles; i++)
+    {
+        if ( !idx[i] ) return 1;    // CRAM
+        hts_itr_t *itr = sam_itr_queryi(idx[i], tid, beg, end+1);
+        int n = itr ? itr->n_off : 1;
+        hts_itr_destroy(itr);
+        if ( n ) return 1;
+    }
+    return 0;
+}
+
+// Cuts a region into chunks. A chunk without reads is read by the chunk before it, and
+// a region without reads is left out, as these write no records.
+static void mplp_plan_region(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, int tid, hts_pos_t beg, hts_pos_t end,
+                             mplp_plan_t **plan, int *nplan, int *mplan)
+{
+    hts_pos_t margin = 2000;
+    if ( conf->flag & MPLP_REALN )
+    {
+        margin = 4 * (hts_pos_t)conf->max_read_len;
+        if ( margin < 2000 ) margin = 2000;
+        if ( margin > 200000 ) margin = 200000;
+    }
+    hts_pos_t hi = end < hdr->target_len[tid] ? end : (hts_pos_t)hdr->target_len[tid] - 1;
+    hts_pos_t total = hi - beg + 1;
+    hts_pos_t size = total / (conf->n_threads * 8);
+    if ( size < MPLP_CHUNK_MIN ) size = MPLP_CHUNK_MIN;
+    if ( size > MPLP_CHUNK_MAX ) size = MPLP_CHUNK_MAX;
+    if ( size < 4*margin ) size = 4*margin;
+    if ( conf->chunk_size > 0 ) size = conf->chunk_size;
+    if ( !mplp_may_read(conf, idx, tid, beg, end) ) return;
+    hts_pos_t n = total > 2*size ? (total + size - 1) / size : 1;
+    hts_pos_t j;
+    for (j=0; j<n; j++)
+    {
+        if ( j && !mplp_may_read(conf, idx, tid, beg + j*size, j+1==n ? end : beg + (j+1)*size - 1) )
+        {
+            mplp_plan_t *p = &(*plan)[*nplan-1];
+            p->last = j+1==n;
+            p->next = p->last ? HTS_POS_MAX : beg + (j+1)*size;
+            continue;
+        }
+        hts_expand(mplp_plan_t, *nplan+1, *mplan, *plan);
+        mplp_plan_t *p = &(*plan)[(*nplan)++];
+        p->tid = tid; p->beg = beg; p->end = end;
+        p->first = j==0;
+        p->last = j+1==n;
+        p->start = beg + j*size;
+        p->next = p->last ? HTS_POS_MAX : p->start + size;
+        p->from = p->first ? beg : p->start - margin;
+        if ( p->from < beg ) p->from = beg;
+    }
+}
+
+// The reference sequences in use, shared by the chunks
+typedef struct
+{
+    char **seq;
+    int *len, *loaded;
+}
+mplp_refs_t;
+
+static mplp_chunk_t *mplp_chunk_new(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, mplp_refs_t *refs, mplp_plan_t *p)
+{
+    mplp_chunk_t *ck = (mplp_chunk_t*) calloc(1, sizeof(mplp_chunk_t));
+    ck->main = conf;
+    ck->shared_idx = idx;
+    ck->tid = p->tid; ck->first = p->first; ck->last = p->last;
+    ck->beg = p->beg; ck->end = p->end; ck->from = p->from; ck->start = p->start; ck->next = p->next;
+    ck->text = !(conf->output_type & FT_BCF) && !conf->gvcf && !conf->write_index;
+    if ( conf->fai && !refs->loaded[p->tid] )
+    {
+        // fetched as mplp_get_ref() does
+        refs->seq[p->tid] = faidx_fetch_seq(conf->fai, hdr->target_name[p->tid], 0, INT_MAX, &refs->len[p->tid]);
+        refs->loaded[p->tid] = 1;
+    }
+    ck->ref = refs->seq[p->tid];
+    ck->ref_len = ck->ref ? refs->len[p->tid] : 0;
+    return ck;
+}
+
+static int mpileup_threaded(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, int nregs)
+{
+    mplp_plan_t *plan = NULL;
+    int i, j, nplan = 0, mplan = 0;
+    if ( nregs )
+    {
+        do
+        {
+            int tid = bam_name2id(hdr, conf->reg_itr->seq);
+            if ( tid < 0 ) error("[E::%s] the sequence \"%s\" not found: %s\n",__func__,conf->reg_itr->seq,conf->files[0]);
+            mplp_plan_region(conf, hdr, idx, tid, conf->reg_itr->beg, conf->reg_itr->end, &plan, &nplan, &mplan);
+        }
+        while ( regitr_loop(conf->reg_itr) );
+    }
+    else
+    {
+        for (i=0; i<hdr->n_targets; i++)
+            mplp_plan_region(conf, hdr, idx, i, 0, UINT32_MAX, &plan, &nplan, &mplan);
+    }
+    if ( conf->bed )
+    {
+        // build the regidx indexes before the threads read them
+        int nseq;
+        char **seq = regidx_seq_names(conf->bed, &nseq);
+        for (i=0; i<nseq; i++) regidx_overlap(conf->bed, seq[i], 0, 0, NULL);
+    }
+
+    mplp_refs_t refs;
+    refs.seq = (char**) calloc(hdr->n_targets, sizeof(char*));
+    refs.len = (int*) calloc(hdr->n_targets, sizeof(int));
+    refs.loaded = (int*) calloc(hdr->n_targets, sizeof(int));
+
+    int window = 2 * conf->n_threads;
+    hts_tpool *pool = hts_tpool_init(conf->n_threads);
+    hts_tpool_process *q = pool ? hts_tpool_process_init(pool, 2*window, 0) : NULL;
+    if ( !q ) error("[%s] Error: failed to start the threads\n", __func__);
+
+    mplp_chunk_t *prev = NULL;      // the pileup of the single-threaded run, paused before the chunk
+    float carried[2] = { conf->bc.mwu_bq, conf->bc.mwu_mqs };
+    int ndispatched = 0;
+    for (j=0; j<nplan; j++)
+    {
+        while ( ndispatched < nplan && ndispatched < j + window )
+        {
+            mplp_chunk_t *ck = mplp_chunk_new(conf, hdr, idx, &refs, &plan[ndispatched++]);
+            if ( hts_tpool_dispatch(pool, q, mplp_chunk_job, ck) < 0 ) error("[%s] Error: failed to start a job\n", __func__);
+        }
+        hts_tpool_result *r = hts_tpool_next_result_wait(q);
+        if ( !r ) error("[%s] Error: a thread failed\n", __func__);
+        mplp_chunk_t *ck = (mplp_chunk_t*) hts_tpool_result_data(r);
+        hts_tpool_delete_result(r, 0);
+        if ( ck->ret < 0 ) return ck->ret;
+
+        if ( j && plan[j-1].tid!=plan[j].tid && prev )
+        {
+            mplp_chunk_close(prev);
+            prev = NULL;
+        }
+        if ( j && plan[j-1].tid!=plan[j].tid && refs.loaded[plan[j-1].tid] )
+        {
+            free(refs.seq[plan[j-1].tid]);
+            refs.seq[plan[j-1].tid] = NULL;
+            refs.loaded[plan[j-1].tid] = 0;
+        }
+        if ( ck->first && prev ) { mplp_chunk_close(prev); prev = NULL; }
+        if ( !ck->first && !prev )
+        {
+            // the region's pileup ended before this chunk, as did its records
+            mplp_chunk_close(ck);
+            continue;
+        }
+        int carried_ok = !ck->used || (mplp_same_float(ck->carried_in[0], carried[0]) && mplp_same_float(ck->carried_in[1], carried[1]));
+        int state_ok = ck->first || ( prev->has_fp_out && ck->has_fp_in && prev->fp_out_pos==ck->fp_in_pos
+                                        && prev->fp_out[0]==ck->fp_in[0] && prev->fp_out[1]==ck->fp_in[1] );
+        mplp_chunk_t *run = ck;
+        if ( !state_ok || !carried_ok )
+        {
+            // carry on the previous chunk's pileup through this chunk, or start the region afresh
+            mplp_plan_t *p = &plan[j];
+            mplp_chunk_close(ck);
+            if ( prev )
+            {
+                run = prev;
+                prev = NULL;
+                run->next = p->next;
+                run->last = p->last;
+                run->has_fp_out = 0;
+            }
+            else
+            {
+                run = mplp_chunk_new(conf, hdr, idx, &refs, p);
+                mplp_chunk_open(run);
+            }
+            run->conf.bc.mwu_bq = carried[0];
+            run->conf.bc.mwu_mqs = carried[1];
+            run->fresh[0] = run->fresh[1] = run->used = 0;
+            run->ret = mpileup_reg(&run->conf, run->beg, run->end);
+            if ( run->ret < 0 ) return run->ret;
+        }
+        mplp_chunk_close(prev);
+        prev = NULL;
+        mplp_chunk_write(conf, run);
+        mplp_chunk_carry(run, carried);
+        if ( conf->progress ) progress_update(conf->progress, hdr->target_name[run->tid], run->last ? hdr->target_len[run->tid] : run->next);
+        if ( run->ret == 0 ) mplp_chunk_close(run);
+        else prev = run;
+    }
+    mplp_chunk_close(prev);
+    conf->bc.mwu_bq = carried[0];
+    conf->bc.mwu_mqs = carried[1];
+
+    hts_tpool_process_destroy(q);
+    hts_tpool_destroy(pool);
+    for (i=0; i<hdr->n_targets; i++) free(refs.seq[i]);
+    free(refs.seq); free(refs.len); free(refs.loaded);
+    free(plan);
+    return 0;
 }
 
 static int mpileup(mplp_conf_t *conf)
@@ -625,7 +1274,6 @@ static int mpileup(mplp_conf_t *conf)
     }
 
     mplp_ref_t mp_ref = MPLP_REF_INIT;
-    conf->gplp = (mplp_pileup_t *) calloc(1,sizeof(mplp_pileup_t));
     conf->mplp_data = (mplp_aux_t**) calloc(conf->nfiles, sizeof(mplp_aux_t*));
     conf->plp = (const bam_pileup1_t**) calloc(conf->nfiles, sizeof(bam_pileup1_t*));
     conf->n_plp = (int*) calloc(conf->nfiles, sizeof(int));
@@ -746,10 +1394,7 @@ static int mpileup(mplp_conf_t *conf)
         exit(EXIT_FAILURE);
     }
     // allocate data storage proportionate to number of samples being studied sm->n
-    bam_smpl_get_samples(conf->bsmpl, &conf->gplp->n);
-    conf->gplp->n_plp = (int*) calloc(conf->gplp->n, sizeof(int));
-    conf->gplp->m_plp = (int*) calloc(conf->gplp->n, sizeof(int));
-    conf->gplp->plp = (bam_pileup1_t**) calloc(conf->gplp->n, sizeof(bam_pileup1_t*));
+    mplp_alloc_gplp(conf);
 
     fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, conf->gplp->n, conf->nfiles);
     // write the VCF header
@@ -874,67 +1519,7 @@ static int mpileup(mplp_conf_t *conf)
                      &conf->index_fn, conf->write_index) < 0 )
         error("Error: failed to initialise index for %s\n",conf->output_fname);
 
-    conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ,
-                              conf->delta_baseQ);
-    conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
-    conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
-    conf->bca->indel_bias = conf->indel_bias;
-    conf->bca->del_bias = conf->del_bias;
-    conf->bca->min_frac = conf->min_frac;
-    conf->bca->min_support = conf->min_support;
-    conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
-    conf->bca->fmt_flag = conf->fmt_flag;
-    conf->bca->ambig_reads = conf->ambig_reads;
-    conf->bca->indel_win_size = conf->indel_win_size;
-    conf->bca->indels_v20 = conf->indels_v20;
-    conf->bca->edlib = conf->edlib;
-    conf->bca->seqQ_offset = conf->seqQ_offset;
-    conf->bca->poly_mqual = conf->poly_mqual;
-    conf->bca->vs_ref = conf->vs_ref;
-
-    conf->bc.bcf_hdr = conf->bcf_hdr;
-    conf->bc.n  = nsmpl;
-    conf->bc.PL = (int32_t*) malloc(15 * nsmpl * sizeof(*conf->bc.PL));
-    conf->bc.QS = (int32_t*) malloc(nsmpl*sizeof(*conf->bc.QS)*B2B_MAX_ALLELES);
-    for (i=0; i<nsmpl; i++)
-        conf->bcr[i].QS = conf->bc.QS + i*B2B_MAX_ALLELES;
-    if (conf->fmt_flag)
-    {
-        assert( sizeof(float)==sizeof(int32_t) );
-        conf->bc.DP4 = (int32_t*) malloc(nsmpl * sizeof(int32_t) * 4);
-        conf->bc.fmt_arr = (uint8_t*) malloc(nsmpl * sizeof(float)); // all fmt_flag fields, float and int32
-        if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
-        {
-            // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
-            conf->bc.ADR = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            conf->bc.ADF = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            for (i=0; i<nsmpl; i++)
-            {
-                conf->bcr[i].ADR = conf->bc.ADR + (i+1)*B2B_MAX_ALLELES;
-                conf->bcr[i].ADF = conf->bc.ADF + (i+1)*B2B_MAX_ALLELES;
-            }
-        }
-        if ( conf->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) )
-            conf->bc.SCR = (int32_t*) malloc((nsmpl+1)*sizeof(*conf->bc.SCR));
-        if ( conf->fmt_flag & B2B_FMT_QM )
-        {
-            double *tmp = (double*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(double));
-            conf->bc.QM = (int32_t*) malloc(nsmpl*B2B_MAX_ALLELES*sizeof(int32_t));
-            for (i=0; i<nsmpl; i++)
-                conf->bcr[i].QM = tmp + i*B2B_MAX_ALLELES;
-        }
-    }
-    int nnmbz = (conf->fmt_flag&B2B_FMT_NMBZ) ? nsmpl + 1 : 1;
-    conf->bc.ref_nm = (int32_t*) malloc(sizeof(*conf->bc.ref_nm) * nnmbz * B2B_N_NM);
-    conf->bc.alt_nm = (int32_t*) malloc(sizeof(*conf->bc.alt_nm) * nnmbz * B2B_N_NM);
-    conf->bc.mwu_nm = (float*) malloc((nsmpl+1)*sizeof(*conf->bc.mwu_nm));
-    conf->bca->ref_nm = conf->bc.ref_nm;     // this is just to make the arrays available in bcf_call_glfgen()
-    conf->bca->alt_nm = conf->bc.alt_nm;
-    if ( conf->fmt_flag&B2B_FMT_NMBZ )
-    {
-        for (i=0; i<nsmpl; i++) conf->bcr[i].ref_nm = conf->bc.ref_nm + (i+1)*B2B_N_NM;
-        for (i=0; i<nsmpl; i++) conf->bcr[i].alt_nm = conf->bc.alt_nm + (i+1)*B2B_N_NM;
-    }
+    mplp_init_calling(conf, nsmpl);
 
     // init mpileup
     conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
@@ -960,9 +1545,38 @@ static int mpileup(mplp_conf_t *conf)
     bam_mplp_destructor(conf->iter, pileup_destructor);
 
 
-    // Run mpileup for multiple regions
+    // With --threads, pile up chunks of the regions in parallel if the inputs are indexed
     int ret = 0;
-    if ( nregs )
+    hts_idx_t **tidx = NULL;
+    if ( conf->n_threads > 0 && !conf->indels_v20 && (nregs || !conf->reg) )
+    {
+        tidx = (hts_idx_t**) calloc(conf->nfiles, sizeof(hts_idx_t*));
+        for (i=0; i<conf->nfiles; i++)
+        {
+            tidx[i] = sam_index_load3(conf->mplp_data[i]->fp, conf->files[i], NULL, HTS_IDX_SILENT_FAIL);
+            if ( !tidx[i] ) break;
+            if ( hts_get_format(conf->mplp_data[i]->fp)->format==cram )
+            {
+                // a CRAM index belongs to its file handle: each chunk loads its own
+                hts_idx_destroy(tidx[i]);
+                tidx[i] = NULL;
+            }
+        }
+        if ( i<conf->nfiles )
+        {
+            while ( --i >= 0 ) if ( tidx[i] ) hts_idx_destroy(tidx[i]);
+            free(tidx);
+            tidx = NULL;
+        }
+    }
+    if ( tidx )
+    {
+        ret = mpileup_threaded(conf, hdr, tidx, nregs);
+        for (i=0; i<conf->nfiles; i++) if ( tidx[i] ) hts_idx_destroy(tidx[i]);
+        free(tidx);
+    }
+    // Run mpileup for multiple regions
+    else if ( nregs )
     {
         int ireg = 0;
         do
@@ -1021,25 +1635,11 @@ static int mpileup(mplp_conf_t *conf)
         }
         if ( hts_close(conf->bcf_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,conf->output_fname);
         bcf_hdr_destroy(conf->bcf_hdr);
-        bcf_call_destroy(conf->bca);
-        free(conf->bc.PL);
-        free(conf->bc.DP4);
-        free(conf->bc.ADR);
-        free(conf->bc.ADF);
-        free(conf->bc.SCR);
-        free(conf->bc.QS);
-        free(conf->bc.QM);
-        free(conf->bcr[0].QM);
-        free(conf->bc.ref_nm);
-        free(conf->bc.alt_nm);
-        free(conf->bc.fmt_arr);
-        free(conf->bc.mwu_nm);
-        free(conf->bcr);
+        mplp_destroy_calling(conf);
     }
     if ( conf->gvcf ) gvcf_destroy(conf->gvcf);
     free(conf->buf.s);
-    for (i = 0; i < conf->gplp->n; ++i) free(conf->gplp->plp[i]);
-    free(conf->gplp->plp); free(conf->gplp->n_plp); free(conf->gplp->m_plp); free(conf->gplp);
+    mplp_free_gplp(conf);
     bam_mplp_destroy(conf->iter);
     bam_hdr_destroy(hdr);
     for (i = 0; i < conf->nfiles; ++i) {
@@ -1289,7 +1889,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
         "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "      --progress[=INT]    Print the current position (CHR:POS) to stderr every INT seconds [60]\n"
-        "      --threads INT       Use multithreading with INT worker threads [0]\n"
+        "      --threads INT       Use multithreading with INT worker threads: indexed inputs are piled up\n"
+        "                          in chunks in parallel, with the same output [0]\n"
         "  -v, --verbosity INT     Verbosity level\n"
         "  -W, --write-index[=FMT] Automatically index the output files [off]\n"
         "\n"
@@ -1430,6 +2031,7 @@ int main_mpileup(int argc, char *argv[])
         {"no-reference", no_argument, NULL, 7},
         {"no-version", no_argument, NULL, 8},
         {"threads",required_argument,NULL,9},
+        {"threads-chunk-size",required_argument,NULL,30},   // undocumented, for testing
         {"illumina1.3+", no_argument, NULL, '6'},
         {"count-orphans", no_argument, NULL, 'A'},
         {"bam-list", required_argument, NULL, 'b'},
@@ -1540,6 +2142,7 @@ int main_mpileup(int argc, char *argv[])
         case  7 : noref = 1; break;
         case  8 : mplp.record_cmd_line = 0; break;
         case  9 : mplp.n_threads = strtol(optarg, 0, 0); break;
+        case 30 : mplp.chunk_size = strtol(optarg, 0, 0); break;
         case 29 : mplp.progress = progress_init("mpileup", optarg); break;
         case 'd': mplp.max_depth = atoi(optarg); break;
         case 'r': mplp.reg_fname = strdup(optarg); break;
