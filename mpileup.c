@@ -1068,9 +1068,10 @@ static int mplp_may_read(mplp_conf_t *conf, hts_idx_t **idx, int tid, hts_pos_t 
     int i;
     for (i=0; i<conf->nfiles; i++)
     {
-        if ( !idx[i] ) return 1;    // CRAM
         hts_itr_t *itr = sam_itr_queryi(idx[i], tid, beg, end+1);
-        int n = itr ? itr->n_off : 1;
+        // a CRAM iterator has no offsets, only finished when its index has no container there
+        int is_cram = hts_get_format(conf->mplp_data[i]->fp)->format==cram;
+        int n = !itr ? 1 : is_cram ? !itr->finished : itr->n_off;
         hts_itr_destroy(itr);
         if ( n ) return 1;
     }
@@ -1147,7 +1148,7 @@ static mplp_chunk_t *mplp_chunk_new(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t
     return ck;
 }
 
-static int mpileup_threaded(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, int nregs)
+static int mpileup_threaded(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, hts_idx_t **pidx, int nregs)
 {
     mplp_plan_t *plan = NULL;
     int i, j, nplan = 0, mplan = 0;
@@ -1157,14 +1158,14 @@ static int mpileup_threaded(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, 
         {
             int tid = bam_name2id(hdr, conf->reg_itr->seq);
             if ( tid < 0 ) error("[E::%s] the sequence \"%s\" not found: %s\n",__func__,conf->reg_itr->seq,conf->files[0]);
-            mplp_plan_region(conf, hdr, idx, tid, conf->reg_itr->beg, conf->reg_itr->end, &plan, &nplan, &mplan);
+            mplp_plan_region(conf, hdr, pidx, tid, conf->reg_itr->beg, conf->reg_itr->end, &plan, &nplan, &mplan);
         }
         while ( regitr_loop(conf->reg_itr) );
     }
     else
     {
         for (i=0; i<hdr->n_targets; i++)
-            mplp_plan_region(conf, hdr, idx, i, 0, UINT32_MAX, &plan, &nplan, &mplan);
+            mplp_plan_region(conf, hdr, pidx, i, 0, UINT32_MAX, &plan, &nplan, &mplan);
     }
     if ( conf->bed )
     {
@@ -1178,6 +1179,13 @@ static int mpileup_threaded(mplp_conf_t *conf, bam_hdr_t *hdr, hts_idx_t **idx, 
     refs.seq = (char**) calloc(hdr->n_targets, sizeof(char*));
     refs.len = (int*) calloc(hdr->n_targets, sizeof(int));
     refs.loaded = (int*) calloc(hdr->n_targets, sizeof(int));
+
+    // probaln_glocal() fills its static quality table on first use; do it here, not racing in the workers
+    {
+        probaln_par_t par = { 0.001, 0.1, 10 };
+        uint8_t base = 0, qual = 30, out_q; int state;
+        probaln_glocal(&base, 1, &base, 1, &qual, &par, &state, &out_q);
+    }
 
     int window = 2 * conf->n_threads;
     hts_tpool *pool = hts_tpool_init(conf->n_threads);
@@ -1547,33 +1555,30 @@ static int mpileup(mplp_conf_t *conf)
 
     // With --threads, pile up chunks of the regions in parallel if the inputs are indexed
     int ret = 0;
-    hts_idx_t **tidx = NULL;
+    hts_idx_t **tidx = NULL, **pidx = NULL;    // indexes for the chunks (NULL for CRAM), and for planning
     if ( conf->n_threads > 0 && !conf->indels_v20 && (nregs || !conf->reg) )
     {
         tidx = (hts_idx_t**) calloc(conf->nfiles, sizeof(hts_idx_t*));
+        pidx = (hts_idx_t**) calloc(conf->nfiles, sizeof(hts_idx_t*));
         for (i=0; i<conf->nfiles; i++)
         {
-            tidx[i] = sam_index_load3(conf->mplp_data[i]->fp, conf->files[i], NULL, HTS_IDX_SILENT_FAIL);
-            if ( !tidx[i] ) break;
-            if ( hts_get_format(conf->mplp_data[i]->fp)->format==cram )
-            {
-                // a CRAM index belongs to its file handle: each chunk loads its own
-                hts_idx_destroy(tidx[i]);
-                tidx[i] = NULL;
-            }
+            pidx[i] = sam_index_load3(conf->mplp_data[i]->fp, conf->files[i], NULL, HTS_IDX_SILENT_FAIL);
+            if ( !pidx[i] ) break;
+            // a CRAM index belongs to its file handle: each chunk loads its own
+            if ( hts_get_format(conf->mplp_data[i]->fp)->format!=cram ) tidx[i] = pidx[i];
         }
         if ( i<conf->nfiles )
         {
-            while ( --i >= 0 ) if ( tidx[i] ) hts_idx_destroy(tidx[i]);
-            free(tidx);
-            tidx = NULL;
+            while ( --i >= 0 ) hts_idx_destroy(pidx[i]);
+            free(pidx); free(tidx);
+            pidx = tidx = NULL;
         }
     }
     if ( tidx )
     {
-        ret = mpileup_threaded(conf, hdr, tidx, nregs);
-        for (i=0; i<conf->nfiles; i++) if ( tidx[i] ) hts_idx_destroy(tidx[i]);
-        free(tidx);
+        ret = mpileup_threaded(conf, hdr, tidx, pidx, nregs);
+        for (i=0; i<conf->nfiles; i++) hts_idx_destroy(pidx[i]);
+        free(pidx); free(tidx);
     }
     // Run mpileup for multiple regions
     else if ( nregs )
