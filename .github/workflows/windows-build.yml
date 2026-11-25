@@ -14,26 +14,26 @@ jobs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-    - name: Set up MSYS2 MinGW-W64
+    - name: Set up MSYS2 MinGW-W64 UCRT64
       uses: msys2/setup-msys2@v2
       with:
-        msystem: mingw64
+        msystem: UCRT64
         update: false
         install: >-
-          mingw-w64-x86_64-toolchain
-          mingw-w64-x86_64-autotools
-          mingw-w64-x86_64-curl
-          mingw-w64-x86_64-libdeflate
-          mingw-w64-x86_64-tools-git
-          mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-bzip2
-          mingw-w64-x86_64-xz
-          mingw-w64-x86_64-gsl
+          mingw-w64-ucrt-x86_64-toolchain
+          mingw-w64-ucrt-x86_64-autotools
+          mingw-w64-ucrt-x86_64-curl
+          mingw-w64-ucrt-x86_64-libdeflate
+          mingw-w64-ucrt-x86_64-tools
+          mingw-w64-ucrt-x86_64-zlib
+          mingw-w64-ucrt-x86_64-bzip2
+          mingw-w64-ucrt-x86_64-xz
+          mingw-w64-ucrt-x86_64-gsl
     - name: Clone htslib
       shell: msys2 {0}
       run: |
-        export PATH="$PATH:/mingw64/bin:/c/Program Files/Git/bin"
-        export MSYSTEM=MINGW64
+        export PATH="$PATH:/c/Program Files/Git/bin"
+        export MSYSTEM=UCRT64
         htslib_pr=`git log -2 --format='%s' | sed -n 's/.*htslib#\([0-9]*\).*/\1/p'`
         .ci_helpers/clone ${GITHUB_REPOSITORY_OWNER} htslib htslib ${GITHUB_HEAD_REF:-$GITHUB_REF_NAME} $htslib_pr
         pushd .
@@ -43,8 +43,8 @@ jobs:
     - name: Compile bcftools
       shell: msys2 {0}
       run: |
-        export PATH="$PATH:/mingw64/bin:/c/Program Files/Git/bin"
-        export MSYSTEM=MINGW64
+        export PATH="$PATH:/c/Program Files/Git/bin"
+        export MSYSTEM=UCRT64
         autoheader
         autoconf -Wno-syntax
         ./configure --enable-werror --enable-libgsl
@@ -52,7 +52,7 @@ jobs:
     - name: Check bcftools
       shell: msys2 {0}
       run: |
-        export PATH="$PATH:/mingw64/bin:/c/Program Files/Git/bin"
-        export MSYSTEM=MINGW64
+        export PATH="$PATH:/c/Program Files/Git/bin"
+        export MSYSTEM=UCRT64
         make check
 
