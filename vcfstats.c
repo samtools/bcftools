@@ -1108,6 +1108,8 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     bcf_fmt_t *gt_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GT");
     bcf_fmt_t *ad_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"AD");
     bcf_fmt_t *dp_fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"DP");
+    int diploid8 = gt_fmt_ptr && gt_fmt_ptr->type==BCF_BT_INT8 && gt_fmt_ptr->n==2;
+    const uint8_t *gt8 = diploid8 ? gt_fmt_ptr->p : NULL;
 
     int is;
     for (is=0; is<args->files->n_smpl; is++)
@@ -1125,7 +1127,17 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
         // Determine genotype
         int ial, jal, gt=GT_UNKN;
-        if ( gt_fmt_ptr )
+        if ( diploid8 && (gt8[2*ismpl]&0xfe)==2 && (gt8[2*ismpl+1]&0xfe)==2 )
+        {
+            // 0/0 or 0|0: the only counters sample_gt_stats() would update
+            gt = GT_HOM_RR;
+            ial = jal = 0;
+            stats->smpl_homRR[is]++;
+            #if HWE_STATS
+                args->nref_tot++;
+            #endif
+        }
+        else if ( gt_fmt_ptr )
         {
             gt = bcf_gt_type(gt_fmt_ptr, ismpl, &ial, &jal);
             sample_gt_stats(args,stats,line,is,gt,ial,jal);
