@@ -39,6 +39,7 @@ THE SOFTWARE.  */
 #include <htslib/thread_pool.h>
 #include <htslib/hts_endian.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include "bcftools.h"
 
 typedef struct _args_t
@@ -476,6 +477,188 @@ static int _get_active_index(bcf_srs_t *sr)
     return -1;
 }
 
+static inline int unpackInt16(const uint8_t *buffer)
+{
+    return buffer[0] | buffer[1] << 8;
+}
+static int check_header(const uint8_t *header)
+{
+    if ( header[0] != 31 || header[1] != 139 || header[2] != 8 ) return -2;
+    return ((header[3] & 4) != 0
+            && unpackInt16((uint8_t*)&header[10]) == 6
+            && header[12] == 'B' && header[13] == 'C'
+            && unpackInt16((uint8_t*)&header[14]) == 2) ? 0 : -1;
+}
+
+// Stream BGZF blocks from the current raw position of fp to its end without recompressing,
+// dropping the first nskip blocks and all BGZF EOF blocks; the final EOF block is added by bgzf_close.
+// buf must hold BGZF_MAX_BLOCK_SIZE bytes.
+static void copy_bgzf_blocks(BGZF *fp, BGZF *bgzf_out, uint8_t *buf, int nskip, const char *fname)
+{
+    ssize_t nread, nblock, nwr;
+    const int nheader = 18, neof = 28;
+    const uint8_t *eof = (uint8_t*) "\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\033\0\3\0\0\0\0\0\0\0\0\0";
+    while (1)
+    {
+        nread = bgzf_raw_read(fp, buf, nheader);
+        if ( !nread ) break;
+        if ( nread != nheader || check_header(buf)!=0 ) error("\nCould not parse the header of a bgzf block: %s\n",fname);
+        nblock = unpackInt16(buf+16) + 1;
+        if ( nblock > BGZF_MAX_BLOCK_SIZE || nblock < nheader )
+            error("\nError: malformed bgzf block in %s: block size %"PRId64" out of valid range [%d,%d]\n",
+                fname,(int64_t)nblock,nheader,(int)BGZF_MAX_BLOCK_SIZE);
+        nread += bgzf_raw_read(fp, buf+nheader, nblock - nheader);
+        if ( nread!=nblock ) error("\nCould not read %"PRId64" bytes: %s\n",(uint64_t)nblock,fname);
+        if ( nskip > 0 ) { nskip--; continue; }
+        if ( nread==neof && !memcmp(buf,eof,neof) ) continue;
+        nwr = bgzf_raw_write(bgzf_out, buf, nread);
+        if ( nwr != nread ) error("\nWrite failed, wrote %"PRId64" instead of %d bytes.\n", (uint64_t)nwr,(int)nread);
+    }
+}
+
+// Records must come in contiguous chromosome blocks, sorted by position
+static void check_vcf_line(args_t *args, char *line, const char *fname, kstring_t *tmp, int *prev_chr_id, int *prev_pos)
+{
+    char *str = line;
+    while ( *str && *str!='\t' ) str++;
+    tmp->l = 0;
+    kputsn(line,str-line,tmp);
+    int chr_id = bcf_hdr_name2id(args->out_hdr, tmp->s);
+    if ( chr_id<0 ) error("\nThe sequence \"%s\" not defined in the header: %s\n(Quick workaround: index the file.)\n", tmp->s, fname);
+    if ( *prev_chr_id!=chr_id )
+    {
+        *prev_pos = -1;
+        if ( args->seen_seq[chr_id] )
+            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", tmp->s);
+    }
+    char *end;
+    int pos = strtol(str+1,&end,10) - 1;
+    if ( end==str+1 ) error("Could not parse line: %s\n", line);
+    if ( *prev_pos > pos )
+        error("\nThe chromosome block %s is not sorted, consider running with -a.\n", tmp->s);
+    args->seen_seq[chr_id] = 1;
+    *prev_chr_id = chr_id;
+}
+static void check_bcf_rec(args_t *args, bcf1_t *line, int *prev_chr_id, int *prev_pos)
+{
+    if ( *prev_chr_id!=line->rid )
+    {
+        *prev_pos = -1;
+        if ( args->seen_seq[line->rid] )
+            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", bcf_seqname(args->out_hdr, line));
+    }
+    if ( *prev_pos > line->pos )
+        error("\nThe chromosome block %s is not sorted, consider running with -a.\n", bcf_seqname(args->out_hdr, line));
+    args->seen_seq[line->rid] = 1;
+    *prev_chr_id = line->rid;
+}
+
+// True if the records of a BCF with this header can be written unchanged, i.e. bcf_translate() is a no-op
+static int same_bcf_ids(const bcf_hdr_t *dst, const bcf_hdr_t *src)
+{
+    int dict, i;
+    for (dict=0; dict<2; dict++)    // BCF_DT_ID and BCF_DT_CTG
+        for (i=0; i<src->n[dict]; i++)
+        {
+            if ( !src->id[dict][i].key ) continue;
+            int id = bcf_hdr_id2int(dst,dict,src->id[dict][i].key);
+            if ( id!=-1 && id!=i ) return 0;
+        }
+    return 1;
+}
+
+/*
+ * Fast path for plain concatenation: when the input is in the same BGZF-compressed format as the
+ * output and its records need no change, the records are still read and checked, but the original
+ * compressed blocks are copied to the output instead of being recompressed. Only the data that
+ * shares the first block with the header is recompressed. The decompressed output is the same,
+ * the BGZF block boundaries differ. Adapted from pasta (https://github.com/DylanCosto/pasta, MIT).
+ *
+ * Returns 1 if the file was written, 0 if it must be processed record by record; the reader
+ * and the checking state are then left as they were on entry.
+ */
+static int concat_copy_blocks(args_t *args, int ifile, htsFile *fp, bcf_hdr_t *hdr, bcf1_t *line,
+                              kstring_t *tmp, int *prev_chr_id, int *prev_pos, uint8_t *buf)
+{
+    const char *fname = args->fnames[ifile];
+    struct stat st;
+    if ( fp->format.compression!=bgzf || fp->format.format!=args->out_fh->format.format ) return 0;
+    if ( stat(fname,&st)!=0 || !S_ISREG(st.st_mode) ) return 0;    // the file is opened twice
+    if ( fp->format.format==bcf && !same_bcf_ids(args->out_hdr,hdr) ) return 0;
+
+    // The records start in the current block, after the header
+    BGZF *bgzf = hts_get_bgzfp(fp);
+    int64_t data_start = bgzf_tell(bgzf);
+    int nskip = bgzf->block_length ? 1 : 0;   // if nonzero, this block is recompressed from block_offset on
+    int64_t raw_start = bgzf->block_address;
+    kstring_t head = {0,0,0};
+    if ( nskip ) kputsn((char*)bgzf->uncompressed_block + bgzf->block_offset, bgzf->block_length - bgzf->block_offset, &head);
+
+    // Read and check all records first, the file is left to the slow path on anything unusual
+    int saved_prev_chr_id = *prev_chr_id, saved_prev_pos = *prev_pos, ok = 1;
+    int *saved_seen = (int*) malloc(sizeof(int)*args->out_hdr->n[BCF_DT_CTG]);
+    memcpy(saved_seen, args->seen_seq, sizeof(int)*args->out_hdr->n[BCF_DT_CTG]);
+    if ( fp->format.format==bcf )
+    {
+        int ret;
+        line->max_unpack = 0;
+        while ( (ret=bcf_read(fp, hdr, line))==0 )
+        {
+            if ( line->errcode ) { ok = 0; break; }
+            check_bcf_rec(args, line, prev_chr_id, prev_pos);
+        }
+        if ( ret < -1 ) ok = 0;
+    }
+    else
+    {
+        // Lines are scanned directly: the slow path strips \r and adds a missing final newline
+        kstring_t *rec = &fp->line;
+        size_t off = bgzf->block_offset;
+        rec->l = 0;
+        while ( 1 )
+        {
+            if ( off >= bgzf->block_length )
+            {
+                if ( bgzf_read_block(bgzf)!=0 ) error("\nFailed to read %s\n", fname);
+                if ( !bgzf->block_length ) break;
+                off = 0;
+            }
+            char *beg = (char*)bgzf->uncompressed_block + off, *end = (char*)bgzf->uncompressed_block + bgzf->block_length;
+            char *nl = memchr(beg, '\n', end - beg);
+            if ( !nl ) { kputsn(beg, end - beg, rec); off = bgzf->block_length; continue; }
+            off = nl - (char*)bgzf->uncompressed_block + 1;
+            kputsn(beg, nl - beg, rec);
+            if ( rec->l && rec->s[rec->l-1]=='\r' ) { ok = 0; break; }
+            check_vcf_line(args, rec->s, fname, tmp, prev_chr_id, prev_pos);
+            rec->l = 0;
+        }
+        if ( rec->l ) ok = 0;   // no final newline
+    }
+    if ( !ok )
+    {
+        *prev_chr_id = saved_prev_chr_id;
+        *prev_pos = saved_prev_pos;
+        memcpy(args->seen_seq, saved_seen, sizeof(int)*args->out_hdr->n[BCF_DT_CTG]);
+        free(saved_seen);
+        free(head.s);
+        if ( bgzf_seek(bgzf, data_start, SEEK_SET)<0 ) error("\nFailed to seek in %s\n", fname);
+        return 0;
+    }
+    free(saved_seen);
+
+    BGZF *bgzf_out = hts_get_bgzfp(args->out_fh);
+    if ( head.l && bgzf_write(bgzf_out, head.s, head.l)!=head.l ) error("\nFailed to write to %s\n", args->output_fname);
+    free(head.s);
+    if ( bgzf_flush(bgzf_out)<0 ) error("\nFailed to write to %s\n", args->output_fname);
+
+    BGZF *raw = bgzf_open(fname, "r");
+    if ( !raw ) error("\nFailed to open: %s\n", fname);
+    if ( bgzf_seek(raw, raw_start<<16, SEEK_SET)<0 ) error("\nFailed to seek in %s\n", fname);
+    copy_bgzf_blocks(raw, bgzf_out, buf, nskip, fname);
+    if ( bgzf_close(raw)<0 ) error("\nFailed to close %s\n", fname);
+    return 1;
+}
+
 static void concat(args_t *args)
 {
     static int site_drop_warned = 0;
@@ -624,8 +807,13 @@ static void concat(args_t *args)
     {
         struct timeval t0, t1;
         kstring_t tmp = {0,0,0};
-        int prev_chr_id = -1, prev_pos;
+        int prev_chr_id = -1, prev_pos = -1;
         bcf1_t *line = bcf_init();
+        // Copy compressed blocks unchanged when possible, see concat_copy_blocks()
+        int copy_blocks = !args->sites_only && !args->out_fh->idx && args->clevel<0
+            && args->out_fh->format.compression==bgzf;
+        uint8_t *buf = copy_blocks ? (uint8_t*) malloc(BGZF_MAX_BLOCK_SIZE) : NULL;
+        if ( copy_blocks && !buf ) error("Failed to allocate memory\n");
         for (i=0; i<args->nfnames; i++)
         {
             if ( args->verbose )
@@ -643,7 +831,9 @@ static void concat(args_t *args)
                 bcf_hdr_remove(hdr, BCF_HL_FMT, NULL);
                 bcf_hdr_destroy(hdr_ori);
             }
-            if ( !fp->is_bin && args->output_type&FT_VCF && !args->out_fh->idx)
+            if ( copy_blocks && concat_copy_blocks(args, i, fp, hdr, line, &tmp, &prev_chr_id, &prev_pos, buf) )
+                ;
+            else if ( !fp->is_bin && args->output_type&FT_VCF && !args->out_fh->idx)
             {
                 line->max_unpack = BCF_UN_STR;
                 // if VCF is on both input and output, avoid VCF to BCF conversion
@@ -667,25 +857,7 @@ static void concat(args_t *args)
                         fp->line.l = str - fp->line.s;
                         str = fp->line.s;
                     }
-                    while ( *str && *str!='\t' ) str++;
-                    tmp.l = 0;
-                    kputsn(fp->line.s,str-fp->line.s,&tmp);
-                    int chr_id = bcf_hdr_name2id(args->out_hdr, tmp.s);
-                    if ( chr_id<0 ) error("\nThe sequence \"%s\" not defined in the header: %s\n(Quick workaround: index the file.)\n", tmp.s, args->fnames[i]);
-                    if ( prev_chr_id!=chr_id )
-                    {
-                        prev_pos = -1;
-                        if ( args->seen_seq[chr_id] )
-                            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", tmp.s);
-                    }
-                    char *end;
-                    int pos = strtol(str+1,&end,10) - 1;
-                    if ( end==str+1 ) error("Could not parse line: %s\n", fp->line.s);
-                    if ( prev_pos > pos )
-                        error("\nThe chromosome block %s is not sorted, consider running with -a.\n", tmp.s);
-                    args->seen_seq[chr_id] = 1;
-                    prev_chr_id = chr_id;
-
+                    check_vcf_line(args, fp->line.s, args->fnames[i], &tmp, &prev_chr_id, &prev_pos);
                     if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("\nFailed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
                 }
             }
@@ -697,18 +869,7 @@ static void concat(args_t *args)
                 {
                     if ( args->sites_only ) bcf_subset(args->out_hdr, line, 0, 0);
                     bcf_translate(args->out_hdr, hdr, line);
-
-                    if ( prev_chr_id!=line->rid )
-                    {
-                        prev_pos = -1;
-                        if ( args->seen_seq[line->rid] )
-                            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", bcf_seqname(args->out_hdr, line));
-                    }
-                    if ( prev_pos > line->pos )
-                        error("\nThe chromosome block %s is not sorted, consider running with -a.\n", bcf_seqname(args->out_hdr, line));
-                    args->seen_seq[line->rid] = 1;
-                    prev_chr_id = line->rid;
-
+                    check_bcf_rec(args, line, &prev_chr_id, &prev_pos);
                     if ( bcf_write(args->out_fh, args->out_hdr, line)!=0 ) error("\nFailed to write\n");
                 }
             }
@@ -723,6 +884,7 @@ static void concat(args_t *args)
         }
         bcf_destroy(line);
         free(tmp.s);
+        free(buf);
     }
 }
 
@@ -770,18 +932,6 @@ int print_vcf_gz_header(BGZF *fp, BGZF *bgzf_out, int print_header, kstring_t *t
     return nskip;
 }
 
-static inline int unpackInt16(const uint8_t *buffer)
-{
-    return buffer[0] | buffer[1] << 8;
-}
-static int check_header(const uint8_t *header)
-{
-    if ( header[0] != 31 || header[1] != 139 || header[2] != 8 ) return -2;
-    return ((header[3] & 4) != 0
-            && unpackInt16((uint8_t*)&header[10]) == 6
-            && header[12] == 'B' && header[13] == 'C'
-            && unpackInt16((uint8_t*)&header[14]) == 2) ? 0 : -1;
-}
 static void _check_hrecs(const bcf_hdr_t *hdr0, const bcf_hdr_t *hdr, char *fname0, char *fname)
 {
     int j;
@@ -859,8 +1009,7 @@ static void naive_concat(args_t *args)
     output_type.compression = (args->output_type & FT_GZ) ? bgzf : no_compression;
 
     struct timeval t0, t1;
-    const size_t page_size = BGZF_MAX_BLOCK_SIZE;
-    uint8_t *buf = (uint8_t*) malloc(page_size);
+    uint8_t *buf = (uint8_t*) malloc(BGZF_MAX_BLOCK_SIZE);
     kstring_t tmp = {0,0,0};
     int i, file_types = 0;
     for (i=0; i<args->nfnames; i++)
@@ -928,26 +1077,8 @@ static void naive_concat(args_t *args)
         if ( bgzf_flush(bgzf_out)<0 ) error("\nError: %d\n",bgzf_out->errcode);
 
 
-        // Stream the rest of the file as it is, without recompressing, but remove BGZF EOF blocks
-        // The final bgzf eof block will be added by bgzf_close.
-        ssize_t nread, nblock, nwr;
-        const int nheader = 18, neof = 28;
-        const uint8_t *eof = (uint8_t*) "\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\033\0\3\0\0\0\0\0\0\0\0\0";
-        while (1)
-        {
-            nread = bgzf_raw_read(fp, buf, nheader);
-            if ( !nread ) break;
-            if ( nread != nheader || check_header(buf)!=0 ) error("\nCould not parse the header of a bgzf block: %s\n",args->fnames[i]);
-            nblock = unpackInt16(buf+16) + 1;
-            if ( nblock > page_size || nblock < nheader )
-                error("\nError: malformed bgzf block in %s: block size %"PRId64" out of valid range [%d,%d]\n",
-                    args->fnames[i],(int64_t)nblock,nheader,(int)page_size);
-            nread += bgzf_raw_read(fp, buf+nheader, nblock - nheader);
-            if ( nread!=nblock ) error("\nCould not read %"PRId64" bytes: %s\n",(uint64_t)nblock,args->fnames[i]);
-            if ( nread==neof && !memcmp(buf,eof,neof) ) continue;
-            nwr = bgzf_raw_write(bgzf_out, buf, nread);
-            if ( nwr != nread ) error("\nWrite failed, wrote %"PRId64" instead of %d bytes.\n", (uint64_t)nwr,(int)nread);
-        }
+        // Stream the rest of the file as it is, without recompressing
+        copy_bgzf_blocks(fp, bgzf_out, buf, 0, args->fnames[i]);
         if (hts_close(hts_fp)) error("\nClose failed: %s\n",args->fnames[i]);
         if ( args->verbose )
         {

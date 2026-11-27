@@ -1024,6 +1024,8 @@ run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],ou
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.2.out',do_bcf=>1,args=>'-l --ligate-force');
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.3.out',do_bcf=>0,args=>'-G -a -D');
 run_test(\&test_vcf_concat,$opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.3.out',do_bcf=>1,args=>'-G -a -D');
+run_test(\&test_vcf_concat,$opts,in=>['concat.7.a','concat.7.b','concat.7.c'],out=>'concat.7.out',do_bcf=>0,args=>'');
+run_test(\&test_vcf_concat,$opts,in=>['concat.7.a','concat.7.b','concat.7.c'],out=>'concat.7.out',do_bcf=>1,args=>'');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 run_test(\&test_vcf_reheader,$opts,in=>'reheader',out=>'reheader.2.out',args=>'-N {PATH}/reheader.samples');
@@ -2373,6 +2375,7 @@ sub test_vcf_concat
     }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat --no-version $args{args} $files");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat -Ob $args{args} $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat --no-version -Oz $args{args} $files | $$opts{bgzip} -dc");
     if ( $args{do_vcf} )
     {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat --no-version $args{args} $vcfs");
