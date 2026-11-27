@@ -97,6 +97,13 @@ line_t;
 
 typedef struct
 {
+    void *buf;
+    int m, n;
+}
+split_cache_t;
+
+typedef struct
+{
     char *tseq, *seq;
     int mseq;
     bcf1_t  **tmp_lines, **mrows, *mrow_out;
@@ -108,6 +115,8 @@ typedef struct
     uint8_t *tmp_arr1, *tmp_arr2, *diploid;
     int32_t *int32_arr;
     int ntmp_arr1, ntmp_arr2, nint32_arr;
+    split_cache_t *info_cache, *fmt_cache;   // -m-: tag values decoded once per multiallelic record
+    int minfo_cache, mfmt_cache;
     kstring_t *tmp_str;
     kstring_t *tmp_als, *tmp_sym, tmp_kstr, old_rec_tag_kstr;
     int ntmp_als, ntmp_sym;
@@ -895,14 +904,32 @@ static int realign(args_t *args, bcf1_t *line)
     return ERR_OK;
 }
 
+// Decode the tag values once, when splitting the first ALT, and copy them to
+// args->tmp_arr1 for each ALT as the split_* functions modify them in place
+static int split_get_values(args_t *args, bcf1_t *src, split_cache_t *cache, const char *tag, int is_fmt, int type, int ialt)
+{
+    if ( ialt==0 )
+        cache->n = is_fmt ? bcf_get_format_values(args->hdr,src,tag,&cache->buf,&cache->m,type)
+                          : bcf_get_info_values(args->hdr,src,tag,&cache->buf,&cache->m,type);
+    if ( cache->n <= 0 ) return cache->n;
+    size_t nbytes = (size_t)cache->n * (type==BCF_HT_STR ? 1 : 4);
+    if ( args->ntmp_arr1 < nbytes+1 )
+    {
+        uint8_t *tmp = (uint8_t*) realloc(args->tmp_arr1, nbytes+1);
+        if ( !tmp ) error("Could not allocate %zu bytes\n", nbytes+1);
+        args->tmp_arr1  = tmp;
+        args->ntmp_arr1 = nbytes+1;
+    }
+    memcpy(args->tmp_arr1, cache->buf, nbytes);
+    args->tmp_arr1[nbytes] = 0;
+    return cache->n;
+}
 static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing) \
+    #define BRANCH_NUMERIC(type,type_t,htype,is_vector_end,is_missing) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,info->key); \
-        int ntmp = args->ntmp_arr1 / sizeof(type_t); \
-        int ret = bcf_get_info_##type(args->hdr,src,tag,&args->tmp_arr1,&ntmp); \
-        args->ntmp_arr1 = ntmp * sizeof(type_t); \
+        int ret = split_get_values(args,src,&args->info_cache[info - src->d.info],tag,0,htype,ialt); \
         assert( ret>0 ); \
         type_t *vals = (type_t*) args->tmp_arr1; \
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_INFO,info->key); \
@@ -993,8 +1020,8 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_INFO,info->key))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, vals[j]==bcf_int32_vector_end, vals[j]==bcf_int32_missing); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(vals[j]), bcf_float_is_missing(vals[j])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, BCF_HT_INT, vals[j]==bcf_int32_vector_end, vals[j]==bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, BCF_HT_REAL, bcf_float_is_vector_end(vals[j]), bcf_float_is_missing(vals[j])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -1031,7 +1058,7 @@ static inline char *string_move_nth(char *dst, char *src, char *end, int nth, si
 static void split_info_string(args_t *args, bcf1_t *src, bcf_info_t *info, int ialt, bcf1_t *dst)
 {
     const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,info->key);
-    int ret = bcf_get_info_string(args->hdr,src,tag,&args->tmp_arr1,&args->ntmp_arr1);
+    int ret = split_get_values(args,src,&args->info_cache[info - src->d.info],tag,0,BCF_HT_STR,ialt);
     assert( ret>0 );
 
     kstring_t str;
@@ -1103,9 +1130,7 @@ static void split_info_flag(args_t *args, bcf1_t *src, bcf_info_t *info, int ial
 
 static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
-    int ntmp = args->ntmp_arr1 / 4;
-    int ngts = bcf_get_genotypes(args->hdr,src,&args->tmp_arr1,&ntmp);
-    args->ntmp_arr1 = ntmp * 4;
+    int ngts = split_get_values(args,src,&args->fmt_cache[fmt - src->d.fmt],"GT",1,BCF_HT_INT,ialt);
     assert( ngts >0 );
 
     int32_t *gt = (int32_t*) args->tmp_arr1;
@@ -1131,12 +1156,10 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
 }
 static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing,set_vector_end,set_missing) \
+    #define BRANCH_NUMERIC(type,type_t,htype,is_vector_end,is_missing,set_vector_end,set_missing) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id); \
-        int ntmp = args->ntmp_arr1 / sizeof(type_t); \
-        int nvals = bcf_get_format_##type(args->hdr,src,tag,&args->tmp_arr1,&ntmp); \
-        args->ntmp_arr1 = ntmp * sizeof(type_t); \
+        int nvals = split_get_values(args,src,&args->fmt_cache[fmt - src->d.fmt],tag,1,htype,ialt); \
         assert( nvals>0 ); \
         type_t *vals = (type_t *) args->tmp_arr1; \
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_FMT,fmt->id); \
@@ -1291,8 +1314,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[isrc]==bcf_int32_vector_end, src_vals[isrc]==bcf_int32_missing, dst_vals[idst]=bcf_int32_vector_end, dst_vals[idst]=bcf_int32_missing); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(dst_vals[idst])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, BCF_HT_INT, src_vals[isrc]==bcf_int32_vector_end, src_vals[isrc]==bcf_int32_missing, dst_vals[idst]=bcf_int32_vector_end, dst_vals[idst]=bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, BCF_HT_REAL, bcf_float_is_vector_end(src_vals[isrc]), bcf_float_is_missing(src_vals[isrc]), bcf_float_set_vector_end(dst_vals[idst]), bcf_float_set_missing(dst_vals[idst])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -1310,7 +1333,7 @@ static void squeeze_format_char(char *str, int src_blen, int dst_blen, int n)
 static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
     const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id);
-    int ret = bcf_get_format_char(args->hdr,src,tag,&args->tmp_arr1,&args->ntmp_arr1);
+    int ret = split_get_values(args,src,&args->fmt_cache[fmt - src->d.fmt],tag,1,BCF_HT_STR,ialt);
     if ( !ret ) return; // all values can be empty, leave out the tag, no need to panic
     assert( ret>0 );
 
@@ -1455,6 +1478,8 @@ static void split_multiallelic_to_biallelics(args_t *args, bcf1_t *line)
     kputc(',', &tmp);
     int rlen  = tmp.l;
     int gt_id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"GT");
+    hts_expand0(split_cache_t, line->n_info, args->minfo_cache, args->info_cache);
+    hts_expand0(split_cache_t, line->n_fmt, args->mfmt_cache, args->fmt_cache);
     for (i=0; i<args->ntmp_lines; i++)  // for each ALT allele
     {
         if ( !args->tmp_lines[i] ) args->tmp_lines[i] = bcf_init1();
@@ -2575,6 +2600,10 @@ static void destroy_data(args_t *args)
     free(args->als);
     free(args->int32_arr);
     free(args->tmp_arr1);
+    for (i=0; i<args->minfo_cache; i++) free(args->info_cache[i].buf);
+    for (i=0; i<args->mfmt_cache; i++) free(args->fmt_cache[i].buf);
+    free(args->info_cache);
+    free(args->fmt_cache);
     free(args->tmp_arr2);
     free(args->diploid);
     if ( args->abuf ) abuf_destroy(args->abuf);
